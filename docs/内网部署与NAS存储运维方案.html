@@ -1,0 +1,819 @@
+<!doctype html><html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>higgsfield-ai · 内网部署与NAS存储运维方案</title><style>
+*{box-sizing:border-box}body{overflow-wrap:anywhere;margin:0;color:#172b3a;background:#f1f4f7;font:16px/1.85 "Microsoft YaHei",sans-serif}header{background:#15394c;color:white;padding:18px 5%;font-size:18px}main{max-width:1280px;margin:28px auto;background:white;padding:44px 56px;box-shadow:0 8px 32px #15394c10}h1{font-size:32px;line-height:1.4}h2{font-size:25px;color:#154c62;border-bottom:2px solid #d9e6ec;margin-top:52px;padding-bottom:12px;scroll-margin-top:20px}h3{font-size:20px;margin-top:30px}a{color:#126886;text-decoration:none}a:hover{text-decoration:underline}nav{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:5px 22px;padding:24px;background:#f2f7fa;border:1px solid #d6e4ec;margin-bottom:32px}table{table-layout:fixed;width:100%;border-collapse:collapse;margin:20px 0;font-size:14px;line-height:1.7}th,td{border:1px solid #d6e0e6;padding:10px 12px;text-align:left;vertical-align:top;overflow-wrap:anywhere}th{background:#eaf1f5}tr:nth-child(even){background:#f9fbfc}pre{overflow:auto;background:#f4f6f8;padding:20px;border:1px solid #e0e6eb;border-radius:5px;font-size:13px;line-height:1.7}code{font-family:Consolas,"Microsoft YaHei",monospace;overflow-wrap:anywhere}p code,td code{background:#eef2f5;padding:1px 3px}.diagram{margin:24px 0;padding:18px;border:1px solid #d9e5ec;background:#fff;overflow:auto}.diagram svg{min-width:780px;height:auto;display:block;margin:auto}footer{color:#586d7a;border-top:1px solid #d9e5ec;margin-top:48px;padding-top:16px;font-size:13px}@media(max-width:800px){main{margin:0;padding:22px}nav{grid-template-columns:1fr}table{display:block;overflow:auto}h1{font-size:27px}}@media print{body{background:white}main{margin:0;padding:0;box-shadow:none;max-width:none}header,nav{display:none}h2{break-before:page}figure,pre{break-inside:avoid}.diagram svg{min-width:0;max-width:100%!important}a{color:inherit}}
+</style></head><body><header>higgsfield-ai · 技术文档 · 2026 年 10 月 27 日</header><main><nav><a href="#section-1">1 已确认基线与适用范围</a><a href="#section-2">2 参数登记与冻结时点</a><a href="#section-3">3 部署拓扑和运行单元</a><a href="#section-4">4 NAS 目录、挂载与服务权限</a><a href="#section-5">5 模型接口出站与参考素材交换</a><a href="#section-6">6 配置、密钥与变更管理</a><a href="#section-7">7 上线执行与回退</a><a href="#section-8">8 备份策略与一致性恢复</a><a href="#section-9">9 监控、故障处理与日常巡检</a><a href="#section-10">10 上线检查与验收证据</a><a href="#section-11">11 运维交接与后续产出</a></nav><h1 id="higgsfield-ai-·-内网部署与-nas-存储运维方案">higgsfield-ai · 内网部署与 NAS 存储运维方案</h1>
+<p>版本：1.0<br>日期：2026 年 10 月 27 日<br>状态：部署与运维设计评审稿；未配置服务器、挂载 NAS 或执行上线</p>
+<h2 id="section-1">1 已确认基线与适用范围</h2>
+<p>正式环境部署在公司内网服务器，素材、图片、视频及长期媒体归档存放公司 NAS。PostgreSQL 保存业务事实、文件元数据、权限与关联；Redis 承担框架缓存及任务通知等职责。制作平台、管理平台共用若依后端，所有模型调用经服务端处理，员工浏览器不持有供应商 APIKey、不直接访问 NAS 共享目录。</p>
+<p>依据：<a href="../AGENTS.md">AGENTS.md</a>、<a href="%E6%8A%80%E6%9C%AF%E6%9E%B6%E6%9E%84%E6%96%B9%E6%A1%88.html">技术架构方案</a>、<a href="%E6%B5%8B%E8%AF%95%E4%B8%8E%E9%AA%8C%E6%94%B6%E6%96%B9%E6%A1%88.html">测试与验收方案</a>、<a href="%E9%A6%96%E6%9C%9F%E9%9C%80%E6%B1%82%E4%B8%8E%E4%B8%9A%E5%8A%A1%E8%A7%84%E5%88%99%E8%AF%B4%E6%98%8E%E4%B9%A6.html">P0-1 需求</a>、<a href="%E6%A8%A1%E5%9E%8B%E4%BE%9B%E5%BA%94%E5%95%86%E6%8E%A5%E5%85%A5%E5%A5%91%E7%BA%A6%E4%B8%8E%E5%B7%AE%E5%BC%82%E6%B8%85%E5%8D%95.html">P0-2 供应商接入</a>、<a href="%E6%95%B0%E6%8D%AE%E5%BA%93%E8%AF%A6%E7%BB%86%E8%AE%BE%E8%AE%A1.html">P0-3 数据库</a>、<a href="%E5%B9%B3%E5%8F%B0API%E5%A5%91%E7%BA%A6.html">P0-4 API</a>、<a href="%E4%BB%B7%E6%A0%BC%E7%94%A8%E9%87%8F%E9%A2%84%E7%AE%97%E8%AF%B4%E6%98%8E.html">P0-5 价格用量预算</a>、<a href="%E6%9D%83%E9%99%90%E7%9F%A9%E9%98%B5.html">P0-6 权限</a>、<a href="%E9%A1%B5%E9%9D%A2%E8%A7%84%E6%A0%BC%E4%B8%8E%E4%BA%A4%E4%BA%92%E8%AF%B4%E6%98%8E%E4%B9%A6.html">页面规格</a>及<a href="%E6%9C%AC%E5%9C%B0%E5%BC%80%E5%8F%91%E4%B8%8E%E5%B7%A5%E7%A8%8B%E5%88%9D%E5%A7%8B%E5%8C%96%E6%89%8B%E5%86%8C.html">本地开发手册</a>。</p>
+<p>本文承接现有源契约，不改变业务等级。OPS-xx 是运维检查编号，继承关联业务规则的开放门槛；文档编号、检查编号均不是新优先级。本轮只维护 Markdown 和 HTML；所有挂载、备份、网络、费用与恢复结论均待真实环境验证。</p>
+<table>
+<thead>
+<tr>
+<th>已确认</th>
+<th>尚未确认，不在本文擅自落定</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>公司内网部署、公司 NAS 长期保存媒体</td>
+<td>服务器系统、数量、规格、地址及高可用方式</td>
+</tr>
+<tr>
+<td>PostgreSQL、Redis、若依异步后端与双 Vue3 前端</td>
+<td>正式环境容器化还是宿主机服务管理</td>
+</tr>
+<tr>
+<td>平台鉴权后预览/下载，NAS 不直接对员工或公网开放</td>
+<td>NAS 型号、SMB/NFS 协议版本、路径、服务账号和容量</td>
+</tr>
+<tr>
+<td>后端受控访问第三方模型</td>
+<td>出站代理、域名白名单、供应商可用加密路径</td>
+</tr>
+<tr>
+<td>本地 Docker 仅启动 PG/Redis，其余手动启动</td>
+<td>生产端口、域名、证书、备份目的地、实际 RPO/RTO</td>
+</tr>
+</tbody></table>
+<p>本地开发方式不推导正式部署方式。正式前端部署构建后的静态产物，不以 Vite 开发服务器作为生产入口；正式 API/Worker 应由运维选定的进程或容器管理机制监管，而不是要求人工终端长期挂着。</p>
+<h2 id="section-2">2 参数登记与冻结时点</h2>
+<p>以下占位名是登记字段，不是现有环境变量，也不是可直接执行的配置。填写实际值后，应再产出对应环境的配置和操作手册，禁止把“待确认”直接填入可执行配置。</p>
+<table>
+<thead>
+<tr>
+<th>登记项</th>
+<th>当前值/状态</th>
+<th>确认责任建议</th>
+<th>最迟时点</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>APP_HOSTS / OS</td>
+<td>待确认；Linux 仅为架构建议</td>
+<td>运维</td>
+<td>选定部署工具前</td>
+</tr>
+<tr>
+<td>CPU / RAM / 本地盘 / 主机数量</td>
+<td>待确认；按并发与媒体处理实测</td>
+<td>运维＋技术负责人</td>
+<td>容量试运行前</td>
+</tr>
+<tr>
+<td>DEPLOY_MODE</td>
+<td>待确认：容器或宿主机服务</td>
+<td>运维</td>
+<td>编制发布脚本前</td>
+</tr>
+<tr>
+<td>内网域名 / IP / TLS证书 / 信任链</td>
+<td>待确认</td>
+<td>网络运维</td>
+<td>联调入口开放前</td>
+</tr>
+<tr>
+<td>正式端口 / 安全组 / 防火墙</td>
+<td>待确认；不沿用本地映射值</td>
+<td>网络运维</td>
+<td>网络联通检查前</td>
+</tr>
+<tr>
+<td>PG / Redis 版本及拓扑</td>
+<td>待确认；数据库选型不变</td>
+<td>DBA/运维</td>
+<td>首次正式迁移前</td>
+</tr>
+<tr>
+<td>NAS_ADDRESS / SHARE / PROTOCOL</td>
+<td>待确认；SMB 或 NFS 须验证</td>
+<td>存储运维</td>
+<td>挂载验证前</td>
+</tr>
+<tr>
+<td>NAS_ROOT / 环境目录 / 服务身份</td>
+<td>待确认；禁止复用员工个人账号</td>
+<td>存储运维＋后端</td>
+<td>文件联调前</td>
+</tr>
+<tr>
+<td>NAS 容量/配额/IOPS/吞吐</td>
+<td>待确认；含原片、版本、缩略图、备份增长</td>
+<td>存储运维</td>
+<td>容量验收前</td>
+</tr>
+<tr>
+<td>文件大小/类型/处理资源上限</td>
+<td>沿 P0-1 D04，待冻结</td>
+<td>产品＋后端</td>
+<td>相关写入口开放前</td>
+</tr>
+<tr>
+<td>出站域名/CDN/代理/DNS</td>
+<td>待确认；逐模型实际链路验证</td>
+<td>网络运维＋接入负责人</td>
+<td>真实模型联调前</td>
+</tr>
+<tr>
+<td>供应商加密访问路径</td>
+<td>待验证，资料中的 HTTP 地址不等于 HTTPS 已可用</td>
+<td>接入负责人</td>
+<td>正式消费前</td>
+</tr>
+<tr>
+<td>主密钥保管/注入/恢复方式</td>
+<td>待确认；与业务数据库分离</td>
+<td>安全/运维</td>
+<td>凭据启用前</td>
+</tr>
+<tr>
+<td>备份目的地/频率/保留期</td>
+<td>待确认；需独立故障域副本</td>
+<td>运维＋业务</td>
+<td>试点开放前</td>
+</tr>
+<tr>
+<td>RPO / RTO</td>
+<td>建议≤24小时/≤4小时，待评审和演练</td>
+<td>运维＋业务</td>
+<td>试点签认前</td>
+</tr>
+<tr>
+<td>告警阈值/接收人/值班与升级</td>
+<td>待确认</td>
+<td>运维＋模块负责人</td>
+<td>试点开放前</td>
+</tr>
+<tr>
+<td>真实联调预算/成本中心</td>
+<td>待确认，按测试方案批准范围</td>
+<td>费用负责人</td>
+<td>首次收费测试前</td>
+</tr>
+</tbody></table>
+<p>未确定参数不阻止无依赖的设计工作；会影响部署、挂载、正式消费、容量或恢复验证的参数未冻结时，不能将相应检查标为通过。</p>
+<h2 id="section-3">3 部署拓扑和运行单元</h2>
+<h3 id="31-逻辑部署视图">3.1 逻辑部署视图</h3>
+<p>下图表达职责与信任边界，不代表已采购的主机数量，也不承诺高可用。PG/Redis 可与应用同机起步或独立部署，须由实际容量及恢复要求决定；媒体文件位置始终为 NAS。</p>
+<figure class="diagram" aria-label="图 1"><svg id="sync1d0" width="100%" xmlns="http://www.w3.org/2000/svg" class="flowchart" style="max-width: 1207.2833251953125px;" viewBox="4 4 1207.2833251953125 1463.148681640625" role="graphics-document document" aria-roledescription="flowchart-v2"><style>#sync1d0{font-family:Microsoft YaHei,sans-serif;font-size:16px;fill:#000000;}@keyframes edge-animation-frame{from{stroke-dashoffset:0;}}@keyframes dash{to{stroke-dashoffset:0;}}#sync1d0 .edge-animation-slow{stroke-dasharray:9,5!important;stroke-dashoffset:900;animation:dash 50s linear infinite;stroke-linecap:round;}#sync1d0 .edge-animation-fast{stroke-dasharray:9,5!important;stroke-dashoffset:900;animation:dash 20s linear infinite;stroke-linecap:round;}#sync1d0 .error-icon{fill:#552222;}#sync1d0 .error-text{fill:#552222;stroke:#552222;}#sync1d0 .edge-thickness-normal{stroke-width:1px;}#sync1d0 .edge-thickness-thick{stroke-width:3.5px;}#sync1d0 .edge-pattern-solid{stroke-dasharray:0;}#sync1d0 .edge-thickness-invisible{stroke-width:0;fill:none;}#sync1d0 .edge-pattern-dashed{stroke-dasharray:3;}#sync1d0 .edge-pattern-dotted{stroke-dasharray:2;}#sync1d0 .marker{fill:#666;stroke:#666;}#sync1d0 .marker.cross{stroke:#666;}#sync1d0 svg{font-family:Microsoft YaHei,sans-serif;font-size:16px;}#sync1d0 p{margin:0;}#sync1d0 .label{font-family:Microsoft YaHei,sans-serif;color:#000000;}#sync1d0 .cluster-label text{fill:#333;}#sync1d0 .cluster-label span{color:#333;}#sync1d0 .cluster-label span p{background-color:transparent;}#sync1d0 .label text,#sync1d0 span{fill:#000000;color:#000000;}#sync1d0 .node rect,#sync1d0 .node circle,#sync1d0 .node ellipse,#sync1d0 .node polygon,#sync1d0 .node path{fill:#eee;stroke:#999;stroke-width:1px;}#sync1d0 .rough-node .label text,#sync1d0 .node .label text,#sync1d0 .image-shape .label,#sync1d0 .icon-shape .label{text-anchor:middle;}#sync1d0 .node .katex path{fill:#000;stroke:#000;stroke-width:1px;}#sync1d0 .rough-node .label,#sync1d0 .node .label,#sync1d0 .image-shape .label,#sync1d0 .icon-shape .label{text-align:center;}#sync1d0 .node.clickable{cursor:pointer;}#sync1d0 .root .anchor path{fill:#666!important;stroke-width:0;stroke:#666;}#sync1d0 .arrowheadPath{fill:#333333;}#sync1d0 .edgePaths .path{stroke:#666;stroke-width:1px;}#sync1d0 .flowchart-link{stroke:#666;fill:none;}#sync1d0 .edgeLabel{background-color:white;text-align:center;}#sync1d0 .edgeLabel p{background-color:white;}#sync1d0 .edgeLabel rect{opacity:0.5;background-color:white;fill:white;}#sync1d0 .labelBkg{background-color:rgba(255, 255, 255, 0.5);}#sync1d0 .cluster rect{fill:hsl(0, 0%, 98.9215686275%);stroke:#707070;stroke-width:1px;}#sync1d0 .cluster text{fill:#333;}#sync1d0 .cluster span{color:#333;}#sync1d0 .node .collapsed-indicator{fill:#707070;stroke:none;opacity:0.6;}#sync1d0 .node .collapsed-separator{stroke:#707070;stroke-width:0.75px;}#sync1d0 div.mermaidTooltip{position:absolute;text-align:center;max-width:200px;padding:2px;font-family:Microsoft YaHei,sans-serif;font-size:12px;background:hsl(-160, 0%, 93.3333333333%);border:1px solid #707070;border-radius:2px;pointer-events:none;z-index:100;}#sync1d0 .flowchartTitleText{text-anchor:middle;font-size:18px;fill:#000000;}#sync1d0 rect.text{fill:none;stroke-width:0;}#sync1d0 .icon-shape,#sync1d0 .image-shape{background-color:white;text-align:center;}#sync1d0 .icon-shape p,#sync1d0 .image-shape p{background-color:white;padding:2px;}#sync1d0 .icon-shape .label rect,#sync1d0 .image-shape .label rect{opacity:0.5;background-color:white;fill:white;}#sync1d0 .label-icon{display:inline-block;height:1em;overflow:visible;vertical-align:-0.125em;}#sync1d0 .node .label-icon path{fill:currentColor;stroke:revert;stroke-width:revert;}#sync1d0 .node .neo-node{stroke:#999;}#sync1d0 [data-look="neo"].node rect,#sync1d0 [data-look="neo"].cluster rect,#sync1d0 [data-look="neo"].node polygon{stroke:url(#sync1d0-gradient);filter:drop-shadow( 1px 2px 2px rgba(185,185,185,1));}#sync1d0 [data-look="neo"].swimlane.cluster rect{filter:none;}#sync1d0 [data-look="neo"].node path{stroke:url(#sync1d0-gradient);stroke-width:1px;}#sync1d0 [data-look="neo"].node .outer-path{filter:drop-shadow( 1px 2px 2px rgba(185,185,185,1));}#sync1d0 [data-look="neo"].node .neo-line path{stroke:#999;filter:none;}#sync1d0 [data-look="neo"].node circle{stroke:url(#sync1d0-gradient);filter:drop-shadow( 1px 2px 2px rgba(185,185,185,1));}#sync1d0 [data-look="neo"].node circle .state-start{fill:#000000;}#sync1d0 [data-look="neo"].icon-shape .icon{fill:url(#sync1d0-gradient);filter:drop-shadow( 1px 2px 2px rgba(185,185,185,1));}#sync1d0 [data-look="neo"].icon-shape .icon-neo path{stroke:url(#sync1d0-gradient);filter:drop-shadow( 1px 2px 2px rgba(185,185,185,1));}#sync1d0 :root{--mermaid-font-family:Microsoft YaHei,sans-serif;}</style><g><marker id="sync1d0_flowchart-v2-pointEnd" class="marker flowchart-v2" viewBox="0 0 10 10" refX="5" refY="5" markerUnits="userSpaceOnUse" markerWidth="8" markerHeight="8" orient="auto"><path d="M 0 0 L 10 5 L 0 10 z" class="arrowMarkerPath" style="stroke-width: 1; stroke-dasharray: 1, 0;"></path></marker><marker id="sync1d0_flowchart-v2-pointStart" class="marker flowchart-v2" viewBox="0 0 10 10" refX="4.5" refY="5" markerUnits="userSpaceOnUse" markerWidth="8" markerHeight="8" orient="auto"><path d="M 0 5 L 10 10 L 10 0 z" class="arrowMarkerPath" style="stroke-width: 1; stroke-dasharray: 1, 0;"></path></marker><marker id="sync1d0_flowchart-v2-pointEnd-margin" class="marker flowchart-v2" viewBox="0 0 11.5 14" refX="11.5" refY="7" markerUnits="userSpaceOnUse" markerWidth="10.5" markerHeight="14" orient="auto"><path d="M 0 0 L 11.5 7 L 0 14 z" class="arrowMarkerPath" style="stroke-width: 0; stroke-dasharray: 1, 0;"></path></marker><marker id="sync1d0_flowchart-v2-pointStart-margin" class="marker flowchart-v2" viewBox="0 0 11.5 14" refX="1" refY="7" markerUnits="userSpaceOnUse" markerWidth="11.5" markerHeight="14" orient="auto"><polygon points="0,7 11.5,14 11.5,0" class="arrowMarkerPath" style="stroke-width: 0; stroke-dasharray: 1, 0;"></polygon></marker><marker id="sync1d0_flowchart-v2-circleEnd" class="marker flowchart-v2" viewBox="0 0 10 10" refX="11" refY="5" markerUnits="userSpaceOnUse" markerWidth="11" markerHeight="11" orient="auto"><circle cx="5" cy="5" r="5" class="arrowMarkerPath" style="stroke-width: 1; stroke-dasharray: 1, 0;"></circle></marker><marker id="sync1d0_flowchart-v2-circleStart" class="marker flowchart-v2" viewBox="0 0 10 10" refX="-1" refY="5" markerUnits="userSpaceOnUse" markerWidth="11" markerHeight="11" orient="auto"><circle cx="5" cy="5" r="5" class="arrowMarkerPath" style="stroke-width: 1; stroke-dasharray: 1, 0;"></circle></marker><marker id="sync1d0_flowchart-v2-circleEnd-margin" class="marker flowchart-v2" viewBox="0 0 10 10" refY="5" refX="12.25" markerUnits="userSpaceOnUse" markerWidth="14" markerHeight="14" orient="auto"><circle cx="5" cy="5" r="5" class="arrowMarkerPath" style="stroke-width: 0; stroke-dasharray: 1, 0;"></circle></marker><marker id="sync1d0_flowchart-v2-circleStart-margin" class="marker flowchart-v2" viewBox="0 0 10 10" refX="-2" refY="5" markerUnits="userSpaceOnUse" markerWidth="14" markerHeight="14" orient="auto"><circle cx="5" cy="5" r="5" class="arrowMarkerPath" style="stroke-width: 0; stroke-dasharray: 1, 0;"></circle></marker><marker id="sync1d0_flowchart-v2-crossEnd" class="marker cross flowchart-v2" viewBox="0 0 11 11" refX="12" refY="5.2" markerUnits="userSpaceOnUse" markerWidth="11" markerHeight="11" orient="auto"><path d="M 1,1 l 9,9 M 10,1 l -9,9" class="arrowMarkerPath" style="stroke-width: 2; stroke-dasharray: 1, 0;"></path></marker><marker id="sync1d0_flowchart-v2-crossStart" class="marker cross flowchart-v2" viewBox="0 0 11 11" refX="-1" refY="5.2" markerUnits="userSpaceOnUse" markerWidth="11" markerHeight="11" orient="auto"><path d="M 1,1 l 9,9 M 10,1 l -9,9" class="arrowMarkerPath" style="stroke-width: 2; stroke-dasharray: 1, 0;"></path></marker><marker id="sync1d0_flowchart-v2-crossEnd-margin" class="marker cross flowchart-v2" viewBox="0 0 15 15" refX="17.7" refY="7.5" markerUnits="userSpaceOnUse" markerWidth="12" markerHeight="12" orient="auto"><path d="M 1,1 L 14,14 M 1,14 L 14,1" class="arrowMarkerPath" style="stroke-width: 2.5;"></path></marker><marker id="sync1d0_flowchart-v2-crossStart-margin" class="marker cross flowchart-v2" viewBox="0 0 15 15" refX="-3.5" refY="7.5" markerUnits="userSpaceOnUse" markerWidth="12" markerHeight="12" orient="auto"><path d="M 1,1 L 14,14 M 1,14 L 14,1" class="arrowMarkerPath" style="stroke-width: 2.5; stroke-dasharray: 1, 0;"></path></marker><g class="root"><g class="clusters"><g class="cluster" id="sync1d0-LAN" data-look="neo"><rect style="" x="12" y="174" width="1178.8833333333334" height="1099.148696899414"></rect><g class="cluster-label" transform="translate(569.4416666666667, 174)"><foreignObject width="64" height="24"><div xmlns="http://www.w3.org/1999/xhtml" style="display: table-cell; white-space: nowrap; line-height: 1.5;"><span class="nodeLabel"><p>公司内网</p></span></div></foreignObject></g></g></g><g class="edges edgePaths"><path d="M1127.2833333333333,60L1127.2833333333333,164L1127.2833333333333,571.9289321881345Q1127.2833333333333,579 1120.2122655214678,579L1084.5544011451989,579Q1077.4833333333333,579 1077.4833333333333,586.0710678118655L1077.4833333333333,605" id="sync1d0-L_U_N_0" class="edge-thickness-normal edge-pattern-solid edge-thickness-normal edge-pattern-solid flowchart-link" style="stroke-dasharray: 0 0 585.4718627929688 4; stroke-dashoffset: 0;;" data-edge="true" data-et="edge" data-id="L_U_N_0" data-points="W3sieCI6MTEyNy4yODMzMzMzMzMzMzMzLCJ5Ijo2MH0seyJ4IjoxMTI3LjI4MzMzMzMzMzMzMzMsInkiOjE2NH0seyJ4IjoxMTI3LjI4MzMzMzMzMzMzMzMsInkiOjU3OX0seyJ4IjoxMDc3LjQ4MzMzMzMzMzMzMzMsInkiOjU3OX0seyJ4IjoxMDc3LjQ4MzMzMzMzMzMzMzMsInkiOjYwOX1d" data-look="neo" marker-end="url(#sync1d0_flowchart-v2-pointEnd-margin)"></path><path d="M1066.6166666666668,729L1066.6166666666668,751.9289321881345Q1066.6166666666668,759 1073.6877344785323,759L1083.812265521468,759Q1090.8833333333334,759 1090.8833333333334,766.0710678118655L1090.8833333333334,965" id="sync1d0-L_N_FE_0" class="edge-thickness-normal edge-pattern-solid edge-thickness-normal edge-pattern-solid flowchart-link" style="stroke-dasharray: 0 0 250.93829345703125 4; stroke-dashoffset: 0;;" data-edge="true" data-et="edge" data-id="L_N_FE_0" data-points="W3sieCI6MTA2Ni42MTY2NjY2NjY2NjY4LCJ5Ijo3Mjl9LHsieCI6MTA2Ni42MTY2NjY2NjY2NjY4LCJ5Ijo3NTl9LHsieCI6MTA5MC44ODMzMzMzMzMzMzM0LCJ5Ijo3NTl9LHsieCI6MTA5MC44ODMzMzMzMzMzMzM0LCJ5Ijo5Njl9XQ==" data-look="neo" marker-end="url(#sync1d0_flowchart-v2-pointEnd-margin)"></path><path d="M1012.2833333333334,609L1012.2833333333334,586.0710678118655Q1012.2833333333334,579 1005.212265521468,579L955.8544011451988,579Q948.7833333333334,579 948.7833333333334,571.9289321881345L948.7833333333334,502.0710678118655Q948.7833333333334,495 941.712265521468,495L900.4877344785323,495Q893.4166666666667,495 893.4166666666667,487.9289321881345L893.4166666666667,457" id="sync1d0-L_N_API_0" class="edge-thickness-normal edge-pattern-solid edge-thickness-normal edge-pattern-solid flowchart-link" style="stroke-dasharray: 0 0 256.21002197265625 4; stroke-dashoffset: 0;;" data-edge="true" data-et="edge" data-id="L_N_API_0" data-points="W3sieCI6MTAxMi4yODMzMzMzMzMzMzM0LCJ5Ijo2MDl9LHsieCI6MTAxMi4yODMzMzMzMzMzMzM0LCJ5Ijo1Nzl9LHsieCI6OTQ4Ljc4MzMzMzMzMzMzMzQsInkiOjU3OX0seyJ4Ijo5NDguNzgzMzMzMzMzMzMzNCwieSI6NDk1fSx7IngiOjg5My40MTY2NjY2NjY2NjY3LCJ5Ijo0OTV9LHsieCI6ODkzLjQxNjY2NjY2NjY2NjcsInkiOjQ1M31d" data-look="neo" marker-end="url(#sync1d0_flowchart-v2-pointEnd-margin)"></path><path d="M915.1500000000001,453L915.1500000000001,475.9289321881345Q915.1500000000001,483 922.2210678118656,483L1037.812265521468,483Q1044.8833333333334,483 1044.8833333333334,490.0710678118655L1044.8833333333334,605" id="sync1d0-L_API_N_0" class="edge-thickness-normal edge-pattern-solid edge-thickness-normal edge-pattern-solid flowchart-link" style="stroke-dasharray: 0 0 272.40496826171875 4; stroke-dashoffset: 0;;" data-edge="true" data-et="edge" data-id="L_API_N_0" data-points="W3sieCI6OTE1LjE1MDAwMDAwMDAwMDEsInkiOjQ1M30seyJ4Ijo5MTUuMTUwMDAwMDAwMDAwMSwieSI6NDgzfSx7IngiOjEwNDQuODgzMzMzMzMzMzMzNCwieSI6NDgzfSx7IngiOjEwNDQuODgzMzMzMzMzMzMzNCwieSI6NjA5fV0=" data-look="neo" marker-end="url(#sync1d0_flowchart-v2-pointEnd-margin)"></path><path d="M1023.1500000000001,729L1023.1500000000001,751.9289321881345Q1023.1500000000001,759 1016.0789321881346,759L1005.954401145199,759Q998.8833333333334,759 998.8833333333334,766.0710678118655L998.8833333333334,1063.9289321881345Q998.8833333333334,1071 991.8122655214679,1071L911.0744011451989,1071Q904.0033333333334,1071 904.0033333333334,1078.0710678118655L904.0033333333334,1109" id="sync1d0-L_N_NAS_0" class="edge-thickness-normal edge-pattern-solid edge-thickness-normal edge-pattern-solid flowchart-link" style="stroke-dasharray: 0 0 484.4901123046875 4; stroke-dashoffset: 0;;" data-edge="true" data-et="edge" data-id="L_N_NAS_0" data-points="W3sieCI6MTAyMy4xNTAwMDAwMDAwMDAxLCJ5Ijo3Mjl9LHsieCI6MTAyMy4xNTAwMDAwMDAwMDAxLCJ5Ijo3NTl9LHsieCI6OTk4Ljg4MzMzMzMzMzMzMzQsInkiOjc1OX0seyJ4Ijo5OTguODgzMzMzMzMzMzMzNCwieSI6MTA3MX0seyJ4Ijo5MDQuMDAzMzMzMzMzMzMzNCwieSI6MTA3MX0seyJ4Ijo5MDQuMDAzMzMzMzMzMzMzNCwieSI6MTExM31d" data-look="neo" marker-end="url(#sync1d0_flowchart-v2-pointEnd-margin)"></path><path d="M849.95,453L849.95,487.9289321881345Q849.95,495 842.8789321881345,495L624.954401145199,495Q617.8833333333334,495 617.8833333333334,502.0710678118655L617.8833333333334,1075.9289321881345Q617.8833333333334,1083 610.8122655214679,1083L434.52440114519885,1083Q427.4533333333334,1083 427.4533333333334,1090.0710678118655L427.4533333333334,1109" id="sync1d0-L_API_PG_0" class="edge-thickness-normal edge-pattern-solid edge-thickness-normal edge-pattern-solid flowchart-link" style="stroke-dasharray: 0 0 1063.8399658203125 4; stroke-dashoffset: 0;;" data-edge="true" data-et="edge" data-id="L_API_PG_0" data-points="W3sieCI6ODQ5Ljk1LCJ5Ijo0NTN9LHsieCI6ODQ5Ljk1LCJ5Ijo0OTV9LHsieCI6NjE3Ljg4MzMzMzMzMzMzMzQsInkiOjQ5NX0seyJ4Ijo2MTcuODgzMzMzMzMzMzMzNCwieSI6MTA4M30seyJ4Ijo0MjcuNDUzMzMzMzMzMzMzNCwieSI6MTA4M30seyJ4Ijo0MjcuNDUzMzMzMzMzMzMzNCwieSI6MTExM31d" data-look="neo" marker-end="url(#sync1d0_flowchart-v2-pointEnd-margin)"></path><path d="M828.2166666666668,453L828.2166666666668,475.9289321881345Q828.2166666666668,483 821.1455988548014,483L532.404401145199,483Q525.3333333333335,483 525.3333333333335,490.0710678118655L525.3333333333335,571.9289321881345Q525.3333333333335,579 518.262265521468,579L498.8044011451988,579Q491.73333333333335,579 491.73333333333335,586.0710678118655L491.73333333333335,608.9256591796875" id="sync1d0-L_API_R_0" class="edge-thickness-normal edge-pattern-solid edge-thickness-normal edge-pattern-solid flowchart-link" style="stroke-dasharray: 0 0 477.7524108886719 4; stroke-dashoffset: 0;;" data-edge="true" data-et="edge" data-id="L_API_R_0" data-points="W3sieCI6ODI4LjIxNjY2NjY2NjY2NjgsInkiOjQ1M30seyJ4Ijo4MjguMjE2NjY2NjY2NjY2OCwieSI6NDgzfSx7IngiOjUyNS4zMzMzMzMzMzMzMzM1LCJ5Ijo0ODN9LHsieCI6NTI1LjMzMzMzMzMzMzMzMzUsInkiOjU3OX0seyJ4Ijo0OTEuNzMzMzMzMzMzMzMzMzUsInkiOjU3OX0seyJ4Ijo0OTEuNzMzMzMzMzMzMzMzMzUsInkiOjYxMi45MjU2NTkxNzk2ODc1fV0=" data-look="neo" marker-end="url(#sync1d0_flowchart-v2-pointEnd-margin)"></path><path d="M871.6833333333334,453L871.6833333333334,475.9289321881345Q871.6833333333334,483 878.7544011451989,483L879.8122655214679,483Q886.8833333333334,483 886.8833333333334,490.0710678118655L886.8833333333334,1067.32Q886.8833333333334,1071 883.2033333333334,1071L883.2033333333334,1071Q879.5233333333334,1071 879.5233333333334,1074.68L879.5233333333334,1109" id="sync1d0-L_API_NAS_0" class="edge-thickness-normal edge-pattern-solid edge-thickness-normal edge-pattern-solid flowchart-link" style="stroke-dasharray: 0 0 666.4591064453125 4; stroke-dashoffset: 0;;" data-edge="true" data-et="edge" data-id="L_API_NAS_0" data-points="W3sieCI6ODcxLjY4MzMzMzMzMzMzMzQsInkiOjQ1M30seyJ4Ijo4NzEuNjgzMzMzMzMzMzMzNCwieSI6NDgzfSx7IngiOjg4Ni44ODMzMzMzMzMzMzM0LCJ5Ijo0ODN9LHsieCI6ODg2Ljg4MzMzMzMzMzMzMzQsInkiOjEwNzF9LHsieCI6ODc5LjUyMzMzMzMzMzMzMzQsInkiOjEwNzF9LHsieCI6ODc5LjUyMzMzMzMzMzMzMzQsInkiOjExMTN9XQ==" data-look="neo" marker-end="url(#sync1d0_flowchart-v2-pointEnd-margin)"></path><path d="M373.867,453 L373.867,475.929 Q373.867,483 366.796,483 L274,483 A6,6 0 0 0 262,483 L207.071,483 Q200,483 200,490.071 L200,1075.929 Q200,1083 207.071,1083 L346.942,1083 Q354.013,1083 354.013,1090.071 L354.013,1109" id="sync1d0-L_D_PG_0" class="edge-thickness-normal edge-pattern-solid edge-thickness-normal edge-pattern-solid flowchart-link" style="stroke-dasharray: 0 0 976.0757446289062 4; stroke-dashoffset: 0;" data-edge="true" data-et="edge" data-id="L_D_PG_0" data-points="W3sieCI6MzczLjg2NjY2NjY2NjY2NjgsInkiOjQ1M30seyJ4IjozNzMuODY2NjY2NjY2NjY2OCwieSI6NDgzfSx7IngiOjIwMCwieSI6NDgzfSx7IngiOjIwMCwieSI6MTA4M30seyJ4IjozNTQuMDEzMzMzMzMzMzMzMywieSI6MTA4M30seyJ4IjozNTQuMDEzMzMzMzMzMzMzMywieSI6MTExM31d" data-look="neo" marker-end="url(#sync1d0_flowchart-v2-pointEnd-margin)"></path><path d="M417.3333333333335,453L417.3333333333335,571.9289321881345Q417.3333333333335,579 424.40440114519896,579L443.8622655214679,579Q450.9333333333334,579 450.9333333333334,586.0710678118655L450.9333333333334,608.9256591796875" id="sync1d0-L_D_R_0" class="edge-thickness-normal edge-pattern-solid edge-thickness-normal edge-pattern-solid flowchart-link" style="stroke-dasharray: 0 0 180.19737243652344 4; stroke-dashoffset: 0;;" data-edge="true" data-et="edge" data-id="L_D_R_0" data-points="W3sieCI6NDE3LjMzMzMzMzMzMzMzMzUsInkiOjQ1M30seyJ4Ijo0MTcuMzMzMzMzMzMzMzMzNSwieSI6NTc5fSx7IngiOjQ1MC45MzMzMzMzMzMzMzM0LCJ5Ijo1Nzl9LHsieCI6NDUwLjkzMzMzMzMzMzMzMzQsInkiOjYxMi45MjU2NTkxNzk2ODc1fV0=" data-look="neo" marker-end="url(#sync1d0_flowchart-v2-pointEnd-margin)"></path><path d="M450.9333333333334,724.5825159907108L450.9333333333334,725.0743408203125L450.9333333333334,751.9289321881345Q450.9333333333334,759 443.8622655214679,759L318.5377344785322,759Q311.4666666666667,759 311.4666666666667,766.0710678118655L311.4666666666667,799.4" id="sync1d0-L_R_W_0" class="edge-thickness-normal edge-pattern-solid edge-thickness-normal edge-pattern-solid flowchart-link" style="stroke-dasharray: 0 0 204.9558563232422 4; stroke-dashoffset: 0;;" data-edge="true" data-et="edge" data-id="L_R_W_0" data-points="W3sieCI6NDUwLjkzMzMzMzMzMzMzMzQsInkiOjcyNC41ODI1MTU5OTA3MTA4fSx7IngiOjQ1MC45MzMzMzMzMzMzMzM0LCJ5Ijo3MjUuMDc0MzQwODIwMzEyNX0seyJ4Ijo0NTAuOTMzMzMzMzMzMzMzNCwieSI6NzU5fSx7IngiOjMxMS40NjY2NjY2NjY2NjY3LCJ5Ijo3NTl9LHsieCI6MzExLjQ2NjY2NjY2NjY2NjcsInkiOjgwMy40fV0=" data-look="neo" marker-end="url(#sync1d0_flowchart-v2-pointEnd-margin)"></path><path d="M491.73333333333335,724.5825159907108L491.73333333333335,725.0743408203125L491.73333333333335,785" id="sync1d0-L_R_M_0" class="edge-thickness-normal edge-pattern-solid edge-thickness-normal edge-pattern-solid flowchart-link" style="stroke-dasharray: 0 0 56.41748046875 4; stroke-dashoffset: 0;;" data-edge="true" data-et="edge" data-id="L_R_M_0" data-points="W3sieCI6NDkxLjczMzMzMzMzMzMzMzM1LCJ5Ijo3MjQuNTgyNTE1OTkwNzEwOH0seyJ4Ijo0OTEuNzMzMzMzMzMzMzMzMzUsInkiOjcyNS4wNzQzNDA4MjAzMTI1fSx7IngiOjQ5MS43MzMzMzMzMzMzMzMzNSwieSI6Nzg5fV0=" data-look="neo" marker-end="url(#sync1d0_flowchart-v2-pointEnd-margin)"></path><path d="M289.73333333333335,875.4L289.73333333333335,1063.9289321881345Q289.73333333333335,1071 296.8044011451988,1071L371.42226552146786,1071Q378.49333333333334,1071 378.49333333333334,1078.0710678118655L378.49333333333334,1109" id="sync1d0-L_W_PG_0" class="edge-thickness-normal edge-pattern-solid edge-thickness-normal edge-pattern-solid flowchart-link" style="stroke-dasharray: 0 0 313.03167724609375 4; stroke-dashoffset: 0;;" data-edge="true" data-et="edge" data-id="L_W_PG_0" data-points="W3sieCI6Mjg5LjczMzMzMzMzMzMzMzM1LCJ5Ijo4NzUuNH0seyJ4IjoyODkuNzMzMzMzMzMzMzMzMzUsInkiOjEwNzF9LHsieCI6Mzc4LjQ5MzMzMzMzMzMzMzM0LCJ5IjoxMDcxfSx7IngiOjM3OC40OTMzMzMzMzMzMzMzNCwieSI6MTExM31d" data-look="neo" marker-end="url(#sync1d0_flowchart-v2-pointEnd-margin)"></path><path d="M491.73333333333335,885L491.73333333333335,1063.9289321881345Q491.73333333333335,1071 484.6622655214679,1071L410.04440114519883,1071Q402.97333333333336,1071 402.97333333333336,1078.0710678118655L402.97333333333336,1109" id="sync1d0-L_M_PG_0" class="edge-thickness-normal edge-pattern-solid edge-thickness-normal edge-pattern-solid flowchart-link" style="stroke-dasharray: 0 0 303.43170166015625 4; stroke-dashoffset: 0;;" data-edge="true" data-et="edge" data-id="L_M_PG_0" data-points="W3sieCI6NDkxLjczMzMzMzMzMzMzMzM1LCJ5Ijo4ODV9LHsieCI6NDkxLjczMzMzMzMzMzMzMzM1LCJ5IjoxMDcxfSx7IngiOjQwMi45NzMzMzMzMzMzMzMzNiwieSI6MTA3MX0seyJ4Ijo0MDIuOTczMzMzMzMzMzMzMzYsInkiOjExMTN9XQ==" data-look="neo" marker-end="url(#sync1d0_flowchart-v2-pointEnd-margin)"></path><path d="M322.333,875.4 L322.333,931.929 Q322.333,939 329.404,939 L485.733,939 A6,6 0 0 1 497.733,939 L611.883,939 A6,6 0 0 1 623.883,939 L679.812,939 Q686.883,939 686.883,946.071 L686.883,1075.929 Q686.883,1083 693.954,1083 L823.492,1083 Q830.563,1083 830.563,1090.071 L830.563,1109" id="sync1d0-L_W_NAS_0" class="edge-thickness-normal edge-pattern-solid edge-thickness-normal edge-pattern-solid flowchart-link" style="stroke-dasharray: 0 0 740.8780517578125 4; stroke-dashoffset: 0;" data-edge="true" data-et="edge" data-id="L_W_NAS_0" data-points="W3sieCI6MzIyLjMzMzMzMzMzMzMzMzM3LCJ5Ijo4NzUuNH0seyJ4IjozMjIuMzMzMzMzMzMzMzMzMzcsInkiOjkzOX0seyJ4Ijo2ODYuODgzMzMzMzMzMzMzNCwieSI6OTM5fSx7IngiOjY4Ni44ODMzMzMzMzMzMzM0LCJ5IjoxMDgzfSx7IngiOjgzMC41NjMzMzMzMzMzMzM0LCJ5IjoxMDgzfSx7IngiOjgzMC41NjMzMzMzMzMzMzM0LCJ5IjoxMTEzfV0=" data-look="neo" marker-end="url(#sync1d0_flowchart-v2-pointEnd-margin)"></path><path d="M524.333,885 L524.333,907.929 Q524.333,915 531.404,915 L611.883,915 A6,6 0 0 1 623.883,915 L811.812,915 Q818.883,915 818.883,922.071 L818.883,1063.929 Q818.883,1071 825.954,1071 L847.972,1071 Q855.043,1071 855.043,1078.071 L855.043,1109" id="sync1d0-L_M_NAS_0" class="edge-thickness-normal edge-pattern-solid edge-thickness-normal edge-pattern-solid flowchart-link" style="stroke-dasharray: 0 0 546.9058837890625 4; stroke-dashoffset: 0;" data-edge="true" data-et="edge" data-id="L_M_NAS_0" data-points="W3sieCI6NTI0LjMzMzMzMzMzMzMzMzQsInkiOjg4NX0seyJ4Ijo1MjQuMzMzMzMzMzMzMzMzNCwieSI6OTE1fSx7IngiOjgxOC44ODMzMzMzMzMzMzM0LCJ5Ijo5MTV9LHsieCI6ODE4Ljg4MzMzMzMzMzMzMzQsInkiOjEwNzF9LHsieCI6ODU1LjA0MzMzMzMzMzMzMzQsInkiOjEwNzF9LHsieCI6ODU1LjA0MzMzMzMzMzMzMzQsInkiOjExMTN9XQ==" data-look="neo" marker-end="url(#sync1d0_flowchart-v2-pointEnd-margin)"></path><path d="M257.133,875.4 L257.133,907.929 Q257.133,915 250.062,915 L206,915 A6,6 0 0 0 194,915 L97.338,915 Q90.267,915 90.267,922.071 L90.267,973" id="sync1d0-L_W_E_0" class="edge-thickness-normal edge-pattern-solid edge-thickness-normal edge-pattern-solid flowchart-link" style="stroke-dasharray: 0 0 261.99005126953125 4; stroke-dashoffset: 0;" data-edge="true" data-et="edge" data-id="L_W_E_0" data-points="W3sieCI6MjU3LjEzMzMzMzMzMzMzMzMsInkiOjg3NS40fSx7IngiOjI1Ny4xMzMzMzMzMzMzMzMzLCJ5Ijo5MTV9LHsieCI6OTAuMjY2NjY2NjY2NjY2NjUsInkiOjkxNX0seyJ4Ijo5MC4yNjY2NjY2NjY2NjY2NSwieSI6OTc3fV0=" data-look="neo" marker-end="url(#sync1d0_flowchart-v2-pointEnd-margin)"></path><path d="M459.133,885 L459.133,919.929 Q459.133,927 452.062,927 L328.333,927 A6,6 0 0 0 316.333,927 L295.733,927 A6,6 0 0 0 283.733,927 L206,927 A6,6 0 0 0 194,927 L140.804,927 Q133.733,927 133.733,934.071 L133.733,973" id="sync1d0-L_M_E_0" class="edge-thickness-normal edge-pattern-solid edge-thickness-normal edge-pattern-solid flowchart-link" style="stroke-dasharray: 0 0 424.6286926269531 4; stroke-dashoffset: 0;" data-edge="true" data-et="edge" data-id="L_M_E_0" data-points="W3sieCI6NDU5LjEzMzMzMzMzMzMzMzMsInkiOjg4NX0seyJ4Ijo0NTkuMTMzMzMzMzMzMzMzMywieSI6OTI3fSx7IngiOjEzMy43MzMzMzMzMzMzMzMzNSwieSI6OTI3fSx7IngiOjEzMy43MzMzMzMzMzMzMzMzNSwieSI6OTc3fV0=" data-look="neo" marker-end="url(#sync1d0_flowchart-v2-pointEnd-margin)"></path><path d="M112,1025L112,1283.148696899414L112,1383.148696899414" id="sync1d0-L_E_P_0" class="edge-thickness-normal edge-pattern-solid edge-thickness-normal edge-pattern-solid flowchart-link" style="stroke-dasharray: 0 0 354.148681640625 4; stroke-dashoffset: 0;;" data-edge="true" data-et="edge" data-id="L_E_P_0" data-points="W3sieCI6MTEyLCJ5IjoxMDI1fSx7IngiOjExMiwieSI6MTI4My4xNDg2OTY4OTk0MTR9LHsieCI6MTEyLCJ5IjoxMzg3LjE0ODY5Njg5OTQxNH1d" data-look="neo" marker-end="url(#sync1d0_flowchart-v2-pointEnd-margin)"></path><path d="M579.45,321L579.45,343.9289321881345Q579.45,351 586.5210678118656,351L864.6122655214679,351Q871.6833333333334,351 871.6833333333334,358.0710678118655L871.6833333333334,377" id="sync1d0-L_K_API_0" class="edge-thickness-normal edge-pattern-solid edge-thickness-normal edge-pattern-solid flowchart-link" style="stroke-dasharray: 0 0 338.9049987792969 4; stroke-dashoffset: 0;;" data-edge="true" data-et="edge" data-id="L_K_API_0" data-points="W3sieCI6NTc5LjQ1LCJ5IjozMjF9LHsieCI6NTc5LjQ1LCJ5IjozNTF9LHsieCI6ODcxLjY4MzMzMzMzMzMzMzQsInkiOjM1MX0seyJ4Ijo4NzEuNjgzMzMzMzMzMzMzNCwieSI6MzgxfV0=" data-look="neo" marker-end="url(#sync1d0_flowchart-v2-pointEnd-margin)"></path><path d="M535.9833333333333,321L535.9833333333333,343.9289321881345Q535.9833333333333,351 528.9122655214678,351L275.0710678118655,351Q268,351 268,358.0710678118655L268,799.4" id="sync1d0-L_K_W_0" class="edge-thickness-normal edge-pattern-solid edge-thickness-normal edge-pattern-solid flowchart-link" style="stroke-dasharray: 0 0 737.0550537109375 4; stroke-dashoffset: 0;;" data-edge="true" data-et="edge" data-id="L_K_W_0" data-points="W3sieCI6NTM1Ljk4MzMzMzMzMzMzMzMsInkiOjMyMX0seyJ4Ijo1MzUuOTgzMzMzMzMzMzMzMywieSI6MzUxfSx7IngiOjI2OCwieSI6MzUxfSx7IngiOjI2OCwieSI6ODAzLjR9XQ==" data-look="neo" marker-end="url(#sync1d0_flowchart-v2-pointEnd-margin)"></path><path d="M390.73333333333335,1249.148696899414L390.73333333333335,1283.148696899414L390.73333333333335,1360.0776290875485Q390.73333333333335,1367.148696899414 397.8044011451988,1367.148696899414L419.6622655214679,1367.148696899414Q426.73333333333335,1367.148696899414 426.73333333333335,1374.2197647112796L426.73333333333335,1383.148696899414" id="sync1d0-L_PG_B_0" class="edge-thickness-normal edge-pattern-solid edge-thickness-normal edge-pattern-solid flowchart-link" style="stroke-dasharray: 0 0 160.6717071533203 4; stroke-dashoffset: 0;;" data-edge="true" data-et="edge" data-id="L_PG_B_0" data-points="W3sieCI6MzkwLjczMzMzMzMzMzMzMzM1LCJ5IjoxMjQ5LjE0ODY5Njg5OTQxNH0seyJ4IjozOTAuNzMzMzMzMzMzMzMzMzUsInkiOjEyODMuMTQ4Njk2ODk5NDE0fSx7IngiOjM5MC43MzMzMzMzMzMzMzMzNSwieSI6MTM2Ny4xNDg2OTY4OTk0MTR9LHsieCI6NDI2LjczMzMzMzMzMzMzMzM1LCJ5IjoxMzY3LjE0ODY5Njg5OTQxNH0seyJ4Ijo0MjYuNzMzMzMzMzMzMzMzMzUsInkiOjEzODcuMTQ4Njk2ODk5NDE0fV0=" data-look="neo" marker-end="url(#sync1d0_flowchart-v2-pointEnd-margin)"></path><path d="M867.2833333333334,1249.148696899414L867.2833333333334,1283.148696899414L867.2833333333334,1296.0776290875485Q867.2833333333334,1303.148696899414 860.212265521468,1303.148696899414L694.079401145199,1303.148696899414Q687.0083333333334,1303.148696899414 687.0083333333334,1310.2197647112796L687.0083333333334,1360.0776290875485Q687.0083333333334,1367.148696899414 679.9372655214679,1367.148696899414L477.8044011451988,1367.148696899414Q470.73333333333335,1367.148696899414 470.73333333333335,1374.2197647112796L470.73333333333335,1383.148696899414" id="sync1d0-L_NAS_B_0" class="edge-thickness-normal edge-pattern-solid edge-thickness-normal edge-pattern-solid flowchart-link" style="stroke-dasharray: 0 0 515.8934326171875 4; stroke-dashoffset: 0;;" data-edge="true" data-et="edge" data-id="L_NAS_B_0" data-points="W3sieCI6ODY3LjI4MzMzMzMzMzMzMzQsInkiOjEyNDkuMTQ4Njk2ODk5NDE0fSx7IngiOjg2Ny4yODMzMzMzMzMzMzM0LCJ5IjoxMjgzLjE0ODY5Njg5OTQxNH0seyJ4Ijo4NjcuMjgzMzMzMzMzMzMzNCwieSI6MTMwMy4xNDg2OTY4OTk0MTR9LHsieCI6Njg3LjAwODMzMzMzMzMzMzQsInkiOjEzMDMuMTQ4Njk2ODk5NDE0fSx7IngiOjY4Ny4wMDgzMzMzMzMzMzM0LCJ5IjoxMzY3LjE0ODY5Njg5OTQxNH0seyJ4Ijo0NzAuNzMzMzMzMzMzMzMzMzUsInkiOjEzNjcuMTQ4Njk2ODk5NDE0fSx7IngiOjQ3MC43MzMzMzMzMzMzMzMzNSwieSI6MTM4Ny4xNDg2OTY4OTk0MTR9XQ==" data-look="neo" marker-end="url(#sync1d0_flowchart-v2-pointEnd-margin)"></path></g><g class="edgeLabels"><g class="edgeLabel" transform="translate(1126.8223958333333, 112)"><g class="label" data-id="L_U_N_0" transform="translate(-25.0390625, -12)"><foreignObject width="50.078125" height="24"><div xmlns="http://www.w3.org/1999/xhtml" class="labelBkg" style="display: table-cell; white-space: nowrap; line-height: 1.5; max-width: 200px; text-align: center;"><span class="edgeLabel"><p>HTTPS</p></span></div></foreignObject></g></g><g class="edgeLabel" transform="translate(1090.8833333333334, 837)"><g class="label" data-id="L_N_FE_0" transform="translate(-32, -12)"><foreignObject width="64" height="24"><div xmlns="http://www.w3.org/1999/xhtml" class="labelBkg" style="display: table-cell; white-space: nowrap; line-height: 1.5; max-width: 200px; text-align: center;"><span class="edgeLabel"><p>静态资源</p></span></div></foreignObject></g></g><g class="edgeLabel" transform="translate(948.7833333333334, 537)"><g class="label" data-id="L_N_API_0" transform="translate(-32, -12)"><foreignObject width="64" height="24"><div xmlns="http://www.w3.org/1999/xhtml" class="labelBkg" style="display: table-cell; white-space: nowrap; line-height: 1.5; max-width: 200px; text-align: center;"><span class="edgeLabel"><p>内网代理</p></span></div></foreignObject></g></g><g class="edgeLabel" transform="translate(1044.8833333333334, 537)"><g class="label" data-id="L_API_N_0" transform="translate(-56, -12)"><foreignObject width="112" height="24"><div xmlns="http://www.w3.org/1999/xhtml" class="labelBkg" style="display: table-cell; white-space: nowrap; line-height: 1.5; max-width: 200px; text-align: center;"><span class="edgeLabel"><p>授权后内部交付</p></span></div></foreignObject></g></g><g class="edgeLabel" transform="translate(998.8833333333334, 837)"><g class="label" data-id="L_N_NAS_0" transform="translate(-40, -12)"><foreignObject width="80" height="24"><div xmlns="http://www.w3.org/1999/xhtml" class="labelBkg" style="display: table-cell; white-space: nowrap; line-height: 1.5; max-width: 200px; text-align: center;"><span class="edgeLabel"><p>受保护只读</p></span></div></foreignObject></g></g><g class="edgeLabel" transform="translate(617.6255208333334, 669)"><g class="label" data-id="L_API_PG_0" transform="translate(-15.2421875, -12)"><foreignObject width="30.484375" height="24"><div xmlns="http://www.w3.org/1999/xhtml" class="labelBkg" style="display: table-cell; white-space: nowrap; line-height: 1.5; max-width: 200px; text-align: center;"><span class="edgeLabel"><p>SQL</p></span></div></foreignObject></g></g><g class="edgeLabel" transform="translate(525.3333333333335, 537)"><g class="label" data-id="L_API_R_0" transform="translate(-56, -12)"><foreignObject width="112" height="24"><div xmlns="http://www.w3.org/1999/xhtml" class="labelBkg" style="display: table-cell; white-space: nowrap; line-height: 1.5; max-width: 200px; text-align: center;"><span class="edgeLabel"><p>认证缓存和事件</p></span></div></foreignObject></g></g><g class="edgeLabel" transform="translate(886.8833333333334, 669)"><g class="label" data-id="L_API_NAS_0" transform="translate(-32, -12)"><foreignObject width="64" height="24"><div xmlns="http://www.w3.org/1999/xhtml" class="labelBkg" style="display: table-cell; white-space: nowrap; line-height: 1.5; max-width: 200px; text-align: center;"><span class="edgeLabel"><p>上传暂存</p></span></div></foreignObject></g></g><g class="edgeLabel" transform="translate(200, 669)"><g class="label" data-id="L_D_PG_0" transform="translate(-56, -12)"><foreignObject width="112" height="24"><div xmlns="http://www.w3.org/1999/xhtml" class="labelBkg" style="display: table-cell; white-space: nowrap; line-height: 1.5; max-width: 200px; text-align: center;"><span class="edgeLabel"><p>事务扫描与租约</p></span></div></foreignObject></g></g><g class="edgeLabel" transform="translate(417.3333333333335, 537)"><g class="label" data-id="L_D_R_0" transform="translate(-32, -12)"><foreignObject width="64" height="24"><div xmlns="http://www.w3.org/1999/xhtml" class="labelBkg" style="display: table-cell; white-space: nowrap; line-height: 1.5; max-width: 200px; text-align: center;"><span class="edgeLabel"><p>任务通知</p></span></div></foreignObject></g></g><g class="edgeLabel" transform="translate(289.46770833333335, 1005)"><g class="label" data-id="L_W_PG_0" transform="translate(-52.734375, -12)"><foreignObject width="105.46875" height="24"><div xmlns="http://www.w3.org/1999/xhtml" class="labelBkg" style="display: table-cell; white-space: nowrap; line-height: 1.5; max-width: 200px; text-align: center;"><span class="edgeLabel"><p>状态 快照 费用</p></span></div></foreignObject></g></g><g class="edgeLabel" transform="translate(491.73333333333335, 1005)"><g class="label" data-id="L_M_PG_0" transform="translate(-40, -12)"><foreignObject width="80" height="24"><div xmlns="http://www.w3.org/1999/xhtml" class="labelBkg" style="display: table-cell; white-space: nowrap; line-height: 1.5; max-width: 200px; text-align: center;"><span class="edgeLabel"><p>归档元数据</p></span></div></foreignObject></g></g><g class="edgeLabel" transform="translate(686.8833333333334, 1005)"><g class="label" data-id="L_W_NAS_0" transform="translate(-56, -12)"><foreignObject width="112" height="24"><div xmlns="http://www.w3.org/1999/xhtml" class="labelBkg" style="display: table-cell; white-space: nowrap; line-height: 1.5; max-width: 200px; text-align: center;"><span class="edgeLabel"><p>已授权参考素材</p></span></div></foreignObject></g></g><g class="edgeLabel" transform="translate(818.8833333333334, 1005)"><g class="label" data-id="L_M_NAS_0" transform="translate(-56, -12)"><foreignObject width="112" height="24"><div xmlns="http://www.w3.org/1999/xhtml" class="labelBkg" style="display: table-cell; white-space: nowrap; line-height: 1.5; max-width: 200px; text-align: center;"><span class="edgeLabel"><p>暂存和最终归档</p></span></div></foreignObject></g></g><g class="edgeLabel" transform="translate(112, 1335.148696899414)"><g class="label" data-id="L_E_P_0" transform="translate(-64, -12)"><foreignObject width="128" height="24"><div xmlns="http://www.w3.org/1999/xhtml" class="labelBkg" style="display: table-cell; white-space: nowrap; line-height: 1.5; max-width: 200px; text-align: center;"><span class="edgeLabel"><p>经验证的加密协议</p></span></div></foreignObject></g></g><g class="edgeLabel" transform="translate(390.73333333333335, 1335.148696899414)"><g class="label" data-id="L_PG_B_0" transform="translate(-40, -12)"><foreignObject width="80" height="24"><div xmlns="http://www.w3.org/1999/xhtml" class="labelBkg" style="display: table-cell; white-space: nowrap; line-height: 1.5; max-width: 200px; text-align: center;"><span class="edgeLabel"><p>一致性备份</p></span></div></foreignObject></g></g><g class="edgeLabel" transform="translate(687.0083333333334, 1335.148696899414)"><g class="label" data-id="L_NAS_B_0" transform="translate(-56, -12)"><foreignObject width="112" height="24"><div xmlns="http://www.w3.org/1999/xhtml" class="labelBkg" style="display: table-cell; white-space: nowrap; line-height: 1.5; max-width: 200px; text-align: center;"><span class="edgeLabel"><p>文件清单和副本</p></span></div></foreignObject></g></g></g><g class="nodes"><g class="node default" id="sync1d0-flowchart-U-0" data-look="neo" transform="translate(1127.2833333333333, 36)"><rect class="basic label-container" style="" x="-76" y="-24" width="152" height="48"></rect><g class="label" style="" transform="translate(-60, -12)"><rect></rect><foreignObject width="120" height="24"><div xmlns="http://www.w3.org/1999/xhtml" style="display: table; white-space: nowrap; line-height: 1.5; max-width: 120px; text-align: center; width: 120px;"><span class="nodeLabel"><p>公司员工浏览器</p></span></div></foreignObject></g></g><g class="node default" id="sync1d0-flowchart-N-1" data-look="neo" transform="translate(1044.8833333333334, 669)"><rect class="basic label-container" style="" x="-76" y="-60" width="152" height="120"></rect><g class="label" style="" transform="translate(-60, -48)"><rect></rect><foreignObject width="120" height="96"><div xmlns="http://www.w3.org/1999/xhtml" style="display: table; white-space: break-spaces; line-height: 1.5; max-width: 120px; text-align: center; width: 120px;"><span class="nodeLabel"><p>Nginx 或选定入口代理<br>HTTPS 与受控文件交付</p></span></div></foreignObject></g></g><g class="node default" id="sync1d0-flowchart-FE-2" data-look="neo" transform="translate(1090.8833333333334, 1005)"><rect class="basic label-container" style="" x="-76" y="-36" width="152" height="72"></rect><g class="label" style="" transform="translate(-60, -24)"><rect></rect><foreignObject width="120" height="48"><div xmlns="http://www.w3.org/1999/xhtml" style="display: table; white-space: nowrap; line-height: 1.5; max-width: 120px; text-align: center; width: 120px;"><span class="nodeLabel"><p>制作与管理前端<br>静态构建产物</p></span></div></foreignObject></g></g><g class="node default" id="sync1d0-flowchart-API-3" data-look="neo" transform="translate(871.6833333333334, 417)"><rect class="basic label-container" style="" x="-76" y="-36" width="152" height="72"></rect><g class="label" style="" transform="translate(-60, -24)"><rect></rect><foreignObject width="120" height="48"><div xmlns="http://www.w3.org/1999/xhtml" style="display: table; white-space: nowrap; line-height: 1.5; max-width: 120px; text-align: center; width: 120px;"><span class="nodeLabel"><p>FastAPI API<br>认证与业务接口</p></span></div></foreignObject></g></g><g class="node default" id="sync1d0-flowchart-D-4" data-look="neo" transform="translate(395.60000000000014, 417)"><rect class="basic label-container" style="" x="-76" y="-36" width="152" height="72"></rect><g class="label" style="" transform="translate(-60, -24)"><rect></rect><foreignObject width="120" height="48"><div xmlns="http://www.w3.org/1999/xhtml" style="display: table; white-space: break-spaces; line-height: 1.5; max-width: 120px; text-align: center; width: 120px;"><span class="nodeLabel"><p>Outbox 调度与恢复扫描</p></span></div></foreignObject></g></g><g class="node default" id="sync1d0-flowchart-W-5" data-look="neo" transform="translate(289.73333333333335, 839.4)"><rect class="basic label-container" style="" x="-76" y="-36" width="152" height="72"></rect><g class="label" style="" transform="translate(-60, -24)"><rect></rect><foreignObject width="120" height="48"><div xmlns="http://www.w3.org/1999/xhtml" style="display: table; white-space: break-spaces; line-height: 1.5; max-width: 120px; text-align: center; width: 120px;"><span class="nodeLabel"><p>生成和文本 Worker</p></span></div></foreignObject></g></g><g class="node default" id="sync1d0-flowchart-M-6" data-look="neo" transform="translate(491.73333333333335, 837)"><rect class="basic label-container" style="" x="-76" y="-48" width="152" height="96"></rect><g class="label" style="" transform="translate(-60, -36)"><rect></rect><foreignObject width="120" height="72"><div xmlns="http://www.w3.org/1999/xhtml" style="display: table; white-space: break-spaces; line-height: 1.5; max-width: 120px; text-align: center; width: 120px;"><span class="nodeLabel"><p>媒体 Worker<br>下载 校验 转码 归档</p></span></div></foreignObject></g></g><g class="node default" id="sync1d0-flowchart-PG-7" data-look="neo" transform="translate(390.73333333333335, 1181.074348449707)"><path d="M0,13.382899628252789 a72,13.382899628252789 0,0,0 144,0 a72,13.382899628252789 0,0,0 -144,0 l0,109.38289962825279 a72,13.382899628252789 0,0,0 144,0 l0,-109.38289962825279" class="basic label-container outer-path" style="" transform="translate(-72, -68.07434944237919)"></path><g class="label" style="" transform="translate(-60, -26)"><rect></rect><foreignObject width="120" height="72"><div xmlns="http://www.w3.org/1999/xhtml" style="display: table; white-space: break-spaces; line-height: 1.5; max-width: 120px; text-align: center; width: 120px;"><span class="nodeLabel"><p>PostgreSQL<br>业务事实与元数据</p></span></div></foreignObject></g></g><g class="node default" id="sync1d0-flowchart-R-8" data-look="neo" transform="translate(471.33333333333337, 669)"><path d="M0,13.382899628252789 a72,13.382899628252789 0,0,0 144,0 a72,13.382899628252789 0,0,0 -144,0 l0,85.38289962825279 a72,13.382899628252789 0,0,0 144,0 l0,-85.38289962825279" class="basic label-container outer-path" style="" transform="translate(-72, -56.07434944237918)"></path><g class="label" style="" transform="translate(-60, -14)"><rect></rect><foreignObject width="120" height="48"><div xmlns="http://www.w3.org/1999/xhtml" style="display: table; white-space: nowrap; line-height: 1.5; max-width: 120px; text-align: center; width: 120px;"><span class="nodeLabel"><p>Redis<br>缓存与任务通知</p></span></div></foreignObject></g></g><g class="node default" id="sync1d0-flowchart-NAS-9" data-look="neo" transform="translate(867.2833333333334, 1181.074348449707)"><path d="M0,13.382899628252789 a72,13.382899628252789 0,0,0 144,0 a72,13.382899628252789 0,0,0 -144,0 l0,109.38289962825279 a72,13.382899628252789 0,0,0 144,0 l0,-109.38289962825279" class="basic label-container outer-path" style="" transform="translate(-72, -68.07434944237919)"></path><g class="label" style="" transform="translate(-60, -26)"><rect></rect><foreignObject width="120" height="72"><div xmlns="http://www.w3.org/1999/xhtml" style="display: table; white-space: break-spaces; line-height: 1.5; max-width: 120px; text-align: center; width: 120px;"><span class="nodeLabel"><p>公司 NAS<br>素材 视频 衍生文件</p></span></div></foreignObject></g></g><g class="node default" id="sync1d0-flowchart-K-10" data-look="neo" transform="translate(557.7166666666667, 273)"><rect class="basic label-container" style="" x="-76" y="-48" width="152" height="96"></rect><g class="label" style="" transform="translate(-60, -36)"><rect></rect><foreignObject width="120" height="72"><div xmlns="http://www.w3.org/1999/xhtml" style="display: table; white-space: break-spaces; line-height: 1.5; max-width: 120px; text-align: center; width: 120px;"><span class="nodeLabel"><p>受控秘密注入<br>主密钥和基础连接配置</p></span></div></foreignObject></g></g><g class="node default" id="sync1d0-flowchart-E-11" data-look="neo" transform="translate(112, 1001)"><rect class="basic label-container" style="" x="-76" y="-24" width="152" height="48"></rect><g class="label" style="" transform="translate(-60, -12)"><rect></rect><foreignObject width="120" height="24"><div xmlns="http://www.w3.org/1999/xhtml" style="display: table; white-space: nowrap; line-height: 1.5; max-width: 120px; text-align: center; width: 120px;"><span class="nodeLabel"><p>受控出站通道</p></span></div></foreignObject></g></g><g class="node default" id="sync1d0-flowchart-P-12" data-look="neo" transform="translate(112, 1423.148696899414)"><rect class="basic label-container" style="" x="-76" y="-36" width="152" height="72"></rect><g class="label" style="" transform="translate(-60, -24)"><rect></rect><foreignObject width="120" height="48"><div xmlns="http://www.w3.org/1999/xhtml" style="display: table; white-space: break-spaces; line-height: 1.5; max-width: 120px; text-align: center; width: 120px;"><span class="nodeLabel"><p>外部模型供应商及结果下载域名</p></span></div></foreignObject></g></g><g class="node default" id="sync1d0-flowchart-B-13" data-look="neo" transform="translate(448.73333333333335, 1423.148696899414)"><rect class="basic label-container" style="" x="-76" y="-36" width="152" height="72"></rect><g class="label" style="" transform="translate(-60, -24)"><rect></rect><foreignObject width="120" height="48"><div xmlns="http://www.w3.org/1999/xhtml" style="display: table; white-space: nowrap; line-height: 1.5; max-width: 120px; text-align: center; width: 120px;"><span class="nodeLabel"><p>独立备份目标<br>位置待确认</p></span></div></foreignObject></g></g></g></g></g><defs><filter id="sync1d0-drop-shadow" height="130%" width="130%"><feDropShadow dx="4" dy="4" stdDeviation="0" flood-opacity="0.06" flood-color="#000000"></feDropShadow></filter></defs><defs><filter id="sync1d0-drop-shadow-small" height="150%" width="150%"><feDropShadow dx="2" dy="2" stdDeviation="0" flood-opacity="0.06" flood-color="#000000"></feDropShadow></filter></defs><linearGradient id="sync1d0-gradient" gradientUnits="objectBoundingBox" x1="0%" y1="0%" x2="100%" y2="0%"><stop offset="0%" stop-color="hsl(0, 0%, 83.3333333333%)" stop-opacity="1"></stop><stop offset="100%" stop-color="hsl(0, 0%, 88.9215686275%)" stop-opacity="1"></stop></linearGradient></svg></figure>
+
+<h3 id="32-部署单元与持久性">3.2 部署单元与持久性</h3>
+<table>
+<thead>
+<tr>
+<th>单元</th>
+<th>运行职责</th>
+<th>持久数据与运行要求</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>入口与两个 SPA</td>
+<td>HTTPS、静态资源、API/SSE代理、授权文件交付</td>
+<td>保留可回退构建产物和代理配置；不能存供应商 Key</td>
+</tr>
+<tr>
+<td>FastAPI</td>
+<td>若依认证、权限、项目/价格/任务受理</td>
+<td>无本地会话依赖；数据库/Redis/NAS依赖异常要反映到对应功能</td>
+</tr>
+<tr>
+<td>Outbox 调度</td>
+<td>投递、到期扫描、租约恢复</td>
+<td>数据库为事实；重复通知不产生新消费</td>
+</tr>
+<tr>
+<td>生成/文本 Worker</td>
+<td>适配器调用、状态查询、会话处理</td>
+<td>独立进程；固定凭据/路由/输入快照；外部调用不保证恰好一次</td>
+</tr>
+<tr>
+<td>媒体 Worker</td>
+<td>下载、校验、缩略图、转码、归档</td>
+<td>限 CPU/内存/临时盘/执行时长；任务完成前核实 NAS 最终文件</td>
+</tr>
+<tr>
+<td>PostgreSQL</td>
+<td>元数据、权限、版本、任务、账本</td>
+<td>独立持久卷/目录及备份；不因媒体使用 NAS 自动把 PG 数据放 NAS</td>
+</tr>
+<tr>
+<td>Redis</td>
+<td>登录/权限缓存、通知及框架运行数据</td>
+<td>持久化与淘汰策略待确认；不是唯一任务/费用事实来源</td>
+</tr>
+<tr>
+<td>NAS</td>
+<td>输入、输出、不可变版本及衍生媒体</td>
+<td>专用服务身份、受控路径、容量告警、备份恢复验证</td>
+</tr>
+<tr>
+<td>主密钥与基础秘密</td>
+<td>解密供应商凭据、连接基础设施</td>
+<td>运行时注入，与数据库及数据库备份分离保管，单独恢复验证</td>
+</tr>
+</tbody></table>
+<p>正式部署保留原目录身份，不重命名制作/管理/后端工程。后端仍为 controller→service→dao→entity/do，VO 在 entity/vo，ORM 使用 AsyncSession；迁移遵循 PostgreSQL 与若依字段规范，无物理外键。运维不得直接改业务表绕过状态机或删除账本使任务“恢复正常”。</p>
+<h3 id="33-入口、网络与路由">3.3 入口、网络与路由</h3>
+<p>架构建议同站点 <code>/studio/</code>、<code>/admin/</code>；该子路径方案须在前端 base、Vue Router、代理及刷新回退均验证后使用，不视为仓库已配置。新增业务 <code>/api/v1/</code>、管理 <code>/api/admin/v1/</code> 与框架原生登录/system路径并存；不能因改入口前缀破坏原生认证和错误信封。</p>
+<table>
+<thead>
+<tr>
+<th>来源→目标</th>
+<th>目的</th>
+<th>访问规则</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>员工终端→入口</td>
+<td>页面、API、授权媒体</td>
+<td>仅批准内网入口，HTTPS；实际端口待确认</td>
+</tr>
+<tr>
+<td>入口→API</td>
+<td>路由代理、SSE、授权判断</td>
+<td>仅服务间访问；超时/缓冲按事件与大文件测试确定</td>
+</tr>
+<tr>
+<td>API/Worker/调度→PG/Redis</td>
+<td>数据、权限、任务通知</td>
+<td>仅授权服务身份和网段；不向员工网络直接开放</td>
+</tr>
+<tr>
+<td>API/媒体/生成/入口→NAS</td>
+<td>各自最小范围的读写</td>
+<td>协议及端口按实际选型；员工不直接挂该业务共享</td>
+</tr>
+<tr>
+<td>指定服务→供应商/CDN</td>
+<td>提交、查询、参考上传、结果下载</td>
+<td>域名/协议允许清单、代理与限流；默认无公网入站</td>
+</tr>
+<tr>
+<td>运维→管理通道</td>
+<td>发布、诊断、备份恢复</td>
+<td>公司批准的管理入口和账号，记录操作；不共用业务用户身份</td>
+</tr>
+<tr>
+<td>服务→DNS/时钟/监控/备份</td>
+<td>基础运行</td>
+<td>按公司基础设施白名单，时间保持同步</td>
+</tr>
+</tbody></table>
+<p>PG/Redis、NAS 和主密钥管理面不映射到网页站点。前端不能通过公开静态目录绕过媒体鉴权；每个新 GET/HEAD/Range 请求都须授权。已下载到员工设备的文件无法远程撤回，不作相反承诺。</p>
+<h2 id="section-4">4 NAS 目录、挂载与服务权限</h2>
+<h3 id="41-存储布局与元数据">4.1 存储布局与元数据</h3>
+<p>以下是逻辑目录建议，不是实际共享名；冻结路径后由 NAS adapter 映射。开发、测试、正式使用不同根目录和凭据，恢复演练使用独立目录，不能写回正式目录。</p>
+<table>
+<thead>
+<tr>
+<th>逻辑区域</th>
+<th>内容</th>
+<th>生命周期与权限</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>upload-staging</td>
+<td>上传会话分片/完成校验前文件</td>
+<td>API/上传服务可写；按会话到期与绑定状态受控清理</td>
+</tr>
+<tr>
+<td>archive-staging</td>
+<td>模型结果下载及校验中间文件</td>
+<td>媒体服务可写；未验证完整性不对用户标 ready</td>
+</tr>
+<tr>
+<td>media</td>
+<td>不可变输入/输出/版本原件</td>
+<td>归档服务写新键；交付和引用读取；不覆盖旧版本</td>
+</tr>
+<tr>
+<td>derivatives</td>
+<td>缩略图、预览、转码衍生文件</td>
+<td>媒体服务写；和源文件建立可追踪关系</td>
+</tr>
+<tr>
+<td>quarantine</td>
+<td>损坏/异常文件或待核对孤立文件</td>
+<td>受控隔离，不对普通用户开放；保留期待确认</td>
+</tr>
+<tr>
+<td>manifest</td>
+<td>备份/核对清单</td>
+<td>运维受控写读；不包含密钥或签名URL</td>
+</tr>
+</tbody></table>
+<p>逻辑存储键由服务端生成，不能把用户文件名、项目显示名或传入绝对路径直接拼成 NAS 路径。数据库保留存储键、大小、哈希、类型和关系，挂载路径由环境配置映射，不能把某台服务器绝对路径当业务 ID。文件删除标记与物理文件清理不同；被任务、修订、评论或证据引用的文件不得直接清理。</p>
+<p>如采用原子改名完成归档，暂存与最终目标必须落在经验证的同一文件系统/共享范围。服务器本地临时盘到 NAS 的复制不等于原子改名：须先复制到 NAS 暂存、校验完整性，再执行已验证的最终确认步骤；不把跨设备 rename 假定为安全原子操作。</p>
+<h3 id="42-权限矩阵">4.2 权限矩阵</h3>
+<p>以下为服务身份职责建议，账号名及协议 ACL 待确认。操作系统/NAS 目录权限提供基础隔离，不替代平台项目/对象权限。</p>
+<table>
+<thead>
+<tr>
+<th>身份</th>
+<th>暂存区</th>
+<th>原件/衍生区</th>
+<th>删除/治理</th>
+<th>秘密与数据库</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>API 上传服务</td>
+<td>仅所属上传区域读写</td>
+<td>元数据所需读取，不任意覆盖</td>
+<td>只经应用事务清理自己可清理会话</td>
+<td>按API职责访问；不向用户回显秘密</td>
+</tr>
+<tr>
+<td>生成/文本 Worker</td>
+<td>仅工作所需读取</td>
+<td>经业务授权选取引用内容读取</td>
+<td>无通用物理删除职责</td>
+<td>最小任务数据权限，按需解密指定凭据版本</td>
+</tr>
+<tr>
+<td>媒体 Worker</td>
+<td>下载/处理暂存读写</td>
+<td>写新归档/衍生键及校验读取</td>
+<td>受控临时文件清理，不删除历史引用原件</td>
+<td>写归档状态；出站下载不持久化供应商秘密</td>
+</tr>
+<tr>
+<td>Nginx/文件交付服务</td>
+<td>不对外提供暂存文件</td>
+<td>仅只读最终可交付文件</td>
+<td>无删除/写权限</td>
+<td>不持有供应商密钥</td>
+</tr>
+<tr>
+<td>清理任务</td>
+<td>批准区域</td>
+<td>经 Service 引用检查及锁后处理允许清理对象</td>
+<td>独立受限身份，审计原因/范围</td>
+<td>不删除账本、审计或发布历史</td>
+</tr>
+<tr>
+<td>备份身份</td>
+<td>需要覆盖的正式文件读取</td>
+<td>读取和生成备份清单</td>
+<td>无日常删除业务原件权限</td>
+<td>备份权限单独授权，主密钥备份单独保管</td>
+</tr>
+<tr>
+<td>运维恢复身份</td>
+<td>演练/批准恢复窗口写入</td>
+<td>仅批准目标写入</td>
+<td>恢复需记录审批范围与前后清单</td>
+<td>权限临时授予与回收，操作审计</td>
+</tr>
+<tr>
+<td>员工浏览器</td>
+<td>无直接权限</td>
+<td>无NAS账号/挂载权限</td>
+<td>通过平台动作</td>
+<td>仅平台登录身份</td>
+</tr>
+</tbody></table>
+<p>同主机进程如果共享同一读写挂载，不能声称已经实现上述隔离；实际需通过不同服务账号、目录 ACL、只读挂载视图或容器只读绑定等选定机制落实，并用越权写入测试证明。不得为省事将全部目录权限开放给所有用户。</p>
+<h3 id="43-挂载实施步骤（待参数冻结后执行）">4.3 挂载实施步骤（待参数冻结后执行）</h3>
+<ol>
+<li>存储运维登记 NAS 地址、共享、协议及版本、容量、环境目录和服务身份；检查共享 ACL 与文件系统 ACL 的最终效果。</li>
+<li>按服务器系统选定挂载机制。Linux 下 SMB 需确认凭据注入、UID/GID映射和协议安全配置；NFS 需确认导出范围、身份映射及认证策略。Windows 下确认服务账号在非交互会话中的共享访问，不依赖员工登录后映射的盘符。以上均为待选方案，不在本稿给可直接执行的挂载命令。</li>
+<li>由受控秘密机制提供挂载凭据，避免命令行、代码仓库或普通环境日志暴露。若使用凭据文件，限制文件和目录访问，登记轮换流程。</li>
+<li>应用未启动前验证实际共享来源、挂载点、预期存储身份、读写权限和容量；文件夹存在或可创建文件本身不证明挂载正确。</li>
+<li>在专用探测目录按 API/媒体/交付账号分别测试创建、读取、校验、改名和删除；交付账号的写入必须被拒绝。探测文件不进入业务库。</li>
+<li>测试正常重启、启动时 NAS 不可达、运行中断连、重挂、凭据轮换和同机多实例路径一致性。验证超时不会耗尽整个 API/Worker 资源。</li>
+<li>在真实 NAS 测试目录做上传、视频 Range、并发归档和故障恢复，保留哈希、服务身份、挂载信息和日志证据，再允许连接正式文件根目录。</li>
+</ol>
+<p>挂载参数、重试次数、I/O 超时、自动重挂和协议安全设置由运维结合设备验证后冻结；不把未知设备套用固定 SMB/NFS 参数。</p>
+<h3 id="44-断挂保护与文件一致性">4.4 断挂保护与文件一致性</h3>
+<p>依赖 NAS 的服务启动和写入路径必须确认实际挂载来源与预期身份；定期探测和挂载元数据核验共同使用，不能只凭残留哨兵文件判断。挂载点底层本地目录应限制业务身份写入，容器/服务必须依赖正确挂载；NAS 失效后不得静默落盘到本地主机同名目录。</p>
+<figure class="diagram" aria-label="图 2"><svg id="sync1d1" width="100%" xmlns="http://www.w3.org/2000/svg" class="flowchart" style="max-width: 552px;" viewBox="4 4 552 1418" role="graphics-document document" aria-roledescription="flowchart-v2"><style>#sync1d1{font-family:Microsoft YaHei,sans-serif;font-size:16px;fill:#000000;}@keyframes edge-animation-frame{from{stroke-dashoffset:0;}}@keyframes dash{to{stroke-dashoffset:0;}}#sync1d1 .edge-animation-slow{stroke-dasharray:9,5!important;stroke-dashoffset:900;animation:dash 50s linear infinite;stroke-linecap:round;}#sync1d1 .edge-animation-fast{stroke-dasharray:9,5!important;stroke-dashoffset:900;animation:dash 20s linear infinite;stroke-linecap:round;}#sync1d1 .error-icon{fill:#552222;}#sync1d1 .error-text{fill:#552222;stroke:#552222;}#sync1d1 .edge-thickness-normal{stroke-width:1px;}#sync1d1 .edge-thickness-thick{stroke-width:3.5px;}#sync1d1 .edge-pattern-solid{stroke-dasharray:0;}#sync1d1 .edge-thickness-invisible{stroke-width:0;fill:none;}#sync1d1 .edge-pattern-dashed{stroke-dasharray:3;}#sync1d1 .edge-pattern-dotted{stroke-dasharray:2;}#sync1d1 .marker{fill:#666;stroke:#666;}#sync1d1 .marker.cross{stroke:#666;}#sync1d1 svg{font-family:Microsoft YaHei,sans-serif;font-size:16px;}#sync1d1 p{margin:0;}#sync1d1 .label{font-family:Microsoft YaHei,sans-serif;color:#000000;}#sync1d1 .cluster-label text{fill:#333;}#sync1d1 .cluster-label span{color:#333;}#sync1d1 .cluster-label span p{background-color:transparent;}#sync1d1 .label text,#sync1d1 span{fill:#000000;color:#000000;}#sync1d1 .node rect,#sync1d1 .node circle,#sync1d1 .node ellipse,#sync1d1 .node polygon,#sync1d1 .node path{fill:#eee;stroke:#999;stroke-width:1px;}#sync1d1 .rough-node .label text,#sync1d1 .node .label text,#sync1d1 .image-shape .label,#sync1d1 .icon-shape .label{text-anchor:middle;}#sync1d1 .node .katex path{fill:#000;stroke:#000;stroke-width:1px;}#sync1d1 .rough-node .label,#sync1d1 .node .label,#sync1d1 .image-shape .label,#sync1d1 .icon-shape .label{text-align:center;}#sync1d1 .node.clickable{cursor:pointer;}#sync1d1 .root .anchor path{fill:#666!important;stroke-width:0;stroke:#666;}#sync1d1 .arrowheadPath{fill:#333333;}#sync1d1 .edgePaths .path{stroke:#666;stroke-width:1px;}#sync1d1 .flowchart-link{stroke:#666;fill:none;}#sync1d1 .edgeLabel{background-color:white;text-align:center;}#sync1d1 .edgeLabel p{background-color:white;}#sync1d1 .edgeLabel rect{opacity:0.5;background-color:white;fill:white;}#sync1d1 .labelBkg{background-color:rgba(255, 255, 255, 0.5);}#sync1d1 .cluster rect{fill:hsl(0, 0%, 98.9215686275%);stroke:#707070;stroke-width:1px;}#sync1d1 .cluster text{fill:#333;}#sync1d1 .cluster span{color:#333;}#sync1d1 .node .collapsed-indicator{fill:#707070;stroke:none;opacity:0.6;}#sync1d1 .node .collapsed-separator{stroke:#707070;stroke-width:0.75px;}#sync1d1 div.mermaidTooltip{position:absolute;text-align:center;max-width:200px;padding:2px;font-family:Microsoft YaHei,sans-serif;font-size:12px;background:hsl(-160, 0%, 93.3333333333%);border:1px solid #707070;border-radius:2px;pointer-events:none;z-index:100;}#sync1d1 .flowchartTitleText{text-anchor:middle;font-size:18px;fill:#000000;}#sync1d1 rect.text{fill:none;stroke-width:0;}#sync1d1 .icon-shape,#sync1d1 .image-shape{background-color:white;text-align:center;}#sync1d1 .icon-shape p,#sync1d1 .image-shape p{background-color:white;padding:2px;}#sync1d1 .icon-shape .label rect,#sync1d1 .image-shape .label rect{opacity:0.5;background-color:white;fill:white;}#sync1d1 .label-icon{display:inline-block;height:1em;overflow:visible;vertical-align:-0.125em;}#sync1d1 .node .label-icon path{fill:currentColor;stroke:revert;stroke-width:revert;}#sync1d1 .node .neo-node{stroke:#999;}#sync1d1 [data-look="neo"].node rect,#sync1d1 [data-look="neo"].cluster rect,#sync1d1 [data-look="neo"].node polygon{stroke:url(#sync1d1-gradient);filter:drop-shadow( 1px 2px 2px rgba(185,185,185,1));}#sync1d1 [data-look="neo"].swimlane.cluster rect{filter:none;}#sync1d1 [data-look="neo"].node path{stroke:url(#sync1d1-gradient);stroke-width:1px;}#sync1d1 [data-look="neo"].node .outer-path{filter:drop-shadow( 1px 2px 2px rgba(185,185,185,1));}#sync1d1 [data-look="neo"].node .neo-line path{stroke:#999;filter:none;}#sync1d1 [data-look="neo"].node circle{stroke:url(#sync1d1-gradient);filter:drop-shadow( 1px 2px 2px rgba(185,185,185,1));}#sync1d1 [data-look="neo"].node circle .state-start{fill:#000000;}#sync1d1 [data-look="neo"].icon-shape .icon{fill:url(#sync1d1-gradient);filter:drop-shadow( 1px 2px 2px rgba(185,185,185,1));}#sync1d1 [data-look="neo"].icon-shape .icon-neo path{stroke:url(#sync1d1-gradient);filter:drop-shadow( 1px 2px 2px rgba(185,185,185,1));}#sync1d1 :root{--mermaid-font-family:Microsoft YaHei,sans-serif;}</style><g><marker id="sync1d1_flowchart-v2-pointEnd" class="marker flowchart-v2" viewBox="0 0 10 10" refX="5" refY="5" markerUnits="userSpaceOnUse" markerWidth="8" markerHeight="8" orient="auto"><path d="M 0 0 L 10 5 L 0 10 z" class="arrowMarkerPath" style="stroke-width: 1; stroke-dasharray: 1, 0;"></path></marker><marker id="sync1d1_flowchart-v2-pointStart" class="marker flowchart-v2" viewBox="0 0 10 10" refX="4.5" refY="5" markerUnits="userSpaceOnUse" markerWidth="8" markerHeight="8" orient="auto"><path d="M 0 5 L 10 10 L 10 0 z" class="arrowMarkerPath" style="stroke-width: 1; stroke-dasharray: 1, 0;"></path></marker><marker id="sync1d1_flowchart-v2-pointEnd-margin" class="marker flowchart-v2" viewBox="0 0 11.5 14" refX="11.5" refY="7" markerUnits="userSpaceOnUse" markerWidth="10.5" markerHeight="14" orient="auto"><path d="M 0 0 L 11.5 7 L 0 14 z" class="arrowMarkerPath" style="stroke-width: 0; stroke-dasharray: 1, 0;"></path></marker><marker id="sync1d1_flowchart-v2-pointStart-margin" class="marker flowchart-v2" viewBox="0 0 11.5 14" refX="1" refY="7" markerUnits="userSpaceOnUse" markerWidth="11.5" markerHeight="14" orient="auto"><polygon points="0,7 11.5,14 11.5,0" class="arrowMarkerPath" style="stroke-width: 0; stroke-dasharray: 1, 0;"></polygon></marker><marker id="sync1d1_flowchart-v2-circleEnd" class="marker flowchart-v2" viewBox="0 0 10 10" refX="11" refY="5" markerUnits="userSpaceOnUse" markerWidth="11" markerHeight="11" orient="auto"><circle cx="5" cy="5" r="5" class="arrowMarkerPath" style="stroke-width: 1; stroke-dasharray: 1, 0;"></circle></marker><marker id="sync1d1_flowchart-v2-circleStart" class="marker flowchart-v2" viewBox="0 0 10 10" refX="-1" refY="5" markerUnits="userSpaceOnUse" markerWidth="11" markerHeight="11" orient="auto"><circle cx="5" cy="5" r="5" class="arrowMarkerPath" style="stroke-width: 1; stroke-dasharray: 1, 0;"></circle></marker><marker id="sync1d1_flowchart-v2-circleEnd-margin" class="marker flowchart-v2" viewBox="0 0 10 10" refY="5" refX="12.25" markerUnits="userSpaceOnUse" markerWidth="14" markerHeight="14" orient="auto"><circle cx="5" cy="5" r="5" class="arrowMarkerPath" style="stroke-width: 0; stroke-dasharray: 1, 0;"></circle></marker><marker id="sync1d1_flowchart-v2-circleStart-margin" class="marker flowchart-v2" viewBox="0 0 10 10" refX="-2" refY="5" markerUnits="userSpaceOnUse" markerWidth="14" markerHeight="14" orient="auto"><circle cx="5" cy="5" r="5" class="arrowMarkerPath" style="stroke-width: 0; stroke-dasharray: 1, 0;"></circle></marker><marker id="sync1d1_flowchart-v2-crossEnd" class="marker cross flowchart-v2" viewBox="0 0 11 11" refX="12" refY="5.2" markerUnits="userSpaceOnUse" markerWidth="11" markerHeight="11" orient="auto"><path d="M 1,1 l 9,9 M 10,1 l -9,9" class="arrowMarkerPath" style="stroke-width: 2; stroke-dasharray: 1, 0;"></path></marker><marker id="sync1d1_flowchart-v2-crossStart" class="marker cross flowchart-v2" viewBox="0 0 11 11" refX="-1" refY="5.2" markerUnits="userSpaceOnUse" markerWidth="11" markerHeight="11" orient="auto"><path d="M 1,1 l 9,9 M 10,1 l -9,9" class="arrowMarkerPath" style="stroke-width: 2; stroke-dasharray: 1, 0;"></path></marker><marker id="sync1d1_flowchart-v2-crossEnd-margin" class="marker cross flowchart-v2" viewBox="0 0 15 15" refX="17.7" refY="7.5" markerUnits="userSpaceOnUse" markerWidth="12" markerHeight="12" orient="auto"><path d="M 1,1 L 14,14 M 1,14 L 14,1" class="arrowMarkerPath" style="stroke-width: 2.5;"></path></marker><marker id="sync1d1_flowchart-v2-crossStart-margin" class="marker cross flowchart-v2" viewBox="0 0 15 15" refX="-3.5" refY="7.5" markerUnits="userSpaceOnUse" markerWidth="12" markerHeight="12" orient="auto"><path d="M 1,1 L 14,14 M 1,14 L 14,1" class="arrowMarkerPath" style="stroke-width: 2.5; stroke-dasharray: 1, 0;"></path></marker><g class="root"><g class="clusters"></g><g class="edges edgePaths"><path d="M184,84L184,120" id="sync1d1-L_A_B_0" class="edge-thickness-normal edge-pattern-solid edge-thickness-normal edge-pattern-solid flowchart-link" style="stroke-dasharray: 0 0 32 4; stroke-dashoffset: 0;;" data-edge="true" data-et="edge" data-id="L_A_B_0" data-points="W3sieCI6MTg0LCJ5Ijo4NH0seyJ4IjoxODQsInkiOjEyNH1d" data-look="neo" marker-end="url(#sync1d1_flowchart-v2-pointEnd-margin)"></path><path d="M154.33333333333331,292.333309173584L154.33333333333331,322L154.33333333333331,334.9289321881345Q154.33333333333331,342 147.26226552146784,342L95.07106781186548,342Q88,342 88,349.0710678118655L88,422" id="sync1d1-L_B_C_0" class="edge-thickness-normal edge-pattern-solid edge-thickness-normal edge-pattern-solid flowchart-link" style="stroke-dasharray: 0 0 186.67173767089844 4; stroke-dashoffset: 0;;" data-edge="true" data-et="edge" data-id="L_B_C_0" data-points="W3sieCI6MTU0LjMzMzMzMzMzMzMzMzMxLCJ5IjoyOTIuMzMzMzA5MTczNTg0fSx7IngiOjE1NC4zMzMzMzMzMzMzMzMzMSwieSI6MzIyfSx7IngiOjE1NC4zMzMzMzMzMzMzMzMzMSwieSI6MzQyfSx7IngiOjg4LCJ5IjozNDJ9LHsieCI6ODgsInkiOjQyNn1d" data-look="neo" marker-end="url(#sync1d1_flowchart-v2-pointEnd-margin)"></path><path d="M213.66666666666669,292.333309173584L213.66666666666669,322L213.66666666666669,334.9289321881345Q213.66666666666669,342 220.73773447853216,342L272.9289321881345,342Q280,342 280,349.0710678118655L280,422" id="sync1d1-L_B_D_0" class="edge-thickness-normal edge-pattern-solid edge-thickness-normal edge-pattern-solid flowchart-link" style="stroke-dasharray: 0 0 186.67172241210938 4; stroke-dashoffset: 0;;" data-edge="true" data-et="edge" data-id="L_B_D_0" data-points="W3sieCI6MjEzLjY2NjY2NjY2NjY2NjY5LCJ5IjoyOTIuMzMzMzA5MTczNTg0fSx7IngiOjIxMy42NjY2NjY2NjY2NjY2OSwieSI6MzIyfSx7IngiOjIxMy42NjY2NjY2NjY2NjY2OSwieSI6MzQyfSx7IngiOjI4MCwieSI6MzQyfSx7IngiOjI4MCwieSI6NDI2fV0=" data-look="neo" marker-end="url(#sync1d1_flowchart-v2-pointEnd-margin)"></path><path d="M280,522L280,558" id="sync1d1-L_D_E_0" class="edge-thickness-normal edge-pattern-solid edge-thickness-normal edge-pattern-solid flowchart-link" style="stroke-dasharray: 0 0 32 4; stroke-dashoffset: 0;;" data-edge="true" data-et="edge" data-id="L_D_E_0" data-points="W3sieCI6MjgwLCJ5Ijo1MjJ9LHsieCI6MjgwLCJ5Ijo1NjJ9XQ==" data-look="neo" marker-end="url(#sync1d1_flowchart-v2-pointEnd-margin)"></path><path d="M254.33333333333331,710.3332509994507L254.33333333333331,736L254.33333333333331,748.9289321881345Q254.33333333333331,756 247.26226552146784,756L191.07106781186548,756Q184,756 184,763.0710678118655L184,836" id="sync1d1-L_E_F_0" class="edge-thickness-normal edge-pattern-solid edge-thickness-normal edge-pattern-solid flowchart-link" style="stroke-dasharray: 0 0 186.67181396484375 4; stroke-dashoffset: 0;;" data-edge="true" data-et="edge" data-id="L_E_F_0" data-points="W3sieCI6MjU0LjMzMzMzMzMzMzMzMzMxLCJ5Ijo3MTAuMzMzMjUwOTk5NDUwN30seyJ4IjoyNTQuMzMzMzMzMzMzMzMzMzEsInkiOjczNn0seyJ4IjoyNTQuMzMzMzMzMzMzMzMzMzEsInkiOjc1Nn0seyJ4IjoxODQsInkiOjc1Nn0seyJ4IjoxODQsInkiOjg0MH1d" data-look="neo" marker-end="url(#sync1d1_flowchart-v2-pointEnd-margin)"></path><path d="M305.66666666666663,710.3332509994507L305.66666666666663,736L305.66666666666663,748.9289321881345Q305.66666666666663,756 312.7377344785321,756L368.9289321881345,756Q376,756 376,763.0710678118655L376,836" id="sync1d1-L_E_G_0" class="edge-thickness-normal edge-pattern-solid edge-thickness-normal edge-pattern-solid flowchart-link" style="stroke-dasharray: 0 0 186.67178344726562 4; stroke-dashoffset: 0;;" data-edge="true" data-et="edge" data-id="L_E_G_0" data-points="W3sieCI6MzA1LjY2NjY2NjY2NjY2NjYzLCJ5Ijo3MTAuMzMzMjUwOTk5NDUwN30seyJ4IjozMDUuNjY2NjY2NjY2NjY2NjMsInkiOjczNn0seyJ4IjozMDUuNjY2NjY2NjY2NjY2NjMsInkiOjc1Nn0seyJ4IjozNzYsInkiOjc1Nn0seyJ4IjozNzYsInkiOjg0MH1d" data-look="neo" marker-end="url(#sync1d1_flowchart-v2-pointEnd-margin)"></path><path d="M376,912L376,948" id="sync1d1-L_G_H_0" class="edge-thickness-normal edge-pattern-solid edge-thickness-normal edge-pattern-solid flowchart-link" style="stroke-dasharray: 0 0 32 4; stroke-dashoffset: 0;;" data-edge="true" data-et="edge" data-id="L_G_H_0" data-points="W3sieCI6Mzc2LCJ5Ijo5MTJ9LHsieCI6Mzc2LCJ5Ijo5NTJ9XQ==" data-look="neo" marker-end="url(#sync1d1_flowchart-v2-pointEnd-margin)"></path><path d="M350.3333333333333,1100.3332509994507L350.3333333333333,1126L350.3333333333333,1138.9289321881345Q350.3333333333333,1146 343.26226552146784,1146L287.0710678118655,1146Q280,1146 280,1153.0710678118655L280,1226" id="sync1d1-L_H_I_0" class="edge-thickness-normal edge-pattern-solid edge-thickness-normal edge-pattern-solid flowchart-link" style="stroke-dasharray: 0 0 186.67178344726562 4; stroke-dashoffset: 0;;" data-edge="true" data-et="edge" data-id="L_H_I_0" data-points="W3sieCI6MzUwLjMzMzMzMzMzMzMzMzMsInkiOjExMDAuMzMzMjUwOTk5NDUwN30seyJ4IjozNTAuMzMzMzMzMzMzMzMzMywieSI6MTEyNn0seyJ4IjozNTAuMzMzMzMzMzMzMzMzMywieSI6MTE0Nn0seyJ4IjoyODAsInkiOjExNDZ9LHsieCI6MjgwLCJ5IjoxMjMwfV0=" data-look="neo" marker-end="url(#sync1d1_flowchart-v2-pointEnd-margin)"></path><path d="M401.66666666666663,1100.3332509994507L401.66666666666663,1126L401.66666666666663,1138.9289321881345Q401.66666666666663,1146 408.7377344785321,1146L464.92893218813447,1146Q471.99999999999994,1146 471.99999999999994,1153.0710678118655L471.99999999999994,1226" id="sync1d1-L_H_J_0" class="edge-thickness-normal edge-pattern-solid edge-thickness-normal edge-pattern-solid flowchart-link" style="stroke-dasharray: 0 0 186.6717529296875 4; stroke-dashoffset: 0;;" data-edge="true" data-et="edge" data-id="L_H_J_0" data-points="W3sieCI6NDAxLjY2NjY2NjY2NjY2NjYzLCJ5IjoxMTAwLjMzMzI1MDk5OTQ1MDd9LHsieCI6NDAxLjY2NjY2NjY2NjY2NjYzLCJ5IjoxMTI2fSx7IngiOjQwMS42NjY2NjY2NjY2NjY2MywieSI6MTE0Nn0seyJ4Ijo0NzEuOTk5OTk5OTk5OTk5OTQsInkiOjExNDZ9LHsieCI6NDcxLjk5OTk5OTk5OTk5OTk0LCJ5IjoxMjMwfV0=" data-look="neo" marker-end="url(#sync1d1_flowchart-v2-pointEnd-margin)"></path><path d="M471.99999999999994,1302L471.99999999999994,1338" id="sync1d1-L_J_K_0" class="edge-thickness-normal edge-pattern-solid edge-thickness-normal edge-pattern-solid flowchart-link" style="stroke-dasharray: 0 0 32 4; stroke-dashoffset: 0;;" data-edge="true" data-et="edge" data-id="L_J_K_0" data-points="W3sieCI6NDcxLjk5OTk5OTk5OTk5OTk0LCJ5IjoxMzAyfSx7IngiOjQ3MS45OTk5OTk5OTk5OTk5NCwieSI6MTM0Mn1d" data-look="neo" marker-end="url(#sync1d1_flowchart-v2-pointEnd-margin)"></path></g><g class="edgeLabels"><g class="edgeLabel" transform="translate(88, 374)"><g class="label" data-id="L_B_C_0" transform="translate(-8, -12)"><foreignObject width="16" height="24"><div xmlns="http://www.w3.org/1999/xhtml" class="labelBkg" style="display: table-cell; white-space: nowrap; line-height: 1.5; max-width: 200px; text-align: center;"><span class="edgeLabel"><p>否</p></span></div></foreignObject></g></g><g class="edgeLabel" transform="translate(280, 374)"><g class="label" data-id="L_B_D_0" transform="translate(-8, -12)"><foreignObject width="16" height="24"><div xmlns="http://www.w3.org/1999/xhtml" class="labelBkg" style="display: table-cell; white-space: nowrap; line-height: 1.5; max-width: 200px; text-align: center;"><span class="edgeLabel"><p>是</p></span></div></foreignObject></g></g><g class="edgeLabel" transform="translate(184, 788)"><g class="label" data-id="L_E_F_0" transform="translate(-8, -12)"><foreignObject width="16" height="24"><div xmlns="http://www.w3.org/1999/xhtml" class="labelBkg" style="display: table-cell; white-space: nowrap; line-height: 1.5; max-width: 200px; text-align: center;"><span class="edgeLabel"><p>否</p></span></div></foreignObject></g></g><g class="edgeLabel" transform="translate(376, 788)"><g class="label" data-id="L_E_G_0" transform="translate(-8, -12)"><foreignObject width="16" height="24"><div xmlns="http://www.w3.org/1999/xhtml" class="labelBkg" style="display: table-cell; white-space: nowrap; line-height: 1.5; max-width: 200px; text-align: center;"><span class="edgeLabel"><p>是</p></span></div></foreignObject></g></g><g class="edgeLabel" transform="translate(280, 1178)"><g class="label" data-id="L_H_I_0" transform="translate(-8, -12)"><foreignObject width="16" height="24"><div xmlns="http://www.w3.org/1999/xhtml" class="labelBkg" style="display: table-cell; white-space: nowrap; line-height: 1.5; max-width: 200px; text-align: center;"><span class="edgeLabel"><p>是</p></span></div></foreignObject></g></g><g class="edgeLabel" transform="translate(471.99999999999994, 1178)"><g class="label" data-id="L_H_J_0" transform="translate(-8, -12)"><foreignObject width="16" height="24"><div xmlns="http://www.w3.org/1999/xhtml" class="labelBkg" style="display: table-cell; white-space: nowrap; line-height: 1.5; max-width: 200px; text-align: center;"><span class="edgeLabel"><p>否</p></span></div></foreignObject></g></g></g><g class="nodes"><g class="node default" id="sync1d1-flowchart-A-0" data-look="neo" transform="translate(184, 48)"><rect class="basic label-container" style="" x="-76" y="-36" width="152" height="72"></rect><g class="label" style="" transform="translate(-60, -24)"><rect></rect><foreignObject width="120" height="48"><div xmlns="http://www.w3.org/1999/xhtml" style="display: table; white-space: break-spaces; line-height: 1.5; max-width: 120px; text-align: center; width: 120px;"><span class="nodeLabel"><p>接收上传或模型结果</p></span></div></foreignObject></g></g><g class="node default" id="sync1d1-flowchart-B-1" data-look="neo" transform="translate(184, 223)"><polygon points="99,0 198,-99 99,-198 0,-99" class="label-container" transform="translate(-98.5, 99)"></polygon><g class="label" style="" transform="translate(-60, -24)"><rect></rect><foreignObject width="120" height="48"><div xmlns="http://www.w3.org/1999/xhtml" style="display: table; white-space: break-spaces; line-height: 1.5; max-width: 120px; text-align: center; width: 120px;"><span class="nodeLabel"><p>NAS 挂载和身份有效</p></span></div></foreignObject></g></g><g class="node default" id="sync1d1-flowchart-C-3" data-look="neo" transform="translate(88, 462)"><rect class="basic label-container" style="" x="-76" y="-36" width="152" height="72"></rect><g class="label" style="" transform="translate(-60, -24)"><rect></rect><foreignObject width="120" height="48"><div xmlns="http://www.w3.org/1999/xhtml" style="display: table; white-space: break-spaces; line-height: 1.5; max-width: 120px; text-align: center; width: 120px;"><span class="nodeLabel"><p>阻断新写 标记存储故障 告警</p></span></div></foreignObject></g></g><g class="node default" id="sync1d1-flowchart-D-5" data-look="neo" transform="translate(280, 474)"><rect class="basic label-container" style="" x="-76" y="-48" width="152" height="96"></rect><g class="label" style="" transform="translate(-60, -36)"><rect></rect><foreignObject width="120" height="72"><div xmlns="http://www.w3.org/1999/xhtml" style="display: table; white-space: break-spaces; line-height: 1.5; max-width: 120px; text-align: center; width: 120px;"><span class="nodeLabel"><p>写 NAS 暂存并校验类型 大小 哈希</p></span></div></foreignObject></g></g><g class="node default" id="sync1d1-flowchart-E-7" data-look="neo" transform="translate(280, 649)"><polygon points="87,0 174,-87 87,-174 0,-87" class="label-container" transform="translate(-86.5, 87)"></polygon><g class="label" style="" transform="translate(-60, -12)"><rect></rect><foreignObject width="120" height="24"><div xmlns="http://www.w3.org/1999/xhtml" style="display: table; white-space: nowrap; line-height: 1.5; max-width: 120px; text-align: center; width: 120px;"><span class="nodeLabel"><p>完整性通过</p></span></div></foreignObject></g></g><g class="node default" id="sync1d1-flowchart-F-9" data-look="neo" transform="translate(184, 876)"><rect class="basic label-container" style="" x="-76" y="-36" width="152" height="72"></rect><g class="label" style="" transform="translate(-60, -24)"><rect></rect><foreignObject width="120" height="48"><div xmlns="http://www.w3.org/1999/xhtml" style="display: table; white-space: break-spaces; line-height: 1.5; max-width: 120px; text-align: center; width: 120px;"><span class="nodeLabel"><p>隔离失败文件 保留恢复证据</p></span></div></foreignObject></g></g><g class="node default" id="sync1d1-flowchart-G-11" data-look="neo" transform="translate(376, 876)"><rect class="basic label-container" style="" x="-76" y="-36" width="152" height="72"></rect><g class="label" style="" transform="translate(-60, -24)"><rect></rect><foreignObject width="120" height="48"><div xmlns="http://www.w3.org/1999/xhtml" style="display: table; white-space: break-spaces; line-height: 1.5; max-width: 120px; text-align: center; width: 120px;"><span class="nodeLabel"><p>确认最终不可变存储键</p></span></div></foreignObject></g></g><g class="node default" id="sync1d1-flowchart-H-13" data-look="neo" transform="translate(376, 1039)"><polygon points="87,0 174,-87 87,-174 0,-87" class="label-container" transform="translate(-86.5, 87)"></polygon><g class="label" style="" transform="translate(-60, -12)"><rect></rect><foreignObject width="120" height="24"><div xmlns="http://www.w3.org/1999/xhtml" style="display: table; white-space: nowrap; line-height: 1.5; max-width: 120px; text-align: center; width: 120px;"><span class="nodeLabel"><p>数据库提交成功</p></span></div></foreignObject></g></g><g class="node default" id="sync1d1-flowchart-I-15" data-look="neo" transform="translate(280, 1266)"><rect class="basic label-container" style="" x="-76" y="-36" width="152" height="72"></rect><g class="label" style="" transform="translate(-60, -24)"><rect></rect><foreignObject width="120" height="48"><div xmlns="http://www.w3.org/1999/xhtml" style="display: table; white-space: break-spaces; line-height: 1.5; max-width: 120px; text-align: center; width: 120px;"><span class="nodeLabel"><p>标记 ready 允许授权交付</p></span></div></foreignObject></g></g><g class="node default" id="sync1d1-flowchart-J-17" data-look="neo" transform="translate(472, 1266)"><rect class="basic label-container" style="" x="-76" y="-36" width="152" height="72"></rect><g class="label" style="" transform="translate(-60, -24)"><rect></rect><foreignObject width="120" height="48"><div xmlns="http://www.w3.org/1999/xhtml" style="display: table; white-space: break-spaces; line-height: 1.5; max-width: 120px; text-align: center; width: 120px;"><span class="nodeLabel"><p>保留会话及最终键 待幂等核对</p></span></div></foreignObject></g></g><g class="node default" id="sync1d1-flowchart-K-19" data-look="neo" transform="translate(472, 1378)"><rect class="basic label-container" style="" x="-76" y="-36" width="152" height="72"></rect><g class="label" style="" transform="translate(-60, -24)"><rect></rect><foreignObject width="120" height="48"><div xmlns="http://www.w3.org/1999/xhtml" style="display: table; white-space: break-spaces; line-height: 1.5; max-width: 120px; text-align: center; width: 120px;"><span class="nodeLabel"><p>扫描孤立或缺失文件 不盲目删除</p></span></div></foreignObject></g></g></g></g></g><defs><filter id="sync1d1-drop-shadow" height="130%" width="130%"><feDropShadow dx="4" dy="4" stdDeviation="0" flood-opacity="0.06" flood-color="#000000"></feDropShadow></filter></defs><defs><filter id="sync1d1-drop-shadow-small" height="150%" width="150%"><feDropShadow dx="2" dy="2" stdDeviation="0" flood-opacity="0.06" flood-color="#000000"></feDropShadow></filter></defs><linearGradient id="sync1d1-gradient" gradientUnits="objectBoundingBox" x1="0%" y1="0%" x2="100%" y2="0%"><stop offset="0%" stop-color="hsl(0, 0%, 83.3333333333%)" stop-opacity="1"></stop><stop offset="100%" stop-color="hsl(0, 0%, 88.9215686275%)" stop-opacity="1"></stop></linearGradient></svg></figure>
+
+<p>NAS 与 PostgreSQL 不具有跨系统原子事务。最终文件写入后数据库失败需按既有会话/任务恢复；数据库记录存在但文件缺失则标记异常并核对，不宣称归档完成。存储中断时阻断新上传和依赖该存储的新消费，优先处理已接受任务的查询与结果归档恢复；不得为释放预算把未知费用改为零。</p>
+<h2 id="section-5">5 模型接口出站与参考素材交换</h2>
+<h3 id="51-出站边界">5.1 出站边界</h3>
+<p>第三方模型不在公司内网运行；Gemini 底层多模态、GPT-image2 底层图片、Seedance 视频的网关别名和能力映射沿 P0-2 验证。公司内网部署不等于断网部署，也不意味着供应商可以访问公司 NAS。</p>
+<p>供应商资料地址为 <code>http://llm-gw.videoplus.cc/</code>。正式消费前必须核实供应商支持的 HTTPS 地址或经确认的受控加密路径，不能通过直接替换字符串声称 HTTPS 可用，也不能关闭证书验证绕过失败。网络代理到出口的加密若未覆盖供应商侧明文链路，不视为整条路径已解决。</p>
+<table>
+<thead>
+<tr>
+<th>出站动作</th>
+<th>实施与验证要求</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>模型提交/查询</td>
+<td>仅指定 Worker/接入服务出站；认证头由服务端临时注入；真实连接测试可能收费，独立确认</td>
+</tr>
+<tr>
+<td>参考上传/注册</td>
+<td>先核验源项目/对象权限和文件 ready；按已验证上传协议传输，不发送NAS共享路径</td>
+</tr>
+<tr>
+<td>视频轮询</td>
+<td>固定内层任务 ID 和创建时 Key 版本；正常轮换排空，未经证据不换Key查询旧任务</td>
+</tr>
+<tr>
+<td>结果下载</td>
+<td>允许经过验证的结果域名/CDN；逐跳检查重定向与地址策略，控制文件大小和超时</td>
+</tr>
+<tr>
+<td>日志与代理</td>
+<td>不记录 Authorization、完整签名URL、Base64或敏感提示词正文；保留必要请求/调用标识</td>
+</tr>
+<tr>
+<td>DNS/证书/代理变更</td>
+<td>记录白名单、实际解析、证书链、代理路径和变更版本；变更后复测提交/查询/下载链路</td>
+</tr>
+</tbody></table>
+<p>出站白名单包含实际 API 与上传/下载链路，不能只验证首页域名可访问。禁止将“支持用户填写任意 URL”变成可探测内网或云元数据地址的代理；合法 NAS 访问与供应商 URL 下载是不同适配器路径。网络规则和应用 URL 校验都需执行，不能互相替代。</p>
+<h3 id="52-参考素材与结果流向">5.2 参考素材与结果流向</h3>
+<figure class="diagram" aria-label="图 3"><svg id="sync1d2" width="100%" xmlns="http://www.w3.org/2000/svg" style="max-width: 856px;" viewBox="-50 -10 856 951" role="graphics-document document" aria-roledescription="sequence"><g><rect x="606" y="823" fill="#eaeaea" stroke="#666" width="150" height="77" name="P" rx="6" ry="6" class="actor actor-bottom" data-look="neo" filter="url(#sync1d2-drop-shadow)"></rect><text x="681" y="861.5" dominant-baseline="central" alignment-baseline="central" class="actor actor-box" style="text-anchor: middle; font-size: 16px; font-weight: 400; font-family: &quot;Microsoft YaHei&quot;, sans-serif;"><tspan x="681" dy="0">第三方供应商</tspan></text></g><g><rect x="406" y="823" fill="#eaeaea" stroke="#666" width="150" height="77" name="N" rx="6" ry="6" class="actor actor-bottom" data-look="neo" filter="url(#sync1d2-drop-shadow)"></rect><text x="481" y="861.5" dominant-baseline="central" alignment-baseline="central" class="actor actor-box" style="text-anchor: middle; font-size: 16px; font-weight: 400; font-family: &quot;Microsoft YaHei&quot;, sans-serif;"><tspan x="481" dy="0">公司NAS</tspan></text></g><g><rect x="206" y="823" fill="#eaeaea" stroke="#666" width="150" height="77" name="A" rx="6" ry="6" class="actor actor-bottom" data-look="neo" filter="url(#sync1d2-drop-shadow)"></rect><text x="281" y="861.5" dominant-baseline="central" alignment-baseline="central" class="actor actor-box" style="text-anchor: middle; font-size: 16px; font-weight: 400; font-family: &quot;Microsoft YaHei&quot;, sans-serif;"><tspan x="281" dy="0">API与Worker</tspan></text></g><g><rect x="0" y="823" fill="#eaeaea" stroke="#666" width="150" height="77" name="U" rx="6" ry="6" class="actor actor-bottom" data-look="neo" filter="url(#sync1d2-drop-shadow)"></rect><text x="75" y="861.5" dominant-baseline="central" alignment-baseline="central" class="actor actor-box" style="text-anchor: middle; font-size: 16px; font-weight: 400; font-family: &quot;Microsoft YaHei&quot;, sans-serif;"><tspan x="75" dy="0">制作平台</tspan></text></g><g><line id="actor8" x1="681" y1="77" x2="681" y2="823" class="actor-line 200" stroke-width="0.5px" stroke="#999" name="P" data-et="life-line" data-id="P"></line><g id="root-8" data-look="neo" data-et="participant" data-type="participant" data-id="P"><rect x="606" y="0" fill="#eaeaea" stroke="#666" width="150" height="77" name="P" rx="6" ry="6" class="actor actor-top" data-look="neo" filter="url(#sync1d2-drop-shadow)"></rect><text x="681" y="38.5" dominant-baseline="central" alignment-baseline="central" class="actor actor-box" style="text-anchor: middle; font-size: 16px; font-weight: 400; font-family: &quot;Microsoft YaHei&quot;, sans-serif;"><tspan x="681" dy="0">第三方供应商</tspan></text></g></g><g><line id="actor7" x1="481" y1="77" x2="481" y2="823" class="actor-line 200" stroke-width="0.5px" stroke="#999" name="N" data-et="life-line" data-id="N"></line><g id="root-7" data-look="neo" data-et="participant" data-type="participant" data-id="N"><rect x="406" y="0" fill="#eaeaea" stroke="#666" width="150" height="77" name="N" rx="6" ry="6" class="actor actor-top" data-look="neo" filter="url(#sync1d2-drop-shadow)"></rect><text x="481" y="38.5" dominant-baseline="central" alignment-baseline="central" class="actor actor-box" style="text-anchor: middle; font-size: 16px; font-weight: 400; font-family: &quot;Microsoft YaHei&quot;, sans-serif;"><tspan x="481" dy="0">公司NAS</tspan></text></g></g><g><line id="actor6" x1="281" y1="77" x2="281" y2="823" class="actor-line 200" stroke-width="0.5px" stroke="#999" name="A" data-et="life-line" data-id="A"></line><g id="root-6" data-look="neo" data-et="participant" data-type="participant" data-id="A"><rect x="206" y="0" fill="#eaeaea" stroke="#666" width="150" height="77" name="A" rx="6" ry="6" class="actor actor-top" data-look="neo" filter="url(#sync1d2-drop-shadow)"></rect><text x="281" y="38.5" dominant-baseline="central" alignment-baseline="central" class="actor actor-box" style="text-anchor: middle; font-size: 16px; font-weight: 400; font-family: &quot;Microsoft YaHei&quot;, sans-serif;"><tspan x="281" dy="0">API与Worker</tspan></text></g></g><g><line id="actor5" x1="75" y1="77" x2="75" y2="823" class="actor-line 200" stroke-width="0.5px" stroke="#999" name="U" data-et="life-line" data-id="U"></line><g id="root-5" data-look="neo" data-et="participant" data-type="participant" data-id="U"><rect x="0" y="0" fill="#eaeaea" stroke="#666" width="150" height="77" name="U" rx="6" ry="6" class="actor actor-top" data-look="neo" filter="url(#sync1d2-drop-shadow)"></rect><text x="75" y="38.5" dominant-baseline="central" alignment-baseline="central" class="actor actor-box" style="text-anchor: middle; font-size: 16px; font-weight: 400; font-family: &quot;Microsoft YaHei&quot;, sans-serif;"><tspan x="75" dy="0">制作平台</tspan></text></g></g><style>#sync1d2{font-family:Microsoft YaHei,sans-serif;font-size:16px;fill:#000000;}@keyframes edge-animation-frame{from{stroke-dashoffset:0;}}@keyframes dash{to{stroke-dashoffset:0;}}#sync1d2 .edge-animation-slow{stroke-dasharray:9,5!important;stroke-dashoffset:900;animation:dash 50s linear infinite;stroke-linecap:round;}#sync1d2 .edge-animation-fast{stroke-dasharray:9,5!important;stroke-dashoffset:900;animation:dash 20s linear infinite;stroke-linecap:round;}#sync1d2 .error-icon{fill:#552222;}#sync1d2 .error-text{fill:#552222;stroke:#552222;}#sync1d2 .edge-thickness-normal{stroke-width:1px;}#sync1d2 .edge-thickness-thick{stroke-width:3.5px;}#sync1d2 .edge-pattern-solid{stroke-dasharray:0;}#sync1d2 .edge-thickness-invisible{stroke-width:0;fill:none;}#sync1d2 .edge-pattern-dashed{stroke-dasharray:3;}#sync1d2 .edge-pattern-dotted{stroke-dasharray:2;}#sync1d2 .marker{fill:#666;stroke:#666;}#sync1d2 .marker.cross{stroke:#666;}#sync1d2 svg{font-family:Microsoft YaHei,sans-serif;font-size:16px;}#sync1d2 p{margin:0;}#sync1d2 .actor{stroke:hsl(0, 0%, 83%);fill:#eee;stroke-width:1;}#sync1d2 rect.actor.outer-path[data-look="neo"]{filter:drop-shadow( 1px 2px 2px rgba(185,185,185,1));}#sync1d2 rect.note[data-look="neo"]{stroke:#999;fill:#666;filter:drop-shadow( 1px 2px 2px rgba(185,185,185,1));}#sync1d2 text.actor&gt;tspan{fill:#333;stroke:none;}#sync1d2 .actor-line{stroke:hsl(0, 0%, 83%);}#sync1d2 .innerArc{stroke-width:1.5;stroke-dasharray:none;}#sync1d2 .messageLine0{stroke-width:1.5;stroke-dasharray:none;stroke:#333;}#sync1d2 .messageLine1{stroke-width:1.5;stroke-dasharray:2,2;stroke:#333;}#sync1d2 [id$="-arrowhead"] path{fill:#333;stroke:#333;}#sync1d2 .sequenceNumber{fill:white;}#sync1d2 [id$="-sequencenumber"]{fill:#333;}#sync1d2 [id$="-crosshead"] path{fill:#333;stroke:#333;}#sync1d2 .messageText{fill:#333;stroke:none;}#sync1d2 .labelBox{stroke:hsl(0, 0%, 83%);fill:#eee;filter:drop-shadow( 1px 2px 2px rgba(185,185,185,1));}#sync1d2 .labelText,#sync1d2 .labelText&gt;tspan{fill:#333;stroke:none;}#sync1d2 .loopText,#sync1d2 .loopText&gt;tspan{fill:#333;stroke:none;}#sync1d2 .sectionTitle,#sync1d2 .sectionTitle&gt;tspan{fill:#333;stroke:none;}#sync1d2 .loopLine{stroke-width:2px;stroke-dasharray:2,2;stroke:hsl(0, 0%, 83%);fill:hsl(0, 0%, 83%);}#sync1d2 .note{stroke:#999;fill:#666;}#sync1d2 .noteText,#sync1d2 .noteText&gt;tspan{fill:#fff;stroke:none;}#sync1d2 .activation0{fill:#f4f4f4;stroke:#666;}#sync1d2 .activation1{fill:#f4f4f4;stroke:#666;}#sync1d2 .activation2{fill:#f4f4f4;stroke:#666;}#sync1d2 .actorPopupMenu{position:absolute;}#sync1d2 .actorPopupMenuPanel{position:absolute;fill:#eee;box-shadow:0px 8px 16px 0px rgba(0,0,0,0.2);filter:drop-shadow(3px 5px 2px rgb(0 0 0 / 0.4));}#sync1d2 .actor-man circle,#sync1d2 line{fill:#eee;stroke-width:2px;}#sync1d2 g rect.rect{filter:drop-shadow( 1px 2px 2px rgba(185,185,185,1));stroke:#999;}#sync1d2 .node .neo-node{stroke:#999;}#sync1d2 [data-look="neo"].node rect,#sync1d2 [data-look="neo"].cluster rect,#sync1d2 [data-look="neo"].node polygon{stroke:url(#sync1d2-gradient);filter:drop-shadow( 1px 2px 2px rgba(185,185,185,1));}#sync1d2 [data-look="neo"].swimlane.cluster rect{filter:none;}#sync1d2 [data-look="neo"].node path{stroke:url(#sync1d2-gradient);stroke-width:1px;}#sync1d2 [data-look="neo"].node .outer-path{filter:drop-shadow( 1px 2px 2px rgba(185,185,185,1));}#sync1d2 [data-look="neo"].node .neo-line path{stroke:#999;filter:none;}#sync1d2 [data-look="neo"].node circle{stroke:url(#sync1d2-gradient);filter:drop-shadow( 1px 2px 2px rgba(185,185,185,1));}#sync1d2 [data-look="neo"].node circle .state-start{fill:#000000;}#sync1d2 [data-look="neo"].icon-shape .icon{fill:url(#sync1d2-gradient);filter:drop-shadow( 1px 2px 2px rgba(185,185,185,1));}#sync1d2 [data-look="neo"].icon-shape .icon-neo path{stroke:url(#sync1d2-gradient);filter:drop-shadow( 1px 2px 2px rgba(185,185,185,1));}#sync1d2 :root{--mermaid-font-family:Microsoft YaHei,sans-serif;}</style><g></g><defs><symbol id="sync1d2-computer" width="24" height="24"><path transform="scale(.5)" d="M2 2v13h20v-13h-20zm18 11h-16v-9h16v9zm-10.228 6l.466-1h3.524l.467 1h-4.457zm14.228 3h-24l2-6h2.104l-1.33 4h18.45l-1.297-4h2.073l2 6zm-5-10h-14v-7h14v7z"></path></symbol></defs><defs><symbol id="sync1d2-database" fill-rule="evenodd" clip-rule="evenodd"><path transform="scale(.5)" d="M12.258.001l.256.004.255.005.253.008.251.01.249.012.247.015.246.016.242.019.241.02.239.023.236.024.233.027.231.028.229.031.225.032.223.034.22.036.217.038.214.04.211.041.208.043.205.045.201.046.198.048.194.05.191.051.187.053.183.054.18.056.175.057.172.059.168.06.163.061.16.063.155.064.15.066.074.033.073.033.071.034.07.034.069.035.068.035.067.035.066.035.064.036.064.036.062.036.06.036.06.037.058.037.058.037.055.038.055.038.053.038.052.038.051.039.05.039.048.039.047.039.045.04.044.04.043.04.041.04.04.041.039.041.037.041.036.041.034.041.033.042.032.042.03.042.029.042.027.042.026.043.024.043.023.043.021.043.02.043.018.044.017.043.015.044.013.044.012.044.011.045.009.044.007.045.006.045.004.045.002.045.001.045v17l-.001.045-.002.045-.004.045-.006.045-.007.045-.009.044-.011.045-.012.044-.013.044-.015.044-.017.043-.018.044-.02.043-.021.043-.023.043-.024.043-.026.043-.027.042-.029.042-.03.042-.032.042-.033.042-.034.041-.036.041-.037.041-.039.041-.04.041-.041.04-.043.04-.044.04-.045.04-.047.039-.048.039-.05.039-.051.039-.052.038-.053.038-.055.038-.055.038-.058.037-.058.037-.06.037-.06.036-.062.036-.064.036-.064.036-.066.035-.067.035-.068.035-.069.035-.07.034-.071.034-.073.033-.074.033-.15.066-.155.064-.16.063-.163.061-.168.06-.172.059-.175.057-.18.056-.183.054-.187.053-.191.051-.194.05-.198.048-.201.046-.205.045-.208.043-.211.041-.214.04-.217.038-.22.036-.223.034-.225.032-.229.031-.231.028-.233.027-.236.024-.239.023-.241.02-.242.019-.246.016-.247.015-.249.012-.251.01-.253.008-.255.005-.256.004-.258.001-.258-.001-.256-.004-.255-.005-.253-.008-.251-.01-.249-.012-.247-.015-.245-.016-.243-.019-.241-.02-.238-.023-.236-.024-.234-.027-.231-.028-.228-.031-.226-.032-.223-.034-.22-.036-.217-.038-.214-.04-.211-.041-.208-.043-.204-.045-.201-.046-.198-.048-.195-.05-.19-.051-.187-.053-.184-.054-.179-.056-.176-.057-.172-.059-.167-.06-.164-.061-.159-.063-.155-.064-.151-.066-.074-.033-.072-.033-.072-.034-.07-.034-.069-.035-.068-.035-.067-.035-.066-.035-.064-.036-.063-.036-.062-.036-.061-.036-.06-.037-.058-.037-.057-.037-.056-.038-.055-.038-.053-.038-.052-.038-.051-.039-.049-.039-.049-.039-.046-.039-.046-.04-.044-.04-.043-.04-.041-.04-.04-.041-.039-.041-.037-.041-.036-.041-.034-.041-.033-.042-.032-.042-.03-.042-.029-.042-.027-.042-.026-.043-.024-.043-.023-.043-.021-.043-.02-.043-.018-.044-.017-.043-.015-.044-.013-.044-.012-.044-.011-.045-.009-.044-.007-.045-.006-.045-.004-.045-.002-.045-.001-.045v-17l.001-.045.002-.045.004-.045.006-.045.007-.045.009-.044.011-.045.012-.044.013-.044.015-.044.017-.043.018-.044.02-.043.021-.043.023-.043.024-.043.026-.043.027-.042.029-.042.03-.042.032-.042.033-.042.034-.041.036-.041.037-.041.039-.041.04-.041.041-.04.043-.04.044-.04.046-.04.046-.039.049-.039.049-.039.051-.039.052-.038.053-.038.055-.038.056-.038.057-.037.058-.037.06-.037.061-.036.062-.036.063-.036.064-.036.066-.035.067-.035.068-.035.069-.035.07-.034.072-.034.072-.033.074-.033.151-.066.155-.064.159-.063.164-.061.167-.06.172-.059.176-.057.179-.056.184-.054.187-.053.19-.051.195-.05.198-.048.201-.046.204-.045.208-.043.211-.041.214-.04.217-.038.22-.036.223-.034.226-.032.228-.031.231-.028.234-.027.236-.024.238-.023.241-.02.243-.019.245-.016.247-.015.249-.012.251-.01.253-.008.255-.005.256-.004.258-.001.258.001zm-9.258 20.499v.01l.001.021.003.021.004.022.005.021.006.022.007.022.009.023.01.022.011.023.012.023.013.023.015.023.016.024.017.023.018.024.019.024.021.024.022.025.023.024.024.025.052.049.056.05.061.051.066.051.07.051.075.051.079.052.084.052.088.052.092.052.097.052.102.051.105.052.11.052.114.051.119.051.123.051.127.05.131.05.135.05.139.048.144.049.147.047.152.047.155.047.16.045.163.045.167.043.171.043.176.041.178.041.183.039.187.039.19.037.194.035.197.035.202.033.204.031.209.03.212.029.216.027.219.025.222.024.226.021.23.02.233.018.236.016.24.015.243.012.246.01.249.008.253.005.256.004.259.001.26-.001.257-.004.254-.005.25-.008.247-.011.244-.012.241-.014.237-.016.233-.018.231-.021.226-.021.224-.024.22-.026.216-.027.212-.028.21-.031.205-.031.202-.034.198-.034.194-.036.191-.037.187-.039.183-.04.179-.04.175-.042.172-.043.168-.044.163-.045.16-.046.155-.046.152-.047.148-.048.143-.049.139-.049.136-.05.131-.05.126-.05.123-.051.118-.052.114-.051.11-.052.106-.052.101-.052.096-.052.092-.052.088-.053.083-.051.079-.052.074-.052.07-.051.065-.051.06-.051.056-.05.051-.05.023-.024.023-.025.021-.024.02-.024.019-.024.018-.024.017-.024.015-.023.014-.024.013-.023.012-.023.01-.023.01-.022.008-.022.006-.022.006-.022.004-.022.004-.021.001-.021.001-.021v-4.127l-.077.055-.08.053-.083.054-.085.053-.087.052-.09.052-.093.051-.095.05-.097.05-.1.049-.102.049-.105.048-.106.047-.109.047-.111.046-.114.045-.115.045-.118.044-.12.043-.122.042-.124.042-.126.041-.128.04-.13.04-.132.038-.134.038-.135.037-.138.037-.139.035-.142.035-.143.034-.144.033-.147.032-.148.031-.15.03-.151.03-.153.029-.154.027-.156.027-.158.026-.159.025-.161.024-.162.023-.163.022-.165.021-.166.02-.167.019-.169.018-.169.017-.171.016-.173.015-.173.014-.175.013-.175.012-.177.011-.178.01-.179.008-.179.008-.181.006-.182.005-.182.004-.184.003-.184.002h-.37l-.184-.002-.184-.003-.182-.004-.182-.005-.181-.006-.179-.008-.179-.008-.178-.01-.176-.011-.176-.012-.175-.013-.173-.014-.172-.015-.171-.016-.17-.017-.169-.018-.167-.019-.166-.02-.165-.021-.163-.022-.162-.023-.161-.024-.159-.025-.157-.026-.156-.027-.155-.027-.153-.029-.151-.03-.15-.03-.148-.031-.146-.032-.145-.033-.143-.034-.141-.035-.14-.035-.137-.037-.136-.037-.134-.038-.132-.038-.13-.04-.128-.04-.126-.041-.124-.042-.122-.042-.12-.044-.117-.043-.116-.045-.113-.045-.112-.046-.109-.047-.106-.047-.105-.048-.102-.049-.1-.049-.097-.05-.095-.05-.093-.052-.09-.051-.087-.052-.085-.053-.083-.054-.08-.054-.077-.054v4.127zm0-5.654v.011l.001.021.003.021.004.021.005.022.006.022.007.022.009.022.01.022.011.023.012.023.013.023.015.024.016.023.017.024.018.024.019.024.021.024.022.024.023.025.024.024.052.05.056.05.061.05.066.051.07.051.075.052.079.051.084.052.088.052.092.052.097.052.102.052.105.052.11.051.114.051.119.052.123.05.127.051.131.05.135.049.139.049.144.048.147.048.152.047.155.046.16.045.163.045.167.044.171.042.176.042.178.04.183.04.187.038.19.037.194.036.197.034.202.033.204.032.209.03.212.028.216.027.219.025.222.024.226.022.23.02.233.018.236.016.24.014.243.012.246.01.249.008.253.006.256.003.259.001.26-.001.257-.003.254-.006.25-.008.247-.01.244-.012.241-.015.237-.016.233-.018.231-.02.226-.022.224-.024.22-.025.216-.027.212-.029.21-.03.205-.032.202-.033.198-.035.194-.036.191-.037.187-.039.183-.039.179-.041.175-.042.172-.043.168-.044.163-.045.16-.045.155-.047.152-.047.148-.048.143-.048.139-.05.136-.049.131-.05.126-.051.123-.051.118-.051.114-.052.11-.052.106-.052.101-.052.096-.052.092-.052.088-.052.083-.052.079-.052.074-.051.07-.052.065-.051.06-.05.056-.051.051-.049.023-.025.023-.024.021-.025.02-.024.019-.024.018-.024.017-.024.015-.023.014-.023.013-.024.012-.022.01-.023.01-.023.008-.022.006-.022.006-.022.004-.021.004-.022.001-.021.001-.021v-4.139l-.077.054-.08.054-.083.054-.085.052-.087.053-.09.051-.093.051-.095.051-.097.05-.1.049-.102.049-.105.048-.106.047-.109.047-.111.046-.114.045-.115.044-.118.044-.12.044-.122.042-.124.042-.126.041-.128.04-.13.039-.132.039-.134.038-.135.037-.138.036-.139.036-.142.035-.143.033-.144.033-.147.033-.148.031-.15.03-.151.03-.153.028-.154.028-.156.027-.158.026-.159.025-.161.024-.162.023-.163.022-.165.021-.166.02-.167.019-.169.018-.169.017-.171.016-.173.015-.173.014-.175.013-.175.012-.177.011-.178.009-.179.009-.179.007-.181.007-.182.005-.182.004-.184.003-.184.002h-.37l-.184-.002-.184-.003-.182-.004-.182-.005-.181-.007-.179-.007-.179-.009-.178-.009-.176-.011-.176-.012-.175-.013-.173-.014-.172-.015-.171-.016-.17-.017-.169-.018-.167-.019-.166-.02-.165-.021-.163-.022-.162-.023-.161-.024-.159-.025-.157-.026-.156-.027-.155-.028-.153-.028-.151-.03-.15-.03-.148-.031-.146-.033-.145-.033-.143-.033-.141-.035-.14-.036-.137-.036-.136-.037-.134-.038-.132-.039-.13-.039-.128-.04-.126-.041-.124-.042-.122-.043-.12-.043-.117-.044-.116-.044-.113-.046-.112-.046-.109-.046-.106-.047-.105-.048-.102-.049-.1-.049-.097-.05-.095-.051-.093-.051-.09-.051-.087-.053-.085-.052-.083-.054-.08-.054-.077-.054v4.139zm0-5.666v.011l.001.02.003.022.004.021.005.022.006.021.007.022.009.023.01.022.011.023.012.023.013.023.015.023.016.024.017.024.018.023.019.024.021.025.022.024.023.024.024.025.052.05.056.05.061.05.066.051.07.051.075.052.079.051.084.052.088.052.092.052.097.052.102.052.105.051.11.052.114.051.119.051.123.051.127.05.131.05.135.05.139.049.144.048.147.048.152.047.155.046.16.045.163.045.167.043.171.043.176.042.178.04.183.04.187.038.19.037.194.036.197.034.202.033.204.032.209.03.212.028.216.027.219.025.222.024.226.021.23.02.233.018.236.017.24.014.243.012.246.01.249.008.253.006.256.003.259.001.26-.001.257-.003.254-.006.25-.008.247-.01.244-.013.241-.014.237-.016.233-.018.231-.02.226-.022.224-.024.22-.025.216-.027.212-.029.21-.03.205-.032.202-.033.198-.035.194-.036.191-.037.187-.039.183-.039.179-.041.175-.042.172-.043.168-.044.163-.045.16-.045.155-.047.152-.047.148-.048.143-.049.139-.049.136-.049.131-.051.126-.05.123-.051.118-.052.114-.051.11-.052.106-.052.101-.052.096-.052.092-.052.088-.052.083-.052.079-.052.074-.052.07-.051.065-.051.06-.051.056-.05.051-.049.023-.025.023-.025.021-.024.02-.024.019-.024.018-.024.017-.024.015-.023.014-.024.013-.023.012-.023.01-.022.01-.023.008-.022.006-.022.006-.022.004-.022.004-.021.001-.021.001-.021v-4.153l-.077.054-.08.054-.083.053-.085.053-.087.053-.09.051-.093.051-.095.051-.097.05-.1.049-.102.048-.105.048-.106.048-.109.046-.111.046-.114.046-.115.044-.118.044-.12.043-.122.043-.124.042-.126.041-.128.04-.13.039-.132.039-.134.038-.135.037-.138.036-.139.036-.142.034-.143.034-.144.033-.147.032-.148.032-.15.03-.151.03-.153.028-.154.028-.156.027-.158.026-.159.024-.161.024-.162.023-.163.023-.165.021-.166.02-.167.019-.169.018-.169.017-.171.016-.173.015-.173.014-.175.013-.175.012-.177.01-.178.01-.179.009-.179.007-.181.006-.182.006-.182.004-.184.003-.184.001-.185.001-.185-.001-.184-.001-.184-.003-.182-.004-.182-.006-.181-.006-.179-.007-.179-.009-.178-.01-.176-.01-.176-.012-.175-.013-.173-.014-.172-.015-.171-.016-.17-.017-.169-.018-.167-.019-.166-.02-.165-.021-.163-.023-.162-.023-.161-.024-.159-.024-.157-.026-.156-.027-.155-.028-.153-.028-.151-.03-.15-.03-.148-.032-.146-.032-.145-.033-.143-.034-.141-.034-.14-.036-.137-.036-.136-.037-.134-.038-.132-.039-.13-.039-.128-.041-.126-.041-.124-.041-.122-.043-.12-.043-.117-.044-.116-.044-.113-.046-.112-.046-.109-.046-.106-.048-.105-.048-.102-.048-.1-.05-.097-.049-.095-.051-.093-.051-.09-.052-.087-.052-.085-.053-.083-.053-.08-.054-.077-.054v4.153zm8.74-8.179l-.257.004-.254.005-.25.008-.247.011-.244.012-.241.014-.237.016-.233.018-.231.021-.226.022-.224.023-.22.026-.216.027-.212.028-.21.031-.205.032-.202.033-.198.034-.194.036-.191.038-.187.038-.183.04-.179.041-.175.042-.172.043-.168.043-.163.045-.16.046-.155.046-.152.048-.148.048-.143.048-.139.049-.136.05-.131.05-.126.051-.123.051-.118.051-.114.052-.11.052-.106.052-.101.052-.096.052-.092.052-.088.052-.083.052-.079.052-.074.051-.07.052-.065.051-.06.05-.056.05-.051.05-.023.025-.023.024-.021.024-.02.025-.019.024-.018.024-.017.023-.015.024-.014.023-.013.023-.012.023-.01.023-.01.022-.008.022-.006.023-.006.021-.004.022-.004.021-.001.021-.001.021.001.021.001.021.004.021.004.022.006.021.006.023.008.022.01.022.01.023.012.023.013.023.014.023.015.024.017.023.018.024.019.024.02.025.021.024.023.024.023.025.051.05.056.05.06.05.065.051.07.052.074.051.079.052.083.052.088.052.092.052.096.052.101.052.106.052.11.052.114.052.118.051.123.051.126.051.131.05.136.05.139.049.143.048.148.048.152.048.155.046.16.046.163.045.168.043.172.043.175.042.179.041.183.04.187.038.191.038.194.036.198.034.202.033.205.032.21.031.212.028.216.027.22.026.224.023.226.022.231.021.233.018.237.016.241.014.244.012.247.011.25.008.254.005.257.004.26.001.26-.001.257-.004.254-.005.25-.008.247-.011.244-.012.241-.014.237-.016.233-.018.231-.021.226-.022.224-.023.22-.026.216-.027.212-.028.21-.031.205-.032.202-.033.198-.034.194-.036.191-.038.187-.038.183-.04.179-.041.175-.042.172-.043.168-.043.163-.045.16-.046.155-.046.152-.048.148-.048.143-.048.139-.049.136-.05.131-.05.126-.051.123-.051.118-.051.114-.052.11-.052.106-.052.101-.052.096-.052.092-.052.088-.052.083-.052.079-.052.074-.051.07-.052.065-.051.06-.05.056-.05.051-.05.023-.025.023-.024.021-.024.02-.025.019-.024.018-.024.017-.023.015-.024.014-.023.013-.023.012-.023.01-.023.01-.022.008-.022.006-.023.006-.021.004-.022.004-.021.001-.021.001-.021-.001-.021-.001-.021-.004-.021-.004-.022-.006-.021-.006-.023-.008-.022-.01-.022-.01-.023-.012-.023-.013-.023-.014-.023-.015-.024-.017-.023-.018-.024-.019-.024-.02-.025-.021-.024-.023-.024-.023-.025-.051-.05-.056-.05-.06-.05-.065-.051-.07-.052-.074-.051-.079-.052-.083-.052-.088-.052-.092-.052-.096-.052-.101-.052-.106-.052-.11-.052-.114-.052-.118-.051-.123-.051-.126-.051-.131-.05-.136-.05-.139-.049-.143-.048-.148-.048-.152-.048-.155-.046-.16-.046-.163-.045-.168-.043-.172-.043-.175-.042-.179-.041-.183-.04-.187-.038-.191-.038-.194-.036-.198-.034-.202-.033-.205-.032-.21-.031-.212-.028-.216-.027-.22-.026-.224-.023-.226-.022-.231-.021-.233-.018-.237-.016-.241-.014-.244-.012-.247-.011-.25-.008-.254-.005-.257-.004-.26-.001-.26.001z"></path></symbol></defs><defs><symbol id="sync1d2-clock" width="24" height="24"><path transform="scale(.5)" d="M12 2c5.514 0 10 4.486 10 10s-4.486 10-10 10-10-4.486-10-10 4.486-10 10-10zm0-2c-6.627 0-12 5.373-12 12s5.373 12 12 12 12-5.373 12-12-5.373-12-12-12zm5.848 12.459c.202.038.202.333.001.372-1.907.361-6.045 1.111-6.547 1.111-.719 0-1.301-.582-1.301-1.301 0-.512.77-5.447 1.125-7.445.034-.192.312-.181.343.014l.985 6.238 5.394 1.011z"></path></symbol></defs><defs><marker id="sync1d2-arrowhead" refX="7.9" refY="5" markerUnits="userSpaceOnUse" markerWidth="12" markerHeight="12" orient="auto-start-reverse"><path d="M -1 0 L 10 5 L 0 10 z"></path></marker></defs><defs><marker id="sync1d2-crosshead" markerWidth="15" markerHeight="8" orient="auto" refX="4" refY="4.5"><path fill="none" stroke="#000000" stroke-width="1pt" d="M 1,2 L 6,7 M 6,2 L 1,7" style="stroke-dasharray: 0, 0;"></path></marker></defs><defs><marker id="sync1d2-filled-head" refX="15.5" refY="7" markerWidth="20" markerHeight="28" orient="auto"><path d="M 18,7 L9,13 L14,7 L9,1 Z"></path></marker></defs><defs><marker id="sync1d2-sequencenumber" refX="15" refY="15" markerWidth="60" markerHeight="40" orient="auto"><circle cx="15" cy="15" r="6"></circle></marker></defs><defs><marker id="sync1d2-solidTopArrowHead" refX="7.9" refY="7.25" markerUnits="userSpaceOnUse" markerWidth="12" markerHeight="12" orient="auto-start-reverse"><path d="M 0 0 L 10 8 L 0 8 z"></path></marker></defs><defs><marker id="sync1d2-solidBottomArrowHead" refX="7.9" refY="0.75" markerUnits="userSpaceOnUse" markerWidth="12" markerHeight="12" orient="auto-start-reverse"><path d="M 0 0 L 10 0 L 0 8 z"></path></marker></defs><defs><marker id="sync1d2-stickTopArrowHead" refX="7.5" refY="7" markerUnits="userSpaceOnUse" markerWidth="12" markerHeight="12" orient="auto-start-reverse"><path d="M 0 0 L 7 7" stroke="black" stroke-width="1.5" fill="none"></path></marker></defs><defs><marker id="sync1d2-stickBottomArrowHead" refX="7.5" refY="0" markerUnits="userSpaceOnUse" markerWidth="12" markerHeight="12" orient="auto-start-reverse"><path d="M 0 7 L 7 0" stroke="black" stroke-width="1.5" fill="none"></path></marker></defs><defs><filter id="sync1d2-drop-shadow" height="130%" width="130%"><feDropShadow dx="4" dy="4" stdDeviation="0" flood-opacity="0.06" flood-color="#FFFFFF"></feDropShadow></filter></defs><text x="175" y="92" text-anchor="middle" dominant-baseline="middle" alignment-baseline="middle" class="messageText" dy="1em" style="font-family: &quot;Microsoft YaHei&quot;, sans-serif; font-size: 16px; font-weight: 400;">选择项目和素材版本并提交</text><line x1="76" y1="129" x2="274" y2="129" class="messageLine0" data-et="message" data-id="i0" data-from="U" data-to="A" stroke-width="2" stroke="none" marker-end="url(#sync1d2-arrowhead)" style="fill: none;"></line><text x="282" y="144" text-anchor="middle" dominant-baseline="middle" alignment-baseline="middle" class="messageText" dy="1em" style="font-family: &quot;Microsoft YaHei&quot;, sans-serif; font-size: 16px; font-weight: 400;">权限 能力 价格</text><text x="282" y="165" text-anchor="middle" dominant-baseline="middle" alignment-baseline="middle" class="messageText" dy="1em" style="font-family: &quot;Microsoft YaHei&quot;, sans-serif; font-size: 16px; font-weight: 400;">预算与快照校验</text><path d="M 282,202 C 342,192 342,232 282,222" class="messageLine0" data-et="message" data-id="i1" data-from="A" data-to="A" stroke-width="2" stroke="none" marker-end="url(#sync1d2-arrowhead)" style="fill: none;"></path><text x="378" y="247" text-anchor="middle" dominant-baseline="middle" alignment-baseline="middle" class="messageText" dy="1em" style="font-family: &quot;Microsoft YaHei&quot;, sans-serif; font-size: 16px; font-weight: 400;">读取固定版本素材</text><line x1="282" y1="284" x2="474" y2="284" class="messageLine0" data-et="message" data-id="i2" data-from="A" data-to="N" stroke-width="2" stroke="none" marker-end="url(#sync1d2-arrowhead)" style="fill: none;"></line><text x="478" y="299" text-anchor="middle" dominant-baseline="middle" alignment-baseline="middle" class="messageText" dy="1em" style="font-family: &quot;Microsoft YaHei&quot;, sans-serif; font-size: 16px; font-weight: 400;">经验证的上传和注册协议</text><line x1="282" y1="336" x2="674" y2="336" class="messageLine0" data-et="message" data-id="i3" data-from="A" data-to="P" stroke-width="2" stroke="none" marker-end="url(#sync1d2-arrowhead)" style="fill: none;"></line><text x="484" y="351" text-anchor="middle" dominant-baseline="middle" alignment-baseline="middle" class="messageText" dy="1em" style="font-family: &quot;Microsoft YaHei&quot;, sans-serif; font-size: 16px; font-weight: 400;">上游素材标识及状态</text><line x1="680" y1="388" x2="288" y2="388" class="messageLine1" data-et="message" data-id="i4" data-from="P" data-to="A" stroke-width="2" stroke="none" marker-end="url(#sync1d2-arrowhead)" style="stroke-dasharray: 3, 3; fill: none;"></line><text x="282" y="403" text-anchor="middle" dominant-baseline="middle" alignment-baseline="middle" class="messageText" dy="1em" style="font-family: &quot;Microsoft YaHei&quot;, sans-serif; font-size: 16px; font-weight: 400;">按账号区域作用域保存-</text><text x="282" y="424" text-anchor="middle" dominant-baseline="middle" alignment-baseline="middle" class="messageText" dy="1em" style="font-family: &quot;Microsoft YaHei&quot;, sans-serif; font-size: 16px; font-weight: 400;">映射</text><path d="M 282,461 C 342,451 342,491 282,481" class="messageLine0" data-et="message" data-id="i5" data-from="A" data-to="A" stroke-width="2" stroke="none" marker-end="url(#sync1d2-arrowhead)" style="fill: none;"></path><text x="478" y="506" text-anchor="middle" dominant-baseline="middle" alignment-baseline="middle" class="messageText" dy="1em" style="font-family: &quot;Microsoft YaHei&quot;, sans-serif; font-size: 16px; font-weight: 400;">提交模型任务</text><line x1="282" y1="543" x2="674" y2="543" class="messageLine0" data-et="message" data-id="i6" data-from="A" data-to="P" stroke-width="2" stroke="none" marker-end="url(#sync1d2-arrowhead)" style="fill: none;"></line><text x="484" y="558" text-anchor="middle" dominant-baseline="middle" alignment-baseline="middle" class="messageText" dy="1em" style="font-family: &quot;Microsoft YaHei&quot;, sans-serif; font-size: 16px; font-weight: 400;">受理标识</text><line x1="680" y1="595" x2="288" y2="595" class="messageLine1" data-et="message" data-id="i7" data-from="P" data-to="A" stroke-width="2" stroke="none" marker-end="url(#sync1d2-arrowhead)" style="stroke-dasharray: 3, 3; fill: none;"></line><text x="478" y="610" text-anchor="middle" dominant-baseline="middle" alignment-baseline="middle" class="messageText" dy="1em" style="font-family: &quot;Microsoft YaHei&quot;, sans-serif; font-size: 16px; font-weight: 400;">按原凭据查询状态</text><line x1="282" y1="647" x2="674" y2="647" class="messageLine0" data-et="message" data-id="i8" data-from="A" data-to="P" stroke-width="2" stroke="none" marker-end="url(#sync1d2-arrowhead)" style="fill: none;"></line><text x="484" y="662" text-anchor="middle" dominant-baseline="middle" alignment-baseline="middle" class="messageText" dy="1em" style="font-family: &quot;Microsoft YaHei&quot;, sans-serif; font-size: 16px; font-weight: 400;">结果或临时下载URL与用量</text><line x1="680" y1="699" x2="288" y2="699" class="messageLine1" data-et="message" data-id="i9" data-from="P" data-to="A" stroke-width="2" stroke="none" marker-end="url(#sync1d2-arrowhead)" style="stroke-dasharray: 3, 3; fill: none;"></line><text x="378" y="714" text-anchor="middle" dominant-baseline="middle" alignment-baseline="middle" class="messageText" dy="1em" style="font-family: &quot;Microsoft YaHei&quot;, sans-serif; font-size: 16px; font-weight: 400;">下载校验并归档</text><line x1="282" y1="751" x2="474" y2="751" class="messageLine0" data-et="message" data-id="i10" data-from="A" data-to="N" stroke-width="2" stroke="none" marker-end="url(#sync1d2-arrowhead)" style="fill: none;"></line><text x="181" y="766" text-anchor="middle" dominant-baseline="middle" alignment-baseline="middle" class="messageText" dy="1em" style="font-family: &quot;Microsoft YaHei&quot;, sans-serif; font-size: 16px; font-weight: 400;">返回平台任务和授权媒体入口</text><line x1="280" y1="803" x2="82" y2="803" class="messageLine1" data-et="message" data-id="i11" data-from="A" data-to="U" stroke-width="2" stroke="none" marker-end="url(#sync1d2-arrowhead)" style="stroke-dasharray: 3, 3; fill: none;"></line></svg></figure>
+
+<p>供应商只接受拉取 URL 的模式不能直接传内网 URL。须先设计受控中转，明确存储位置、有效期、撤销、范围、日志和清理并完成安全/接入验证；本方案不默认采购公网对象存储、不默认建立公网穿透，更不直接暴露 NAS。未确定中转前关闭依赖该模式的能力，其他经上传协议验证的能力可独立开放。</p>
+<p>默认由后端主动查询，不依赖供应商入站回调；将来若使用回调，另行补充公网入口、验签、重放保护、事件幂等和网络审批。外部参考素材上传是数据离开内网的明确动作，需由公司确认允许的素材范围与供应商使用约定，不能把“内网部署”宣传为素材绝不外传。</p>
+<h2 id="section-6">6 配置、密钥与变更管理</h2>
+<p>正式、测试、开发配置分离。每次发布记录代码/静态产物版本、依赖锁定、数据库迁移版本、事件 schema、NAS 映射、入口路由、能力/价格/路由版本及所用凭据版本标识；不在发布记录保存秘密值。</p>
+<p>供应商 Key 通过管理平台写入，经服务端加密保存；管理员只能写或替换，不能读回明文或密文。数据库凭据密文与解密主密钥分离，主密钥通过选定的受控机制注入 API/需要解密的 Worker。缺失解密能力时相应调用拒绝，不退回明文配置。主密钥轮换和供应商 Key 轮换是两种不同变更，均要保留历史解密/查询能力并演练恢复。</p>
+<p>正式环境关闭 SQL 参数回显和敏感请求体采样；诊断接口、API 文档访问、错误栈与调试模式的开放策略上线前确定。员工登录令牌不放 URL，前端构建配置只含可公开的地址等信息，不能包含供应商 Key 或 NAS 凭据。</p>
+<p>挂载、代理、价格、凭据和模型能力变更需记录影响范围。价格发布不覆盖旧版本；模型路由修改不改变在途快照；Key 测试通过后再改配置，旧测试结果失效。配置回退不能简单覆盖数据库历史或撤销已发生的外部消费。</p>
+<h2 id="section-7">7 上线执行与回退</h2>
+<h3 id="71-发布前准备与顺序">7.1 发布前准备与顺序</h3>
+<p>以下是实施顺序，服务健康端点、启停命令、部署文件和自动化脚本均须在实现后补齐并验证，本轮不创建。</p>
+<ol>
+<li>冻结本次发布范围、主机/目录/网络参数、回退版本和负责人；核对 P0 阻断项及首期必需能力，未验证规格保持关闭。</li>
+<li>准备构建产物及依赖，核对两前端 base/路由和 API 兼容；准备真实迁移、升级说明、数据库与媒体备份、主密钥恢复材料。</li>
+<li>将系统置于选定的维护/停止新受理模式，保留已受理任务查询与归档能力；需要破坏性迁移时按阶段排空并记录未知/在途任务，不强行清空队列。</li>
+<li>验证 PG/Redis、NAS、DNS/时钟、秘密注入和备份可读性。空库初始化与已有库升级分开；不运行框架含 DROP 的示例脚本覆盖已有环境。</li>
+<li>由单一迁移执行者实施迁移并检查实际 schema、序列、字段注释、索引/约束与升级数据。不能仅修改版本号，也不能让每个 Worker 并发迁移。</li>
+<li>启动后端和入口，只开放受控检查；部署两前端静态产物；确保正式入口刷新、登录、错误响应和受保护文件可用。</li>
+<li>启动调度、查询/媒体及生成/文本执行单元，按已实现的配置隔离新生成；先核对在途状态与租约，避免重启自动重放未知提交。</li>
+<li>执行 §10 上线检查和已批准少量真实模型联调，记录费用与结果归档；检查通过后按试点用户/项目开放，再按容量证据扩大。</li>
+</ol>
+<p>若尚无可靠的停止新消费/只恢复查询归档机制，应先补实现与测试，不能将该运维步骤当已存在能力。</p>
+<h3 id="72-回退原则">7.2 回退原则</h3>
+<table>
+<thead>
+<tr>
+<th>情况</th>
+<th>处理</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>前端静态产物错误</td>
+<td>兼容当前 API 时回退前端版本，核对缓存和路由；不回退数据库</td>
+</tr>
+<tr>
+<td>API/Worker 版本不兼容</td>
+<td>停止受影响新受理，核查事件/schema兼容；成组回退或向前修复，保留在途事实</td>
+</tr>
+<tr>
+<td>迁移失败</td>
+<td>核实事务是否回滚及部分DDL状态；按已验证恢复/修复方案处理，禁止仅改版本号</td>
+</tr>
+<tr>
+<td>迁移成功但应用回退</td>
+<td>先确认旧应用可使用当前 schema；不可兼容则不能盲目启动旧版本</td>
+</tr>
+<tr>
+<td>数据库需恢复</td>
+<td>进入完整恢复流程；结合NAS和供应商真实状态核对，不能仅回档PG后自动开Worker</td>
+</tr>
+<tr>
+<td>Key/路由变更失败</td>
+<td>新任务关闭或切回经验证配置；已受理任务仍使用原版本查询，撤销凭据不能假装排空完成</td>
+</tr>
+<tr>
+<td>发布后出现重复消费/越权</td>
+<td>立即隔离受影响新请求，保留证据、在途查询与账务核查；完成修复和复测后再开放</td>
+</tr>
+</tbody></table>
+<p>回退不撤销供应商已接受任务、不自动退还费用；不得删除账本、任务或审计让环境看似回到发布前。只有满足恢复后的引用与费用核对，才可重新放开消费。</p>
+<h2 id="section-8">8 备份策略与一致性恢复</h2>
+<h3 id="81-备份集合">8.1 备份集合</h3>
+<table>
+<thead>
+<tr>
+<th>对象</th>
+<th>必须保存</th>
+<th>注意事项</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>PostgreSQL</td>
+<td>全部业务/框架必要数据、schema、迁移版本、序列与恢复信息</td>
+<td>备份方式按PG版本/规模选择；若采用PITR须完整验证基础备份和WAL链</td>
+</tr>
+<tr>
+<td>NAS 媒体</td>
+<td>原件、不可变版本、必要衍生文件、目录/ACL、大小/哈希清单</td>
+<td>不能只保存当前可见素材；历史引用文件同属恢复集</td>
+</tr>
+<tr>
+<td>凭据主密钥</td>
+<td>所有恢复集所需密钥版本及恢复说明</td>
+<td>单独加密保管和授权；不能仅备份数据库密文</td>
+</tr>
+<tr>
+<td>配置与产物</td>
+<td>服务/入口/挂载映射、依赖、构建版本、能力/路由关联版本</td>
+<td>秘密值独立保管；可重建部署不等于可恢复业务数据</td>
+</tr>
+<tr>
+<td>Redis</td>
+<td>经评估需保留的运行数据/持久化配置</td>
+<td>不作为唯一任务或费用依据；恢复旧缓存前先评估登录与授权失效</td>
+</tr>
+<tr>
+<td>备份目录</td>
+<td>备份ID、时间窗口、文件清单、数据库恢复点、校验结果、负责人</td>
+<td>必须能确定哪份PG备份对应哪些媒体和主密钥版本</td>
+</tr>
+</tbody></table>
+<p>频率、保留期、容量和离线/异地副本位置待确认。至少设计独立故障域副本并验证恢复，不把同台 NAS 的快照或 RAID 当作完整灾难备份；备份任务“执行成功”不能代替备份内容可读取、可还原。</p>
+<h3 id="82-数据库与-nas-一致性方法">8.2 数据库与 NAS 一致性方法</h3>
+<p>首期建议采用受控备份窗口：暂停新写和新消费，将归档/上传写入暂停在已记录的安全阶段→记录在途外部任务与用量状态→取得数据库一致性备份及NAS恢复点/文件清单→核对时间窗口与主密钥版本→恢复服务。不能只暂停网页入口而让 Worker 持续写入，再宣称获得一致备份。</p>
+<p>外部供应商任务可能在窗口内继续完成；将其标识、原凭据版本及最后已知状态加入恢复清单，恢复后重新查询，不能因为备份时未完成就新发生成。暂停时长须小于已接收结果的剩余有效期并保留余量；无法安全暂停时需采用经验证的在线一致性方案，不强行执行窗口备份。</p>
+<p>后续若采用在线备份/时间点恢复，须证明“数据库恢复点引用的每个不可变文件均包含在媒体恢复集”，并保护备份期间所需文件不被清理。精确冻结/解冻、备份方式和操作命令待实现和运维选型后补齐。</p>
+<h3 id="83-恢复操作与准出">8.3 恢复操作与准出</h3>
+<figure class="diagram" aria-label="图 4"><svg id="sync1d3" width="100%" xmlns="http://www.w3.org/2000/svg" class="flowchart" style="max-width: 360px;" viewBox="4 4 360 1524" role="graphics-document document" aria-roledescription="flowchart-v2"><style>#sync1d3{font-family:Microsoft YaHei,sans-serif;font-size:16px;fill:#000000;}@keyframes edge-animation-frame{from{stroke-dashoffset:0;}}@keyframes dash{to{stroke-dashoffset:0;}}#sync1d3 .edge-animation-slow{stroke-dasharray:9,5!important;stroke-dashoffset:900;animation:dash 50s linear infinite;stroke-linecap:round;}#sync1d3 .edge-animation-fast{stroke-dasharray:9,5!important;stroke-dashoffset:900;animation:dash 20s linear infinite;stroke-linecap:round;}#sync1d3 .error-icon{fill:#552222;}#sync1d3 .error-text{fill:#552222;stroke:#552222;}#sync1d3 .edge-thickness-normal{stroke-width:1px;}#sync1d3 .edge-thickness-thick{stroke-width:3.5px;}#sync1d3 .edge-pattern-solid{stroke-dasharray:0;}#sync1d3 .edge-thickness-invisible{stroke-width:0;fill:none;}#sync1d3 .edge-pattern-dashed{stroke-dasharray:3;}#sync1d3 .edge-pattern-dotted{stroke-dasharray:2;}#sync1d3 .marker{fill:#666;stroke:#666;}#sync1d3 .marker.cross{stroke:#666;}#sync1d3 svg{font-family:Microsoft YaHei,sans-serif;font-size:16px;}#sync1d3 p{margin:0;}#sync1d3 .label{font-family:Microsoft YaHei,sans-serif;color:#000000;}#sync1d3 .cluster-label text{fill:#333;}#sync1d3 .cluster-label span{color:#333;}#sync1d3 .cluster-label span p{background-color:transparent;}#sync1d3 .label text,#sync1d3 span{fill:#000000;color:#000000;}#sync1d3 .node rect,#sync1d3 .node circle,#sync1d3 .node ellipse,#sync1d3 .node polygon,#sync1d3 .node path{fill:#eee;stroke:#999;stroke-width:1px;}#sync1d3 .rough-node .label text,#sync1d3 .node .label text,#sync1d3 .image-shape .label,#sync1d3 .icon-shape .label{text-anchor:middle;}#sync1d3 .node .katex path{fill:#000;stroke:#000;stroke-width:1px;}#sync1d3 .rough-node .label,#sync1d3 .node .label,#sync1d3 .image-shape .label,#sync1d3 .icon-shape .label{text-align:center;}#sync1d3 .node.clickable{cursor:pointer;}#sync1d3 .root .anchor path{fill:#666!important;stroke-width:0;stroke:#666;}#sync1d3 .arrowheadPath{fill:#333333;}#sync1d3 .edgePaths .path{stroke:#666;stroke-width:1px;}#sync1d3 .flowchart-link{stroke:#666;fill:none;}#sync1d3 .edgeLabel{background-color:white;text-align:center;}#sync1d3 .edgeLabel p{background-color:white;}#sync1d3 .edgeLabel rect{opacity:0.5;background-color:white;fill:white;}#sync1d3 .labelBkg{background-color:rgba(255, 255, 255, 0.5);}#sync1d3 .cluster rect{fill:hsl(0, 0%, 98.9215686275%);stroke:#707070;stroke-width:1px;}#sync1d3 .cluster text{fill:#333;}#sync1d3 .cluster span{color:#333;}#sync1d3 .node .collapsed-indicator{fill:#707070;stroke:none;opacity:0.6;}#sync1d3 .node .collapsed-separator{stroke:#707070;stroke-width:0.75px;}#sync1d3 div.mermaidTooltip{position:absolute;text-align:center;max-width:200px;padding:2px;font-family:Microsoft YaHei,sans-serif;font-size:12px;background:hsl(-160, 0%, 93.3333333333%);border:1px solid #707070;border-radius:2px;pointer-events:none;z-index:100;}#sync1d3 .flowchartTitleText{text-anchor:middle;font-size:18px;fill:#000000;}#sync1d3 rect.text{fill:none;stroke-width:0;}#sync1d3 .icon-shape,#sync1d3 .image-shape{background-color:white;text-align:center;}#sync1d3 .icon-shape p,#sync1d3 .image-shape p{background-color:white;padding:2px;}#sync1d3 .icon-shape .label rect,#sync1d3 .image-shape .label rect{opacity:0.5;background-color:white;fill:white;}#sync1d3 .label-icon{display:inline-block;height:1em;overflow:visible;vertical-align:-0.125em;}#sync1d3 .node .label-icon path{fill:currentColor;stroke:revert;stroke-width:revert;}#sync1d3 .node .neo-node{stroke:#999;}#sync1d3 [data-look="neo"].node rect,#sync1d3 [data-look="neo"].cluster rect,#sync1d3 [data-look="neo"].node polygon{stroke:url(#sync1d3-gradient);filter:drop-shadow( 1px 2px 2px rgba(185,185,185,1));}#sync1d3 [data-look="neo"].swimlane.cluster rect{filter:none;}#sync1d3 [data-look="neo"].node path{stroke:url(#sync1d3-gradient);stroke-width:1px;}#sync1d3 [data-look="neo"].node .outer-path{filter:drop-shadow( 1px 2px 2px rgba(185,185,185,1));}#sync1d3 [data-look="neo"].node .neo-line path{stroke:#999;filter:none;}#sync1d3 [data-look="neo"].node circle{stroke:url(#sync1d3-gradient);filter:drop-shadow( 1px 2px 2px rgba(185,185,185,1));}#sync1d3 [data-look="neo"].node circle .state-start{fill:#000000;}#sync1d3 [data-look="neo"].icon-shape .icon{fill:url(#sync1d3-gradient);filter:drop-shadow( 1px 2px 2px rgba(185,185,185,1));}#sync1d3 [data-look="neo"].icon-shape .icon-neo path{stroke:url(#sync1d3-gradient);filter:drop-shadow( 1px 2px 2px rgba(185,185,185,1));}#sync1d3 :root{--mermaid-font-family:Microsoft YaHei,sans-serif;}</style><g><marker id="sync1d3_flowchart-v2-pointEnd" class="marker flowchart-v2" viewBox="0 0 10 10" refX="5" refY="5" markerUnits="userSpaceOnUse" markerWidth="8" markerHeight="8" orient="auto"><path d="M 0 0 L 10 5 L 0 10 z" class="arrowMarkerPath" style="stroke-width: 1; stroke-dasharray: 1, 0;"></path></marker><marker id="sync1d3_flowchart-v2-pointStart" class="marker flowchart-v2" viewBox="0 0 10 10" refX="4.5" refY="5" markerUnits="userSpaceOnUse" markerWidth="8" markerHeight="8" orient="auto"><path d="M 0 5 L 10 10 L 10 0 z" class="arrowMarkerPath" style="stroke-width: 1; stroke-dasharray: 1, 0;"></path></marker><marker id="sync1d3_flowchart-v2-pointEnd-margin" class="marker flowchart-v2" viewBox="0 0 11.5 14" refX="11.5" refY="7" markerUnits="userSpaceOnUse" markerWidth="10.5" markerHeight="14" orient="auto"><path d="M 0 0 L 11.5 7 L 0 14 z" class="arrowMarkerPath" style="stroke-width: 0; stroke-dasharray: 1, 0;"></path></marker><marker id="sync1d3_flowchart-v2-pointStart-margin" class="marker flowchart-v2" viewBox="0 0 11.5 14" refX="1" refY="7" markerUnits="userSpaceOnUse" markerWidth="11.5" markerHeight="14" orient="auto"><polygon points="0,7 11.5,14 11.5,0" class="arrowMarkerPath" style="stroke-width: 0; stroke-dasharray: 1, 0;"></polygon></marker><marker id="sync1d3_flowchart-v2-circleEnd" class="marker flowchart-v2" viewBox="0 0 10 10" refX="11" refY="5" markerUnits="userSpaceOnUse" markerWidth="11" markerHeight="11" orient="auto"><circle cx="5" cy="5" r="5" class="arrowMarkerPath" style="stroke-width: 1; stroke-dasharray: 1, 0;"></circle></marker><marker id="sync1d3_flowchart-v2-circleStart" class="marker flowchart-v2" viewBox="0 0 10 10" refX="-1" refY="5" markerUnits="userSpaceOnUse" markerWidth="11" markerHeight="11" orient="auto"><circle cx="5" cy="5" r="5" class="arrowMarkerPath" style="stroke-width: 1; stroke-dasharray: 1, 0;"></circle></marker><marker id="sync1d3_flowchart-v2-circleEnd-margin" class="marker flowchart-v2" viewBox="0 0 10 10" refY="5" refX="12.25" markerUnits="userSpaceOnUse" markerWidth="14" markerHeight="14" orient="auto"><circle cx="5" cy="5" r="5" class="arrowMarkerPath" style="stroke-width: 0; stroke-dasharray: 1, 0;"></circle></marker><marker id="sync1d3_flowchart-v2-circleStart-margin" class="marker flowchart-v2" viewBox="0 0 10 10" refX="-2" refY="5" markerUnits="userSpaceOnUse" markerWidth="14" markerHeight="14" orient="auto"><circle cx="5" cy="5" r="5" class="arrowMarkerPath" style="stroke-width: 0; stroke-dasharray: 1, 0;"></circle></marker><marker id="sync1d3_flowchart-v2-crossEnd" class="marker cross flowchart-v2" viewBox="0 0 11 11" refX="12" refY="5.2" markerUnits="userSpaceOnUse" markerWidth="11" markerHeight="11" orient="auto"><path d="M 1,1 l 9,9 M 10,1 l -9,9" class="arrowMarkerPath" style="stroke-width: 2; stroke-dasharray: 1, 0;"></path></marker><marker id="sync1d3_flowchart-v2-crossStart" class="marker cross flowchart-v2" viewBox="0 0 11 11" refX="-1" refY="5.2" markerUnits="userSpaceOnUse" markerWidth="11" markerHeight="11" orient="auto"><path d="M 1,1 l 9,9 M 10,1 l -9,9" class="arrowMarkerPath" style="stroke-width: 2; stroke-dasharray: 1, 0;"></path></marker><marker id="sync1d3_flowchart-v2-crossEnd-margin" class="marker cross flowchart-v2" viewBox="0 0 15 15" refX="17.7" refY="7.5" markerUnits="userSpaceOnUse" markerWidth="12" markerHeight="12" orient="auto"><path d="M 1,1 L 14,14 M 1,14 L 14,1" class="arrowMarkerPath" style="stroke-width: 2.5;"></path></marker><marker id="sync1d3_flowchart-v2-crossStart-margin" class="marker cross flowchart-v2" viewBox="0 0 15 15" refX="-3.5" refY="7.5" markerUnits="userSpaceOnUse" markerWidth="12" markerHeight="12" orient="auto"><path d="M 1,1 L 14,14 M 1,14 L 14,1" class="arrowMarkerPath" style="stroke-width: 2.5; stroke-dasharray: 1, 0;"></path></marker><g class="root"><g class="clusters"></g><g class="edges edgePaths"><path d="M158.16666666666669,84L158.16666666666669,120" id="sync1d3-L_A_B_0" class="edge-thickness-normal edge-pattern-solid edge-thickness-normal edge-pattern-solid flowchart-link" style="stroke-dasharray: 0 0 32 4; stroke-dashoffset: 0;;" data-edge="true" data-et="edge" data-id="L_A_B_0" data-points="W3sieCI6MTU4LjE2NjY2NjY2NjY2NjY5LCJ5Ijo4NH0seyJ4IjoxNTguMTY2NjY2NjY2NjY2NjksInkiOjEyNH1d" data-look="neo" marker-end="url(#sync1d3_flowchart-v2-pointEnd-margin)"></path><path d="M158.16666666666669,220L158.16666666666669,256" id="sync1d3-L_B_C_0" class="edge-thickness-normal edge-pattern-solid edge-thickness-normal edge-pattern-solid flowchart-link" style="stroke-dasharray: 0 0 32 4; stroke-dashoffset: 0;;" data-edge="true" data-et="edge" data-id="L_B_C_0" data-points="W3sieCI6MTU4LjE2NjY2NjY2NjY2NjY5LCJ5IjoyMjB9LHsieCI6MTU4LjE2NjY2NjY2NjY2NjY5LCJ5IjoyNjB9XQ==" data-look="neo" marker-end="url(#sync1d3_flowchart-v2-pointEnd-margin)"></path><path d="M158.16666666666669,332L158.16666666666669,368" id="sync1d3-L_C_D_0" class="edge-thickness-normal edge-pattern-solid edge-thickness-normal edge-pattern-solid flowchart-link" style="stroke-dasharray: 0 0 32 4; stroke-dashoffset: 0;;" data-edge="true" data-et="edge" data-id="L_C_D_0" data-points="W3sieCI6MTU4LjE2NjY2NjY2NjY2NjY5LCJ5IjozMzJ9LHsieCI6MTU4LjE2NjY2NjY2NjY2NjY5LCJ5IjozNzJ9XQ==" data-look="neo" marker-end="url(#sync1d3_flowchart-v2-pointEnd-margin)"></path><path d="M158.16666666666669,468L158.16666666666669,504" id="sync1d3-L_D_E_0" class="edge-thickness-normal edge-pattern-solid edge-thickness-normal edge-pattern-solid flowchart-link" style="stroke-dasharray: 0 0 32 4; stroke-dashoffset: 0;;" data-edge="true" data-et="edge" data-id="L_D_E_0" data-points="W3sieCI6MTU4LjE2NjY2NjY2NjY2NjY5LCJ5Ijo0Njh9LHsieCI6MTU4LjE2NjY2NjY2NjY2NjY5LCJ5Ijo1MDh9XQ==" data-look="neo" marker-end="url(#sync1d3_flowchart-v2-pointEnd-margin)"></path><path d="M132.5,656.3332509994507L132.5,682L132.5,694.9289321881345Q132.5,702 125.42893218813452,702L73.07106781186548,702Q66,702 66,709.0710678118655L66,734L66,822L66,1046L66,1221L66,1372L66,1420" id="sync1d3-L_E_F_0" class="edge-thickness-normal edge-pattern-solid edge-thickness-normal edge-pattern-solid flowchart-link" style="stroke-dasharray: 0 0 820.8385009765625 4; stroke-dashoffset: 0;;" data-edge="true" data-et="edge" data-id="L_E_F_0" data-points="W3sieCI6MTMyLjUsInkiOjY1Ni4zMzMyNTA5OTk0NTA3fSx7IngiOjEzMi41LCJ5Ijo2ODJ9LHsieCI6MTMyLjUsInkiOjcwMn0seyJ4Ijo2NiwieSI6NzAyfSx7IngiOjY2LCJ5Ijo3MzR9LHsieCI6NjYsInkiOjgyMn0seyJ4Ijo2NiwieSI6MTA0Nn0seyJ4Ijo2NiwieSI6MTIyMX0seyJ4Ijo2NiwieSI6MTM3Mn0seyJ4Ijo2NiwieSI6MTQyNH1d" data-look="neo" marker-end="url(#sync1d3_flowchart-v2-pointEnd-margin)"></path><path d="M183.83333333333331,656.3332509994507L183.83333333333331,682L183.83333333333331,694.9289321881345Q183.83333333333331,702 190.9044011451988,702L213.09559885480118,702Q220.16666666666666,702 220.16666666666666,709.0710678118655L220.16666666666666,782" id="sync1d3-L_E_G_0" class="edge-thickness-normal edge-pattern-solid edge-thickness-normal edge-pattern-solid flowchart-link" style="stroke-dasharray: 0 0 152.67181396484375 4; stroke-dashoffset: 0;;" data-edge="true" data-et="edge" data-id="L_E_G_0" data-points="W3sieCI6MTgzLjgzMzMzMzMzMzMzMzMxLCJ5Ijo2NTYuMzMzMjUwOTk5NDUwN30seyJ4IjoxODMuODMzMzMzMzMzMzMzMzEsInkiOjY4Mn0seyJ4IjoxODMuODMzMzMzMzMzMzMzMzEsInkiOjcwMn0seyJ4IjoyMjAuMTY2NjY2NjY2NjY2NjYsInkiOjcwMn0seyJ4IjoyMjAuMTY2NjY2NjY2NjY2NjYsInkiOjc4Nn1d" data-look="neo" marker-end="url(#sync1d3_flowchart-v2-pointEnd-margin)"></path><path d="M220.16666666666666,858L220.16666666666666,894" id="sync1d3-L_G_H_0" class="edge-thickness-normal edge-pattern-solid edge-thickness-normal edge-pattern-solid flowchart-link" style="stroke-dasharray: 0 0 32 4; stroke-dashoffset: 0;;" data-edge="true" data-et="edge" data-id="L_G_H_0" data-points="W3sieCI6MjIwLjE2NjY2NjY2NjY2NjY2LCJ5Ijo4NTh9LHsieCI6MjIwLjE2NjY2NjY2NjY2NjY2LCJ5Ijo4OTh9XQ==" data-look="neo" marker-end="url(#sync1d3_flowchart-v2-pointEnd-margin)"></path><path d="M220.16666666666666,970L220.16666666666666,1006" id="sync1d3-L_H_I_0" class="edge-thickness-normal edge-pattern-solid edge-thickness-normal edge-pattern-solid flowchart-link" style="stroke-dasharray: 0 0 32 4; stroke-dashoffset: 0;;" data-edge="true" data-et="edge" data-id="L_H_I_0" data-points="W3sieCI6MjIwLjE2NjY2NjY2NjY2NjY2LCJ5Ijo5NzB9LHsieCI6MjIwLjE2NjY2NjY2NjY2NjY2LCJ5IjoxMDEwfV0=" data-look="neo" marker-end="url(#sync1d3_flowchart-v2-pointEnd-margin)"></path><path d="M220.16666666666666,1082L220.16666666666666,1118" id="sync1d3-L_I_J_0" class="edge-thickness-normal edge-pattern-solid edge-thickness-normal edge-pattern-solid flowchart-link" style="stroke-dasharray: 0 0 32 4; stroke-dashoffset: 0;;" data-edge="true" data-et="edge" data-id="L_I_J_0" data-points="W3sieCI6MjIwLjE2NjY2NjY2NjY2NjY2LCJ5IjoxMDgyfSx7IngiOjIyMC4xNjY2NjY2NjY2NjY2NiwieSI6MTEyMn1d" data-look="neo" marker-end="url(#sync1d3_flowchart-v2-pointEnd-margin)"></path><path d="M190.5,1290.333309173584L190.5,1320L190.5,1332.9289321881345Q190.5,1340 183.42893218813452,1340L142.23773447853216,1340Q135.16666666666669,1340 135.16666666666669,1347.0710678118655L135.16666666666669,1396.9289321881345Q135.16666666666669,1404 128.0955988548012,1404L117.07106781186548,1404Q110,1404 110,1411.0710678118655L110,1420" id="sync1d3-L_J_F_0" class="edge-thickness-normal edge-pattern-solid edge-thickness-normal edge-pattern-solid flowchart-link" style="stroke-dasharray: 0 0 195.51019287109375 4; stroke-dashoffset: 0;;" data-edge="true" data-et="edge" data-id="L_J_F_0" data-points="W3sieCI6MTkwLjUsInkiOjEyOTAuMzMzMzA5MTczNTg0fSx7IngiOjE5MC41LCJ5IjoxMzIwfSx7IngiOjE5MC41LCJ5IjoxMzQwfSx7IngiOjEzNS4xNjY2NjY2NjY2NjY2OSwieSI6MTM0MH0seyJ4IjoxMzUuMTY2NjY2NjY2NjY2NjksInkiOjE0MDR9LHsieCI6MTEwLCJ5IjoxNDA0fSx7IngiOjExMCwieSI6MTQyNH1d" data-look="neo" marker-end="url(#sync1d3_flowchart-v2-pointEnd-margin)"></path><path d="M249.83333333333334,1290.333309173584L249.83333333333334,1320L249.83333333333334,1332.9289321881345Q249.83333333333334,1340 256.9044011451988,1340L272.9289321881345,1340Q280,1340 280,1347.0710678118655L280,1420" id="sync1d3-L_J_K_0" class="edge-thickness-normal edge-pattern-solid edge-thickness-normal edge-pattern-solid flowchart-link" style="stroke-dasharray: 0 0 150.505126953125 4; stroke-dashoffset: 0;;" data-edge="true" data-et="edge" data-id="L_J_K_0" data-points="W3sieCI6MjQ5LjgzMzMzMzMzMzMzMzM0LCJ5IjoxMjkwLjMzMzMwOTE3MzU4NH0seyJ4IjoyNDkuODMzMzMzMzMzMzMzMzQsInkiOjEzMjB9LHsieCI6MjQ5LjgzMzMzMzMzMzMzMzM0LCJ5IjoxMzQwfSx7IngiOjI4MCwieSI6MTM0MH0seyJ4IjoyODAsInkiOjE0MjR9XQ==" data-look="neo" marker-end="url(#sync1d3_flowchart-v2-pointEnd-margin)"></path></g><g class="edgeLabels"><g class="edgeLabel" transform="translate(66, 934)"><g class="label" data-id="L_E_F_0" transform="translate(-8, -12)"><foreignObject width="16" height="24"><div xmlns="http://www.w3.org/1999/xhtml" class="labelBkg" style="display: table-cell; white-space: nowrap; line-height: 1.5; max-width: 200px; text-align: center;"><span class="edgeLabel"><p>否</p></span></div></foreignObject></g></g><g class="edgeLabel" transform="translate(220.16666666666666, 734)"><g class="label" data-id="L_E_G_0" transform="translate(-8, -12)"><foreignObject width="16" height="24"><div xmlns="http://www.w3.org/1999/xhtml" class="labelBkg" style="display: table-cell; white-space: nowrap; line-height: 1.5; max-width: 200px; text-align: center;"><span class="edgeLabel"><p>是</p></span></div></foreignObject></g></g><g class="edgeLabel" transform="translate(135.16666666666669, 1372)"><g class="label" data-id="L_J_F_0" transform="translate(-8, -12)"><foreignObject width="16" height="24"><div xmlns="http://www.w3.org/1999/xhtml" class="labelBkg" style="display: table-cell; white-space: nowrap; line-height: 1.5; max-width: 200px; text-align: center;"><span class="edgeLabel"><p>否</p></span></div></foreignObject></g></g><g class="edgeLabel" transform="translate(280, 1372)"><g class="label" data-id="L_J_K_0" transform="translate(-8, -12)"><foreignObject width="16" height="24"><div xmlns="http://www.w3.org/1999/xhtml" class="labelBkg" style="display: table-cell; white-space: nowrap; line-height: 1.5; max-width: 200px; text-align: center;"><span class="edgeLabel"><p>是</p></span></div></foreignObject></g></g></g><g class="nodes"><g class="node default" id="sync1d3-flowchart-A-0" data-look="neo" transform="translate(158.16666666666669, 48)"><rect class="basic label-container" style="" x="-76" y="-36" width="152" height="72"></rect><g class="label" style="" transform="translate(-60, -24)"><rect></rect><foreignObject width="120" height="48"><div xmlns="http://www.w3.org/1999/xhtml" style="display: table; white-space: break-spaces; line-height: 1.5; max-width: 120px; text-align: center; width: 120px;"><span class="nodeLabel"><p>事故隔离 停止新消费</p></span></div></foreignObject></g></g><g class="node default" id="sync1d3-flowchart-B-1" data-look="neo" transform="translate(158.16666666666669, 172)"><rect class="basic label-container" style="" x="-76" y="-48" width="152" height="96"></rect><g class="label" style="" transform="translate(-60, -36)"><rect></rect><foreignObject width="120" height="72"><div xmlns="http://www.w3.org/1999/xhtml" style="display: table; white-space: break-spaces; line-height: 1.5; max-width: 120px; text-align: center; width: 120px;"><span class="nodeLabel"><p>选择数据库 媒体 主密钥匹配恢复集</p></span></div></foreignObject></g></g><g class="node default" id="sync1d3-flowchart-C-3" data-look="neo" transform="translate(158.16666666666669, 296)"><rect class="basic label-container" style="" x="-76" y="-36" width="152" height="72"></rect><g class="label" style="" transform="translate(-60, -24)"><rect></rect><foreignObject width="120" height="48"><div xmlns="http://www.w3.org/1999/xhtml" style="display: table; white-space: break-spaces; line-height: 1.5; max-width: 120px; text-align: center; width: 120px;"><span class="nodeLabel"><p>隔离目标恢复 禁止真实提交</p></span></div></foreignObject></g></g><g class="node default" id="sync1d3-flowchart-D-5" data-look="neo" transform="translate(158.16666666666669, 420)"><rect class="basic label-container" style="" x="-76" y="-48" width="152" height="96"></rect><g class="label" style="" transform="translate(-60, -36)"><rect></rect><foreignObject width="120" height="72"><div xmlns="http://www.w3.org/1999/xhtml" style="display: table; white-space: break-spaces; line-height: 1.5; max-width: 120px; text-align: center; width: 120px;"><span class="nodeLabel"><p>校验schema 序列 文件哈希 引用和凭据解密</p></span></div></foreignObject></g></g><g class="node default" id="sync1d3-flowchart-E-7" data-look="neo" transform="translate(158.16666666666669, 595)"><polygon points="87,0 174,-87 87,-174 0,-87" class="label-container" transform="translate(-86.5, 87)"></polygon><g class="label" style="" transform="translate(-60, -12)"><rect></rect><foreignObject width="120" height="24"><div xmlns="http://www.w3.org/1999/xhtml" style="display: table; white-space: nowrap; line-height: 1.5; max-width: 120px; text-align: center; width: 120px;"><span class="nodeLabel"><p>恢复集完整</p></span></div></foreignObject></g></g><g class="node default" id="sync1d3-flowchart-F-9" data-look="neo" transform="translate(88, 1472)"><rect class="basic label-container" style="" x="-76" y="-48" width="152" height="96"></rect><g class="label" style="" transform="translate(-60, -36)"><rect></rect><foreignObject width="120" height="72"><div xmlns="http://www.w3.org/1999/xhtml" style="display: table; white-space: break-spaces; line-height: 1.5; max-width: 120px; text-align: center; width: 120px;"><span class="nodeLabel"><p>保留隔离 查找缺失或选择其他恢复点</p></span></div></foreignObject></g></g><g class="node default" id="sync1d3-flowchart-G-11" data-look="neo" transform="translate(220.16666666666666, 822)"><rect class="basic label-container" style="" x="-76" y="-36" width="152" height="72"></rect><g class="label" style="" transform="translate(-60, -24)"><rect></rect><foreignObject width="120" height="48"><div xmlns="http://www.w3.org/1999/xhtml" style="display: table; white-space: break-spaces; line-height: 1.5; max-width: 120px; text-align: center; width: 120px;"><span class="nodeLabel"><p>重建缓存并核对权限 账本和预算</p></span></div></foreignObject></g></g><g class="node default" id="sync1d3-flowchart-H-13" data-look="neo" transform="translate(220.16666666666666, 934)"><rect class="basic label-container" style="" x="-76" y="-36" width="152" height="72"></rect><g class="label" style="" transform="translate(-60, -24)"><rect></rect><foreignObject width="120" height="48"><div xmlns="http://www.w3.org/1999/xhtml" style="display: table; white-space: break-spaces; line-height: 1.5; max-width: 120px; text-align: center; width: 120px;"><span class="nodeLabel"><p>查询供应商在途事实 不重发生成</p></span></div></foreignObject></g></g><g class="node default" id="sync1d3-flowchart-I-15" data-look="neo" transform="translate(220.16666666666666, 1046)"><rect class="basic label-container" style="" x="-76" y="-36" width="152" height="72"></rect><g class="label" style="" transform="translate(-60, -24)"><rect></rect><foreignObject width="120" height="48"><div xmlns="http://www.w3.org/1999/xhtml" style="display: table; white-space: break-spaces; line-height: 1.5; max-width: 120px; text-align: center; width: 120px;"><span class="nodeLabel"><p>只读 归档及业务验收</p></span></div></foreignObject></g></g><g class="node default" id="sync1d3-flowchart-J-17" data-look="neo" transform="translate(220.16666666666666, 1221)"><polygon points="99,0 198,-99 99,-198 0,-99" class="label-container" transform="translate(-98.5, 99)"></polygon><g class="label" style="" transform="translate(-60, -24)"><rect></rect><foreignObject width="120" height="48"><div xmlns="http://www.w3.org/1999/xhtml" style="display: table; white-space: break-spaces; line-height: 1.5; max-width: 120px; text-align: center; width: 120px;"><span class="nodeLabel"><p>业务 技术 运维 费用签认</p></span></div></foreignObject></g></g><g class="node default" id="sync1d3-flowchart-K-21" data-look="neo" transform="translate(280, 1460)"><rect class="basic label-container" style="" x="-76" y="-36" width="152" height="72"></rect><g class="label" style="" transform="translate(-60, -24)"><rect></rect><foreignObject width="120" height="48"><div xmlns="http://www.w3.org/1999/xhtml" style="display: table; white-space: break-spaces; line-height: 1.5; max-width: 120px; text-align: center; width: 120px;"><span class="nodeLabel"><p>逐步恢复新受理并观察</p></span></div></foreignObject></g></g></g></g></g><defs><filter id="sync1d3-drop-shadow" height="130%" width="130%"><feDropShadow dx="4" dy="4" stdDeviation="0" flood-opacity="0.06" flood-color="#000000"></feDropShadow></filter></defs><defs><filter id="sync1d3-drop-shadow-small" height="150%" width="150%"><feDropShadow dx="2" dy="2" stdDeviation="0" flood-opacity="0.06" flood-color="#000000"></feDropShadow></filter></defs><linearGradient id="sync1d3-gradient" gradientUnits="objectBoundingBox" x1="0%" y1="0%" x2="100%" y2="0%"><stop offset="0%" stop-color="hsl(0, 0%, 83.3333333333%)" stop-opacity="1"></stop><stop offset="100%" stop-color="hsl(0, 0%, 88.9215686275%)" stop-opacity="1"></stop></linearGradient></svg></figure>
+
+<p>具体步骤：</p>
+<ol>
+<li>记录事故和最后健康时间，隔离写入及新增模型提交，保存故障证据。备份恢复目标必须是明确的隔离路径/实例，避免覆盖唯一可用副本。</li>
+<li>选择成套恢复集，恢复 PG、NAS 和主密钥所需版本；复核配置指向恢复环境，不误连正式供应商消费入口。</li>
+<li>校验迁移、bigserial序列、公共审计字段、逻辑删除状态、文件大小/哈希和历史关系。无物理外键，仍要通过服务检查/核对清单确认无悬空引用。</li>
+<li>对任务、Outbox、租约、幂等、费用事件、调整和预算缓存核对。Redis 登录/权限缓存按策略失效/重建，不能用旧快照重新授予已撤权限；旧队列不盲目重放。</li>
+<li>按原Key和上游ID核实在途任务，已接受只查询，已生成未归档只补归档，受理未知保持核查。供应商状态和账单比本地恢复点新时，补齐事实和必要追加调整，不覆盖原始历史。</li>
+<li>验证只读访问、文件Range、撤权、费用隔离和归档；逐步恢复相应服务。确认真实消费开关前由业务/技术/运维/费用责任人核对未决事项。</li>
+<li>记录实际数据丢失范围和从事故到恢复服务的耗时；与确认后的 RPO/RTO 比较。架构建议≤24小时/≤4小时仍不是当前承诺或实测结果。</li>
+</ol>
+<p>密钥缺失、文件清单缺项、预算不一致、未知提交未隔离时，不能宣称恢复完成。演练必须包含真实NAS目录与主密钥恢复，只有数据库导入成功不算通过。</p>
+<h2 id="section-9">9 监控、故障处理与日常巡检</h2>
+<h3 id="91-监控项和处理">9.1 监控项和处理</h3>
+<table>
+<thead>
+<tr>
+<th>信号</th>
+<th>观察内容</th>
+<th>初步处理</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>应用/入口</td>
+<td>可达性、认证、错误码、API P95、SSE连接、代理超时</td>
+<td>区分入口/API/依赖故障；HTTP200仍检查若依业务码</td>
+</tr>
+<tr>
+<td>PostgreSQL</td>
+<td>连接、锁等待、磁盘、事务失败、备份与WAL状态</td>
+<td>限制新增写压力，核对失败事务；不直接删账本解决锁</td>
+</tr>
+<tr>
+<td>Redis</td>
+<td>可达性、内存/淘汰、队列积压、权限失效</td>
+<td>授权回查或拒绝；从PG核对待处理任务，不按缓存猜业务状态</td>
+</tr>
+<tr>
+<td>NAS</td>
+<td>实际挂载身份、读写延迟、剩余容量、配额、异常I/O</td>
+<td>阻断依赖写入，避免本地落盘，保护已生成结果归档时效</td>
+</tr>
+<tr>
+<td>Worker/Outbox</td>
+<td>队列最老时间、阶段停留、租约过期、重复通知</td>
+<td>分阶段查询与恢复；旧执行者写回必须被拒绝</td>
+</tr>
+<tr>
+<td>模型出站</td>
+<td>认证、429/5xx、DNS/TLS/代理、未知受理、URL临期</td>
+<td>区分安全查询重试与收费新提交；不换Key绕限流</td>
+</tr>
+<tr>
+<td>成本</td>
+<td>未知用量、预占积压、负可用额度、账单差异</td>
+<td>按P0-5对账追加调整；不自动归零或释放未知预占</td>
+</tr>
+<tr>
+<td>备份与秘密</td>
+<td>最近成功且可读备份、恢复演练、证书/Key到期</td>
+<td>按明确接收人升级；泄漏凭据撤销并评估在途影响</td>
+</tr>
+</tbody></table>
+<p>阈值和接收人上线前冻结。归档告警基于供应商结果真实到期时间及安全余量，不把资料中的12/24小时描述当保证；无法确认到期时间的结果应尽早归档并跟踪。对外展示故障不泄漏SQL、主密钥、授权头或完整签名URL。</p>
+<h3 id="92-故障处理手册摘要">9.2 故障处理手册摘要</h3>
+<table>
+<thead>
+<tr>
+<th>事件</th>
+<th>先做</th>
+<th>恢复前核对</th>
+<th>禁止</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>NAS 断连/只读/满</td>
+<td>阻断新写，停止增加归档负担，告警</td>
+<td>挂载来源/权限、临时文件和最终键、积压及哈希</td>
+<td>临时改成本机目录并宣称成功</td>
+</tr>
+<tr>
+<td>外部模型提交超时</td>
+<td>保存未知状态与调用证据</td>
+<td>是否已受理、原ID/Key可查询性</td>
+<td>自动换幂等键或重新生成</td>
+</tr>
+<tr>
+<td>Key 撤销</td>
+<td>停止新选用，标记受影响在途任务</td>
+<td>原Key查询是否可行及供应商证据</td>
+<td>默认换同账号Key查询或删除旧版本</td>
+</tr>
+<tr>
+<td>归档失败</td>
+<td>保留生成成功事实和费用状态</td>
+<td>原结果有效期、NAS、下载完整性</td>
+<td>把归档重试改为模型重试</td>
+</tr>
+<tr>
+<td>预算/账本不一致</td>
+<td>限制受影响消费，保留证据</td>
+<td>账本重算、去重键、调整、事务</td>
+<td>手改历史金额或删行</td>
+</tr>
+<tr>
+<td>服务重启/队列重复</td>
+<td>根据PG快照和租约恢复</td>
+<td>fencing/revision、幂等、在途事实</td>
+<td>清空队列后把所有任务重新提交</td>
+</tr>
+<tr>
+<td>备份缺失/恢复失败</td>
+<td>停止破坏性操作，保存现有副本</td>
+<td>是否有其他完整恢复集</td>
+<td>覆盖最后一份备份或假标恢复完成</td>
+</tr>
+</tbody></table>
+<p>日常巡检建议按每日运行/费用/备份检查、每次发布后完整冒烟、每次NAS/网络/凭据变更后专项复测、定期恢复演练组织；具体周期和责任人待确认。异常恢复动作按 P0-4 运维接口留原因与证据，不能用临时数据库脚本替代正常治理。</p>
+<h2 id="section-10">10 上线检查与验收证据</h2>
+<p>下列检查均为待执行。OPS 不新增等级，关联测试方案 TST/源用例；任何对应开放门槛失败或参数未冻结均不可勾选通过。模拟通过、NAS实测、真实供应商和生产检查分别记录。</p>
+<table>
+<thead>
+<tr>
+<th>ID</th>
+<th>检查内容</th>
+<th>通过证据</th>
+<th>关联</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>OPS-01</td>
+<td>主机、部署方式、域名、端口和责任人冻结</td>
+<td>§2参数表、版本与变更记录</td>
+<td>TST-15/18</td>
+</tr>
+<tr>
+<td>OPS-02</td>
+<td>内网HTTPS、双前端刷新和API代理</td>
+<td>登录、子路径刷新、原生与业务API响应；无开发服务器暴露</td>
+<td>API、UI</td>
+</tr>
+<tr>
+<td>OPS-03</td>
+<td>PG/Redis隔离及真实迁移</td>
+<td>实际schema/序列/注释/索引检查，员工网不可直连</td>
+<td>DB-01～28、TST-15</td>
+</tr>
+<tr>
+<td>OPS-04</td>
+<td>NAS正确挂载与多身份权限</td>
+<td>来源/身份记录，读写探测，交付账号写入拒绝</td>
+<td>TST-03/17</td>
+</tr>
+<tr>
+<td>OPS-05</td>
+<td>断挂、重挂、重启不落本地</td>
+<td>故障前后路径/文件/状态证据，无假ready</td>
+<td>UAT-08、TST-07</td>
+</tr>
+<tr>
+<td>OPS-06</td>
+<td>上传和视频交付</td>
+<td>大小/哈希、重复绑定、HEAD/Range及撤权</td>
+<td>UAT-03、AUTH-09</td>
+</tr>
+<tr>
+<td>OPS-07</td>
+<td>出站API、上传、注册与下载全链路</td>
+<td>DNS/TLS/代理及域名记录，受控访问成功/拒绝证据</td>
+<td>INT-01/13/14/15</td>
+</tr>
+<tr>
+<td>OPS-08</td>
+<td>密钥保护与正常轮换</td>
+<td>无回显，原Key查旧任务，新版本处理新任务</td>
+<td>UAT-01/15、AUTH-17</td>
+</tr>
+<tr>
+<td>OPS-09</td>
+<td>三类核心模型逐开放组合</td>
+<td>真实脱敏请求/响应、用量、账单与NAS归档</td>
+<td>INT-02/05/07/16</td>
+</tr>
+<tr>
+<td>OPS-10</td>
+<td>未知受理和重启恢复</td>
+<td>无自动二次生成；原任务查询、租约和调用证据</td>
+<td>UAT-07、DB-16/21</td>
+</tr>
+<tr>
+<td>OPS-11</td>
+<td>价格预算与财务隔离</td>
+<td>CALC/FIN结果、并发账本及未知预占正确</td>
+<td>UAT-10/11/17、FIN</td>
+</tr>
+<tr>
+<td>OPS-12</td>
+<td>项目权限及文件/SSE撤权</td>
+<td>跨项目、无成员管理员、无费用权限负向证据</td>
+<td>AUTH-01～18</td>
+</tr>
+<tr>
+<td>OPS-13</td>
+<td>两端亮暗主题与保存状态</td>
+<td>固定视口两主题截图、切换未丢输入/上传/订阅</td>
+<td>UAT-19、UI-19/20</td>
+</tr>
+<tr>
+<td>OPS-14</td>
+<td>备份全套可读取</td>
+<td>PG/NAS/配置/主密钥恢复集目录和校验记录</td>
+<td>TST-13</td>
+</tr>
+<tr>
+<td>OPS-15</td>
+<td>隔离恢复及默认关闭消费</td>
+<td>实际NAS/数据库/凭据恢复，在途核查、预算一致、RPO/RTO</td>
+<td>UAT-18、TST-13</td>
+</tr>
+<tr>
+<td>OPS-16</td>
+<td>监控、容量与告警升级</td>
+<td>测量P95、归档余量、容量及告警演练，接收人确认</td>
+<td>TST-18</td>
+</tr>
+<tr>
+<td>OPS-17</td>
+<td>发布及回退</td>
+<td>兼容性、迁移备份、静态产物/API/Worker回退或向前修复记录</td>
+<td>QLT、TST-15</td>
+</tr>
+<tr>
+<td>OPS-18</td>
+<td>试点开放与交接</td>
+<td>业务/技术/运维/费用签认，关闭能力与遗留项清单</td>
+<td>B1～B4、UAT</td>
+</tr>
+</tbody></table>
+<p>每项记录执行人、环境、实际版本、时间、预期/实际、证据路径和未决项。真实模型测试需已批准测试项目、成本中心及消费上限；费用未知不能被文件已归档替代。OPS-09未覆盖的规格保持关闭；不能用单个成功请求替所有别名/输入模式签认。</p>
+<h2 id="section-11">11 运维交接与后续产出</h2>
+<table>
+<thead>
+<tr>
+<th>交付物</th>
+<th>必须包含</th>
+<th>当前状态</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>环境参数与网络清单</td>
+<td>§2实际值、边界、出站域名、NAS共享与权限</td>
+<td>待确认</td>
+</tr>
+<tr>
+<td>部署配置与执行手册</td>
+<td>选定工具、启动/停止/健康检查、维护/消费隔离、发布回退</td>
+<td>待实现；本文只给顺序</td>
+</tr>
+<tr>
+<td>NAS运行手册</td>
+<td>实际挂载参数、服务身份、探测、断挂恢复、容量和清理</td>
+<td>待设备/系统确认</td>
+</tr>
+<tr>
+<td>备份恢复手册</td>
+<td>工具命令、计划、恢复集、密钥保管、演练及RPO/RTO</td>
+<td>待实施验证</td>
+</tr>
+<tr>
+<td>值班与事件交接</td>
+<td>负责人、告警、处理权限、费用联系人、升级路径</td>
+<td>待确认</td>
+</tr>
+<tr>
+<td>上线签认包</td>
+<td>OPS执行记录、TST/UAT证据、遗留风险及关闭能力</td>
+<td>待执行</td>
+</tr>
+</tbody></table>
+<p>本文与<a href="%E6%B5%8B%E8%AF%95%E4%B8%8E%E9%AA%8C%E6%94%B6%E6%96%B9%E6%A1%88.html">测试与验收方案</a>互补：测试方案定义跨层业务不变量，本方案将其落到内网服务器、NAS、网络、秘密、备份及上线操作。后续具体配置不得偏离 AGENTS、P0-2 原Key/未知受理边界、P0-5 账本预算规则和 P0-6 对象权限。</p>
+<p>本轮仅完成设计文档、图示及索引同步，没有真实挂载、部署、网络验证、备份恢复或收费调用；未确定参数均保留待确认状态。</p>
+<footer>由同目录 内网部署与NAS存储运维方案.md 生成，内嵌 4 张 SVG 图；修改以 Markdown 为准。</footer></main></body></html>

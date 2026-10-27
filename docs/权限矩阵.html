@@ -1,0 +1,903 @@
+<!doctype html><html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>higgsfield-ai · 权限矩阵</title><style>
+*{box-sizing:border-box}body{overflow-wrap:anywhere;margin:0;color:#172b3a;background:#f1f4f7;font:16px/1.85 "Microsoft YaHei",sans-serif}header{background:#15394c;color:white;padding:18px 5%;font-size:18px}main{max-width:1280px;margin:28px auto;background:white;padding:44px 56px;box-shadow:0 8px 32px #15394c10}h1{font-size:32px;line-height:1.4}h2{font-size:25px;color:#154c62;border-bottom:2px solid #d9e6ec;margin-top:52px;padding-bottom:12px;scroll-margin-top:20px}h3{font-size:20px;margin-top:30px}a{color:#126886;text-decoration:none}a:hover{text-decoration:underline}nav{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:5px 22px;padding:24px;background:#f2f7fa;border:1px solid #d6e4ec;margin-bottom:32px}table{table-layout:fixed;width:100%;border-collapse:collapse;margin:20px 0;font-size:14px;line-height:1.7}th,td{border:1px solid #d6e0e6;padding:10px 12px;text-align:left;vertical-align:top;overflow-wrap:anywhere}th{background:#eaf1f5}tr:nth-child(even){background:#f9fbfc}pre{overflow:auto;background:#f4f6f8;padding:20px;border:1px solid #e0e6eb;border-radius:5px;font-size:13px;line-height:1.7}code{font-family:Consolas,"Microsoft YaHei",monospace;overflow-wrap:anywhere}p code,td code{background:#eef2f5;padding:1px 3px}.diagram{margin:24px 0;padding:18px;border:1px solid #d9e5ec;background:#fff;overflow:auto}.diagram svg{min-width:780px;height:auto;display:block;margin:auto}footer{color:#586d7a;border-top:1px solid #d9e5ec;margin-top:48px;padding-top:16px;font-size:13px}@media(max-width:800px){main{margin:0;padding:22px}nav{grid-template-columns:1fr}table{display:block;overflow:auto}h1{font-size:27px}}@media print{body{background:white}main{margin:0;padding:0;box-shadow:none;max-width:none}header,nav{display:none}h2{break-before:page}figure,pre{break-inside:avoid}.diagram svg{min-width:0;max-width:100%!important}a{color:inherit}}
+</style></head><body><header>higgsfield-ai · 技术文档 · 2026 年 10 月 27 日</header><main><nav><a href="#section-1">1 依据、确认状态与优先级</a><a href="#section-2">2 授权模型与若依实际边界</a><a href="#section-3">3 角色分层与建议默认包</a><a href="#section-4">4 制作平台页面、菜单与按钮</a><a href="#section-5">5 项目角色逐动作矩阵</a><a href="#section-6">6 对象范围与敏感字段</a><a href="#section-7">7 成员、授予与项目状态</a><a href="#section-8">8 管理平台菜单、按钮与角色矩阵</a><a href="#section-9">9 管理数据范围、部门与多角色</a><a href="#section-10">10 授权检查、缓存失效与事件</a><a href="#section-11">11 响应与审计</a><a href="#section-12">12 表结构和接口落点</a><a href="#section-13">13 权限验收矩阵</a><a href="#section-14">14 待确认与编码前门槛</a><a href="#section-15">附录 A 平台业务权限码登记</a></nav><h1 id="higgsfield-ai-·-权限矩阵">higgsfield-ai · 权限矩阵</h1>
+<p>版本：1.0 评审稿<br>日期：2026 年 10 月 27 日<br>文档编号：P0-6<br>适用范围：制作平台、管理平台、共享后端及后台任务<br>状态：目标权限设计，未创建角色、菜单、权限种子或业务代码</p>
+<h2 id="section-1">1 依据、确认状态与优先级</h2>
+<p>依据<a href="../AGENTS.md">根目录 AGENTS.md</a>、<a href="%E6%8A%80%E6%9C%AF%E6%9E%B6%E6%9E%84%E6%96%B9%E6%A1%88.html">技术架构方案</a>、<a href="%E9%A6%96%E6%9C%9F%E9%9C%80%E6%B1%82%E4%B8%8E%E4%B8%9A%E5%8A%A1%E8%A7%84%E5%88%99%E8%AF%B4%E6%98%8E%E4%B9%A6.html">P0-1 首期需求</a>、<a href="%E6%A8%A1%E5%9E%8B%E4%BE%9B%E5%BA%94%E5%95%86%E6%8E%A5%E5%85%A5%E5%A5%91%E7%BA%A6%E4%B8%8E%E5%B7%AE%E5%BC%82%E6%B8%85%E5%8D%95.html">P0-2 供应商契约</a>、<a href="%E6%95%B0%E6%8D%AE%E5%BA%93%E8%AF%A6%E7%BB%86%E8%AE%BE%E8%AE%A1.html">P0-3 数据库设计</a>、<a href="%E5%B9%B3%E5%8F%B0API%E5%A5%91%E7%BA%A6.html">P0-4 平台 API</a>及<a href="%E5%90%8E%E7%AB%AF%E7%BC%96%E7%A0%81%E4%B8%8E%E6%A1%86%E6%9E%B6%E5%AF%B9%E9%BD%90%E8%A7%84%E8%8C%83.html">后端规范</a>。两前端目录不变，共用 ruoyi-fastapi-backend；PostgreSQL/Redis 通过 Docker 启动，应用手动启动。</p>
+<p>P0-6 是文档编号，不是需求等级。本文不新增另一套等级，继承<a href="%E6%96%87%E6%A1%A3%E4%B8%80%E8%87%B4%E6%80%A7%E4%B8%8E%E4%BC%98%E5%85%88%E7%BA%A7%E7%B4%A2%E5%BC%95.html">文档一致性与优先级索引</a>和 P0-1 稳定规则 ID：项目隔离 PRJ-01/03/07、资源权限 AST-01/07/08、复制 ELM-06、生成 GEN-01～09、撤权 COL-06、凭据 ADM-01～07、费用 BIL-01～10、全链路保护 QLT-01。UX-08 双主题仍为首期必需；主题不改变任何授权结果。</p>
+<p><strong>已确认基线：</strong> 最小权限、服务端鉴权、项目隔离、功能与对象权限同时满足、Key 不回显、费用独立授权、不可变历史、撤权收敛、无物理外键。<strong>评审建议：</strong> 本文默认角色包、角色可授予集合、会话共享范围及费用附加角色。它们是对 D02/D03 的具体提案，不代表用户已批准角色种子。未确认时不启用有争议授权，已确认基线不得降级。D01、D04～D10 仍由原负责人确认。</p>
+<h2 id="section-2">2 授权模型与若依实际边界</h2>
+<p>一次允许操作必须同时满足：有效平台会话 → 功能权限 → 对应端点的数据范围 → 项目/对象授权 → 当前状态及业务约束。登录制作端或管理端、页面可见、按钮可见、知道对象 ID 均不能单独授权。</p>
+<table>
+<thead>
+<tr>
+<th>层次</th>
+<th>权威来源与检查位置</th>
+<th>不能代替的检查</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>身份与会话</td>
+<td>现有 JWT/OAuth2 Bearer、LoginService、Redis 登录 token，停用状态</td>
+<td>不能用供应商 Key 登录平台，不能靠 URL token</td>
+</tr>
+<tr>
+<td>系统功能权限</td>
+<td>sys_user_role → sys_role_menu → sys_menu.perms；Controller 的 UserInterfaceAuthDependency</td>
+<td>项目成员、对象归属、费用字段、业务状态</td>
+</tr>
+<tr>
+<td>管理数据范围</td>
+<td>sys_role.data_scope、sys_role_dept；现有 DataScopeDependency 语义与 Service 范围校验</td>
+<td>部门全部不等于全部项目内容可读</td>
+</tr>
+<tr>
+<td>项目动作与范围</td>
+<td>hf_project_member → hf_project_role → hf_project_role_permission；Service 强制查询</td>
+<td>平台功能权限不能被项目角色反向提升</td>
+</tr>
+<tr>
+<td>对象与来源</td>
+<td>所有者、父项目、固定版本、公共授权；Service 与 DAO 查询条件</td>
+<td>不能信任请求中的 projectId、ownerId、sourceId</td>
+</tr>
+<tr>
+<td>状态与事务</td>
+<td>项目状态、del_flag、revision、任务阶段、版本有效性；Service 事务及锁</td>
+<td>有权限不等于可删除历史、重提未知调用或修改已发布价格</td>
+</tr>
+</tbody></table>
+<figure class="diagram" aria-label="图 1"><svg id="sync11d0" width="100%" xmlns="http://www.w3.org/2000/svg" class="flowchart" style="max-width: 581.6666259765625px;" viewBox="4 4 581.6666259765625 1584" role="graphics-document document" aria-roledescription="flowchart-v2"><style>#sync11d0{font-family:Microsoft YaHei,sans-serif;font-size:16px;fill:#000000;}@keyframes edge-animation-frame{from{stroke-dashoffset:0;}}@keyframes dash{to{stroke-dashoffset:0;}}#sync11d0 .edge-animation-slow{stroke-dasharray:9,5!important;stroke-dashoffset:900;animation:dash 50s linear infinite;stroke-linecap:round;}#sync11d0 .edge-animation-fast{stroke-dasharray:9,5!important;stroke-dashoffset:900;animation:dash 20s linear infinite;stroke-linecap:round;}#sync11d0 .error-icon{fill:#552222;}#sync11d0 .error-text{fill:#552222;stroke:#552222;}#sync11d0 .edge-thickness-normal{stroke-width:1px;}#sync11d0 .edge-thickness-thick{stroke-width:3.5px;}#sync11d0 .edge-pattern-solid{stroke-dasharray:0;}#sync11d0 .edge-thickness-invisible{stroke-width:0;fill:none;}#sync11d0 .edge-pattern-dashed{stroke-dasharray:3;}#sync11d0 .edge-pattern-dotted{stroke-dasharray:2;}#sync11d0 .marker{fill:#666;stroke:#666;}#sync11d0 .marker.cross{stroke:#666;}#sync11d0 svg{font-family:Microsoft YaHei,sans-serif;font-size:16px;}#sync11d0 p{margin:0;}#sync11d0 .label{font-family:Microsoft YaHei,sans-serif;color:#000000;}#sync11d0 .cluster-label text{fill:#333;}#sync11d0 .cluster-label span{color:#333;}#sync11d0 .cluster-label span p{background-color:transparent;}#sync11d0 .label text,#sync11d0 span{fill:#000000;color:#000000;}#sync11d0 .node rect,#sync11d0 .node circle,#sync11d0 .node ellipse,#sync11d0 .node polygon,#sync11d0 .node path{fill:#eee;stroke:#999;stroke-width:1px;}#sync11d0 .rough-node .label text,#sync11d0 .node .label text,#sync11d0 .image-shape .label,#sync11d0 .icon-shape .label{text-anchor:middle;}#sync11d0 .node .katex path{fill:#000;stroke:#000;stroke-width:1px;}#sync11d0 .rough-node .label,#sync11d0 .node .label,#sync11d0 .image-shape .label,#sync11d0 .icon-shape .label{text-align:center;}#sync11d0 .node.clickable{cursor:pointer;}#sync11d0 .root .anchor path{fill:#666!important;stroke-width:0;stroke:#666;}#sync11d0 .arrowheadPath{fill:#333333;}#sync11d0 .edgePaths .path{stroke:#666;stroke-width:1px;}#sync11d0 .flowchart-link{stroke:#666;fill:none;}#sync11d0 .edgeLabel{background-color:white;text-align:center;}#sync11d0 .edgeLabel p{background-color:white;}#sync11d0 .edgeLabel rect{opacity:0.5;background-color:white;fill:white;}#sync11d0 .labelBkg{background-color:rgba(255, 255, 255, 0.5);}#sync11d0 .cluster rect{fill:hsl(0, 0%, 98.9215686275%);stroke:#707070;stroke-width:1px;}#sync11d0 .cluster text{fill:#333;}#sync11d0 .cluster span{color:#333;}#sync11d0 .node .collapsed-indicator{fill:#707070;stroke:none;opacity:0.6;}#sync11d0 .node .collapsed-separator{stroke:#707070;stroke-width:0.75px;}#sync11d0 div.mermaidTooltip{position:absolute;text-align:center;max-width:200px;padding:2px;font-family:Microsoft YaHei,sans-serif;font-size:12px;background:hsl(-160, 0%, 93.3333333333%);border:1px solid #707070;border-radius:2px;pointer-events:none;z-index:100;}#sync11d0 .flowchartTitleText{text-anchor:middle;font-size:18px;fill:#000000;}#sync11d0 rect.text{fill:none;stroke-width:0;}#sync11d0 .icon-shape,#sync11d0 .image-shape{background-color:white;text-align:center;}#sync11d0 .icon-shape p,#sync11d0 .image-shape p{background-color:white;padding:2px;}#sync11d0 .icon-shape .label rect,#sync11d0 .image-shape .label rect{opacity:0.5;background-color:white;fill:white;}#sync11d0 .label-icon{display:inline-block;height:1em;overflow:visible;vertical-align:-0.125em;}#sync11d0 .node .label-icon path{fill:currentColor;stroke:revert;stroke-width:revert;}#sync11d0 .node .neo-node{stroke:#999;}#sync11d0 [data-look="neo"].node rect,#sync11d0 [data-look="neo"].cluster rect,#sync11d0 [data-look="neo"].node polygon{stroke:url(#sync11d0-gradient);filter:drop-shadow( 1px 2px 2px rgba(185,185,185,1));}#sync11d0 [data-look="neo"].swimlane.cluster rect{filter:none;}#sync11d0 [data-look="neo"].node path{stroke:url(#sync11d0-gradient);stroke-width:1px;}#sync11d0 [data-look="neo"].node .outer-path{filter:drop-shadow( 1px 2px 2px rgba(185,185,185,1));}#sync11d0 [data-look="neo"].node .neo-line path{stroke:#999;filter:none;}#sync11d0 [data-look="neo"].node circle{stroke:url(#sync11d0-gradient);filter:drop-shadow( 1px 2px 2px rgba(185,185,185,1));}#sync11d0 [data-look="neo"].node circle .state-start{fill:#000000;}#sync11d0 [data-look="neo"].icon-shape .icon{fill:url(#sync11d0-gradient);filter:drop-shadow( 1px 2px 2px rgba(185,185,185,1));}#sync11d0 [data-look="neo"].icon-shape .icon-neo path{stroke:url(#sync11d0-gradient);filter:drop-shadow( 1px 2px 2px rgba(185,185,185,1));}#sync11d0 :root{--mermaid-font-family:Microsoft YaHei,sans-serif;}</style><g><marker id="sync11d0_flowchart-v2-pointEnd" class="marker flowchart-v2" viewBox="0 0 10 10" refX="5" refY="5" markerUnits="userSpaceOnUse" markerWidth="8" markerHeight="8" orient="auto"><path d="M 0 0 L 10 5 L 0 10 z" class="arrowMarkerPath" style="stroke-width: 1; stroke-dasharray: 1, 0;"></path></marker><marker id="sync11d0_flowchart-v2-pointStart" class="marker flowchart-v2" viewBox="0 0 10 10" refX="4.5" refY="5" markerUnits="userSpaceOnUse" markerWidth="8" markerHeight="8" orient="auto"><path d="M 0 5 L 10 10 L 10 0 z" class="arrowMarkerPath" style="stroke-width: 1; stroke-dasharray: 1, 0;"></path></marker><marker id="sync11d0_flowchart-v2-pointEnd-margin" class="marker flowchart-v2" viewBox="0 0 11.5 14" refX="11.5" refY="7" markerUnits="userSpaceOnUse" markerWidth="10.5" markerHeight="14" orient="auto"><path d="M 0 0 L 11.5 7 L 0 14 z" class="arrowMarkerPath" style="stroke-width: 0; stroke-dasharray: 1, 0;"></path></marker><marker id="sync11d0_flowchart-v2-pointStart-margin" class="marker flowchart-v2" viewBox="0 0 11.5 14" refX="1" refY="7" markerUnits="userSpaceOnUse" markerWidth="11.5" markerHeight="14" orient="auto"><polygon points="0,7 11.5,14 11.5,0" class="arrowMarkerPath" style="stroke-width: 0; stroke-dasharray: 1, 0;"></polygon></marker><marker id="sync11d0_flowchart-v2-circleEnd" class="marker flowchart-v2" viewBox="0 0 10 10" refX="11" refY="5" markerUnits="userSpaceOnUse" markerWidth="11" markerHeight="11" orient="auto"><circle cx="5" cy="5" r="5" class="arrowMarkerPath" style="stroke-width: 1; stroke-dasharray: 1, 0;"></circle></marker><marker id="sync11d0_flowchart-v2-circleStart" class="marker flowchart-v2" viewBox="0 0 10 10" refX="-1" refY="5" markerUnits="userSpaceOnUse" markerWidth="11" markerHeight="11" orient="auto"><circle cx="5" cy="5" r="5" class="arrowMarkerPath" style="stroke-width: 1; stroke-dasharray: 1, 0;"></circle></marker><marker id="sync11d0_flowchart-v2-circleEnd-margin" class="marker flowchart-v2" viewBox="0 0 10 10" refY="5" refX="12.25" markerUnits="userSpaceOnUse" markerWidth="14" markerHeight="14" orient="auto"><circle cx="5" cy="5" r="5" class="arrowMarkerPath" style="stroke-width: 0; stroke-dasharray: 1, 0;"></circle></marker><marker id="sync11d0_flowchart-v2-circleStart-margin" class="marker flowchart-v2" viewBox="0 0 10 10" refX="-2" refY="5" markerUnits="userSpaceOnUse" markerWidth="14" markerHeight="14" orient="auto"><circle cx="5" cy="5" r="5" class="arrowMarkerPath" style="stroke-width: 0; stroke-dasharray: 1, 0;"></circle></marker><marker id="sync11d0_flowchart-v2-crossEnd" class="marker cross flowchart-v2" viewBox="0 0 11 11" refX="12" refY="5.2" markerUnits="userSpaceOnUse" markerWidth="11" markerHeight="11" orient="auto"><path d="M 1,1 l 9,9 M 10,1 l -9,9" class="arrowMarkerPath" style="stroke-width: 2; stroke-dasharray: 1, 0;"></path></marker><marker id="sync11d0_flowchart-v2-crossStart" class="marker cross flowchart-v2" viewBox="0 0 11 11" refX="-1" refY="5.2" markerUnits="userSpaceOnUse" markerWidth="11" markerHeight="11" orient="auto"><path d="M 1,1 l 9,9 M 10,1 l -9,9" class="arrowMarkerPath" style="stroke-width: 2; stroke-dasharray: 1, 0;"></path></marker><marker id="sync11d0_flowchart-v2-crossEnd-margin" class="marker cross flowchart-v2" viewBox="0 0 15 15" refX="17.7" refY="7.5" markerUnits="userSpaceOnUse" markerWidth="12" markerHeight="12" orient="auto"><path d="M 1,1 L 14,14 M 1,14 L 14,1" class="arrowMarkerPath" style="stroke-width: 2.5;"></path></marker><marker id="sync11d0_flowchart-v2-crossStart-margin" class="marker cross flowchart-v2" viewBox="0 0 15 15" refX="-3.5" refY="7.5" markerUnits="userSpaceOnUse" markerWidth="12" markerHeight="12" orient="auto"><path d="M 1,1 L 14,14 M 1,14 L 14,1" class="arrowMarkerPath" style="stroke-width: 2.5; stroke-dasharray: 1, 0;"></path></marker><g class="root"><g class="clusters"></g><g class="edges edgePaths"><path d="M189.5,84L189.5,120" id="sync11d0-L_A_B_0" class="edge-thickness-normal edge-pattern-solid edge-thickness-normal edge-pattern-solid flowchart-link" style="stroke-dasharray: 0 0 32 4; stroke-dashoffset: 0;;" data-edge="true" data-et="edge" data-id="L_A_B_0" data-points="W3sieCI6MTg5LjUsInkiOjg0fSx7IngiOjE4OS41LCJ5IjoxMjR9XQ==" data-look="neo" marker-end="url(#sync11d0_flowchart-v2-pointEnd-margin)"></path><path d="M163.83333333333331,272.3332509994507L163.83333333333331,298L163.83333333333331,310.9289321881345Q163.83333333333331,318 156.76226552146784,318L95.07106781186548,318Q88,318 88,325.0710678118655L88,398" id="sync11d0-L_B_X_0" class="edge-thickness-normal edge-pattern-solid edge-thickness-normal edge-pattern-solid flowchart-link" style="stroke-dasharray: 0 0 192.1717987060547 4; stroke-dashoffset: 0;;" data-edge="true" data-et="edge" data-id="L_B_X_0" data-points="W3sieCI6MTYzLjgzMzMzMzMzMzMzMzMxLCJ5IjoyNzIuMzMzMjUwOTk5NDUwN30seyJ4IjoxNjMuODMzMzMzMzMzMzMzMzEsInkiOjI5OH0seyJ4IjoxNjMuODMzMzMzMzMzMzMzMzEsInkiOjMxOH0seyJ4Ijo4OCwieSI6MzE4fSx7IngiOjg4LCJ5Ijo0MDJ9XQ==" data-look="neo" marker-end="url(#sync11d0_flowchart-v2-pointEnd-margin)"></path><path d="M215.16666666666666,272.3332509994507L215.16666666666666,298L215.16666666666666,310.9289321881345Q215.16666666666666,318 222.23773447853213,318L283.9289321881345,318Q291,318 291,325.0710678118655L291,398" id="sync11d0-L_B_C_0" class="edge-thickness-normal edge-pattern-solid edge-thickness-normal edge-pattern-solid flowchart-link" style="stroke-dasharray: 0 0 192.17178344726562 4; stroke-dashoffset: 0;;" data-edge="true" data-et="edge" data-id="L_B_C_0" data-points="W3sieCI6MjE1LjE2NjY2NjY2NjY2NjY2LCJ5IjoyNzIuMzMzMjUwOTk5NDUwN30seyJ4IjoyMTUuMTY2NjY2NjY2NjY2NjYsInkiOjI5OH0seyJ4IjoyMTUuMTY2NjY2NjY2NjY2NjYsInkiOjMxOH0seyJ4IjoyOTEsInkiOjMxOH0seyJ4IjoyOTEsInkiOjQwMn1d" data-look="neo" marker-end="url(#sync11d0_flowchart-v2-pointEnd-margin)"></path><path d="M265.3333333333333,550.3332509994507L265.3333333333333,576L265.3333333333333,588.9289321881345Q265.3333333333333,596 258.26226552146784,596L156.9044011451988,596Q149.83333333333331,596 149.83333333333331,603.0710678118655L149.83333333333331,628L149.83333333333331,716L149.83333333333331,1042L149.83333333333331,1193L149.83333333333331,1344L149.83333333333331,1368.9289321881345Q149.83333333333331,1376 156.9044011451988,1376L206.5955988548012,1376Q213.66666666666669,1376 213.66666666666669,1383.0710678118655L213.66666666666669,1392" id="sync11d0-L_C_Y_0" class="edge-thickness-normal edge-pattern-solid edge-thickness-normal edge-pattern-solid flowchart-link" style="stroke-dasharray: 0 0 1006.3435668945312 4; stroke-dashoffset: 0;;" data-edge="true" data-et="edge" data-id="L_C_Y_0" data-points="W3sieCI6MjY1LjMzMzMzMzMzMzMzMzMsInkiOjU1MC4zMzMyNTA5OTk0NTA3fSx7IngiOjI2NS4zMzMzMzMzMzMzMzMzLCJ5Ijo1NzZ9LHsieCI6MjY1LjMzMzMzMzMzMzMzMzMsInkiOjU5Nn0seyJ4IjoxNDkuODMzMzMzMzMzMzMzMzEsInkiOjU5Nn0seyJ4IjoxNDkuODMzMzMzMzMzMzMzMzEsInkiOjYyOH0seyJ4IjoxNDkuODMzMzMzMzMzMzMzMzEsInkiOjcxNn0seyJ4IjoxNDkuODMzMzMzMzMzMzMzMzEsInkiOjEwNDJ9LHsieCI6MTQ5LjgzMzMzMzMzMzMzMzMxLCJ5IjoxMTkzfSx7IngiOjE0OS44MzMzMzMzMzMzMzMzMSwieSI6MTM0NH0seyJ4IjoxNDkuODMzMzMzMzMzMzMzMzEsInkiOjEzNzZ9LHsieCI6MjEzLjY2NjY2NjY2NjY2NjY5LCJ5IjoxMzc2fSx7IngiOjIxMy42NjY2NjY2NjY2NjY2OSwieSI6MTM5Nn1d" data-look="neo" marker-end="url(#sync11d0_flowchart-v2-pointEnd-margin)"></path><path d="M316.66666666666663,550.3332509994507L316.66666666666663,576L316.66666666666663,588.9289321881345Q316.66666666666663,596 323.7377344785321,596L357.4289321881345,596Q364.5,596 364.5,603.0710678118655L364.5,676" id="sync11d0-L_C_D_0" class="edge-thickness-normal edge-pattern-solid edge-thickness-normal edge-pattern-solid flowchart-link" style="stroke-dasharray: 0 0 164.17178344726562 4; stroke-dashoffset: 0;;" data-edge="true" data-et="edge" data-id="L_C_D_0" data-points="W3sieCI6MzE2LjY2NjY2NjY2NjY2NjYzLCJ5Ijo1NTAuMzMzMjUwOTk5NDUwN30seyJ4IjozMTYuNjY2NjY2NjY2NjY2NjMsInkiOjU3Nn0seyJ4IjozMTYuNjY2NjY2NjY2NjY2NjMsInkiOjU5Nn0seyJ4IjozNjQuNSwieSI6NTk2fSx7IngiOjM2NC41LCJ5Ijo2ODB9XQ==" data-look="neo" marker-end="url(#sync11d0_flowchart-v2-pointEnd-margin)"></path><path d="M364.5,752L364.5,788" id="sync11d0-L_D_E_0" class="edge-thickness-normal edge-pattern-solid edge-thickness-normal edge-pattern-solid flowchart-link" style="stroke-dasharray: 0 0 32 4; stroke-dashoffset: 0;;" data-edge="true" data-et="edge" data-id="L_D_E_0" data-points="W3sieCI6MzY0LjUsInkiOjc1Mn0seyJ4IjozNjQuNSwieSI6NzkyfV0=" data-look="neo" marker-end="url(#sync11d0_flowchart-v2-pointEnd-margin)"></path><path d="M334.83333333333326,960.333309173584L334.83333333333326,990L334.83333333333326,1002.9289321881345Q334.83333333333326,1010 327.7622655214678,1010L264.0710678118655,1010Q257,1010 257,1017.0710678118655L257,1090" id="sync11d0-L_E_N_0" class="edge-thickness-normal edge-pattern-solid edge-thickness-normal edge-pattern-solid flowchart-link" style="stroke-dasharray: 0 0 198.17176818847656 4; stroke-dashoffset: 0;;" data-edge="true" data-et="edge" data-id="L_E_N_0" data-points="W3sieCI6MzM0LjgzMzMzMzMzMzMzMzI2LCJ5Ijo5NjAuMzMzMzA5MTczNTg0fSx7IngiOjMzNC44MzMzMzMzMzMzMzMyNiwieSI6OTkwfSx7IngiOjMzNC44MzMzMzMzMzMzMzMyNiwieSI6MTAxMH0seyJ4IjoyNTcsInkiOjEwMTB9LHsieCI6MjU3LCJ5IjoxMDk0fV0=" data-look="neo" marker-end="url(#sync11d0_flowchart-v2-pointEnd-margin)"></path><path d="M394.16666666666663,960.333309173584L394.16666666666663,990L394.16666666666663,1002.9289321881345Q394.16666666666663,1010 401.2377344785321,1010L464.9289321881345,1010Q472,1010 472,1017.0710678118655L472,1090" id="sync11d0-L_E_F_0" class="edge-thickness-normal edge-pattern-solid edge-thickness-normal edge-pattern-solid flowchart-link" style="stroke-dasharray: 0 0 198.1717529296875 4; stroke-dashoffset: 0;;" data-edge="true" data-et="edge" data-id="L_E_F_0" data-points="W3sieCI6Mzk0LjE2NjY2NjY2NjY2NjYzLCJ5Ijo5NjAuMzMzMzA5MTczNTg0fSx7IngiOjM5NC4xNjY2NjY2NjY2NjY2MywieSI6OTkwfSx7IngiOjM5NC4xNjY2NjY2NjY2NjY2MywieSI6MTAxMH0seyJ4Ijo0NzIsInkiOjEwMTB9LHsieCI6NDcyLCJ5IjoxMDk0fV0=" data-look="neo" marker-end="url(#sync11d0_flowchart-v2-pointEnd-margin)"></path><path d="M442.33333333333337,1262.333309173584L442.33333333333337,1292L442.33333333333337,1304.9289321881345Q442.33333333333337,1312 435.2622655214679,1312L394.0710678118655,1312Q387,1312 387,1319.0710678118655L387,1368.9289321881345Q387,1376 379.9289321881345,1376L264.73773447853216,1376Q257.6666666666667,1376 257.6666666666667,1383.0710678118655L257.6666666666667,1392" id="sync11d0-L_F_Y_0" class="edge-thickness-normal edge-pattern-solid edge-thickness-normal edge-pattern-solid flowchart-link" style="stroke-dasharray: 0 0 299.6768798828125 4; stroke-dashoffset: 0;;" data-edge="true" data-et="edge" data-id="L_F_Y_0" data-points="W3sieCI6NDQyLjMzMzMzMzMzMzMzMzM3LCJ5IjoxMjYyLjMzMzMwOTE3MzU4NH0seyJ4Ijo0NDIuMzMzMzMzMzMzMzMzMzcsInkiOjEyOTJ9LHsieCI6NDQyLjMzMzMzMzMzMzMzMzM3LCJ5IjoxMzEyfSx7IngiOjM4NywieSI6MTMxMn0seyJ4IjozODcsInkiOjEzNzZ9LHsieCI6MjU3LjY2NjY2NjY2NjY2NjcsInkiOjEzNzZ9LHsieCI6MjU3LjY2NjY2NjY2NjY2NjcsInkiOjEzOTZ9XQ==" data-look="neo" marker-end="url(#sync11d0_flowchart-v2-pointEnd-margin)"></path><path d="M501.66666666666663,1262.333309173584L501.66666666666663,1292L501.66666666666663,1392" id="sync11d0-L_F_G_0" class="edge-thickness-normal edge-pattern-solid edge-thickness-normal edge-pattern-solid flowchart-link" style="stroke-dasharray: 0 0 125.666748046875 4; stroke-dashoffset: 0;;" data-edge="true" data-et="edge" data-id="L_F_G_0" data-points="W3sieCI6NTAxLjY2NjY2NjY2NjY2NjYzLCJ5IjoxMjYyLjMzMzMwOTE3MzU4NH0seyJ4Ijo1MDEuNjY2NjY2NjY2NjY2NjMsInkiOjEyOTJ9LHsieCI6NTAxLjY2NjY2NjY2NjY2NjYzLCJ5IjoxMzk2fV0=" data-look="neo" marker-end="url(#sync11d0_flowchart-v2-pointEnd-margin)"></path><path d="M501.66666666666663,1468L501.66666666666663,1504" id="sync11d0-L_G_H_0" class="edge-thickness-normal edge-pattern-solid edge-thickness-normal edge-pattern-solid flowchart-link" style="stroke-dasharray: 0 0 32 4; stroke-dashoffset: 0;;" data-edge="true" data-et="edge" data-id="L_G_H_0" data-points="W3sieCI6NTAxLjY2NjY2NjY2NjY2NjYzLCJ5IjoxNDY4fSx7IngiOjUwMS42NjY2NjY2NjY2NjY2MywieSI6MTUwOH1d" data-look="neo" marker-end="url(#sync11d0_flowchart-v2-pointEnd-margin)"></path></g><g class="edgeLabels"><g class="edgeLabel" transform="translate(88, 350)"><g class="label" data-id="L_B_X_0" transform="translate(-8, -12)"><foreignObject width="16" height="24"><div xmlns="http://www.w3.org/1999/xhtml" class="labelBkg" style="display: table-cell; white-space: nowrap; line-height: 1.5; max-width: 200px; text-align: center;"><span class="edgeLabel"><p>否</p></span></div></foreignObject></g></g><g class="edgeLabel" transform="translate(291, 350)"><g class="label" data-id="L_B_C_0" transform="translate(-8, -12)"><foreignObject width="16" height="24"><div xmlns="http://www.w3.org/1999/xhtml" class="labelBkg" style="display: table-cell; white-space: nowrap; line-height: 1.5; max-width: 200px; text-align: center;"><span class="edgeLabel"><p>是</p></span></div></foreignObject></g></g><g class="edgeLabel" transform="translate(149.83333333333331, 891)"><g class="label" data-id="L_C_Y_0" transform="translate(-8, -12)"><foreignObject width="16" height="24"><div xmlns="http://www.w3.org/1999/xhtml" class="labelBkg" style="display: table-cell; white-space: nowrap; line-height: 1.5; max-width: 200px; text-align: center;"><span class="edgeLabel"><p>否</p></span></div></foreignObject></g></g><g class="edgeLabel" transform="translate(364.5, 628)"><g class="label" data-id="L_C_D_0" transform="translate(-8, -12)"><foreignObject width="16" height="24"><div xmlns="http://www.w3.org/1999/xhtml" class="labelBkg" style="display: table-cell; white-space: nowrap; line-height: 1.5; max-width: 200px; text-align: center;"><span class="edgeLabel"><p>是</p></span></div></foreignObject></g></g><g class="edgeLabel" transform="translate(257, 1042)"><g class="label" data-id="L_E_N_0" transform="translate(-8, -12)"><foreignObject width="16" height="24"><div xmlns="http://www.w3.org/1999/xhtml" class="labelBkg" style="display: table-cell; white-space: nowrap; line-height: 1.5; max-width: 200px; text-align: center;"><span class="edgeLabel"><p>否</p></span></div></foreignObject></g></g><g class="edgeLabel" transform="translate(472, 1042)"><g class="label" data-id="L_E_F_0" transform="translate(-8, -12)"><foreignObject width="16" height="24"><div xmlns="http://www.w3.org/1999/xhtml" class="labelBkg" style="display: table-cell; white-space: nowrap; line-height: 1.5; max-width: 200px; text-align: center;"><span class="edgeLabel"><p>是</p></span></div></foreignObject></g></g><g class="edgeLabel" transform="translate(387, 1344)"><g class="label" data-id="L_F_Y_0" transform="translate(-8, -12)"><foreignObject width="16" height="24"><div xmlns="http://www.w3.org/1999/xhtml" class="labelBkg" style="display: table-cell; white-space: nowrap; line-height: 1.5; max-width: 200px; text-align: center;"><span class="edgeLabel"><p>否</p></span></div></foreignObject></g></g><g class="edgeLabel" transform="translate(501.66666666666663, 1344)"><g class="label" data-id="L_F_G_0" transform="translate(-8, -12)"><foreignObject width="16" height="24"><div xmlns="http://www.w3.org/1999/xhtml" class="labelBkg" style="display: table-cell; white-space: nowrap; line-height: 1.5; max-width: 200px; text-align: center;"><span class="edgeLabel"><p>是</p></span></div></foreignObject></g></g></g><g class="nodes"><g class="node default" id="sync11d0-flowchart-A-0" data-look="neo" transform="translate(189.5, 48)"><rect class="basic label-container" style="" x="-76" y="-36" width="152" height="72"></rect><g class="label" style="" transform="translate(-60, -24)"><rect></rect><foreignObject width="120" height="48"><div xmlns="http://www.w3.org/1999/xhtml" style="display: table; white-space: break-spaces; line-height: 1.5; max-width: 120px; text-align: center; width: 120px;"><span class="nodeLabel"><p>携带平台 Bearer 请求</p></span></div></foreignObject></g></g><g class="node default" id="sync11d0-flowchart-B-1" data-look="neo" transform="translate(189.5, 211)"><polygon points="87,0 174,-87 87,-174 0,-87" class="label-container" transform="translate(-86.5, 87)"></polygon><g class="label" style="" transform="translate(-60, -12)"><rect></rect><foreignObject width="120" height="24"><div xmlns="http://www.w3.org/1999/xhtml" style="display: table; white-space: nowrap; line-height: 1.5; max-width: 120px; text-align: center; width: 120px;"><span class="nodeLabel"><p>身份会话有效</p></span></div></foreignObject></g></g><g class="node default" id="sync11d0-flowchart-X-3" data-look="neo" transform="translate(88, 426)"><rect class="basic label-container" style="" x="-76" y="-24" width="152" height="48"></rect><g class="label" style="" transform="translate(-60, -12)"><rect></rect><foreignObject width="120" height="24"><div xmlns="http://www.w3.org/1999/xhtml" style="display: table; white-space: nowrap; line-height: 1.5; max-width: 120px; text-align: center; width: 120px;"><span class="nodeLabel"><p>框架认证错误</p></span></div></foreignObject></g></g><g class="node default" id="sync11d0-flowchart-C-5" data-look="neo" transform="translate(291, 489)"><polygon points="87,0 174,-87 87,-174 0,-87" class="label-container" transform="translate(-86.5, 87)"></polygon><g class="label" style="" transform="translate(-60, -12)"><rect></rect><foreignObject width="120" height="24"><div xmlns="http://www.w3.org/1999/xhtml" style="display: table; white-space: nowrap; line-height: 1.5; max-width: 120px; text-align: center; width: 120px;"><span class="nodeLabel"><p>功能权限满足</p></span></div></foreignObject></g></g><g class="node default" id="sync11d0-flowchart-Y-7" data-look="neo" transform="translate(235.66666666666669, 1420)"><rect class="basic label-container" style="" x="-76" y="-24" width="152" height="48"></rect><g class="label" style="" transform="translate(-60, -12)"><rect></rect><foreignObject width="120" height="24"><div xmlns="http://www.w3.org/1999/xhtml" style="display: table; white-space: nowrap; line-height: 1.5; max-width: 120px; text-align: center; width: 120px;"><span class="nodeLabel"><p>拒绝动作</p></span></div></foreignObject></g></g><g class="node default" id="sync11d0-flowchart-D-9" data-look="neo" transform="translate(364.49999999999994, 716)"><rect class="basic label-container" style="" x="-76" y="-36" width="152" height="72"></rect><g class="label" style="" transform="translate(-60, -24)"><rect></rect><foreignObject width="120" height="48"><div xmlns="http://www.w3.org/1999/xhtml" style="display: table; white-space: break-spaces; line-height: 1.5; max-width: 120px; text-align: center; width: 120px;"><span class="nodeLabel"><p>按管理或项目范围查询对象</p></span></div></foreignObject></g></g><g class="node default" id="sync11d0-flowchart-E-11" data-look="neo" transform="translate(364.49999999999994, 891)"><polygon points="99,0 198,-99 99,-198 0,-99" class="label-container" transform="translate(-98.5, 99)"></polygon><g class="label" style="" transform="translate(-60, -24)"><rect></rect><foreignObject width="120" height="48"><div xmlns="http://www.w3.org/1999/xhtml" style="display: table; white-space: break-spaces; line-height: 1.5; max-width: 120px; text-align: center; width: 120px;"><span class="nodeLabel"><p>对象可见且归属有效</p></span></div></foreignObject></g></g><g class="node default" id="sync11d0-flowchart-N-13" data-look="neo" transform="translate(257, 1118)"><rect class="basic label-container" style="" x="-76" y="-24" width="152" height="48"></rect><g class="label" style="" transform="translate(-60, -12)"><rect></rect><foreignObject width="120" height="24"><div xmlns="http://www.w3.org/1999/xhtml" style="display: table; white-space: nowrap; line-height: 1.5; max-width: 120px; text-align: center; width: 120px;"><span class="nodeLabel"><p>统一资源不可见</p></span></div></foreignObject></g></g><g class="node default" id="sync11d0-flowchart-F-15" data-look="neo" transform="translate(472, 1193)"><polygon points="99,0 198,-99 99,-198 0,-99" class="label-container" transform="translate(-98.5, 99)"></polygon><g class="label" style="" transform="translate(-60, -24)"><rect></rect><foreignObject width="120" height="48"><div xmlns="http://www.w3.org/1999/xhtml" style="display: table; white-space: break-spaces; line-height: 1.5; max-width: 120px; text-align: center; width: 120px;"><span class="nodeLabel"><p>动作范围与状态允许</p></span></div></foreignObject></g></g><g class="node default" id="sync11d0-flowchart-G-19" data-look="neo" transform="translate(501.66666666666663, 1432)"><rect class="basic label-container" style="" x="-76" y="-36" width="152" height="72"></rect><g class="label" style="" transform="translate(-60, -24)"><rect></rect><foreignObject width="120" height="48"><div xmlns="http://www.w3.org/1999/xhtml" style="display: table; white-space: break-spaces; line-height: 1.5; max-width: 120px; text-align: center; width: 120px;"><span class="nodeLabel"><p>Service 事务校验并执行</p></span></div></foreignObject></g></g><g class="node default" id="sync11d0-flowchart-H-21" data-look="neo" transform="translate(501.66666666666663, 1544)"><rect class="basic label-container" style="" x="-76" y="-36" width="152" height="72"></rect><g class="label" style="" transform="translate(-60, -24)"><rect></rect><foreignObject width="120" height="48"><div xmlns="http://www.w3.org/1999/xhtml" style="display: table; white-space: break-spaces; line-height: 1.5; max-width: 120px; text-align: center; width: 120px;"><span class="nodeLabel"><p>按字段权限投影与审计</p></span></div></foreignObject></g></g></g></g></g><defs><filter id="sync11d0-drop-shadow" height="130%" width="130%"><feDropShadow dx="4" dy="4" stdDeviation="0" flood-opacity="0.06" flood-color="#000000"></feDropShadow></filter></defs><defs><filter id="sync11d0-drop-shadow-small" height="150%" width="150%"><feDropShadow dx="2" dy="2" stdDeviation="0" flood-opacity="0.06" flood-color="#000000"></feDropShadow></filter></defs><linearGradient id="sync11d0-gradient" gradientUnits="objectBoundingBox" x1="0%" y1="0%" x2="100%" y2="0%"><stop offset="0%" stop-color="hsl(0, 0%, 83.3333333333%)" stop-opacity="1"></stop><stop offset="100%" stop-color="hsl(0, 0%, 88.9215686275%)" stop-opacity="1"></stop></linearGradient></svg></figure>
+
+<p>本地<a href="../ruoyi-fastapi-backend/common/aspect/interface_auth.py">接口权限依赖</a>在遇到 <code>*:*:*</code> 时允许功能检查通过；<a href="../ruoyi-fastapi-backend/common/aspect/data_scope.py">数据范围依赖</a>对 admin 返回全部范围。<strong>这是已读源码事实，不代表项目对象权限可以跳过。</strong> Service 必须继续检查项目成员、私有对象和公共素材授权。普通平台管理员角色不应配置为框架超级管理员。</p>
+<p>功能权限列表默认可能按“任一满足”执行；需要 A+B 的端点必须使用严格检查或逐项检查，不能把 <code>asset:create + 来源使用权</code> 写成 OR。同一用户可兼任系统角色；功能权限按框架并集合并，停用、撤销、对象不可见和业务状态限制仍优先。</p>
+<h2 id="section-3">3 角色分层与建议默认包</h2>
+<h3 id="31-系统角色与项目角色">3.1 系统角色与项目角色</h3>
+<table>
+<thead>
+<tr>
+<th>角色</th>
+<th>建议稳定码/落点</th>
+<th>默认职责</th>
+<th>不自动获得</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>平台管理员</td>
+<td>hf_platform_admin，sys_role</td>
+<td>系统组织维护、供应商/Key、模型、项目元数据治理、异常处置</td>
+<td>项目内容、价格发布、采购账单、预算调整</td>
+</tr>
+<tr>
+<td>费用管理员</td>
+<td>hf_finance_admin，sys_role</td>
+<td>价格维护/发布、预算、费用、对账及调整；范围另配</td>
+<td>Key 管理、模型调用、素材正文、项目成员管理</td>
+</tr>
+<tr>
+<td>制作平台基础使用者</td>
+<td>hf_studio_user，sys_role</td>
+<td>获得制作端功能权限上限；实际能力由项目角色限制</td>
+<td>加入任意项目、自动创建项目、公共发布、项目费用、治理他人内容</td>
+</tr>
+<tr>
+<td>项目负责人</td>
+<td>owner，hf_project_role</td>
+<td>本项目资料、成员、内容治理、归档恢复</td>
+<td>系统角色授予、供应商管理、预算调整、费用读取</td>
+</tr>
+<tr>
+<td>制作成员</td>
+<td>producer，hf_project_role</td>
+<td>本项目浏览、生成、维护本人内容、评论</td>
+<td>编辑他人内容、默认下载、公共发布、费用读取</td>
+</tr>
+<tr>
+<td>只读成员</td>
+<td>viewer，hf_project_role</td>
+<td>本项目已共享内容浏览</td>
+<td>生成、编辑、下载、评论、费用读取</td>
+</tr>
+</tbody></table>
+<p>前三类是系统角色模板，后三类是项目角色；同名职责不意味着使用同一张表。owner/producer/viewer 是角色身份，不可仅凭角色名称在 Controller 硬编码放行；项目动作读取权限映射，owner 的最后负责人保护单独按稳定角色语义执行。hf_project_member 每个项目/用户一条记录、一个 role_id，首期不虚构多项目角色叠加或单用户对象 ACL。</p>
+<p>制作端系统角色的基础功能上限包含第 5 章默认项目动作集合，但不默认包含下载、复制、公共发布、项目费用、建项和申请等附加码；高权限项目动作仍必须由 owner 等项目角色授权。登录用户默认只获得本人偏好等已登录能力，不因“有账号”自动成为 hf_studio_user。管理角色兼任项目成员时仍按其项目角色操作。</p>
+<h3 id="32-可选授权与不扩大-schema-的落地">3.2 可选授权与不扩大 schema 的落地</h3>
+<ul>
+<li>project:create 为独立系统功能授权，建议由平台管理员显式授予有建项职责的用户；建项事务创建本人 owner 成员关系及项目空间。</li>
+<li>下载、项目费用、公共发布、跨项目复制可以分开授予。首期采用经评审的<strong>预设角色变体</strong>（例如 viewer_download、owner_usage），仍一名成员一个项目 role_id；同步授予必要系统功能码，不能只改前端按钮。</li>
+<li>变体使用 hf_project_role/hf_project_role_permission，新增稳定 role code 和准确权限集合，不新增数据表。普通负责人只能授予第 7 章允许集合；变体未审定或未初始化即不可选。</li>
+<li>不开放任意项目角色编辑器；不新增每用户例外授权 API。后续若确需该能力，先补 P0-3/P0-4 及评审，不能把 JSON 偏好当权限存储。</li>
+<li>可把平台管理员的操作拆成运维、凭据维护、发布等系统角色包；写入、验证、发布使用不同权限码，但首期不强制“必须两个人”。若要求双人复核，需另补审批契约，不能宣称现有发布接口已支持。</li>
+</ul>
+<h2 id="section-4">4 制作平台页面、菜单与按钮</h2>
+<p>制作端路由由 Vue Router 管理，菜单不是复制管理端页面。系统权限码登记到若依 sys_menu.perms，项目按钮依据当前对象 allowedActions 与当前项目权限；只用 /me 的全局 permissions 不能判断某项目是否允许操作。两端新增/修改组件使用 script setup，业务请求经 composable/Store → api，不在组件内自行拼权限请求。</p>
+<table>
+<thead>
+<tr>
+<th>页面</th>
+<th>进入条件</th>
+<th>按钮/动作权限</th>
+<th>附加范围</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>S01 首页、S02 我的项目</td>
+<td>已登录；列表 project:read</td>
+<td>project:create；置顶/隐藏/集合为本人操作</td>
+<td>我的项目仅 active 成员；创建不以成员关系为前置</td>
+</tr>
+<tr>
+<td>S03 我的生成、S09 项目任务/作品</td>
+<td>generation:read；作品 asset:read</td>
+<td>generation:cancel、output:archive、asset:create、asset:download</td>
+<td>mine 仍交集当前项目权，取消与归档重试独立</td>
+</tr>
+<tr>
+<td>S04 我的元素、S07 项目元素</td>
+<td>element:read</td>
+<td>element:create/edit/remove/copy/configure/import，使用完整码见 §5</td>
+<td>本人修改或项目治理；复制双向校验</td>
+</tr>
+<tr>
+<td>S05 项目总览/简报</td>
+<td>project:read</td>
+<td>project:edit、project:manage</td>
+<td>当前项目；简报 revision 校验</td>
+</tr>
+<tr>
+<td>S06 素材库与目录</td>
+<td>asset:read</td>
+<td>asset:upload/create/edit/remove/download/reference、folder:write</td>
+<td>文件版本归属、上传所有者、公共授权</td>
+</tr>
+<tr>
+<td>S08 创作面板</td>
+<td>generation:create 或 chat:create，按创作类型</td>
+<td>validate/提交使用对应生成权限</td>
+<td>项目可写、素材可用、模型已发布、路由/预算有效</td>
+</tr>
+<tr>
+<td>S10 项目设置</td>
+<td>project:read；成员页 member:read</td>
+<td>member:manage、project:manage/archive；用量 project:usage:read</td>
+<td>不把负责人权限当成财务权限</td>
+</tr>
+<tr>
+<td>S11 多模态对话</td>
+<td>chat:read</td>
+<td>chat:create；会话维护按 §6</td>
+<td>读取共享/私有边界按本版提案，不接受伪造历史角色</td>
+</tr>
+<tr>
+<td>S12 公司公共素材</td>
+<td>public:read，必须选目标项目</td>
+<td>asset:reference、public:publish</td>
+<td>canRead/canUse/canPublish 独立判断</td>
+</tr>
+<tr>
+<td>评论/标注/工作状态</td>
+<td>comment:read + 目标可读</td>
+<td>comment:create、comment:edit:own、comment:moderate、content:review</td>
+<td>标注固定版本；审核通过不等于公开</td>
+</tr>
+</tbody></table>
+<p>页面编号沿用 P0-1，首页聚合入口不额外开放数据。菜单隐藏、按钮禁用及明暗主题只影响展示，不替代后端检查。任一项目无权限时清空相关 Pinia 缓存及预览，不能残留上一个项目正文。</p>
+<h2 id="section-5">5 项目角色逐动作矩阵</h2>
+<p>表中“项目”表示当前有效成员所在项目；“本人”还必须满足对象所有者；“—”表示默认不授予；“附加”表示须启用经评审变体。所有允许项均需系统功能权限上限及状态校验；表中动作并列表示分别授权，不表示调用每个端点都需要整组全部权限。角色默认包是建议，不改变 P0-1 规则确认状态。</p>
+<table>
+<thead>
+<tr>
+<th>完整功能码/动作</th>
+<th>owner</th>
+<th>producer</th>
+<th>viewer</th>
+<th>对象范围或限制</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>project:read、member:read</td>
+<td>项目</td>
+<td>项目</td>
+<td>项目</td>
+<td>成员信息仅业务必要字段，不返回全公司用户数据</td>
+</tr>
+<tr>
+<td>project:edit</td>
+<td>项目</td>
+<td>—</td>
+<td>—</td>
+<td>简报编辑</td>
+</tr>
+<tr>
+<td>project:manage、project:archive</td>
+<td>项目</td>
+<td>—</td>
+<td>—</td>
+<td>状态动作保留在途任务及历史</td>
+</tr>
+<tr>
+<td>member:manage</td>
+<td>项目</td>
+<td>—</td>
+<td>—</td>
+<td>可授予集合及最后负责人保护</td>
+</tr>
+<tr>
+<td>asset:read、element:read、generation:read、chat:read、comment:read</td>
+<td>项目</td>
+<td>项目</td>
+<td>项目</td>
+<td>私有草稿、上传及管理证据不属于共享内容</td>
+</tr>
+<tr>
+<td>asset:upload、asset:create、element:create、generation:create、chat:create</td>
+<td>项目</td>
+<td>项目</td>
+<td>—</td>
+<td>创建后所有者由服务端填写；创建会话与实际生成都校验</td>
+</tr>
+<tr>
+<td>asset:edit、asset:remove、element:edit、element:remove</td>
+<td>项目</td>
+<td>本人</td>
+<td>—</td>
+<td>不修改历史文件，删除/恢复仍检查引用与状态</td>
+</tr>
+<tr>
+<td>folder:write、element:configure</td>
+<td>项目</td>
+<td>—</td>
+<td>—</td>
+<td>共享目录移动/属性定义影响他人，默认由负责人维护</td>
+</tr>
+<tr>
+<td>element:import</td>
+<td>项目</td>
+<td>本人</td>
+<td>—</td>
+<td>上传归本人，导入结果不可借治理入口跨项目读取</td>
+</tr>
+<tr>
+<td>element:copy</td>
+<td>附加</td>
+<td>附加</td>
+<td>—</td>
+<td>来源可读/可用 + 目标 element:create；复制不沿用源授权</td>
+</tr>
+<tr>
+<td>asset:download</td>
+<td>附加</td>
+<td>附加</td>
+<td>附加</td>
+<td>预览权限不自动授予下载动作；不承诺防止已读媒体被另行保存</td>
+</tr>
+<tr>
+<td>asset:reference、public:read</td>
+<td>项目</td>
+<td>项目</td>
+<td>仅 public:read</td>
+<td>读取与生成使用分开；公共空间授权同时满足</td>
+</tr>
+<tr>
+<td>public:publish</td>
+<td>附加</td>
+<td>—</td>
+<td>—</td>
+<td>源内容可读可用、目标 canPublish，生成独立公共身份</td>
+</tr>
+<tr>
+<td>generation:cancel、output:archive</td>
+<td>项目</td>
+<td>本人</td>
+<td>—</td>
+<td>任务创建者由任务身份字段确定；未知提交不得重提</td>
+</tr>
+<tr>
+<td>comment:create、comment:edit:own</td>
+<td>项目/本人</td>
+<td>项目/本人</td>
+<td>附加</td>
+<td>创建在可读目标下；edit:own 仅作者，不扩大为项目编辑</td>
+</tr>
+<tr>
+<td>comment:moderate、content:review</td>
+<td>项目</td>
+<td>—</td>
+<td>—</td>
+<td>删除/编辑他人评论留痕；工作状态不改变素材授权</td>
+</tr>
+<tr>
+<td>project:usage:read</td>
+<td>附加</td>
+<td>附加</td>
+<td>附加</td>
+<td>仅平台口径；开通即允许该项目聚合费用，不能当“只看本人”授权</td>
+</tr>
+</tbody></table>
+<p>系统级 project:create 不写入项目角色表。project:join 也不是成员权限：仅有功能码且项目有明确可发现授权时可申请；当前 schema/API 尚未定义可发现策略持久化与配置端点，首期保持入口关闭，采用成员邀请/添加。不通过“能申请”暴露内容或成员列表。</p>
+<p>hf_project_role_permission.data_scope 只存 own/project。项目级操作记录 project；修改本人素材/元素及取消本人任务记录 own。本人评论永远校验作者；私有草稿/上传限制是不可被 project 范围越过的对象规则。变体权限不得突破对象保护。</p>
+<h2 id="section-6">6 对象范围与敏感字段</h2>
+<table>
+<thead>
+<tr>
+<th>对象</th>
+<th>读取边界</th>
+<th>写入/使用边界</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>项目、成员、简报</td>
+<td>当前有效成员及相应功能码；管理治理接口仅元数据</td>
+<td>owner 动作或明确管理治理；不允许修改 projectId 跨项目迁移</td>
+</tr>
+<tr>
+<td>个人集合、偏好、收藏</td>
+<td>仅本人，引用对象再过滤授权</td>
+<td>仅本人；管理角色不代操作偏好</td>
+</tr>
+<tr>
+<td>上传会话与分片</td>
+<td>owner_id=当前人，仍有项目权或管理用途权</td>
+<td>续传/完成/绑定同样检查；负责人也不能占用他人上传</td>
+</tr>
+<tr>
+<td>草稿</td>
+<td>owner_id=当前人且项目仍可读</td>
+<td>本人且项目可写；管理员/负责人无草稿后门</td>
+</tr>
+<tr>
+<td>素材/元素及修订</td>
+<td>当前项目内容权限；历史版本亦检查</td>
+<td>producer 以身份表 create_user_id 判断本人，不以最近修订作者/update_by 夺取所有权</td>
+</tr>
+<tr>
+<td>会话与消息</td>
+<td>建议首期按已提交项目内容共享，chat:read + 成员范围</td>
+<td>会话创建者可改标题/归档/继续发送；负责人可治理标题/归档，不能以他人身份续写；其他成员仅阅读。私有会话模式须另评审</td>
+</tr>
+<tr>
+<td>任务、输入、输出、SSE</td>
+<td>generation:read/asset:read 及项目范围；输入正文独立读取也同样鉴权</td>
+<td>取消看任务 user_id/项目角色范围；再生成新任务重新授权；归档补偿不发起新生成</td>
+</tr>
+<tr>
+<td>评论和标注</td>
+<td>comment:read 且目标精确文件可读</td>
+<td>作者 comment:edit:own 或 comment:moderate；删除沿用同一判定，不另造未定义 delete 权限码</td>
+</tr>
+<tr>
+<td>公共素材</td>
+<td>当前项目授权 canRead + public:read</td>
+<td>引用/生成还需 canUse 和目标写权；发布需 canPublish + public:publish；任何布尔值不隐含其他值</td>
+</tr>
+<tr>
+<td>管理价格附件/账单</td>
+<td>对应用途权限与管理范围</td>
+<td>上传所有者与用途绑定；不通过项目文件入口访问</td>
+</tr>
+<tr>
+<td>费用与预算</td>
+<td>制作端 project:usage:read 仅 platform；管理端 billing 权限及范围</td>
+<td>费用估价不授权预算调整；省略无权金额，billingVisibility=hidden，未知不当零</td>
+</tr>
+<tr>
+<td>API Key 与调用证据</td>
+<td>仅允许掩码和脱敏元数据，所有角色都不得读密文/明文</td>
+<td>秘密仅写入；测试和轮换独立动作；无提示词或签名 URL 越权回显</td>
+</tr>
+</tbody></table>
+<p>本人用量接口不接受 userId，返回本人且当前有权项目的 platform 汇总；建议沿用项目费用读取授权逐项目过滤，无任一授权项目则拒绝，不能利用个人汇总绕过项目费用关闭。预算 canSubmit/blockingCodes 可给有提交权限者，periods/价格ID/估价金额仍按费用权限隐藏。</p>
+<p>跨项目复制/作品转素材必须同时校验源固定版本的读取与使用权、目标项目创建权及媒体授权；目标 owner 不等于源项目成员。公共授权撤回阻断新查询/引用/提交，不删除已受理任务快照和已合法生成的目标作品；历史输入读取仍按当前授权投影，不能借任务输入回放重新暴露已撤回源媒体。</p>
+<h2 id="section-7">7 成员、授予与项目状态</h2>
+<p>建议默认 owner 可添加 producer/viewer，可将成员晋升 owner，但仅限自己已拥有的项目；费用、下载、公共发布等变体只有在授予者自己也具备相应项目权限且该变体在可授予清单内时可选。不可授予系统管理员、费用管理员或扩张 sys_role 范围。跨用户同一项目角色变更使用 member revision，事务锁项目及成员；删除/降级/停用必须验证至少一位有效负责人，角色变更保留审计。</p>
+<p>系统角色授予使用原生若依角色管理与其数据范围检查，不用 member:manage 替代 system:role 或用户授权接口。能创建角色不代表可以授予超出本人可授予集合的权限；初始化最高权限角色属于受控运维，不暴露普通项目 UI。</p>
+<table>
+<thead>
+<tr>
+<th>项目状态</th>
+<th>普通浏览</th>
+<th>内容新建/编辑/生成</th>
+<th>治理与后台维护</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>active</td>
+<td>按授权</td>
+<td>按授权及预算/能力</td>
+<td>正常治理</td>
+</tr>
+<tr>
+<td>paused</td>
+<td>按授权只读</td>
+<td>拒绝</td>
+<td>有权者恢复；在途查询、归档、计费继续</td>
+</tr>
+<tr>
+<td>archived</td>
+<td>按授权只读</td>
+<td>拒绝</td>
+<td>有权者恢复；不自动重新生成</td>
+</tr>
+<tr>
+<td>pending_delete 或 del_flag=2</td>
+<td>普通入口不可见</td>
+<td>拒绝</td>
+<td>受控治理保留审计；不可变账本/历史不删除</td>
+</tr>
+</tbody></table>
+<p>项目暂停/归档时可执行必要的权限撤回和恢复治理；不能以治理为由继续普通评论、标签或提示词编辑。成员移除/用户停用即时撤销后续交互，已受理后台任务不冒用当前用户会话运行；后台按固定任务身份维护查询、归档、费用，不因此给被移除用户恢复访问。紧急 Key 撤销仍阻断相关上游调用。</p>
+<h2 id="section-8">8 管理平台菜单、按钮与角色矩阵</h2>
+<p>菜单目录使用若依 M/C/F 体系：目录组织、页面入口、按钮权限分别登记，沿用现有系统菜单；不制造第二套用户/部门写入口。业务页面的列表/read 码和写动作码分开授权；有写码但无 read 码时不应自动获得读取，角色包须显式列出所需组合。下面所有码都是完整值，斜线分组仅用于节省表宽时另作说明。</p>
+<table>
+<thead>
+<tr>
+<th>菜单/页面</th>
+<th>读取权限</th>
+<th>动作权限</th>
+<th>平台管理员默认</th>
+<th>费用管理员默认</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>M01 用户、部门、角色、菜单</td>
+<td>原生 system:user:list/query、system:dept:list/query、system:role:list/query、system:menu:list/query</td>
+<td>沿用对应 controller 的 add/edit/remove、授权及重置动作，不新造 identity 门面</td>
+<td>按组织管理授权</td>
+<td>—</td>
+</tr>
+<tr>
+<td>项目治理</td>
+<td>project:govern</td>
+<td>project:govern</td>
+<td>元数据治理范围</td>
+<td>—</td>
+</tr>
+<tr>
+<td>M02 供应商连接/账号</td>
+<td>provider:read</td>
+<td>provider:write</td>
+<td>有</td>
+<td>—</td>
+</tr>
+<tr>
+<td>Key 及版本</td>
+<td>credential:read</td>
+<td>credential:write、credential:rotate、credential:test、credential:activate、credential:disable、credential:revoke</td>
+<td>有；测试明确确认潜在费用</td>
+<td>—</td>
+</tr>
+<tr>
+<td>项目模型路由</td>
+<td>provider:route</td>
+<td>provider:route</td>
+<td>治理范围内项目</td>
+<td>—</td>
+</tr>
+<tr>
+<td>M03 模型能力</td>
+<td>model:read</td>
+<td>model:write、model:verify、model:publish</td>
+<td>有；不能用报价证明能力</td>
+<td>—</td>
+</tr>
+<tr>
+<td>M04 价格/来源/汇率</td>
+<td>billing:price:read</td>
+<td>billing:price:write、billing:price:publish</td>
+<td>—</td>
+<td>有；发布不允许覆盖历史</td>
+</tr>
+<tr>
+<td>M04 预算及周期</td>
+<td>billing:budget:read</td>
+<td>billing:budget</td>
+<td>—</td>
+<td>有</td>
+</tr>
+<tr>
+<td>M05 用量/账本/费用</td>
+<td>billing:read</td>
+<td>billing:adjust</td>
+<td>—</td>
+<td>有；调整追加证据</td>
+</tr>
+<tr>
+<td>对账与附件</td>
+<td>billing:read；附件按用途</td>
+<td>billing:reconcile</td>
+<td>—</td>
+<td>有</td>
+</tr>
+<tr>
+<td>公共空间授权</td>
+<td>public:manage</td>
+<td>public:manage</td>
+<td>授权治理，不自动读取媒体正文</td>
+<td>—</td>
+</tr>
+<tr>
+<td>M06 异常任务/调用</td>
+<td>operations:read</td>
+<td>operations:recover</td>
+<td>脱敏诊断与受控恢复</td>
+<td>—</td>
+</tr>
+<tr>
+<td>审计</td>
+<td>audit:read</td>
+<td>无修改/删除入口</td>
+<td>范围内脱敏审计</td>
+<td>范围内费用审计（建议）</td>
+</tr>
+</tbody></table>
+<p>上表原生 system:* 的 slash 表示同前缀不同完整动作，例如 system:user:list 和 system:user:query；不是可存入 sys_menu.perms 的字符串或通配符。P0-4 中 identity:read、identity:write、role:read、role:assign 对应后续可选门面，首期<strong>不注册、不调用</strong>；实际原生权限以本地 controller 为准。</p>
+<p>管理角色“有”仍需有效授权与范围，不给默认 <code>*:*:*</code>。费用管理员默认不持有 project:usage:read 或项目成员身份，管理报表可看授权费用不等于能打开制作端内容。用户兼任项目角色时，两种访问路径独立判定。</p>
+<h2 id="section-9">9 管理数据范围、部门与多角色</h2>
+<table>
+<thead>
+<tr>
+<th>sys_role.data_scope</th>
+<th>若依含义</th>
+<th>本项目管理业务映射</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>1</td>
+<td>全部</td>
+<td>仅当前功能所授权的管理记录；不提升为项目内容读取</td>
+</tr>
+<tr>
+<td>2</td>
+<td>自定义部门</td>
+<td>sys_role_dept 中部门集合，关联业务归属字段过滤</td>
+</tr>
+<tr>
+<td>3</td>
+<td>本部门</td>
+<td>当前有效用户部门；无部门时不匹配部门数据</td>
+</tr>
+<tr>
+<td>4</td>
+<td>本部门及下级</td>
+<td>当前部门树范围；按 PostgreSQL 实际适配验证</td>
+</tr>
+<tr>
+<td>5</td>
+<td>仅本人</td>
+<td>权威业务 user_id/create_user_id/owner_id，不用字符串 create_by</td>
+</tr>
+</tbody></table>
+<p>项目治理暂按 hf_project.create_user_id 关联创建者当前组织范围；该表没有项目所属 dept_id，不能虚构项目归属部门。费用按 hf_creation_job.user_id/dept_id 的发生时快照过滤，调部门不改历史归属；管理员当前可管理部门集合与快照部门求交。预算用户主体用目标用户当前组织，项目主体用项目治理范围。此映射为本版可实施提案，若改成独立项目部门，须先补 schema 与 API。</p>
+<p>无自然人员/部门归属的供应商连接、模型、公共空间、价格簿及账号级对账：首期按全局功能授权管理，只给明确全部范围的相应管理角色；不把 credential.owner_id 责任人误当供应商账号 ACL。自定义部门角色不自动获得这些记录。账号级对账可能跨部门，缺少账单分割授权方案时只供全局财务使用。没有可靠归属的记录默认不返回，不凭同名部门猜测。</p>
+<p>多系统角色范围沿用若依并集语义，但新业务还必须以<strong>提供该功能码的有效角色集合</strong>限制管理范围，避免“无财务权限的全部范围角色 + 仅本人财务角色”合并为全公司财务权限。现有 GetDataScope 会遍历有效角色；此项是 Service 范围收窄的待实现要求，不声称框架已按功能隔离角色范围。不得修改原系统 API 的既有语义来伪装已完成业务适配。</p>
+<p>项目内容路径使用项目成员集合，不将管理部门范围机械加到所有制作请求：跨部门项目协作者可以在明确项目授权内协作。管理路径使用管理范围，不因其看得到费用就给项目内容。两条路径不能用一个 SQL OR 合并放行。</p>
+<p>PostgreSQL 基础脚本提供 find_in_set 兼容函数；现有部门范围依赖该函数，初始化/迁移与测试需验证其存在及行为，不能当作 PostgreSQL 内置函数。新业务无物理外键，Service 在事务中维护成员、角色、引用的完整性。</p>
+<h2 id="section-10">10 授权检查、缓存失效与事件</h2>
+<p>Controller 复用框架认证与功能权限依赖；Service 解析对象权威归属、获取项目/管理范围并决定事务；DAO 将授权条件放入查询后再计数/分页。详情、导出、搜索、文件 GET/HEAD/Range、分片、批量导入、幂等重放、任务输入与 SSE 均执行相同范围，不先全量查出再在前端过滤。所有普通写入口防止客户端伪造作者或所属项目。</p>
+<p>当前 LoginService 校验 Redis 登录 token 后还会获取用户权限；完整用户/权限缓存及即时失效为目标补充。建议缓存按用户保存功能权限/组织摘要，项目授权单独按 userId+projectId 获取或缓存；不要把所有项目正文或 Key 放入权限缓存。</p>
+<table>
+<thead>
+<tr>
+<th>变化</th>
+<th>必须失效/复核的对象</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>退出、停用用户、会话撤销</td>
+<td>登录会话、用户权限摘要、该用户实时连接</td>
+</tr>
+<tr>
+<td>系统角色、菜单按钮、data_scope、角色部门变更</td>
+<td>所有受影响用户的功能与管理范围缓存，不只编辑操作者</td>
+</tr>
+<tr>
+<td>用户调部门、部门树变更</td>
+<td>受影响用户及管理者的组织范围；历史费用快照不改</td>
+</tr>
+<tr>
+<td>项目成员移除/角色变更、角色权限变更</td>
+<td>该项目/角色受影响成员的对象权限与 SSE 投影</td>
+</tr>
+<tr>
+<td>公共空间 grant 撤回</td>
+<td>来源选择器、引用资格、文件读取、新生成验证</td>
+</tr>
+<tr>
+<td>项目暂停/归档、Key 紧急撤销</td>
+<td>状态校验与在途调用控制，不把旧 allowedActions 当授权</td>
+</tr>
+</tbody></table>
+<p>授权变更必须先持久提交并发布可靠失效通知；跨实例使用数据库事实与 Outbox/现有 Redis 机制，缓存不可用时回查权威数据或拒绝，不允许使用无限期旧快照。精确缓存键/TTL/版本方案在实现前补充，不宣称当前已有权限版本字段。高风险写与费用消费在事务内重验关键成员和状态；普通读也须保证失效后的下一请求不按旧授权放行。</p>
+<figure class="diagram" aria-label="图 2"><svg id="sync11d1" width="100%" xmlns="http://www.w3.org/2000/svg" style="max-width: 1062px;" viewBox="-50 -10 1062 765" role="graphics-document document" aria-roledescription="sequence"><g><rect x="812" y="637" fill="#eaeaea" stroke="#666" width="150" height="77" name="E" rx="6" ry="6" class="actor actor-bottom" data-look="neo" filter="url(#sync11d1-drop-shadow)"></rect><text x="887" y="675.5" dominant-baseline="central" alignment-baseline="central" class="actor actor-box" style="text-anchor: middle; font-size: 16px; font-weight: 400; font-family: &quot;Microsoft YaHei&quot;, sans-serif;"><tspan x="887" dy="0">SSE与前端</tspan></text></g><g><rect x="612" y="637" fill="#eaeaea" stroke="#666" width="150" height="77" name="R" rx="6" ry="6" class="actor actor-bottom" data-look="neo" filter="url(#sync11d1-drop-shadow)"></rect><text x="687" y="675.5" dominant-baseline="central" alignment-baseline="central" class="actor actor-box" style="text-anchor: middle; font-size: 16px; font-weight: 400; font-family: &quot;Microsoft YaHei&quot;, sans-serif;"><tspan x="687" dy="0">Redis与通知</tspan></text></g><g><rect x="412" y="637" fill="#eaeaea" stroke="#666" width="150" height="77" name="D" rx="6" ry="6" class="actor actor-bottom" data-look="neo" filter="url(#sync11d1-drop-shadow)"></rect><text x="487" y="675.5" dominant-baseline="central" alignment-baseline="central" class="actor actor-box" style="text-anchor: middle; font-size: 16px; font-weight: 400; font-family: &quot;Microsoft YaHei&quot;, sans-serif;"><tspan x="487" dy="0">PostgreSQL</tspan></text></g><g><rect x="206" y="637" fill="#eaeaea" stroke="#666" width="150" height="77" name="S" rx="6" ry="6" class="actor actor-bottom" data-look="neo" filter="url(#sync11d1-drop-shadow)"></rect><text x="281" y="675.5" dominant-baseline="central" alignment-baseline="central" class="actor actor-box" style="text-anchor: middle; font-size: 16px; font-weight: 400; font-family: &quot;Microsoft YaHei&quot;, sans-serif;"><tspan x="281" dy="0">Service</tspan></text></g><g><rect x="0" y="637" fill="#eaeaea" stroke="#666" width="150" height="77" name="A" rx="6" ry="6" class="actor actor-bottom" data-look="neo" filter="url(#sync11d1-drop-shadow)"></rect><text x="75" y="675.5" dominant-baseline="central" alignment-baseline="central" class="actor actor-box" style="text-anchor: middle; font-size: 16px; font-weight: 400; font-family: &quot;Microsoft YaHei&quot;, sans-serif;"><tspan x="75" dy="0">管理员</tspan></text></g><g><line id="actor60" x1="887" y1="77" x2="887" y2="637" class="actor-line 200" stroke-width="0.5px" stroke="#999" name="E" data-et="life-line" data-id="E"></line><g id="root-60" data-look="neo" data-et="participant" data-type="participant" data-id="E"><rect x="812" y="0" fill="#eaeaea" stroke="#666" width="150" height="77" name="E" rx="6" ry="6" class="actor actor-top" data-look="neo" filter="url(#sync11d1-drop-shadow)"></rect><text x="887" y="38.5" dominant-baseline="central" alignment-baseline="central" class="actor actor-box" style="text-anchor: middle; font-size: 16px; font-weight: 400; font-family: &quot;Microsoft YaHei&quot;, sans-serif;"><tspan x="887" dy="0">SSE与前端</tspan></text></g></g><g><line id="actor59" x1="687" y1="77" x2="687" y2="637" class="actor-line 200" stroke-width="0.5px" stroke="#999" name="R" data-et="life-line" data-id="R"></line><g id="root-59" data-look="neo" data-et="participant" data-type="participant" data-id="R"><rect x="612" y="0" fill="#eaeaea" stroke="#666" width="150" height="77" name="R" rx="6" ry="6" class="actor actor-top" data-look="neo" filter="url(#sync11d1-drop-shadow)"></rect><text x="687" y="38.5" dominant-baseline="central" alignment-baseline="central" class="actor actor-box" style="text-anchor: middle; font-size: 16px; font-weight: 400; font-family: &quot;Microsoft YaHei&quot;, sans-serif;"><tspan x="687" dy="0">Redis与通知</tspan></text></g></g><g><line id="actor58" x1="487" y1="77" x2="487" y2="637" class="actor-line 200" stroke-width="0.5px" stroke="#999" name="D" data-et="life-line" data-id="D"></line><g id="root-58" data-look="neo" data-et="participant" data-type="participant" data-id="D"><rect x="412" y="0" fill="#eaeaea" stroke="#666" width="150" height="77" name="D" rx="6" ry="6" class="actor actor-top" data-look="neo" filter="url(#sync11d1-drop-shadow)"></rect><text x="487" y="38.5" dominant-baseline="central" alignment-baseline="central" class="actor actor-box" style="text-anchor: middle; font-size: 16px; font-weight: 400; font-family: &quot;Microsoft YaHei&quot;, sans-serif;"><tspan x="487" dy="0">PostgreSQL</tspan></text></g></g><g><line id="actor57" x1="281" y1="77" x2="281" y2="637" class="actor-line 200" stroke-width="0.5px" stroke="#999" name="S" data-et="life-line" data-id="S"></line><g id="root-57" data-look="neo" data-et="participant" data-type="participant" data-id="S"><rect x="206" y="0" fill="#eaeaea" stroke="#666" width="150" height="77" name="S" rx="6" ry="6" class="actor actor-top" data-look="neo" filter="url(#sync11d1-drop-shadow)"></rect><text x="281" y="38.5" dominant-baseline="central" alignment-baseline="central" class="actor actor-box" style="text-anchor: middle; font-size: 16px; font-weight: 400; font-family: &quot;Microsoft YaHei&quot;, sans-serif;"><tspan x="281" dy="0">Service</tspan></text></g></g><g><line id="actor56" x1="75" y1="77" x2="75" y2="637" class="actor-line 200" stroke-width="0.5px" stroke="#999" name="A" data-et="life-line" data-id="A"></line><g id="root-56" data-look="neo" data-et="participant" data-type="participant" data-id="A"><rect x="0" y="0" fill="#eaeaea" stroke="#666" width="150" height="77" name="A" rx="6" ry="6" class="actor actor-top" data-look="neo" filter="url(#sync11d1-drop-shadow)"></rect><text x="75" y="38.5" dominant-baseline="central" alignment-baseline="central" class="actor actor-box" style="text-anchor: middle; font-size: 16px; font-weight: 400; font-family: &quot;Microsoft YaHei&quot;, sans-serif;"><tspan x="75" dy="0">管理员</tspan></text></g></g><style>#sync11d1{font-family:Microsoft YaHei,sans-serif;font-size:16px;fill:#000000;}@keyframes edge-animation-frame{from{stroke-dashoffset:0;}}@keyframes dash{to{stroke-dashoffset:0;}}#sync11d1 .edge-animation-slow{stroke-dasharray:9,5!important;stroke-dashoffset:900;animation:dash 50s linear infinite;stroke-linecap:round;}#sync11d1 .edge-animation-fast{stroke-dasharray:9,5!important;stroke-dashoffset:900;animation:dash 20s linear infinite;stroke-linecap:round;}#sync11d1 .error-icon{fill:#552222;}#sync11d1 .error-text{fill:#552222;stroke:#552222;}#sync11d1 .edge-thickness-normal{stroke-width:1px;}#sync11d1 .edge-thickness-thick{stroke-width:3.5px;}#sync11d1 .edge-pattern-solid{stroke-dasharray:0;}#sync11d1 .edge-thickness-invisible{stroke-width:0;fill:none;}#sync11d1 .edge-pattern-dashed{stroke-dasharray:3;}#sync11d1 .edge-pattern-dotted{stroke-dasharray:2;}#sync11d1 .marker{fill:#666;stroke:#666;}#sync11d1 .marker.cross{stroke:#666;}#sync11d1 svg{font-family:Microsoft YaHei,sans-serif;font-size:16px;}#sync11d1 p{margin:0;}#sync11d1 .actor{stroke:hsl(0, 0%, 83%);fill:#eee;stroke-width:1;}#sync11d1 rect.actor.outer-path[data-look="neo"]{filter:drop-shadow( 1px 2px 2px rgba(185,185,185,1));}#sync11d1 rect.note[data-look="neo"]{stroke:#999;fill:#666;filter:drop-shadow( 1px 2px 2px rgba(185,185,185,1));}#sync11d1 text.actor&gt;tspan{fill:#333;stroke:none;}#sync11d1 .actor-line{stroke:hsl(0, 0%, 83%);}#sync11d1 .innerArc{stroke-width:1.5;stroke-dasharray:none;}#sync11d1 .messageLine0{stroke-width:1.5;stroke-dasharray:none;stroke:#333;}#sync11d1 .messageLine1{stroke-width:1.5;stroke-dasharray:2,2;stroke:#333;}#sync11d1 [id$="-arrowhead"] path{fill:#333;stroke:#333;}#sync11d1 .sequenceNumber{fill:white;}#sync11d1 [id$="-sequencenumber"]{fill:#333;}#sync11d1 [id$="-crosshead"] path{fill:#333;stroke:#333;}#sync11d1 .messageText{fill:#333;stroke:none;}#sync11d1 .labelBox{stroke:hsl(0, 0%, 83%);fill:#eee;filter:drop-shadow( 1px 2px 2px rgba(185,185,185,1));}#sync11d1 .labelText,#sync11d1 .labelText&gt;tspan{fill:#333;stroke:none;}#sync11d1 .loopText,#sync11d1 .loopText&gt;tspan{fill:#333;stroke:none;}#sync11d1 .sectionTitle,#sync11d1 .sectionTitle&gt;tspan{fill:#333;stroke:none;}#sync11d1 .loopLine{stroke-width:2px;stroke-dasharray:2,2;stroke:hsl(0, 0%, 83%);fill:hsl(0, 0%, 83%);}#sync11d1 .note{stroke:#999;fill:#666;}#sync11d1 .noteText,#sync11d1 .noteText&gt;tspan{fill:#fff;stroke:none;}#sync11d1 .activation0{fill:#f4f4f4;stroke:#666;}#sync11d1 .activation1{fill:#f4f4f4;stroke:#666;}#sync11d1 .activation2{fill:#f4f4f4;stroke:#666;}#sync11d1 .actorPopupMenu{position:absolute;}#sync11d1 .actorPopupMenuPanel{position:absolute;fill:#eee;box-shadow:0px 8px 16px 0px rgba(0,0,0,0.2);filter:drop-shadow(3px 5px 2px rgb(0 0 0 / 0.4));}#sync11d1 .actor-man circle,#sync11d1 line{fill:#eee;stroke-width:2px;}#sync11d1 g rect.rect{filter:drop-shadow( 1px 2px 2px rgba(185,185,185,1));stroke:#999;}#sync11d1 .node .neo-node{stroke:#999;}#sync11d1 [data-look="neo"].node rect,#sync11d1 [data-look="neo"].cluster rect,#sync11d1 [data-look="neo"].node polygon{stroke:url(#sync11d1-gradient);filter:drop-shadow( 1px 2px 2px rgba(185,185,185,1));}#sync11d1 [data-look="neo"].swimlane.cluster rect{filter:none;}#sync11d1 [data-look="neo"].node path{stroke:url(#sync11d1-gradient);stroke-width:1px;}#sync11d1 [data-look="neo"].node .outer-path{filter:drop-shadow( 1px 2px 2px rgba(185,185,185,1));}#sync11d1 [data-look="neo"].node .neo-line path{stroke:#999;filter:none;}#sync11d1 [data-look="neo"].node circle{stroke:url(#sync11d1-gradient);filter:drop-shadow( 1px 2px 2px rgba(185,185,185,1));}#sync11d1 [data-look="neo"].node circle .state-start{fill:#000000;}#sync11d1 [data-look="neo"].icon-shape .icon{fill:url(#sync11d1-gradient);filter:drop-shadow( 1px 2px 2px rgba(185,185,185,1));}#sync11d1 [data-look="neo"].icon-shape .icon-neo path{stroke:url(#sync11d1-gradient);filter:drop-shadow( 1px 2px 2px rgba(185,185,185,1));}#sync11d1 :root{--mermaid-font-family:Microsoft YaHei,sans-serif;}</style><g></g><defs><symbol id="sync11d1-computer" width="24" height="24"><path transform="scale(.5)" d="M2 2v13h20v-13h-20zm18 11h-16v-9h16v9zm-10.228 6l.466-1h3.524l.467 1h-4.457zm14.228 3h-24l2-6h2.104l-1.33 4h18.45l-1.297-4h2.073l2 6zm-5-10h-14v-7h14v7z"></path></symbol></defs><defs><symbol id="sync11d1-database" fill-rule="evenodd" clip-rule="evenodd"><path transform="scale(.5)" d="M12.258.001l.256.004.255.005.253.008.251.01.249.012.247.015.246.016.242.019.241.02.239.023.236.024.233.027.231.028.229.031.225.032.223.034.22.036.217.038.214.04.211.041.208.043.205.045.201.046.198.048.194.05.191.051.187.053.183.054.18.056.175.057.172.059.168.06.163.061.16.063.155.064.15.066.074.033.073.033.071.034.07.034.069.035.068.035.067.035.066.035.064.036.064.036.062.036.06.036.06.037.058.037.058.037.055.038.055.038.053.038.052.038.051.039.05.039.048.039.047.039.045.04.044.04.043.04.041.04.04.041.039.041.037.041.036.041.034.041.033.042.032.042.03.042.029.042.027.042.026.043.024.043.023.043.021.043.02.043.018.044.017.043.015.044.013.044.012.044.011.045.009.044.007.045.006.045.004.045.002.045.001.045v17l-.001.045-.002.045-.004.045-.006.045-.007.045-.009.044-.011.045-.012.044-.013.044-.015.044-.017.043-.018.044-.02.043-.021.043-.023.043-.024.043-.026.043-.027.042-.029.042-.03.042-.032.042-.033.042-.034.041-.036.041-.037.041-.039.041-.04.041-.041.04-.043.04-.044.04-.045.04-.047.039-.048.039-.05.039-.051.039-.052.038-.053.038-.055.038-.055.038-.058.037-.058.037-.06.037-.06.036-.062.036-.064.036-.064.036-.066.035-.067.035-.068.035-.069.035-.07.034-.071.034-.073.033-.074.033-.15.066-.155.064-.16.063-.163.061-.168.06-.172.059-.175.057-.18.056-.183.054-.187.053-.191.051-.194.05-.198.048-.201.046-.205.045-.208.043-.211.041-.214.04-.217.038-.22.036-.223.034-.225.032-.229.031-.231.028-.233.027-.236.024-.239.023-.241.02-.242.019-.246.016-.247.015-.249.012-.251.01-.253.008-.255.005-.256.004-.258.001-.258-.001-.256-.004-.255-.005-.253-.008-.251-.01-.249-.012-.247-.015-.245-.016-.243-.019-.241-.02-.238-.023-.236-.024-.234-.027-.231-.028-.228-.031-.226-.032-.223-.034-.22-.036-.217-.038-.214-.04-.211-.041-.208-.043-.204-.045-.201-.046-.198-.048-.195-.05-.19-.051-.187-.053-.184-.054-.179-.056-.176-.057-.172-.059-.167-.06-.164-.061-.159-.063-.155-.064-.151-.066-.074-.033-.072-.033-.072-.034-.07-.034-.069-.035-.068-.035-.067-.035-.066-.035-.064-.036-.063-.036-.062-.036-.061-.036-.06-.037-.058-.037-.057-.037-.056-.038-.055-.038-.053-.038-.052-.038-.051-.039-.049-.039-.049-.039-.046-.039-.046-.04-.044-.04-.043-.04-.041-.04-.04-.041-.039-.041-.037-.041-.036-.041-.034-.041-.033-.042-.032-.042-.03-.042-.029-.042-.027-.042-.026-.043-.024-.043-.023-.043-.021-.043-.02-.043-.018-.044-.017-.043-.015-.044-.013-.044-.012-.044-.011-.045-.009-.044-.007-.045-.006-.045-.004-.045-.002-.045-.001-.045v-17l.001-.045.002-.045.004-.045.006-.045.007-.045.009-.044.011-.045.012-.044.013-.044.015-.044.017-.043.018-.044.02-.043.021-.043.023-.043.024-.043.026-.043.027-.042.029-.042.03-.042.032-.042.033-.042.034-.041.036-.041.037-.041.039-.041.04-.041.041-.04.043-.04.044-.04.046-.04.046-.039.049-.039.049-.039.051-.039.052-.038.053-.038.055-.038.056-.038.057-.037.058-.037.06-.037.061-.036.062-.036.063-.036.064-.036.066-.035.067-.035.068-.035.069-.035.07-.034.072-.034.072-.033.074-.033.151-.066.155-.064.159-.063.164-.061.167-.06.172-.059.176-.057.179-.056.184-.054.187-.053.19-.051.195-.05.198-.048.201-.046.204-.045.208-.043.211-.041.214-.04.217-.038.22-.036.223-.034.226-.032.228-.031.231-.028.234-.027.236-.024.238-.023.241-.02.243-.019.245-.016.247-.015.249-.012.251-.01.253-.008.255-.005.256-.004.258-.001.258.001zm-9.258 20.499v.01l.001.021.003.021.004.022.005.021.006.022.007.022.009.023.01.022.011.023.012.023.013.023.015.023.016.024.017.023.018.024.019.024.021.024.022.025.023.024.024.025.052.049.056.05.061.051.066.051.07.051.075.051.079.052.084.052.088.052.092.052.097.052.102.051.105.052.11.052.114.051.119.051.123.051.127.05.131.05.135.05.139.048.144.049.147.047.152.047.155.047.16.045.163.045.167.043.171.043.176.041.178.041.183.039.187.039.19.037.194.035.197.035.202.033.204.031.209.03.212.029.216.027.219.025.222.024.226.021.23.02.233.018.236.016.24.015.243.012.246.01.249.008.253.005.256.004.259.001.26-.001.257-.004.254-.005.25-.008.247-.011.244-.012.241-.014.237-.016.233-.018.231-.021.226-.021.224-.024.22-.026.216-.027.212-.028.21-.031.205-.031.202-.034.198-.034.194-.036.191-.037.187-.039.183-.04.179-.04.175-.042.172-.043.168-.044.163-.045.16-.046.155-.046.152-.047.148-.048.143-.049.139-.049.136-.05.131-.05.126-.05.123-.051.118-.052.114-.051.11-.052.106-.052.101-.052.096-.052.092-.052.088-.053.083-.051.079-.052.074-.052.07-.051.065-.051.06-.051.056-.05.051-.05.023-.024.023-.025.021-.024.02-.024.019-.024.018-.024.017-.024.015-.023.014-.024.013-.023.012-.023.01-.023.01-.022.008-.022.006-.022.006-.022.004-.022.004-.021.001-.021.001-.021v-4.127l-.077.055-.08.053-.083.054-.085.053-.087.052-.09.052-.093.051-.095.05-.097.05-.1.049-.102.049-.105.048-.106.047-.109.047-.111.046-.114.045-.115.045-.118.044-.12.043-.122.042-.124.042-.126.041-.128.04-.13.04-.132.038-.134.038-.135.037-.138.037-.139.035-.142.035-.143.034-.144.033-.147.032-.148.031-.15.03-.151.03-.153.029-.154.027-.156.027-.158.026-.159.025-.161.024-.162.023-.163.022-.165.021-.166.02-.167.019-.169.018-.169.017-.171.016-.173.015-.173.014-.175.013-.175.012-.177.011-.178.01-.179.008-.179.008-.181.006-.182.005-.182.004-.184.003-.184.002h-.37l-.184-.002-.184-.003-.182-.004-.182-.005-.181-.006-.179-.008-.179-.008-.178-.01-.176-.011-.176-.012-.175-.013-.173-.014-.172-.015-.171-.016-.17-.017-.169-.018-.167-.019-.166-.02-.165-.021-.163-.022-.162-.023-.161-.024-.159-.025-.157-.026-.156-.027-.155-.027-.153-.029-.151-.03-.15-.03-.148-.031-.146-.032-.145-.033-.143-.034-.141-.035-.14-.035-.137-.037-.136-.037-.134-.038-.132-.038-.13-.04-.128-.04-.126-.041-.124-.042-.122-.042-.12-.044-.117-.043-.116-.045-.113-.045-.112-.046-.109-.047-.106-.047-.105-.048-.102-.049-.1-.049-.097-.05-.095-.05-.093-.052-.09-.051-.087-.052-.085-.053-.083-.054-.08-.054-.077-.054v4.127zm0-5.654v.011l.001.021.003.021.004.021.005.022.006.022.007.022.009.022.01.022.011.023.012.023.013.023.015.024.016.023.017.024.018.024.019.024.021.024.022.024.023.025.024.024.052.05.056.05.061.05.066.051.07.051.075.052.079.051.084.052.088.052.092.052.097.052.102.052.105.052.11.051.114.051.119.052.123.05.127.051.131.05.135.049.139.049.144.048.147.048.152.047.155.046.16.045.163.045.167.044.171.042.176.042.178.04.183.04.187.038.19.037.194.036.197.034.202.033.204.032.209.03.212.028.216.027.219.025.222.024.226.022.23.02.233.018.236.016.24.014.243.012.246.01.249.008.253.006.256.003.259.001.26-.001.257-.003.254-.006.25-.008.247-.01.244-.012.241-.015.237-.016.233-.018.231-.02.226-.022.224-.024.22-.025.216-.027.212-.029.21-.03.205-.032.202-.033.198-.035.194-.036.191-.037.187-.039.183-.039.179-.041.175-.042.172-.043.168-.044.163-.045.16-.045.155-.047.152-.047.148-.048.143-.048.139-.05.136-.049.131-.05.126-.051.123-.051.118-.051.114-.052.11-.052.106-.052.101-.052.096-.052.092-.052.088-.052.083-.052.079-.052.074-.051.07-.052.065-.051.06-.05.056-.051.051-.049.023-.025.023-.024.021-.025.02-.024.019-.024.018-.024.017-.024.015-.023.014-.023.013-.024.012-.022.01-.023.01-.023.008-.022.006-.022.006-.022.004-.021.004-.022.001-.021.001-.021v-4.139l-.077.054-.08.054-.083.054-.085.052-.087.053-.09.051-.093.051-.095.051-.097.05-.1.049-.102.049-.105.048-.106.047-.109.047-.111.046-.114.045-.115.044-.118.044-.12.044-.122.042-.124.042-.126.041-.128.04-.13.039-.132.039-.134.038-.135.037-.138.036-.139.036-.142.035-.143.033-.144.033-.147.033-.148.031-.15.03-.151.03-.153.028-.154.028-.156.027-.158.026-.159.025-.161.024-.162.023-.163.022-.165.021-.166.02-.167.019-.169.018-.169.017-.171.016-.173.015-.173.014-.175.013-.175.012-.177.011-.178.009-.179.009-.179.007-.181.007-.182.005-.182.004-.184.003-.184.002h-.37l-.184-.002-.184-.003-.182-.004-.182-.005-.181-.007-.179-.007-.179-.009-.178-.009-.176-.011-.176-.012-.175-.013-.173-.014-.172-.015-.171-.016-.17-.017-.169-.018-.167-.019-.166-.02-.165-.021-.163-.022-.162-.023-.161-.024-.159-.025-.157-.026-.156-.027-.155-.028-.153-.028-.151-.03-.15-.03-.148-.031-.146-.033-.145-.033-.143-.033-.141-.035-.14-.036-.137-.036-.136-.037-.134-.038-.132-.039-.13-.039-.128-.04-.126-.041-.124-.042-.122-.043-.12-.043-.117-.044-.116-.044-.113-.046-.112-.046-.109-.046-.106-.047-.105-.048-.102-.049-.1-.049-.097-.05-.095-.051-.093-.051-.09-.051-.087-.053-.085-.052-.083-.054-.08-.054-.077-.054v4.139zm0-5.666v.011l.001.02.003.022.004.021.005.022.006.021.007.022.009.023.01.022.011.023.012.023.013.023.015.023.016.024.017.024.018.023.019.024.021.025.022.024.023.024.024.025.052.05.056.05.061.05.066.051.07.051.075.052.079.051.084.052.088.052.092.052.097.052.102.052.105.051.11.052.114.051.119.051.123.051.127.05.131.05.135.05.139.049.144.048.147.048.152.047.155.046.16.045.163.045.167.043.171.043.176.042.178.04.183.04.187.038.19.037.194.036.197.034.202.033.204.032.209.03.212.028.216.027.219.025.222.024.226.021.23.02.233.018.236.017.24.014.243.012.246.01.249.008.253.006.256.003.259.001.26-.001.257-.003.254-.006.25-.008.247-.01.244-.013.241-.014.237-.016.233-.018.231-.02.226-.022.224-.024.22-.025.216-.027.212-.029.21-.03.205-.032.202-.033.198-.035.194-.036.191-.037.187-.039.183-.039.179-.041.175-.042.172-.043.168-.044.163-.045.16-.045.155-.047.152-.047.148-.048.143-.049.139-.049.136-.049.131-.051.126-.05.123-.051.118-.052.114-.051.11-.052.106-.052.101-.052.096-.052.092-.052.088-.052.083-.052.079-.052.074-.052.07-.051.065-.051.06-.051.056-.05.051-.049.023-.025.023-.025.021-.024.02-.024.019-.024.018-.024.017-.024.015-.023.014-.024.013-.023.012-.023.01-.022.01-.023.008-.022.006-.022.006-.022.004-.022.004-.021.001-.021.001-.021v-4.153l-.077.054-.08.054-.083.053-.085.053-.087.053-.09.051-.093.051-.095.051-.097.05-.1.049-.102.048-.105.048-.106.048-.109.046-.111.046-.114.046-.115.044-.118.044-.12.043-.122.043-.124.042-.126.041-.128.04-.13.039-.132.039-.134.038-.135.037-.138.036-.139.036-.142.034-.143.034-.144.033-.147.032-.148.032-.15.03-.151.03-.153.028-.154.028-.156.027-.158.026-.159.024-.161.024-.162.023-.163.023-.165.021-.166.02-.167.019-.169.018-.169.017-.171.016-.173.015-.173.014-.175.013-.175.012-.177.01-.178.01-.179.009-.179.007-.181.006-.182.006-.182.004-.184.003-.184.001-.185.001-.185-.001-.184-.001-.184-.003-.182-.004-.182-.006-.181-.006-.179-.007-.179-.009-.178-.01-.176-.01-.176-.012-.175-.013-.173-.014-.172-.015-.171-.016-.17-.017-.169-.018-.167-.019-.166-.02-.165-.021-.163-.023-.162-.023-.161-.024-.159-.024-.157-.026-.156-.027-.155-.028-.153-.028-.151-.03-.15-.03-.148-.032-.146-.032-.145-.033-.143-.034-.141-.034-.14-.036-.137-.036-.136-.037-.134-.038-.132-.039-.13-.039-.128-.041-.126-.041-.124-.041-.122-.043-.12-.043-.117-.044-.116-.044-.113-.046-.112-.046-.109-.046-.106-.048-.105-.048-.102-.048-.1-.05-.097-.049-.095-.051-.093-.051-.09-.052-.087-.052-.085-.053-.083-.053-.08-.054-.077-.054v4.153zm8.74-8.179l-.257.004-.254.005-.25.008-.247.011-.244.012-.241.014-.237.016-.233.018-.231.021-.226.022-.224.023-.22.026-.216.027-.212.028-.21.031-.205.032-.202.033-.198.034-.194.036-.191.038-.187.038-.183.04-.179.041-.175.042-.172.043-.168.043-.163.045-.16.046-.155.046-.152.048-.148.048-.143.048-.139.049-.136.05-.131.05-.126.051-.123.051-.118.051-.114.052-.11.052-.106.052-.101.052-.096.052-.092.052-.088.052-.083.052-.079.052-.074.051-.07.052-.065.051-.06.05-.056.05-.051.05-.023.025-.023.024-.021.024-.02.025-.019.024-.018.024-.017.023-.015.024-.014.023-.013.023-.012.023-.01.023-.01.022-.008.022-.006.023-.006.021-.004.022-.004.021-.001.021-.001.021.001.021.001.021.004.021.004.022.006.021.006.023.008.022.01.022.01.023.012.023.013.023.014.023.015.024.017.023.018.024.019.024.02.025.021.024.023.024.023.025.051.05.056.05.06.05.065.051.07.052.074.051.079.052.083.052.088.052.092.052.096.052.101.052.106.052.11.052.114.052.118.051.123.051.126.051.131.05.136.05.139.049.143.048.148.048.152.048.155.046.16.046.163.045.168.043.172.043.175.042.179.041.183.04.187.038.191.038.194.036.198.034.202.033.205.032.21.031.212.028.216.027.22.026.224.023.226.022.231.021.233.018.237.016.241.014.244.012.247.011.25.008.254.005.257.004.26.001.26-.001.257-.004.254-.005.25-.008.247-.011.244-.012.241-.014.237-.016.233-.018.231-.021.226-.022.224-.023.22-.026.216-.027.212-.028.21-.031.205-.032.202-.033.198-.034.194-.036.191-.038.187-.038.183-.04.179-.041.175-.042.172-.043.168-.043.163-.045.16-.046.155-.046.152-.048.148-.048.143-.048.139-.049.136-.05.131-.05.126-.051.123-.051.118-.051.114-.052.11-.052.106-.052.101-.052.096-.052.092-.052.088-.052.083-.052.079-.052.074-.051.07-.052.065-.051.06-.05.056-.05.051-.05.023-.025.023-.024.021-.024.02-.025.019-.024.018-.024.017-.023.015-.024.014-.023.013-.023.012-.023.01-.023.01-.022.008-.022.006-.023.006-.021.004-.022.004-.021.001-.021.001-.021-.001-.021-.001-.021-.004-.021-.004-.022-.006-.021-.006-.023-.008-.022-.01-.022-.01-.023-.012-.023-.013-.023-.014-.023-.015-.024-.017-.023-.018-.024-.019-.024-.02-.025-.021-.024-.023-.024-.023-.025-.051-.05-.056-.05-.06-.05-.065-.051-.07-.052-.074-.051-.079-.052-.083-.052-.088-.052-.092-.052-.096-.052-.101-.052-.106-.052-.11-.052-.114-.052-.118-.051-.123-.051-.126-.051-.131-.05-.136-.05-.139-.049-.143-.048-.148-.048-.152-.048-.155-.046-.16-.046-.163-.045-.168-.043-.172-.043-.175-.042-.179-.041-.183-.04-.187-.038-.191-.038-.194-.036-.198-.034-.202-.033-.205-.032-.21-.031-.212-.028-.216-.027-.22-.026-.224-.023-.226-.022-.231-.021-.233-.018-.237-.016-.241-.014-.244-.012-.247-.011-.25-.008-.254-.005-.257-.004-.26-.001-.26.001z"></path></symbol></defs><defs><symbol id="sync11d1-clock" width="24" height="24"><path transform="scale(.5)" d="M12 2c5.514 0 10 4.486 10 10s-4.486 10-10 10-10-4.486-10-10 4.486-10 10-10zm0-2c-6.627 0-12 5.373-12 12s5.373 12 12 12 12-5.373 12-12-5.373-12-12-12zm5.848 12.459c.202.038.202.333.001.372-1.907.361-6.045 1.111-6.547 1.111-.719 0-1.301-.582-1.301-1.301 0-.512.77-5.447 1.125-7.445.034-.192.312-.181.343.014l.985 6.238 5.394 1.011z"></path></symbol></defs><defs><marker id="sync11d1-arrowhead" refX="7.9" refY="5" markerUnits="userSpaceOnUse" markerWidth="12" markerHeight="12" orient="auto-start-reverse"><path d="M -1 0 L 10 5 L 0 10 z"></path></marker></defs><defs><marker id="sync11d1-crosshead" markerWidth="15" markerHeight="8" orient="auto" refX="4" refY="4.5"><path fill="none" stroke="#000000" stroke-width="1pt" d="M 1,2 L 6,7 M 6,2 L 1,7" style="stroke-dasharray: 0, 0;"></path></marker></defs><defs><marker id="sync11d1-filled-head" refX="15.5" refY="7" markerWidth="20" markerHeight="28" orient="auto"><path d="M 18,7 L9,13 L14,7 L9,1 Z"></path></marker></defs><defs><marker id="sync11d1-sequencenumber" refX="15" refY="15" markerWidth="60" markerHeight="40" orient="auto"><circle cx="15" cy="15" r="6"></circle></marker></defs><defs><marker id="sync11d1-solidTopArrowHead" refX="7.9" refY="7.25" markerUnits="userSpaceOnUse" markerWidth="12" markerHeight="12" orient="auto-start-reverse"><path d="M 0 0 L 10 8 L 0 8 z"></path></marker></defs><defs><marker id="sync11d1-solidBottomArrowHead" refX="7.9" refY="0.75" markerUnits="userSpaceOnUse" markerWidth="12" markerHeight="12" orient="auto-start-reverse"><path d="M 0 0 L 10 0 L 0 8 z"></path></marker></defs><defs><marker id="sync11d1-stickTopArrowHead" refX="7.5" refY="7" markerUnits="userSpaceOnUse" markerWidth="12" markerHeight="12" orient="auto-start-reverse"><path d="M 0 0 L 7 7" stroke="black" stroke-width="1.5" fill="none"></path></marker></defs><defs><marker id="sync11d1-stickBottomArrowHead" refX="7.5" refY="0" markerUnits="userSpaceOnUse" markerWidth="12" markerHeight="12" orient="auto-start-reverse"><path d="M 0 7 L 7 0" stroke="black" stroke-width="1.5" fill="none"></path></marker></defs><defs><filter id="sync11d1-drop-shadow" height="130%" width="130%"><feDropShadow dx="4" dy="4" stdDeviation="0" flood-opacity="0.06" flood-color="#FFFFFF"></feDropShadow></filter></defs><g data-et="note" data-id="i9"><rect x="256" y="576" fill="#EDF2AE" stroke="#666" width="656" height="41" class="note" data-look="neo"></rect><text x="584" y="581" text-anchor="middle" dominant-baseline="middle" alignment-baseline="middle" class="noteText" dy="1em" style="font-family: &quot;Microsoft YaHei&quot;, sans-serif; font-size: 16px; font-weight: 400;"><tspan x="584">重放前重新投影；不得继续发送正文或金额</tspan></text></g><text x="175" y="92" text-anchor="middle" dominant-baseline="middle" alignment-baseline="middle" class="messageText" dy="1em" style="font-family: &quot;Microsoft YaHei&quot;, sans-serif; font-size: 16px; font-weight: 400;">移除成员或变更授权</text><line x1="76" y1="129" x2="274" y2="129" class="messageLine0" data-et="message" data-id="i0" data-from="A" data-to="S" stroke-width="2" stroke="none" marker-end="url(#sync11d1-arrowhead)" style="fill: none;"></line><text x="381" y="144" text-anchor="middle" dominant-baseline="middle" alignment-baseline="middle" class="messageText" dy="1em" style="font-family: &quot;Microsoft YaHei&quot;, sans-serif; font-size: 16px; font-weight: 400;">锁定对象、写变更、审计与失效-</text><text x="381" y="165" text-anchor="middle" dominant-baseline="middle" alignment-baseline="middle" class="messageText" dy="1em" style="font-family: &quot;Microsoft YaHei&quot;, sans-serif; font-size: 16px; font-weight: 400;">事件</text><line x1="282" y1="202" x2="480" y2="202" class="messageLine0" data-et="message" data-id="i1" data-from="S" data-to="D" stroke-width="2" stroke="none" marker-end="url(#sync11d1-arrowhead)" style="fill: none;"></line><text x="387" y="217" text-anchor="middle" dominant-baseline="middle" alignment-baseline="middle" class="messageText" dy="1em" style="font-family: &quot;Microsoft YaHei&quot;, sans-serif; font-size: 16px; font-weight: 400;">提交成功</text><line x1="486" y1="254" x2="288" y2="254" class="messageLine1" data-et="message" data-id="i2" data-from="D" data-to="S" stroke-width="2" stroke="none" marker-end="url(#sync11d1-arrowhead)" style="stroke-dasharray: 3, 3; fill: none;"></line><text x="481" y="269" text-anchor="middle" dominant-baseline="middle" alignment-baseline="middle" class="messageText" dy="1em" style="font-family: &quot;Microsoft YaHei&quot;, sans-serif; font-size: 16px; font-weight: 400;">使受影响授权缓存失效</text><line x1="282" y1="306" x2="680" y2="306" class="messageLine0" data-et="message" data-id="i3" data-from="S" data-to="R" stroke-width="2" stroke="none" marker-end="url(#sync11d1-arrowhead)" style="fill: none;"></line><text x="784" y="321" text-anchor="middle" dominant-baseline="middle" alignment-baseline="middle" class="messageText" dy="1em" style="font-family: &quot;Microsoft YaHei&quot;, sans-serif; font-size: 16px; font-weight: 400;">通知重新鉴权</text><line x1="688" y1="358" x2="880" y2="358" class="messageLine1" data-et="message" data-id="i4" data-from="R" data-to="E" stroke-width="2" stroke="none" marker-end="url(#sync11d1-arrowhead)" style="stroke-dasharray: 3, 3; fill: none;"></line><text x="587" y="373" text-anchor="middle" dominant-baseline="middle" alignment-baseline="middle" class="messageText" dy="1em" style="font-family: &quot;Microsoft YaHei&quot;, sans-serif; font-size: 16px; font-weight: 400;">重验当前会话和对象权限</text><line x1="886" y1="410" x2="288" y2="410" class="messageLine0" data-et="message" data-id="i5" data-from="E" data-to="S" stroke-width="2" stroke="none" marker-end="url(#sync11d1-arrowhead)" style="fill: none;"></line><text x="381" y="425" text-anchor="middle" dominant-baseline="middle" alignment-baseline="middle" class="messageText" dy="1em" style="font-family: &quot;Microsoft YaHei&quot;, sans-serif; font-size: 16px; font-weight: 400;">查询权威授权</text><line x1="282" y1="462" x2="480" y2="462" class="messageLine0" data-et="message" data-id="i6" data-from="S" data-to="D" stroke-width="2" stroke="none" marker-end="url(#sync11d1-arrowhead)" style="fill: none;"></line><text x="387" y="477" text-anchor="middle" dominant-baseline="middle" alignment-baseline="middle" class="messageText" dy="1em" style="font-family: &quot;Microsoft YaHei&quot;, sans-serif; font-size: 16px; font-weight: 400;">已撤权</text><line x1="486" y1="514" x2="288" y2="514" class="messageLine1" data-et="message" data-id="i7" data-from="D" data-to="S" stroke-width="2" stroke="none" marker-end="url(#sync11d1-arrowhead)" style="stroke-dasharray: 3, 3; fill: none;"></line><text x="581" y="529" text-anchor="middle" dominant-baseline="middle" alignment-baseline="middle" class="messageText" dy="1em" style="font-family: &quot;Microsoft YaHei&quot;, sans-serif; font-size: 16px; font-weight: 400;">access.revoked，关闭流</text><line x1="282" y1="566" x2="880" y2="566" class="messageLine1" data-et="message" data-id="i8" data-from="S" data-to="E" stroke-width="2" stroke="none" marker-end="url(#sync11d1-arrowhead)" style="stroke-dasharray: 3, 3; fill: none;"></line></svg></figure>
+
+<p>SSE 在连接、重连和事件发送前重新判定有效授权，撤权通知优先，心跳复核兜底；已排队 payload 也不能绕过撤权。前端收到撤权清除相关 Store、取消请求并关闭预览；已下载到用户设备的副本无法追溯删除，不承诺 DRM。</p>
+<h2 id="section-11">11 响应与审计</h2>
+<p>未登录使用框架认证路径；对象存在性不可见统一 HTTP 200、code=601、data.errorCode=RESOURCE_NOT_FOUND；已可见对象缺动作权限用 HTTP 200、code=403、data.errorCode=PERMISSION_DENIED。原生框架仅返回 msg 的错误须兼容；文件 Range、原生校验及 OAuth 路径不强行改造。费用隐藏省略 billing/金额，禁止返回零伪装授权。allowedActions 只列当前可执行的动作，不替代下次请求鉴权。</p>
+<p>审计记录谁、何时、对何项目/对象、授予或撤销了哪些角色/范围、原因、变更前后值与 requestId；不记录秘密请求体、未授权提示词及媒体内容。权限不足事件保留必要定位信息，用户响应不泄露对象存在性。审计、账本、发布历史不开放通用删除；价格发布、Key 撤销、恢复处置按现有幂等/revision 规则执行。</p>
+<h2 id="section-12">12 表结构和接口落点</h2>
+<table>
+<thead>
+<tr>
+<th>规则落点</th>
+<th>已有设计</th>
+<th>本轮边界</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>系统角色/菜单/范围</td>
+<td>sys_user、sys_role、sys_menu、sys_user_role、sys_role_menu、sys_role_dept</td>
+<td>复用若依，不新增身份表</td>
+</tr>
+<tr>
+<td>项目角色与成员</td>
+<td>hf_project_role、hf_project_member、hf_project_role_permission</td>
+<td>单成员单角色，own/project；预设变体待确认，不擅自生成种子</td>
+</tr>
+<tr>
+<td>公共授权</td>
+<td>hf_asset_space_grant.can_read/can_use/can_publish</td>
+<td>按项目授权；不虚构账号或用户级 ACL</td>
+</tr>
+<tr>
+<td>本人对象</td>
+<td>草稿/会话/上传 owner_id；素材/元素 create_user_id；任务 user_id</td>
+<td>不以审计账号字符串代替稳定身份</td>
+</tr>
+<tr>
+<td>历史与证据</td>
+<td>hf_audit_log、hf_outbox_event、任务/账本</td>
+<td>不因撤权清除历史；访问时按当前授权投影</td>
+</tr>
+</tbody></table>
+<p>P0-4 中只写“作者或治理”“会话所有者或治理”“操作者或项目治理”的接口按 §5～7 细化：评论删除使用 comment:edit:own 或 comment:moderate；会话维护为 chat:create+本人，或 project:manage+负责人项目范围（仅治理标题/归档）；导入报告为 element:import+本人，或 project:manage+负责人项目范围。继续发送仅 chat:create+会话本人，另验生成能力与预算。相应读码与目标可见条件仍须满足。</p>
+<p>本版不增加 API 路径、不修改响应 DTO、不新增表；权限服务尚未实现。公共可发现项目、每用户自定义例外、供应商账号级 ACL、双人审批属于现有设计未闭合能力，默认不开放，需要先更新 P0-3/P0-4 才能实现。</p>
+<h2 id="section-13">13 权限验收矩阵</h2>
+<p>以下 AUTH 用例编号是追踪 ID，不另行分配与原需求冲突的等级。</p>
+<table>
+<thead>
+<tr>
+<th>用例</th>
+<th>场景与预期</th>
+<th>关联规则</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>AUTH-01</td>
+<td>框架超级管理员无项目成员关系，制作端素材/任务输入/文件不可读；管理端仅授权脱敏元数据</td>
+<td>QLT-01、PRJ-01</td>
+</tr>
+<tr>
+<td>AUTH-02</td>
+<td>producer 可编辑本人素材，不可编辑他人；修改修订不改变作者归属</td>
+<td>AST-02、ELM-02</td>
+</tr>
+<tr>
+<td>AUTH-03</td>
+<td>viewer 看项目但不能生成、评论或下载；显式变体只增加指定动作</td>
+<td>QLT-01</td>
+</tr>
+<tr>
+<td>AUTH-04</td>
+<td>owner 无费用附加授权，费用字段、估价、SSE、本人汇总均不泄露金额</td>
+<td>BIL-06、QLT-01</td>
+</tr>
+<tr>
+<td>AUTH-05</td>
+<td>财务可看授权账单，不能下载项目素材、读取 Key 或开启模型调用</td>
+<td>ADM-01、QLT-01</td>
+</tr>
+<tr>
+<td>AUTH-06</td>
+<td>拥有目标项目 owner 但无源权限，复制/转素材被拒绝且无部分写入</td>
+<td>ELM-06、AST-08</td>
+</tr>
+<tr>
+<td>AUTH-07</td>
+<td>公共 canRead=true、canUse=false，可浏览但生成引用拒绝；撤回后新查询与重放不泄露</td>
+<td>AST-08、COL-06</td>
+</tr>
+<tr>
+<td>AUTH-08</td>
+<td>两请求并发移除/降级负责人，最后一位有效负责人受事务保护</td>
+<td>PRJ-06</td>
+</tr>
+<tr>
+<td>AUTH-09</td>
+<td>项目成员被移除后，列表计数、HEAD/Range、SSE、幂等重放及上传完成均拒绝</td>
+<td>COL-06、QLT-01</td>
+</tr>
+<tr>
+<td>AUTH-10</td>
+<td>部门范围只显示允许费用；无关角色的全部范围不扩大财务授权</td>
+<td>QLT-01、BIL-09</td>
+</tr>
+<tr>
+<td>AUTH-11</td>
+<td>暂停/归档项目拒绝新写/生成，在途查询归档计费继续且无自动重提</td>
+<td>PRJ-07、GEN-07/09</td>
+</tr>
+<tr>
+<td>AUTH-12</td>
+<td>角色/菜单授权变更多实例缓存失效；Redis 故障回查或拒绝，不用旧授权放行</td>
+<td>COL-06</td>
+</tr>
+<tr>
+<td>AUTH-13</td>
+<td>project:join 入口未启用，无任意项目探测/自动入组；收藏不恢复已失效访问</td>
+<td>PRJ-05、QLT-01</td>
+</tr>
+<tr>
+<td>AUTH-14</td>
+<td>草稿/上传只有本人可见；项目负责人不能绕过；会话他人不得续写</td>
+<td>QLT-01、GEN-03</td>
+</tr>
+<tr>
+<td>AUTH-15</td>
+<td>功能权限 A+B 缺任一均拒绝；默认 OR 依赖不造成组合条件绕过</td>
+<td>QLT-01</td>
+</tr>
+<tr>
+<td>AUTH-16</td>
+<td>亮暗主题均按相同权限显示按钮；深链接和手工请求仍受服务端拒绝</td>
+<td>UX-08、QLT-01</td>
+</tr>
+<tr>
+<td>AUTH-17</td>
+<td>价格写权限不能发布，Key 测试不能激活；错误回显无秘密</td>
+<td>ADM-01/02、BIL-05</td>
+</tr>
+<tr>
+<td>AUTH-18</td>
+<td>PostgreSQL 部门树过滤与 find_in_set 适配正确；逻辑关系并发不产生孤立授权</td>
+<td>QLT-01、PRJ-06</td>
+</tr>
+</tbody></table>
+<h2 id="section-14">14 待确认与编码前门槛</h2>
+<table>
+<thead>
+<tr>
+<th>决策</th>
+<th>本版建议与未确认时处理</th>
+<th>负责人/时点</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>D02 角色包、创建项目与角色授予</td>
+<td>按 §3/5/7；未批准变体和可授予集合不初始化</td>
+<td>产品与管理员，权限业务编码前</td>
+</tr>
+<tr>
+<td>D03 内容共享与草稿/评论/会话</td>
+<td>草稿本人私有；提交内容/会话项目共享；本人续写、负责人治理；只读评论用附加变体</td>
+<td>产品与项目负责人，对应功能编码前</td>
+</tr>
+<tr>
+<td>管理项目/预算组织归属</td>
+<td>项目创建者当前组织；费用发生时部门快照；无归属全局配置只给全局角色</td>
+<td>产品与财务，管理范围实现前</td>
+</tr>
+<tr>
+<td>公共素材及独立下载</td>
+<td>首期按项目 grant，下载/发布分别授权，不承诺防拷贝</td>
+<td>业务负责人，公共素材开放前</td>
+</tr>
+<tr>
+<td>可发现项目与申请</td>
+<td>未有持久化配置契约，默认关闭申请入口</td>
+<td>产品与技术，若纳入首期先补契约</td>
+</tr>
+<tr>
+<td>缓存失效实现</td>
+<td>权威重验、可靠通知和多实例测试；确定缓存键/TTL及故障处理</td>
+<td>技术负责人，权限缓存实现前</td>
+</tr>
+</tbody></table>
+<p>完成文档不等于上述业务提案已经批准；不必等待所有后续能力确认才开展无依赖的工程工作。正式开放对应功能前须通过相应 AUTH 用例，分别报告静态设计、真实 PostgreSQL/API 测试和浏览器验收。本次未执行这些运行验证。</p>
+<h2 id="section-15">附录 A 平台业务权限码登记</h2>
+<p>以下从 P0-4 端点权限列核对得到，仅登记完整码，不把 DTO 字段、权限族简称、菜单标题当作权限码。不变更既有命名；页面表的压缩写法以此处完整码为准。所有组合端点仍按原 API 的 AND/OR 语义及 §6 的对象规则判断。</p>
+<table>
+<thead>
+<tr>
+<th>权限族</th>
+<th>完整权限码</th>
+<th>使用状态</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>project</td>
+<td><code>project:archive</code>、<code>project:create</code>、<code>project:edit</code>、<code>project:govern</code>、<code>project:join</code>、<code>project:manage</code>、<code>project:read</code>、<code>project:usage:read</code></td>
+<td>目标业务码，待实现注册；默认角色按正文</td>
+</tr>
+<tr>
+<td>member</td>
+<td><code>member:manage</code>、<code>member:read</code></td>
+<td>目标业务码，待实现注册；默认角色按正文</td>
+</tr>
+<tr>
+<td>asset</td>
+<td><code>asset:create</code>、<code>asset:download</code>、<code>asset:edit</code>、<code>asset:read</code>、<code>asset:reference</code>、<code>asset:remove</code>、<code>asset:upload</code></td>
+<td>目标业务码，待实现注册；默认角色按正文</td>
+</tr>
+<tr>
+<td>folder</td>
+<td><code>folder:write</code></td>
+<td>目标业务码，待实现注册；默认角色按正文</td>
+</tr>
+<tr>
+<td>element</td>
+<td><code>element:configure</code>、<code>element:copy</code>、<code>element:create</code>、<code>element:edit</code>、<code>element:import</code>、<code>element:read</code>、<code>element:remove</code></td>
+<td>目标业务码，待实现注册；默认角色按正文</td>
+</tr>
+<tr>
+<td>generation</td>
+<td><code>generation:cancel</code>、<code>generation:create</code>、<code>generation:read</code></td>
+<td>目标业务码，待实现注册；默认角色按正文</td>
+</tr>
+<tr>
+<td>chat</td>
+<td><code>chat:create</code>、<code>chat:read</code></td>
+<td>目标业务码，待实现注册；默认角色按正文</td>
+</tr>
+<tr>
+<td>comment</td>
+<td><code>comment:create</code>、<code>comment:edit:own</code>、<code>comment:moderate</code>、<code>comment:read</code></td>
+<td>目标业务码，待实现注册；默认角色按正文</td>
+</tr>
+<tr>
+<td>content</td>
+<td><code>content:review</code></td>
+<td>目标业务码，待实现注册；默认角色按正文</td>
+</tr>
+<tr>
+<td>public</td>
+<td><code>public:manage</code>、<code>public:publish</code>、<code>public:read</code></td>
+<td>目标业务码，待实现注册；默认角色按正文</td>
+</tr>
+<tr>
+<td>output</td>
+<td><code>output:archive</code></td>
+<td>目标业务码，待实现注册；默认角色按正文</td>
+</tr>
+<tr>
+<td>provider</td>
+<td><code>provider:read</code>、<code>provider:route</code>、<code>provider:write</code></td>
+<td>目标业务码，待实现注册；默认角色按正文</td>
+</tr>
+<tr>
+<td>credential</td>
+<td><code>credential:activate</code>、<code>credential:disable</code>、<code>credential:read</code>、<code>credential:revoke</code>、<code>credential:rotate</code>、<code>credential:test</code>、<code>credential:write</code></td>
+<td>目标业务码，待实现注册；默认角色按正文</td>
+</tr>
+<tr>
+<td>model</td>
+<td><code>model:publish</code>、<code>model:read</code>、<code>model:verify</code>、<code>model:write</code></td>
+<td>目标业务码，待实现注册；默认角色按正文</td>
+</tr>
+<tr>
+<td>billing</td>
+<td><code>billing:adjust</code>、<code>billing:budget</code>、<code>billing:budget:read</code>、<code>billing:price:publish</code>、<code>billing:price:read</code>、<code>billing:price:write</code>、<code>billing:read</code>、<code>billing:reconcile</code></td>
+<td>目标业务码，待实现注册；默认角色按正文</td>
+</tr>
+<tr>
+<td>operations</td>
+<td><code>operations:read</code>、<code>operations:recover</code></td>
+<td>目标业务码，待实现注册；默认角色按正文</td>
+</tr>
+<tr>
+<td>audit</td>
+<td><code>audit:read</code></td>
+<td>目标业务码，待实现注册；默认角色按正文</td>
+</tr>
+<tr>
+<td>identity</td>
+<td><code>identity:read</code>、<code>identity:write</code></td>
+<td>首期不注册；原生 system:* 接口替代</td>
+</tr>
+<tr>
+<td>role</td>
+<td><code>role:assign</code>、<code>role:read</code></td>
+<td>首期不注册；原生 system:* 接口替代</td>
+</tr>
+</tbody></table>
+<p>仅要求“已登录/本人”的偏好、收藏、上传续传等端点，不为凑矩阵而虚构权限码；仍须检查父对象授权。未在 P0-4 定义的导出端点不新增；已有框架导出使用其原生权限，未来业务导出须先补契约和数据范围验收。</p>
+<footer>由同目录 权限矩阵.md 生成，内嵌 2 张 SVG 图；修改以 Markdown 为准。</footer></main></body></html>

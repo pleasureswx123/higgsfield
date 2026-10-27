@@ -1,0 +1,46 @@
+# 本地仅运行基础设施；后端和两个前端在宿主机手动启动。
+name: higgsfield-ai-local
+
+services:
+  postgres:
+    image: postgres:14
+    environment:
+      TZ: UTC
+      POSTGRES_DB: higgsfield_ai_dev
+      POSTGRES_USER: higgsfield_dev
+      POSTGRES_PASSWORD: ${LOCAL_PG_PASSWORD:?请在 .env.local-infra 设置本地数据库密码}
+      POSTGRES_INITDB_ARGS: --encoding=UTF8 --lc-collate=C --lc-ctype=C
+    ports:
+      - "127.0.0.1:${LOCAL_PG_PORT:-35432}:5432"
+    volumes:
+      - pg_data:/var/lib/postgresql/data
+      # 框架种子仅在专属空数据卷首次初始化时执行，不用于业务迁移。
+      - ./ruoyi-fastapi-backend/sql/ruoyi-fastapi-pg.sql:/docker-entrypoint-initdb.d/001-framework.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U higgsfield_dev -d higgsfield_ai_dev"]
+      interval: 5s
+      timeout: 5s
+      retries: 30
+    stop_grace_period: 30s
+
+  redis:
+    image: redis:7.4
+    # 仅绑定本机回环；开启 AOF 持久化，沿用本地无密码约定。
+    command: ["redis-server", "--appendonly", "yes"]
+    environment:
+      TZ: UTC
+    ports:
+      - "127.0.0.1:${LOCAL_REDIS_PORT:-36379}:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 30
+    stop_grace_period: 30s
+
+# 容器、默认网络和命名卷均由 Compose 根据顶层项目名自动命名。
+volumes:
+  pg_data:
+  redis_data:

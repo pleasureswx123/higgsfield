@@ -1,0 +1,94 @@
+<!doctype html><html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>higgsfield-ai · 后端编码与框架对齐规范</title><style>
+*{box-sizing:border-box}body{overflow-wrap:anywhere;margin:0;color:#172b3a;background:#f1f4f7;font:16px/1.85 "Microsoft YaHei",sans-serif}header{background:#15394c;color:white;padding:18px 5%;font-size:18px}main{max-width:1280px;margin:28px auto;background:white;padding:44px 56px;box-shadow:0 8px 32px #15394c10}h1{font-size:32px;line-height:1.4}h2{font-size:25px;color:#154c62;border-bottom:2px solid #d9e6ec;margin-top:52px;padding-bottom:12px;scroll-margin-top:20px}h3{font-size:20px;margin-top:30px}a{color:#126886;text-decoration:none}a:hover{text-decoration:underline}nav{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:5px 22px;padding:24px;background:#f2f7fa;border:1px solid #d6e4ec;margin-bottom:32px}table{table-layout:fixed;width:100%;border-collapse:collapse;margin:20px 0;font-size:14px;line-height:1.7}th,td{border:1px solid #d6e0e6;padding:10px 12px;text-align:left;vertical-align:top;overflow-wrap:anywhere}th{background:#eaf1f5}tr:nth-child(even){background:#f9fbfc}pre{overflow:auto;background:#f4f6f8;padding:20px;border:1px solid #e0e6eb;border-radius:5px;font-size:13px;line-height:1.7}code{font-family:Consolas,"Microsoft YaHei",monospace;overflow-wrap:anywhere}p code,td code{background:#eef2f5;padding:1px 3px}.diagram{margin:24px 0;padding:18px;border:1px solid #d9e5ec;background:#fff;overflow:auto}.diagram svg{min-width:780px;height:auto;display:block;margin:auto}footer{color:#586d7a;border-top:1px solid #d9e5ec;margin-top:48px;padding-top:16px;font-size:13px}@media(max-width:800px){main{margin:0;padding:22px}nav{grid-template-columns:1fr}table{display:block;overflow:auto}h1{font-size:27px}}@media print{body{background:white}main{margin:0;padding:0;box-shadow:none;max-width:none}header,nav{display:none}h2{break-before:page}figure,pre{break-inside:avoid}.diagram svg{min-width:0;max-width:100%!important}a{color:inherit}}
+</style></head><body><header>higgsfield-ai · 技术文档 · 2026 年 10 月 27 日</header><main><nav><a href="#section-1">1 技术基线与适用范围</a><a href="#section-2">2 分层与实际目录</a><a href="#section-3">3 响应、分页和异常</a><a href="#section-4">4 鉴权、Redis 与权限体系</a><a href="#section-5">5 全局拦截、日志、导出与参数配置</a><a href="#section-6">6 数据库及验收</a><a href="#section-7">PostgreSQL 方言与统一执行约束</a></nav><h1 id="higgsfield-ai-·-后端编码与框架对齐规范">higgsfield-ai · 后端编码与框架对齐规范</h1>
+<p>版本：1.2<br>日期：2026 年 10 月 27 日<br>状态：已确认的目标工程规范；仅更新文档，尚未实现新业务</p>
+<p><strong>统一约束与优先级：</strong> 以<a href="../AGENTS.md">项目 AGENTS.md</a>为工程约束；<a href="%E6%96%87%E6%A1%A3%E4%B8%80%E8%87%B4%E6%80%A7%E4%B8%8E%E4%BC%98%E5%85%88%E7%BA%A7%E7%B4%A2%E5%BC%95.html">文档一致性与优先级索引</a>统一文档编号、需求等级和处理规则。P0-1～P0-6 是文档编号，不是需求优先级；业务规则等级以 P0-1 的规则表为唯一来源，本文引用规则 ID 时继承其等级，不另行定级。设计完成不等于实现或验收通过。</p>
+<h2 id="section-1">1 技术基线与适用范围</h2>
+<p>新增后端业务严格依托 <code>ruoyi-fastapi-backend/</code>：FastAPI、异步 SQLAlchemy 2.0、AsyncSession、Redis、JWT 与 OAuth2 Bearer 依赖。<strong>数据库继续使用 PostgreSQL</strong>，这是本轮再次确认的项目选型，不切换为 MySQL。本地 PostgreSQL/Redis 由 Docker 启动，后端及两个前端手动启动。</p>
+<p>源码是约定依据，不用其他若依分支的名称替代当前实际接口。框架已有同步工具不在本次重构范围；新增业务请求和 Worker 的数据库操作不得使用同步 Session。</p>
+<h2 id="section-2">2 分层与实际目录</h2>
+<p>用户要求的 router → service → dao → model，对应当前仓库的 <strong>controller → service → dao → entity/do</strong>。路由由 APIRouterPro 承载，Pydantic 输入输出模型放 entity/vo；不另建平行的 application/domain/infrastructure 主架构。</p>
+<pre><code class="language-text">ruoyi-fastapi-backend/
+  module_higgsfield/          待新增业务模块
+    controller/              路由、参数、依赖、权限声明、ResponseUtil
+    service/                 业务规则、事务边界、状态机与供应商调用编排
+    dao/                     异步查询、分页、行锁、条件更新、flush
+    entity/
+      do/                    SQLAlchemy ORM、列类型和中文注释
+      vo/                    Pydantic 请求/响应/分页查询模型
+    adapter/                 外部供应商与文件适配，不直接读写数据库
+    workers/                 任务入口，调用同一 Service，不复制业务规则
+</code></pre>
+<p>Controller 不直接写 SQL；DAO 不拼 HTTP 响应、不决定授权策略、不在单个写操作内擅自 commit。Service 接收同一个 AsyncSession，负责聚合操作的 commit/rollback，DAO 可 await flush 获取自增主键。跨 DAO 的任务、预占、幂等、Outbox 必须同事务。数据库事务不覆盖长时间的供应商 HTTP 调用。</p>
+<p>API 会话通过 DBSessionDependency 注入；Worker 使用框架异步会话工厂独立创建并关闭会话，不能复用已结束的请求会话，也不能在并行协程间共享一个 AsyncSession。使用 SQLAlchemy 2.0 select/update/delete 与 await execute/flush/commit/rollback，避免同步 query、同步驱动和隐式懒加载 IO。遵循已有服务/DAO 类命名、异步方法、类型注解及中文 docstring 风格。</p>
+<h2 id="section-3">3 响应、分页和异常</h2>
+<p>以 <a href="../ruoyi-fastapi-backend/utils/response_util.py">ResponseUtil</a>、<a href="../ruoyi-fastapi-backend/common/vo.py">公共 VO</a>、<a href="../ruoyi-fastapi-backend/exceptions/handle.py">异常处理</a> 为唯一公共协议来源。</p>
+<table>
+<thead>
+<tr>
+<th>场景</th>
+<th>当前框架形式</th>
+<th>新业务要求</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>普通成功</td>
+<td>HTTP 200；code=200、msg、success=true、time；按需 data</td>
+<td>使用 ResponseUtil.success，模型使用 ResponseBaseModel/DataResponseModel</td>
+</tr>
+<tr>
+<td>分页</td>
+<td>rows/pageNum/pageSize/total/hasNext 与 code/msg/success/time 同处顶层</td>
+<td>使用 PageModel/PageResponseModel 和 PageUtil，不返回 data.items/nextCursor</td>
+</tr>
+<tr>
+<td>业务校验、状态冲突</td>
+<td>ServiceWarning → failure，HTTP 200、code=601、success=false</td>
+<td>安全业务细分码放 data.errorCode，字段问题放 data.fieldErrors；不新增顶层 error 信封</td>
+</tr>
+<tr>
+<td>未登录/权限不足</td>
+<td>AuthException → code=401；PermissionException → code=403；HTTP 200</td>
+<td>复用框架异常和全局处理，前端同时检查业务 code，不仅检查 HTTP 状态</td>
+</tr>
+<tr>
+<td>服务异常</td>
+<td>ServiceException → code=500；HTTP 200</td>
+<td>统一安全 msg；未预期异常由 ExceptionUtil 返回 errorId，堆栈只在脱敏日志中</td>
+</tr>
+<tr>
+<td>限流</td>
+<td>ResponseUtil.too_many_requests：HTTP 429、code=429、success=false</td>
+<td>复用既有响应与限流装饰器，不能当普通HTTP 200处理</td>
+</tr>
+<tr>
+<td>协议异常</td>
+<td>HTTPException 保留实际 HTTP 状态及 code/msg；原生请求校验和 OAuth/OIDC 另有框架协议</td>
+<td>不宣称所有错误都是 HTTP 200，不全局覆盖既有处理器</td>
+</tr>
+<tr>
+<td>文件与事件流</td>
+<td>StreamingResponse、文件 Range 和 SSE</td>
+<td>复用流式路径，不把字节流或 SSE 包入 JSON；连接前先处理认证错误</td>
+</tr>
+</tbody></table>
+<p>普通创建、删除、异步受理均使用框架 HTTP 200/code=200；是否受理、处理中或完成由 data 的业务状态和 statusUrl 区分，不用 201/202/204 建立第二套协议。返回受理回执前仍须提交任务、预占及 Outbox。</p>
+<p>分页请求为 pageNum/pageSize，页码从 1 开始；服务端白名单排序，按业务主键稳定次排序，先施加权限范围再计数和分页。SSE 的事件序号/Last-Event-ID 是事件重放协议，保留，不是列表游标分页。</p>
+<h2 id="section-4">4 鉴权、Redis 与权限体系</h2>
+<p>复用 Authorization: Bearer 平台 JWT、OAuth2PasswordBearer、PreAuthDependency、CurrentUserDependency 和 LoginService。平台 JWT 与第三方模型 API Key 分离；不把现有登录描述成已完成统一 OIDC 登录。</p>
+<p><strong>源码现状：</strong> LoginService 校验 JWT、Redis 中的登录 token，并通过 UserDao 获取用户和权限信息；不能声称当前已完整缓存登录用户与权限对象。<strong>目标补充：</strong> 按本次要求缓存脱敏登录用户、角色、菜单/按钮权限和数据范围摘要至 Redis，接入同一登录服务，不能创建第二套认证链。缓存使用框架 Redis key 常量和配置 TTL；不保存密码、供应商秘密或无限期权限快照。</p>
+<p>退出、停用用户、角色授权、菜单权限和数据范围变更必须使相关缓存失效；在多实例中统一失效，SSE 连接定期复核权限。缓存缺失重新加载权威数据，不因 Redis 缺失放行。缓存与登录有效期协调；权限变更不能仅靠长 TTL 最终过期。失效机制是待实现能力，需独立验收。</p>
+<p>菜单、按钮权限复用 sys_menu、角色菜单关系与 UserInterfaceAuthDependency；数据权限复用框架 data_scope 入口，叠加项目成员和对象访问规则。管理员快捷权限不自动豁免已确认的项目内容边界。字典复用 sys_dict_type/sys_dict_data，业务字段与编码沿用 P0-3。按钮隐藏不替代后端鉴权。</p>
+<h2 id="section-5">5 全局拦截、日志、导出与参数配置</h2>
+<p>复用 <a href="../ruoyi-fastapi-backend/middlewares/handle.py">middlewares/handle.py</a> 的注册、执行次序和配置：上下文清理、CORS、响应头、追踪、演示模式及传输加密等，不为新模块复制一套全局拦截。制作端 Axios 处理相同业务响应码和部署启用的传输协议；SSE、分片、二进制下载和加密中间件的兼容性需真实联调。</p>
+<p>操作日志使用框架 Log 装饰器、BusinessType 和 logger；敏感请求字段不进入日志。已有 hf_audit_log 负责业务证据，与系统操作日志用请求标识关联，不替代框架日志。异常诊断沿用 ExceptionUtil/errorId。</p>
+<p>导出参照 <a href="../ruoyi-fastapi-backend/module_admin/controller/post_controller.py">post_controller</a> 的权限、Log(EXPORT)、限流、Service 导出及 ResponseUtil.streaming；导出前同样施加数据权限，防止分页可见但导出越权。下载响应处理二进制与 JSON 错误，不把失败信封保存成表格文件。</p>
+<p>参数配置复用现有 config/env、sys_config、Redis 缓存和常量体系。密钥使用环境配置及凭据加密版本，不能将供应商 Key 放入普通字典或可公开读取的参数配置。模型价格版本仍是业务表，不压缩成普通系统参数字符串。</p>
+<h2 id="section-6">6 数据库及验收</h2>
+<p>延续 PostgreSQL 与若依设计：下划线表名、bigint 自增主键、create_by/create_time/update_by/update_time、按业务删除策略使用 del_flag、无物理外键、表及字段中文注释。关系完整性由 Service 事务锁和 DAO 查询维护。ORM 继承框架 Base/Mixin，按 entity/do 注册 metadata，真实 Alembic 迁移仍必须覆盖变更。</p>
+<p>实施后验证：响应与分页结构一致、业务码拦截、异常信息脱敏、Redis 权限失效、菜单/按钮/数据范围、AsyncSession 事务回滚、并发幂等、操作日志、导出权限、参数缓存和 SSE/二进制兼容。当前仅完成源码核对与设计修订，没有运行接口、数据库或模型调用测试。</p>
+<h2 id="section-7">PostgreSQL 方言与统一执行约束</h2>
+<p>项目整体强制规则已记录于<a href="../AGENTS.md">根目录 AGENTS.md</a>。数据库唯一选型为 PostgreSQL；下划线表名、bigint 自增主键、del_flag、若依公共字段、无物理外键及表/字段中文注释均保持既定规范。</p>
+<p>本项目新增 DDL、查询、类型声明和迁移不得使用 MySQL 专属语法：反引号标识符、AUTO_INCREMENT、ENGINE、UNSIGNED、ON DUPLICATE KEY UPDATE、MySQL 内联 COMMENT 等。自增沿用已确定的 bigserial；时间、JSON、金额分别按本文 PostgreSQL 类型定义；表及字段注释通过 COMMENT ON TABLE/COLUMN 落实。SQLAlchemy ORM 与迁移必须使用同一 PostgreSQL 方言，不能仅将 MySQL 连接字符串换成 PostgreSQL 后宣称兼容。</p>
+<p>框架自带 MySQL 示例可以保留，但不是本项目初始化、迁移或运行验证入口。后续验证须包括在 PostgreSQL 上执行迁移、检查自增序列、字段类型、注释、唯一约束和事务行为；本次仅更新规则，未执行上述运行验证。</p>
+<footer>由同目录 后端编码与框架对齐规范.md 生成，内嵌 0 张 SVG 图；修改以 Markdown 为准。</footer></main></body></html>

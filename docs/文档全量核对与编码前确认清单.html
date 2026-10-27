@@ -1,0 +1,391 @@
+<!doctype html><html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>higgsfield-ai · 文档全量核对与编码前确认清单</title><style>
+*{box-sizing:border-box}body{overflow-wrap:anywhere;margin:0;color:#172b3a;background:#f1f4f7;font:16px/1.85 "Microsoft YaHei",sans-serif}header{background:#15394c;color:white;padding:18px 5%;font-size:18px}main{max-width:1280px;margin:28px auto;background:white;padding:44px 56px;box-shadow:0 8px 32px #15394c10}h1{font-size:32px;line-height:1.4}h2{font-size:25px;color:#154c62;border-bottom:2px solid #d9e6ec;margin-top:52px;padding-bottom:12px;scroll-margin-top:20px}h3{font-size:20px;margin-top:30px}a{color:#126886;text-decoration:none}a:hover{text-decoration:underline}nav{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:5px 22px;padding:24px;background:#f2f7fa;border:1px solid #d6e4ec;margin-bottom:32px}table{table-layout:fixed;width:100%;border-collapse:collapse;margin:20px 0;font-size:14px;line-height:1.7}th,td{border:1px solid #d6e0e6;padding:10px 12px;text-align:left;vertical-align:top;overflow-wrap:anywhere}th{background:#eaf1f5}tr:nth-child(even){background:#f9fbfc}pre{overflow:auto;background:#f4f6f8;padding:20px;border:1px solid #e0e6eb;border-radius:5px;font-size:13px;line-height:1.7}code{font-family:Consolas,"Microsoft YaHei",monospace;overflow-wrap:anywhere}p code,td code{background:#eef2f5;padding:1px 3px}.diagram{margin:24px 0;padding:18px;border:1px solid #d9e5ec;background:#fff;overflow:auto}.diagram svg{min-width:780px;height:auto;display:block;margin:auto}footer{color:#586d7a;border-top:1px solid #d9e5ec;margin-top:48px;padding-top:16px;font-size:13px}@media(max-width:800px){main{margin:0;padding:22px}nav{grid-template-columns:1fr}table{display:block;overflow:auto}h1{font-size:27px}}@media print{body{background:white}main{margin:0;padding:0;box-shadow:none;max-width:none}header,nav{display:none}h2{break-before:page}figure,pre{break-inside:avoid}.diagram svg{min-width:0;max-width:100%!important}a{color:inherit}}
+</style></head><body><header>higgsfield-ai · 技术文档 · 2026 年 10 月 27 日</header><main><nav><a href="#section-1">1 核对范围与结论</a><a href="#section-2">2 全量文档核对登记</a><a href="#section-3">3 已修正的冲突与旧表述</a><a href="#section-4">4 统一后的跨文档不变量</a><a href="#section-5">5 正式编码前仍需确认的事项</a><a href="#section-6">6 本轮检查方法与限制</a></nav><h1 id="higgsfield-ai-·-文档全量核对与编码前确认清单">higgsfield-ai · 文档全量核对与编码前确认清单</h1>
+<p>版本：1.0<br>日期：2026 年 10 月 27 日<br>状态：文档一致性核对记录；不是代码、数据库、模型或部署验收报告</p>
+<h2 id="section-1">1 核对范围与结论</h2>
+<p>以最新 <a href="../AGENTS.md">AGENTS.md</a> 和用户已确认约束为最高工程基线，本轮对 docs 原有15份 Markdown及其HTML配对进行清单、跨文档关键规则、接口摘要、状态、优先级、版本和链接核对；新增本文后为16份配对文档。价格来源目录的4张截图作为原始来源附件保留，不修改或以其推断当前官网价格。</p>
+<p>已修正文中发现的冲突，不以本报告附注代替源文档修订。数据库仍为 PostgreSQL，前后端仍严格遵循若依及 Vue3 约定；内网部署和 NAS 长期媒体存储为已确认事实。没有新增业务范围、批准默认角色或预算提案，也没有替用户确定服务器配置。</p>
+<p>当前文档具备推进无依赖工程准备的基础，但不能据此认定所有业务模块可直接编码或正式消费。§5 将待确认事项分为模块编码前、真实联调/消费前、正式部署前，不要求所有运维参数先确定才开展基础工作。</p>
+<h2 id="section-2">2 全量文档核对登记</h2>
+<p>当前版本统一见<a href="%E6%96%87%E6%A1%A3%E4%B8%80%E8%87%B4%E6%80%A7%E4%B8%8E%E4%BC%98%E5%85%88%E7%BA%A7%E7%B4%A2%E5%BC%95.html">文档索引</a>，不在这里复制另一套版本台账。</p>
+<table>
+<thead>
+<tr>
+<th>文档</th>
+<th>重点核对</th>
+<th>本轮处理</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><a href="%E6%8A%80%E6%9C%AF%E6%9E%B6%E6%9E%84%E6%96%B9%E6%A1%88.html">技术架构方案</a></td>
+<td>C4边界、响应、任务事件、原Key、预算、部署</td>
+<td>修正409、平台SSE与上游流混淆、Key替代暗示、默认预算、错误章节引用及阶段申请范围</td>
+</tr>
+<tr>
+<td><a href="%E9%A6%96%E6%9C%9F%E9%9C%80%E6%B1%82%E4%B8%8E%E4%B8%9A%E5%8A%A1%E8%A7%84%E5%88%99%E8%AF%B4%E6%98%8E%E4%B9%A6.html">P0-1需求</a></td>
+<td>69条规则、B1～B4、D01～D10、首期退出</td>
+<td>保留全部规则等级；同步内网基线和六份文档编号说明；完善逐开放组合真实验收要求</td>
+</tr>
+<tr>
+<td><a href="%E6%A8%A1%E5%9E%8B%E4%BE%9B%E5%BA%94%E5%95%86%E6%8E%A5%E5%85%A5%E5%A5%91%E7%BA%A6%E4%B8%8E%E5%B7%AE%E5%BC%82%E6%B8%85%E5%8D%95.html">P0-2供应商</a></td>
+<td>DIF/INT、原Key、未知受理、内网素材与流式</td>
+<td>同步内网/NAS及素材出站边界，区分平台事件与上游增量</td>
+</tr>
+<tr>
+<td><a href="%E6%95%B0%E6%8D%AE%E5%BA%93%E8%AF%A6%E7%BB%86%E8%AE%BE%E8%AE%A1.html">P0-3数据库</a></td>
+<td>80张目标表、9项补充、字段/关系、预算精度</td>
+<td>同步部署与实施状态；强调费用精度、负可用额、无FK关系与待决策门槛</td>
+</tr>
+<tr>
+<td><a href="%E5%B9%B3%E5%8F%B0API%E5%A5%91%E7%BA%A6.html">P0-4 API</a></td>
+<td>响应、分页、幂等枚举、目录、费用可见性</td>
+<td>统一幂等验收完整错误码、费用无权业务码和正式部署说明</td>
+</tr>
+<tr>
+<td><a href="%E4%BB%B7%E6%A0%BC%E7%94%A8%E9%87%8F%E9%A2%84%E7%AE%97%E8%AF%B4%E6%98%8E.html">P0-5价格预算</a></td>
+<td>三种费用口径、预占结算、无价未知、提案边界</td>
+<td>增加跨文档约束：隐藏金额不剥夺生成权、降额超额、默认配置仍待评审</td>
+</tr>
+<tr>
+<td><a href="%E6%9D%83%E9%99%90%E7%9F%A9%E9%98%B5.html">P0-6权限</a></td>
+<td>功能/对象求交、角色提案、草稿私有、撤权</td>
+<td>核对无须改动正文；仍为目标权限，非已初始化角色</td>
+</tr>
+<tr>
+<td><a href="%E5%88%B6%E4%BD%9C%E5%B9%B3%E5%8F%B0%E5%89%8D%E7%AB%AF%E7%BC%96%E7%A0%81%E8%A7%84%E8%8C%83.html">前端规范</a></td>
+<td>Vue3分层、两库、双主题、编号</td>
+<td>更新文档编号说明；保留管理端存量与新增修改边界</td>
+</tr>
+<tr>
+<td><a href="%E5%90%8E%E7%AB%AF%E7%BC%96%E7%A0%81%E4%B8%8E%E6%A1%86%E6%9E%B6%E5%AF%B9%E9%BD%90%E8%A7%84%E8%8C%83.html">后端规范</a></td>
+<td>实际分层、异步事务、返回结构、缓存现状</td>
+<td>更新文档编号说明；保留框架原生错误与待实现缓存区别</td>
+</tr>
+<tr>
+<td><a href="%E5%B7%A5%E7%A8%8B%E5%9F%BA%E7%BA%BF%E6%A0%B8%E5%AF%B9%E4%B8%8E%E6%96%87%E6%A1%A3%E8%A1%94%E6%8E%A5%E6%96%B9%E6%A1%88.html">工程基线</a></td>
+<td>框架复用、配置/运行事实、文档产出状态</td>
+<td>修正P0-5/6仍写“完成文档”及生产独立设计旧措辞，指向运维方案</td>
+</tr>
+<tr>
+<td><a href="%E6%9C%AC%E5%9C%B0%E5%BC%80%E5%8F%91%E4%B8%8E%E5%B7%A5%E7%A8%8B%E5%88%9D%E5%A7%8B%E5%8C%96%E6%89%8B%E5%86%8C.html">本地开发手册</a></td>
+<td>PG/Redis Docker、三应用手动、真实迁移</td>
+<td>无须改动正文；生产方式不能从开发推导，模板未执行状态保留</td>
+</tr>
+<tr>
+<td><a href="%E9%A1%B5%E9%9D%A2%E8%A7%84%E6%A0%BC%E4%B8%8E%E4%BA%A4%E4%BA%92%E8%AF%B4%E6%98%8E%E4%B9%A6.html">页面规格</a></td>
+<td>S/M页面、接口来源、费用/权限、目录分页</td>
+<td>对齐已有子目录分页；隐藏费用、能力不泄露内部路由；降额后超额提示</td>
+</tr>
+<tr>
+<td><a href="%E6%B5%8B%E8%AF%95%E4%B8%8E%E9%AA%8C%E6%94%B6%E6%96%B9%E6%A1%88.html">测试验收</a></td>
+<td>源用例、69规则映射、模拟/真实、双主题</td>
+<td>无须改动正文；运行均待执行，引用最新源文档修正</td>
+</tr>
+<tr>
+<td><a href="%E5%86%85%E7%BD%91%E9%83%A8%E7%BD%B2%E4%B8%8ENAS%E5%AD%98%E5%82%A8%E8%BF%90%E7%BB%B4%E6%96%B9%E6%A1%88.html">内网NAS运维</a></td>
+<td>拓扑/挂载/出站/备份/OPS</td>
+<td>无须改动正文；未定服务器参数保留，断挂不落本地和恢复不重消费保持</td>
+</tr>
+<tr>
+<td><a href="%E6%96%87%E6%A1%A3%E4%B8%80%E8%87%B4%E6%80%A7%E4%B8%8E%E4%BC%98%E5%85%88%E7%BA%A7%E7%B4%A2%E5%BC%95.html">一致性与优先级索引</a></td>
+<td>版本、唯一分级源与历史记录</td>
+<td>更新当前版本台账和本轮记录；历史版本记载保留历史语义</td>
+</tr>
+</tbody></table>
+<h2 id="section-3">3 已修正的冲突与旧表述</h2>
+<table>
+<thead>
+<tr>
+<th>编号</th>
+<th>原问题</th>
+<th>统一结果与源位置</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>AUD-01</td>
+<td>部分P0文档仍只写生产部署另行定义</td>
+<td>明确公司内网服务器＋NAS；具体参数待确认，引用运维方案</td>
+</tr>
+<tr>
+<td>AUD-02</td>
+<td>架构草稿冲突时序图仍返回409</td>
+<td>改 HTTP200/code601及修订冲突细分码，沿P0-4和后端规范</td>
+</tr>
+<tr>
+<td>AUD-03</td>
+<td>架构把所有SSE开放依赖上游流式</td>
+<td>平台任务SSE独立承载状态/结果/重放；只限制未验证的供应商文本增量</td>
+</tr>
+<tr>
+<td>AUD-04</td>
+<td>轮换图和故障表容易被读作同账号可换Key</td>
+<td>VideoPlus默认严格原Key；替代策略须新证据、契约更新及验证后另行批准</td>
+</tr>
+<tr>
+<td>AUD-05</td>
+<td>架构将平台预算口径写成已定默认</td>
+<td>统一为P0-5待评审建议；币种、周期、无预算策略不得自行固化</td>
+</tr>
+<tr>
+<td>AUD-06</td>
+<td>架构累计用量“更新”可能理解成覆盖账本</td>
+<td>用量证据去重/修订，费用追加差额；原计费金额不可覆盖</td>
+</tr>
+<tr>
+<td>AUD-07</td>
+<td>页面称目录懒加载接口未证明</td>
+<td>P0-4已定义parentId＋pageNum/pageSize子节点分页；按需加载，不一次取全树</td>
+</tr>
+<tr>
+<td>AUD-08</td>
+<td>创作流程可能强制所有人确认金额，且加载路由表述过宽</td>
+<td>隐藏费用时只展示可提交信息，生成权独立；制作端只读授权能力、不返回内部路由/Key</td>
+</tr>
+<tr>
+<td>AUD-09</td>
+<td>页面“调整低于约束”可能被读成禁止降额低于占用</td>
+<td>沿P0-5允许降额后超额，阻止后续受理，不释放在途预占凑余额</td>
+</tr>
+<tr>
+<td>AUD-10</td>
+<td>API验收用例缩写KEY_REUSED/IN_PROGRESS</td>
+<td>统一完整IDEMPOTENCY_KEY_REUSED/IDEMPOTENCY_IN_PROGRESS</td>
+</tr>
+<tr>
+<td>AUD-11</td>
+<td>工程基线仍要求产出已有P0-5/6；“四份文档”范围已旧</td>
+<td>改评审已有文档及角色提案；说明P0-1～6均为编号非等级</td>
+</tr>
+<tr>
+<td>AUD-12</td>
+<td>架构未知受理引用8.2、阶段无条件列项目申请</td>
+<td>指向7.5；申请依P0-6未具发现策略契约保持关闭</td>
+</tr>
+<tr>
+<td>AUD-13</td>
+<td>P0-1三类模型各一条成功可能误当全部规格通过</td>
+<td>基础三类链路必验，且所有拟发布别名/模式/规格逐项具证据</td>
+</tr>
+</tbody></table>
+<p>AUD仅为核对记录，不是需求或缺陷的新等级。保留框架MySQL参考、历史旧UUID说明、原生HTTP404/422等解释，并非遗留错误；不能用关键词替换把“禁止”或历史背景误改成实现要求。</p>
+<h2 id="section-4">4 统一后的跨文档不变量</h2>
+<table>
+<thead>
+<tr>
+<th>领域</th>
+<th>实现必须遵循</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>范围与等级</td>
+<td>B1～B4首期；P0/P1/P2全称及69规则唯一来源P0-1。EXT后续能力不混入首期默认入口；建议不等于批准</td>
+</tr>
+<tr>
+<td>权限</td>
+<td>功能权限、项目成员、对象范围、状态共同校验；系统管理员不绕过项目内容；费用/下载/发布/复制独立；草稿/上传本人私有；会话共享仍待确认</td>
+</tr>
+<tr>
+<td>API</td>
+<td>普通业务若依信封；code601业务冲突/不可见资源；原生协议错误保留；ID/revision/金额字符串；先权限后分页；幂等不是前端防双击</td>
+</tr>
+<tr>
+<td>数据库</td>
+<td>PostgreSQL、bigserial、下划线、中文COMMENT、RuoYi公共字段；del_flag仅可删除实体，不可变证据无删除入口；无FK由Service事务锁维护完整性；80表是目标非已迁移</td>
+</tr>
+<tr>
+<td>费用</td>
+<td>平台/采购/账单分开，版本固定、未知不零、重复不加；受理原子预占所有适用预算，结算真实费用可导致可用额负数；调整追加</td>
+</tr>
+<tr>
+<td>模型</td>
+<td>已验证别名/能力才开放；VideoPlus原Key查内层任务ID；未知受理不自动新生成；归档重试不重新收费调用</td>
+</tr>
+<tr>
+<td>事件</td>
+<td>平台任务事件与供应商流式分开；非流式也可发送等待/最终结果；事件重放与文件请求重新鉴权</td>
+</tr>
+<tr>
+<td>工程</td>
+<td>若依实际controller/service/dao/entity分层，AsyncSession不并发共享；Vue3/Router/Pinia/Axios、script setup/use/api分层、defineModel；双主题强制</td>
+</tr>
+<tr>
+<td>内网/NAS</td>
+<td>浏览器走平台授权；NAS保存长期媒体，不直接公开；外部模型素材交换走已验证协议；NAS断挂不落本地目录；PG数据盘不因媒体选NAS自动迁移</td>
+</tr>
+<tr>
+<td>恢复</td>
+<td>PG、NAS、主密钥、在途任务同一恢复计划；默认关闭新增真实消费，核对外部受理和账本后恢复；缓存不作为唯一事实</td>
+</tr>
+</tbody></table>
+<h2 id="section-5">5 正式编码前仍需确认的事项</h2>
+<p>本表不新增D编号，不取代源文档决定。责任人是岗位，具体姓名待项目确定；任何“建议”都不是本轮授权。</p>
+<h3 id="51-对应业务模块编码前">5.1 对应业务模块编码前</h3>
+<table>
+<thead>
+<tr>
+<th>原来源</th>
+<th>待确认内容/所需产物</th>
+<th>当前保守边界</th>
+<th>负责人建议</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>D01</td>
+<td>B1～B4交付边界与EXT延期确认</td>
+<td>保留已承诺首期基础功能，不把后续能力自动上架</td>
+<td>产品</td>
+</tr>
+<tr>
+<td>D02 / P0-6</td>
+<td>默认角色包、创建项目/授予角色/治理内容/费用附加权</td>
+<td>不生成有争议角色种子；管理员无默认项目内容特权</td>
+<td>产品＋管理员</td>
+</tr>
+<tr>
+<td>D03 / P0-6</td>
+<td>会话正文共享、默认评论、角色变体；私有草稿不改</td>
+<td>本人私有边界强制；争议共享不开放</td>
+<td>产品＋项目负责人</td>
+</tr>
+<tr>
+<td>D04</td>
+<td>名称/属性长度、文件格式大小数量、媒体处理上限</td>
+<td>不凭截图编阈值，统一DTO/schema/前端校验</td>
+<td>产品＋技术</td>
+</tr>
+<tr>
+<td>D05 / P0-5 §15</td>
+<td>预算用途币种周期、项目总额、无预算策略、估价上界、额度变更</td>
+<td>不把缺配置当无限额，不按0预占未知；建议方案先评审</td>
+<td>费用＋产品</td>
+</tr>
+<tr>
+<td>P0-5 §15</td>
+<td>金额舍入、采购源币种及汇率、缺采购价处理、退款累计/增量规则</td>
+<td>保持平台采购分离及历史不变；不私自决定实际收费</td>
+<td>费用＋接入</td>
+</tr>
+<tr>
+<td>D10</td>
+<td>固定模板字段、预检、确认导入和部分失败/回滚粒度</td>
+<td>不开放AI提取或任意压缩包解析</td>
+<td>产品＋技术</td>
+</tr>
+<tr>
+<td>P0-4/P0-6/页面§13</td>
+<td>普通项目管理员的成员候选查询范围与API</td>
+<td>不授予全量系统用户读取权限来填选择器</td>
+<td>产品＋后端</td>
+</tr>
+<tr>
+<td>P0-6</td>
+<td>可发现项目/加入申请的持久化及接口，是否本期启用</td>
+<td>无发现策略时关闭入口；保留管理员加成员路径</td>
+<td>产品＋技术</td>
+</tr>
+<tr>
+<td>P0-6管理范围</td>
+<td>项目/预算组织归属、费用部门快照及权限缓存失效机制</td>
+<td>功能范围不覆盖对象范围，旧缓存不放行</td>
+<td>产品＋财务＋技术</td>
+</tr>
+<tr>
+<td>工程基线/P0-3</td>
+<td>上游版本身份、PG主版本、初始SQL与迁移起点、目标metadata注册</td>
+<td>仅真实迁移，不以create_all/stamp替代</td>
+<td>技术负责人</td>
+</tr>
+<tr>
+<td>工程/前端/本地手册</td>
+<td>Python/Node/依赖版本、登录跨刷新/两端会话、流/文件与传输加密兼容</td>
+<td>不默认SSO，不在URL放token；版本按锁文件验证</td>
+<td>前后端负责人</td>
+</tr>
+<tr>
+<td>页面§13</td>
+<td>统计/导出/目录计数实际数据源、主题tokens与断点、草稿保存方式</td>
+<td>缺端点不造按钮和数据；默认明确保存，无截图行为不冒充事实</td>
+<td>产品＋前端＋后端</td>
+</tr>
+</tbody></table>
+<p>上述决定可以随模块推进，不要求现在一次性回答全部问题。可先进行无依赖的工程结构、规范检查和测试准备；一旦涉及未冻结角色、表字段、API、消费策略或页面数据源，应先闭合对应决策再编码。</p>
+<h3 id="52-真实联调与正式消费前">5.2 真实联调与正式消费前</h3>
+<table>
+<thead>
+<tr>
+<th>来源</th>
+<th>必须具备的结论/证据</th>
+<th>未确认时处理</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>D07 / DIF-01～03</td>
+<td>全链路加密、底层模型映射、账号/Key和别名能力</td>
+<td>保持连接/能力待验证，不能把HTTP资料改写成已验证HTTPS</td>
+</tr>
+<tr>
+<td>D08 / DIF-11～14/19</td>
+<td>上传/注册作用域、URL或asset编码、参考模式、音频路径及结果生命周期</td>
+<td>只开放已有证据的输入组合；内网素材不直接用NAS URL</td>
+</tr>
+<tr>
+<td>D09 / DIF-04～08/20</td>
+<td>输入视频Token定义、多图usage、失败/取消/查询/测试收费及账单</td>
+<td>未知不当免费；对应能力缺计费证据不正式开放</td>
+</tr>
+<tr>
+<td>DIF-10/16/17/18</td>
+<td>原Key轮换查询、文本流协议、受理查询/幂等、Fast真实响应</td>
+<td>保留原Key与未知核查；非流式可独立实现，未验证增量关闭</td>
+</tr>
+<tr>
+<td>测试方案</td>
+<td>授权测试Key、成本中心、费用上限、逐开放组合测试记录</td>
+<td>无范围/上限不执行真实收费测试；模拟结果不得冒充联调</td>
+</tr>
+<tr>
+<td>运维方案</td>
+<td>参考素材出公司内网的允许范围、上传/中转及出站网络</td>
+<td>不默认公网穿透或公开NAS；依赖未确认中转的模式关闭</td>
+</tr>
+</tbody></table>
+<h3 id="53-正式部署与上线前">5.3 正式部署与上线前</h3>
+<table>
+<thead>
+<tr>
+<th>来源</th>
+<th>待确认内容</th>
+<th>影响</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>运维§2</td>
+<td>服务器OS/数量/CPU/内存/本地盘、部署方式、PG/Redis拓扑</td>
+<td>发布脚本、容量和可用性，不改变内网/NAS已确认选型</td>
+</tr>
+<tr>
+<td>运维§2/4/5</td>
+<td>NAS协议版本/共享/路径/账号ACL/容量、域名证书/端口/出站域名代理</td>
+<td>真实挂载、视频交付与模型链路验收</td>
+</tr>
+<tr>
+<td>D06 / QLT-04</td>
+<td>源文件、逻辑删除恢复、日志审计和事件保留期</td>
+<td>未确认不自动清理历史引用；SSE保留建议不是已批准配置</td>
+</tr>
+<tr>
+<td>运维§8</td>
+<td>备份目的地/频率/保留、主密钥保管、RPO/RTO与一致性窗口</td>
+<td>成套恢复演练，不能只恢复数据库</td>
+</tr>
+<tr>
+<td>测试/运维</td>
+<td>性能数据规模/并发/浏览器矩阵、权限传播时限、告警阈值和值班人</td>
+<td>容量及安全签认；现有性能数值为建议不是SLA</td>
+</tr>
+</tbody></table>
+<h2 id="section-6">6 本轮检查方法与限制</h2>
+<p>检查对象为全部Markdown内容的跨文档关键约束、规则登记及引用；HTML从对应Markdown统一生成。静态核对包括版本索引、源规则69条不重标级、API-DB九项登记、链接目标、配对文件和Mermaid图表渲染。保留历史修订记录中的旧版本号，不将其误当当前版本。</p>
+<p>本报告不声称证明所有未来DTO/DDL或运行行为一致：80张表仍需真实迁移与事务测试，供应商样例仍需逐能力实测，权限缓存/页面/上线步骤仍需实现和运行验收。未进行数据库连接、收费调用、服务器部署、NAS挂载或业务测试；未修改业务代码。</p>
+<p>后续确认应记录决定、确认人、日期、关联D/规则ID、受影响页面/API/表/用例，先更新源文档再同步索引与HTML。无需创建与源规则冲突的新优先级列表。</p>
+<footer>由同目录 文档全量核对与编码前确认清单.md 生成，内嵌 0 张 SVG 图；修改以 Markdown 为准。</footer></main></body></html>

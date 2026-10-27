@@ -1,0 +1,11 @@
+node_modules
+dist
+.cache
+*.log
+.git
+package-lock.json
+yarn.lock
+bun.lock
+bun.lockb
+
+*.local

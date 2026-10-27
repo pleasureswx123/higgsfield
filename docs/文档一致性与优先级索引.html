@@ -1,0 +1,397 @@
+<!doctype html><html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>higgsfield-ai · 文档一致性与优先级索引</title><style>
+*{box-sizing:border-box}body{overflow-wrap:anywhere;margin:0;color:#172b3a;background:#f1f4f7;font:16px/1.85 "Microsoft YaHei",sans-serif}header{background:#15394c;color:white;padding:18px 5%;font-size:18px}main{max-width:1280px;margin:28px auto;background:white;padding:44px 56px;box-shadow:0 8px 32px #15394c10}h1{font-size:32px;line-height:1.4}h2{font-size:25px;color:#154c62;border-bottom:2px solid #d9e6ec;margin-top:52px;padding-bottom:12px;scroll-margin-top:20px}h3{font-size:20px;margin-top:30px}a{color:#126886;text-decoration:none}a:hover{text-decoration:underline}nav{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:5px 22px;padding:24px;background:#f2f7fa;border:1px solid #d6e4ec;margin-bottom:32px}table{table-layout:fixed;width:100%;border-collapse:collapse;margin:20px 0;font-size:14px;line-height:1.7}th,td{border:1px solid #d6e0e6;padding:10px 12px;text-align:left;vertical-align:top;overflow-wrap:anywhere}th{background:#eaf1f5}tr:nth-child(even){background:#f9fbfc}pre{overflow:auto;background:#f4f6f8;padding:20px;border:1px solid #e0e6eb;border-radius:5px;font-size:13px;line-height:1.7}code{font-family:Consolas,"Microsoft YaHei",monospace;overflow-wrap:anywhere}p code,td code{background:#eef2f5;padding:1px 3px}.diagram{margin:24px 0;padding:18px;border:1px solid #d9e5ec;background:#fff;overflow:auto}.diagram svg{min-width:780px;height:auto;display:block;margin:auto}footer{color:#586d7a;border-top:1px solid #d9e5ec;margin-top:48px;padding-top:16px;font-size:13px}@media(max-width:800px){main{margin:0;padding:22px}nav{grid-template-columns:1fr}table{display:block;overflow:auto}h1{font-size:27px}}@media print{body{background:white}main{margin:0;padding:0;box-shadow:none;max-width:none}header,nav{display:none}h2{break-before:page}figure,pre{break-inside:avoid}.diagram svg{min-width:0;max-width:100%!important}a{color:inherit}}
+</style></head><body><header>higgsfield-ai · 技术文档 · 2026 年 10 月 27 日</header><main><nav><a href="#section-1">1 依据与适用范围</a><a href="#section-2">2 编号、优先级与状态分开管理</a><a href="#section-3">3 等级定义与配套处理</a><a href="#section-4">4 跨文档需求追踪与工程补充</a><a href="#section-5">5 后续增强登记</a><a href="#section-6">6 本轮冲突修订记录</a><a href="#section-7">7 文档验收边界与后续检查</a><a href="#section-8">8 P0-6 权限文档衔接</a><a href="#section-9">9 P0-5 计费文档衔接</a><a href="#section-10">10 本地开发与工程初始化手册衔接</a><a href="#section-11">11 页面规格与交互说明书衔接</a><a href="#section-12">12 测试与验收方案衔接</a><a href="#section-13">13 公司内网与 NAS 部署基线</a><a href="#section-14">14 内网部署与 NAS 运维文档衔接</a><a href="#section-15">15 全量一致性复核与编码前门槛</a></nav><h1 id="higgsfield-ai-·-文档一致性与优先级索引">higgsfield-ai · 文档一致性与优先级索引</h1>
+<p>版本：1.8<br>日期：2026 年 10 月 27 日<br>状态：设计核对记录与统一规则；未编写业务代码、未运行数据库迁移或供应商联调</p>
+<h2 id="section-1">1 依据与适用范围</h2>
+<p>以用户最新确认和<a href="../AGENTS.md">根目录 AGENTS.md</a>为工程约束。本文统一术语、优先级及文档衔接；业务规则以 P0-1 为源，供应商协议以 P0-2 为源，持久化以 P0-3 为源，平台传输以 P0-4 为源。出现冲突时应修正相关源文档和引用，不能靠后附“最终规范”长期覆盖正文矛盾。</p>
+<table>
+<thead>
+<tr>
+<th>文档编号/名称</th>
+<th>当前版本</th>
+<th>职责</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><a href="%E6%8A%80%E6%9C%AF%E6%9E%B6%E6%9E%84%E6%96%B9%E6%A1%88.html">技术架构方案</a></td>
+<td>1.10</td>
+<td>三端边界、C4、流程、实施阶段</td>
+</tr>
+<tr>
+<td><a href="%E9%A6%96%E6%9C%9F%E9%9C%80%E6%B1%82%E4%B8%8E%E4%B8%9A%E5%8A%A1%E8%A7%84%E5%88%99%E8%AF%B4%E6%98%8E%E4%B9%A6.html">P0-1《首期需求与业务规则说明书》</a></td>
+<td>1.6</td>
+<td>范围、69 条业务规则及唯一优先级、业务验收</td>
+</tr>
+<tr>
+<td><a href="%E6%A8%A1%E5%9E%8B%E4%BE%9B%E5%BA%94%E5%95%86%E6%8E%A5%E5%85%A5%E5%A5%91%E7%BA%A6%E4%B8%8E%E5%B7%AE%E5%BC%82%E6%B8%85%E5%8D%95.html">P0-2《模型供应商接入契约与差异清单》</a></td>
+<td>1.5</td>
+<td>上游协议、20 项差异及条件开放门槛</td>
+</tr>
+<tr>
+<td><a href="%E6%95%B0%E6%8D%AE%E5%BA%93%E8%AF%A6%E7%BB%86%E8%AE%BE%E8%AE%A1.html">P0-3《数据库详细设计》</a></td>
+<td>1.6</td>
+<td>80 张目标表、字段、索引、逻辑关联及事务</td>
+</tr>
+<tr>
+<td><a href="%E5%B9%B3%E5%8F%B0API%E5%A5%91%E7%BA%A6.html">P0-4《平台 API 契约》</a></td>
+<td>1.8</td>
+<td>两端 API、若依信封、分页、幂等及任务事件</td>
+</tr>
+<tr>
+<td><a href="%E4%BB%B7%E6%A0%BC%E7%94%A8%E9%87%8F%E9%A2%84%E7%AE%97%E8%AF%B4%E6%98%8E.html">P0-5《价格用量预算说明》</a></td>
+<td>1.1</td>
+<td>价格发布、用量、预占结算、对账调整与精确计算示例；预算细节待评审</td>
+</tr>
+<tr>
+<td><a href="%E6%9D%83%E9%99%90%E7%9F%A9%E9%98%B5.html">P0-6《权限矩阵》</a></td>
+<td>1.0</td>
+<td>两端角色、菜单按钮、管理数据范围、项目对象权限及撤权；默认角色提案待评审</td>
+</tr>
+<tr>
+<td><a href="%E5%88%B6%E4%BD%9C%E5%B9%B3%E5%8F%B0%E5%89%8D%E7%AB%AF%E7%BC%96%E7%A0%81%E8%A7%84%E8%8C%83.html">制作平台前端编码规范</a></td>
+<td>1.5</td>
+<td>Vue3 分层、双向绑定、组件库与双主题</td>
+</tr>
+<tr>
+<td><a href="%E5%90%8E%E7%AB%AF%E7%BC%96%E7%A0%81%E4%B8%8E%E6%A1%86%E6%9E%B6%E5%AF%B9%E9%BD%90%E8%A7%84%E8%8C%83.html">后端编码与框架对齐规范</a></td>
+<td>1.2</td>
+<td>若依实际分层、异步会话、权限及响应</td>
+</tr>
+<tr>
+<td><a href="%E5%B7%A5%E7%A8%8B%E5%9F%BA%E7%BA%BF%E6%A0%B8%E5%AF%B9%E4%B8%8E%E6%96%87%E6%A1%A3%E8%A1%94%E6%8E%A5%E6%96%B9%E6%A1%88.html">工程基线核对与文档衔接方案</a></td>
+<td>1.8</td>
+<td>导入框架现状、目标边界与本地启动</td>
+</tr>
+<tr>
+<td><a href="%E6%9C%AC%E5%9C%B0%E5%BC%80%E5%8F%91%E4%B8%8E%E5%B7%A5%E7%A8%8B%E5%88%9D%E5%A7%8B%E5%8C%96%E6%89%8B%E5%86%8C.html">本地开发与工程初始化手册</a></td>
+<td>1.1</td>
+<td>PG/Redis Docker模板、后端与两前端手动启动、初始化和DEV检查；尚未实际执行</td>
+</tr>
+<tr>
+<td><a href="%E9%A1%B5%E9%9D%A2%E8%A7%84%E6%A0%BC%E4%B8%8E%E4%BA%A4%E4%BA%92%E8%AF%B4%E6%98%8E%E4%B9%A6.html">页面规格与交互说明书</a></td>
+<td>1.1</td>
+<td>制作端 S01～S12、管理端 M01～M06；布局、字段、流程、权限、异常、双主题及 UI 验收</td>
+</tr>
+<tr>
+<td><a href="%E6%B5%8B%E8%AF%95%E4%B8%8E%E9%AA%8C%E6%94%B6%E6%96%B9%E6%A1%88.html">测试与验收方案</a></td>
+<td>1.1</td>
+<td>69 条规则追踪、业务/权限/接入/费用/恢复/双主题、环境数据、执行证据及退出标准；运行测试待执行</td>
+</tr>
+<tr>
+<td><a href="%E5%86%85%E7%BD%91%E9%83%A8%E7%BD%B2%E4%B8%8ENAS%E5%AD%98%E5%82%A8%E8%BF%90%E7%BB%B4%E6%96%B9%E6%A1%88.html">内网部署与 NAS 存储运维方案</a></td>
+<td>1.0</td>
+<td>内网拓扑、NAS挂载权限、模型出站、发布回退、备份恢复与OPS上线检查；服务器参数待确认</td>
+</tr>
+<tr>
+<td><a href="%E6%96%87%E6%A1%A3%E5%85%A8%E9%87%8F%E6%A0%B8%E5%AF%B9%E4%B8%8E%E7%BC%96%E7%A0%81%E5%89%8D%E7%A1%AE%E8%AE%A4%E6%B8%85%E5%8D%95.html">文档全量核对与编码前确认清单</a></td>
+<td>1.0</td>
+<td>全量文档登记、冲突修正及按编码/联调/上线分阶段的待确认事项</td>
+</tr>
+</tbody></table>
+<p>每份 Markdown 都对应同名 HTML。HTML 从 Markdown 生成，不单独维护另一份设计。P0-5《价格用量预算说明》已形成 1.0 评审稿，预算周期、估算上界及采购币种表达等提案仍待确认。P0-6《权限矩阵》已形成 1.0 评审稿；D02/D03 的角色默认包及共享策略仍待确认，文档产出不等于角色已配置或决策已批准。</p>
+<h2 id="section-2">2 编号、优先级与状态分开管理</h2>
+<table>
+<thead>
+<tr>
+<th>维度</th>
+<th>统一格式</th>
+<th>含义与禁止混用</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>文档编号</td>
+<td>P0-1～P0-6</td>
+<td>六份前置设计文档的稳定编号；尾数表示文档身份，不表示需求等级</td>
+</tr>
+<tr>
+<td>需求优先级</td>
+<td>P0（阻断项）、P1（首期必需）、P2（后续增强）</td>
+<td>只使用这三种名称；表格和文字均用完整写法，不以“最高/高/中/低”另建映射</td>
+</tr>
+<tr>
+<td>技术实施阶段</td>
+<td>ST-00～ST-06</td>
+<td>依赖顺序，见架构 §12.1；不使用 P0～P6 代指阶段</td>
+</tr>
+<tr>
+<td>业务交付批次</td>
+<td>B1～B4</td>
+<td>业务交付里程碑，B2 演示不代表首期完成</td>
+</tr>
+<tr>
+<td>需求身份</td>
+<td>PRJ/AST/ELM/GEN/COL/ADM/BIL/UX/QLT-两位编号</td>
+<td>身份不随文档或实现批次变化；同 ID 继承 P0-1 规则表唯一等级</td>
+</tr>
+<tr>
+<td>确认状态</td>
+<td>基线、建议、门槛</td>
+<td>基线是已确认不变量；建议待评审；门槛需证据验证；都不能代替优先级</td>
+</tr>
+<tr>
+<td>实现状态</td>
+<td>待实现、设计已补齐、验证通过等</td>
+<td>“设计已补齐”不等于接口、迁移、真实调用已通过</td>
+</tr>
+<tr>
+<td>运行调度</td>
+<td>路由 priority、队列调度、价格来源顺序</td>
+<td>运行期数值/来源选择规则，不映射为上述需求等级</td>
+</tr>
+</tbody></table>
+<p>P0-1 的 69 条规则表是业务等级的唯一登记处，其他文档引用规则 ID，不能重新标级。一个规则包含首期能力和未来扩展时，表中等级只适用于首期部分；扩展使用独立 EXT 编号，不能整条降级。文档编号自身不赋予正文所有功能同一个等级。</p>
+<h2 id="section-3">3 等级定义与配套处理</h2>
+<table>
+<thead>
+<tr>
+<th>优先级</th>
+<th>判定标准</th>
+<th>处理与退出规则</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>P0（阻断项）</td>
+<td>权限、密钥、重复消费、预算一致性、不可变历史、数据完整性，或对应能力安全开放的前置契约</td>
+<td>相关写路径/真实消费开放前实现并验证；未满足则关闭受影响路径，不以降级标签绕过。工程架构强制约束也必须满足</td>
+</tr>
+<tr>
+<td>P1（首期必需）</td>
+<td>首期已承诺的正常业务、组织交互、双主题与体验验收</td>
+<td>可以按 B1～B4 排期，但首期交付前必须完成；不得当作“有空再做”。建议细节先评审，再实现</td>
+</tr>
+<tr>
+<td>P2（后续增强）</td>
+<td>已明确不纳入首期的扩展能力</td>
+<td>不阻断首期；保留边界并关闭入口。进入首期须先做范围变更，更新源规则、API/数据库及验收</td>
+</tr>
+</tbody></table>
+<p>AGENTS.md 的 PostgreSQL、无物理外键、异步分层、框架响应、Vue3 写法及双主题均为强制约束，不因业务等级不同而豁免；双主题按 UX-08 登记为 P1（首期必需），在首期发布时同样必须通过。</p>
+<p>D01～D10 是待决策项，不是可跳过的低等级需求。负责人和最迟时点沿用 P0-1；未确认时只阻断依赖该决策的实现/开放，不替用户批准建议。供应商 DIF-01～DIF-20 是差异记录，不是二十个新需求等级；其引用 GEN/ADM/BIL 规则，未验证的组合保持关闭。流式、Fast、4K 等条件能力不因表中有价格而被视为首期必开；三类模型基础链路仍须满足首期退出条件。</p>
+<p>优先级变更必须记录规则 ID、原等级、新等级、原因、确认人、影响批次、接口/表及验收；先改 P0-1 唯一登记处，再同步引用和 HTML。若无范围变更确认，不将已承诺的 P1（首期必需）降为 P2（后续增强）。用例覆盖多条规则时，按其中最严格的开放门槛处理，不能另建互相冲突的用例等级。</p>
+<h2 id="section-4">4 跨文档需求追踪与工程补充</h2>
+<table>
+<thead>
+<tr>
+<th>规则来源</th>
+<th>P0-2 承接</th>
+<th>P0-3 承接</th>
+<th>P0-4 承接</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>PRJ、AST、ELM、COL</td>
+<td>只承接外部素材引用与作用域，不重新定义平台授权</td>
+<td>项目、素材、元素、协作及来源关系</td>
+<td>项目/素材/元素/评论 API 与对象鉴权</td>
+</tr>
+<tr>
+<td>GEN-01～09</td>
+<td>模型映射、调用、查询、异常及归档限制</td>
+<td>任务快照、调用、输出、Outbox、事件</td>
+<td>生成/取消/归档重试、幂等、状态事件</td>
+</tr>
+<tr>
+<td>ADM-01～07</td>
+<td>原 Key 查询、连接测试与发布门槛</td>
+<td>凭据版本、模型能力、项目路由</td>
+<td>管理端连接/凭据/能力/路由接口</td>
+</tr>
+<tr>
+<td>BIL-01～10</td>
+<td>上游用量证据与报价差异</td>
+<td>价格版本、预算、用量、账本、对账</td>
+<td>价格试算/发布、费用、预算与对账接口</td>
+</tr>
+<tr>
+<td>UX-01～08、QLT-01～04</td>
+<td>不可证明的能力不得伪装可用</td>
+<td>并发、审计、历史与恢复支撑</td>
+<td>错误、分页、冲突、权限撤回；主题属于前端状态，不新增收费或任务状态</td>
+</tr>
+</tbody></table>
+<p>API-DB-01～09 的等级在下表唯一登记；P0-3/P0-4 的闭环对照引用此表，不分别定级。原九项均保留，没有因重命名或框架对齐删减范围。</p>
+<table>
+<thead>
+<tr>
+<th>补充 ID</th>
+<th>优先级</th>
+<th>关联业务规则</th>
+<th>对应处理</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>API-DB-01</td>
+<td>P0（阻断项）</td>
+<td>AST-01/02/03</td>
+<td>上传完成绑定必须事务校验；AST-03 的逐项交互仍为其原等级</td>
+</tr>
+<tr>
+<td>API-DB-02</td>
+<td>P0（阻断项）</td>
+<td>GEN-04、BIL-07</td>
+<td>写幂等与响应恢复，不重复消费</td>
+</tr>
+<tr>
+<td>API-DB-03</td>
+<td>P0（阻断项）</td>
+<td>GEN-06、COL-06</td>
+<td>事件开放前验证序列/重放与权限；不是列表游标</td>
+</tr>
+<tr>
+<td>API-DB-04</td>
+<td>P0（阻断项）</td>
+<td>PRJ-09、BIL-05</td>
+<td>并发修订冲突不得覆盖历史</td>
+</tr>
+<tr>
+<td>API-DB-05</td>
+<td>P0（阻断项）</td>
+<td>GEN-01/03、ADM-05</td>
+<td>项目路由整组一致与快照固定</td>
+</tr>
+<tr>
+<td>API-DB-06</td>
+<td>P0（阻断项）</td>
+<td>GEN-07、BIL-07</td>
+<td>取消不等于免费，快照变化可追踪</td>
+</tr>
+<tr>
+<td>API-DB-07</td>
+<td>P0（阻断项）</td>
+<td>GEN-03/04</td>
+<td>会话串行与固定上下文</td>
+</tr>
+<tr>
+<td>API-DB-08</td>
+<td>P1（首期必需）</td>
+<td>COL-01/03</td>
+<td>标注整体替换、协作工作状态与技术状态分开</td>
+</tr>
+<tr>
+<td>API-DB-09</td>
+<td>P0（阻断项）</td>
+<td>AST-08、COL-04/05</td>
+<td>公共发布权限及不可变来源</td>
+</tr>
+</tbody></table>
+<p>补充项等级描述技术保障的门槛，不覆盖关联业务规则本身的等级；例如安全上传绑定阻断写入，并不将逐文件进度展示升级为另一份 AST-03。</p>
+<h2 id="section-5">5 后续增强登记</h2>
+<table>
+<thead>
+<tr>
+<th>扩展 ID</th>
+<th>优先级</th>
+<th>范围与当前处理</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>EXT-01</td>
+<td>P2（后续增强）</td>
+<td>ELM-07 的复杂看板、计算属性；基础网格/表格保留首期范围</td>
+</tr>
+<tr>
+<td>EXT-02</td>
+<td>P2（后续增强）</td>
+<td>任意压缩包解析、AI 元素提取和复杂批量导入；ELM-08 固定模板由 D10 确认</td>
+</tr>
+<tr>
+<td>EXT-03</td>
+<td>P2（后续增强）</td>
+<td>跨项目一键移动；ELM-06 的受控复制与授权不能延期</td>
+</tr>
+<tr>
+<td>EXT-04</td>
+<td>P2（后续增强）</td>
+<td>账单自动抓取；BIL-10 基础导入与差异对账仍属首期</td>
+</tr>
+<tr>
+<td>EXT-05</td>
+<td>P2（后续增强）</td>
+<td>高级镜头、色彩迁移、画布及导演工作流</td>
+</tr>
+<tr>
+<td>EXT-06</td>
+<td>P2（后续增强）</td>
+<td>COL-01 的视频逐帧绘制；首期文字/时间点评论保留</td>
+</tr>
+</tbody></table>
+<h2 id="section-6">6 本轮冲突修订记录</h2>
+<table>
+<thead>
+<tr>
+<th>问题</th>
+<th>本轮统一结果</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>架构阶段 P0～P6 与文档编号、需求等级混用</td>
+<td>阶段改 ST-00～ST-06；明确 B1～B4 映射；各文档链接统一定义</td>
+</tr>
+<tr>
+<td>需求表无统一等级，后续文档写作“P1 页面规格”</td>
+<td>69 条规则增加优先级列；后续文档按名称及完成时点描述</td>
+</tr>
+<tr>
+<td>首期双主题缺少需求和验收追踪</td>
+<td>新增 UX-08、UAT-19；修正仅写暗色主题的旧表述；明确管理端新增/修改代码适用</td>
+</tr>
+<tr>
+<td>上游适配器仍落 infrastructure，Worker 直接操作 DAO</td>
+<td>改 adapter；Worker→Service→DAO，Service 事务外调用适配器；类图方法按 snake_case 示意</td>
+</tr>
+<tr>
+<td>项目路由在架构动态回退、数据库却要求显式配置</td>
+<td>默认策略先解析为经授权的项目整组配置并审计，运行时固定 revision</td>
+</tr>
+<tr>
+<td>API DTO 混入 order_num，导入行仍用 cursor/limit</td>
+<td>平台字段统一 orderNum，DB 保持 order_num；列表 pageNum/pageSize；保留 SSE 事件游标</td>
+</tr>
+<tr>
+<td>偏好集合引用错误使用 preference_id，迁移仍提延迟关联</td>
+<td>改为 Service 锁目标集合并校验 collection_id/user_id；移除可误解为延迟外键的步骤</td>
+</tr>
+<tr>
+<td>UAT-08 归档失败错误引用 GEN-08 重新生成</td>
+<td>新增 GEN-09 归档补偿规则，UAT-08 改引 GEN-09</td>
+</tr>
+<tr>
+<td>旧版本号、空目录描述、旧协议描述</td>
+<td>版本集中登记；制作端已有规范但未初始化；平台协议明确复用若依</td>
+</tr>
+<tr>
+<td>建议范围可能覆盖已确认强制约束</td>
+<td>明确用户已确认要求不能被待评审标签降级；保留 D01～D10 原决策边界</td>
+</tr>
+</tbody></table>
+<h2 id="section-7">7 文档验收边界与后续检查</h2>
+<p>本轮检查 Markdown 规则 ID、等级、表结构逻辑引用、局部契约字段、九项 API/DB 衔接、链接及 HTML 渲染；供应商历史证据沿用 P0-2，本轮未重新调用 Apifox 或收费模型。数据库设计检查不能替代 PostgreSQL 执行验证；文档渲染不能证明双主题业务页面已经实现。</p>
+<p>页面规格已形成评审稿；后续编码前确认仍待决策的计费、权限、字段约束及页面接口缺口；开发中按稳定规则 ID 关联实现和测试。验收须分别记录：设计审阅、迁移执行、接口契约测试、真实供应商联调、两主题浏览器验收，不得合并成笼统“全部通过”。</p>
+<h2 id="section-8">8 P0-6 权限文档衔接</h2>
+<p><a href="%E6%9D%83%E9%99%90%E7%9F%A9%E9%98%B5.html">权限矩阵</a>承接 P0-1 的 D02/D03、P0-3 的角色/成员/公共授权模型，以及 P0-4 权限码与对象范围。新增 AUTH-01～18 验收追踪 ID，继承所关联业务规则等级，不另行标级。首期不开放可发现项目申请、任意项目角色编辑器及账号级 ACL；这些能力仍需对应决策或契约补齐。</p>
+<p>本轮只新增权限设计与更新索引：未建立菜单/角色种子、未运行迁移或权限测试。后续编码前应评审角色默认包、授予范围、会话共享和管理数据归属；严格基线不因评审未完成而取消。</p>
+<h2 id="section-9">9 P0-5 计费文档衔接</h2>
+<p><a href="%E4%BB%B7%E6%A0%BC%E7%94%A8%E9%87%8F%E9%A2%84%E7%AE%97%E8%AF%B4%E6%98%8E.html">价格用量预算说明</a>承接 BIL-01～10、D05/D09 和 P0-6 费用权限，登记 CALC-01～15 计算示例与 FIN-01～12 验收用例；这些编号不另设优先级。计算规则明确三种金额口径、价格与汇率快照、未知用量、全部适用预算原子预占、采购对账不自动改变平台计价。</p>
+<p>SD 采购以 CNY 源价保存并按固定报价汇率折算 USD 为本版提案；月度周期、无预算/无上界时阻断等仍待评审。示例用量和账单均为构造数据，不代表真实收费。同步修正架构预算 PUT 概要：开关、额度调整分属不同端点；原接口摘要中的 revision 冲突沿若依业务码。未改业务代码或数据库。</p>
+<h2 id="section-10">10 本地开发与工程初始化手册衔接</h2>
+<p><a href="%E6%9C%AC%E5%9C%B0%E5%BC%80%E5%8F%91%E4%B8%8E%E5%B7%A5%E7%A8%8B%E5%88%9D%E5%A7%8B%E5%8C%96%E6%89%8B%E5%86%8C.html">本地开发与工程初始化手册</a>以当前源码为依据，区分已有入口与尚未创建的Compose/制作端/Worker配置。建议端口为PG15432、Redis16379、后端9099、管理5173、制作5174；并非已占用或已验证的环境。DEV-01～10为检查追踪ID，不另行标级。</p>
+<p>本轮只产出文档模板，不创建实际Compose、环境文件、应用工程或迁移，不安装依赖、启动服务、导入SQL或调用模型。首次空库初始化与已有库迁移严格分开；框架SQL含DROP，禁止直接重跑到已有数据环境。</p>
+<h2 id="section-11">11 页面规格与交互说明书衔接</h2>
+<p><a href="%E9%A1%B5%E9%9D%A2%E8%A7%84%E6%A0%BC%E4%B8%8E%E4%BA%A4%E4%BA%92%E8%AF%B4%E6%98%8E%E4%B9%A6.html">页面规格与交互说明书</a>覆盖 S01～S12 和 M01～M06，承接 P0-1 至 P0-6，新增 UI-01～20 验收追踪编号，不另定需求等级。使用截图索引并实际查看八张代表截图；管理端布局及无截图页面明确为设计约定，不把截图中的积分、角色勾选、分享和模型规格直接当作已开放能力。</p>
+<p>各页明确布局、字段校验、流程、权限、异常和验收，统一亮暗主题语义、任务幂等恢复及费用口径。字段限制、成员候选接口、部分统计/导出数据源与精确视觉参数等见该文档 §13，需在相关源契约中闭环。本轮只更新文档与 HTML，未编写业务代码，未执行真实页面、接口、数据库或供应商验收。</p>
+<h2 id="section-12">12 测试与验收方案衔接</h2>
+<p><a href="%E6%B5%8B%E8%AF%95%E4%B8%8E%E9%AA%8C%E6%94%B6%E6%96%B9%E6%A1%88.html">测试与验收方案</a>完整承接 UAT-01～19、AUTH-01～18、INT-01～17、DB-01～28、API-01～16、CALC-01～15、FIN-01～12、UI-01～20，以及架构验收与 DEV 环境检查。TST-01～18 为执行工作包，不是需求等级；69 条业务规则逐项关联，优先级仍只继承 P0-1。</p>
+<p>方案明确环境与测试数据、并发故障注入、真实供应商调用门槛、预算精确核对、双主题和容量恢复验收，分别报告模拟、真实接口、供应商、浏览器与恢复结果。本轮修正 P0-4 API-02 的旧404表述为正文规定的业务资源不可见响应，并更新 P0-1 页面/测试文档衔接状态，分别升至1.7、1.5；未改变业务范围或优先级。</p>
+<p>本轮仅检查文档链接、覆盖登记及 HTML 渲染；未编写业务/测试代码，未运行迁移、服务、收费调用或业务测试。未决策项、未验证规格和运行用例不能因文档完成改为已通过。</p>
+<h2 id="section-13">13 公司内网与 NAS 部署基线</h2>
+<p>用户已确认：正式环境部署在公司内网服务器，素材与视频长期保存于公司 NAS。同步更新 AGENTS.md、技术架构方案、工程基线、本地手册及测试方案；本地开发方式不变。服务器操作系统/数量、生产容器化、NAS 协议/路径/容量及备份参数仍待确认。</p>
+<p>架构补充平台授权媒体访问、受控外网调用、内网参考素材上传/注册、NAS 断挂不落本地空目录及恢复边界；测试方案增加实际内网服务器/NAS 联合验证。未配置服务器、挂载 NAS 或执行部署；不改变业务优先级。</p>
+<h2 id="section-14">14 内网部署与 NAS 运维文档衔接</h2>
+<p><a href="%E5%86%85%E7%BD%91%E9%83%A8%E7%BD%B2%E4%B8%8ENAS%E5%AD%98%E5%82%A8%E8%BF%90%E7%BB%B4%E6%96%B9%E6%A1%88.html">内网部署与 NAS 存储运维方案</a>承接技术架构 §11、测试方案 TST 与最新 AGENTS.md，明确内网部署、平台授权媒体访问、NAS 服务身份隔离、断挂保护、外部模型素材交换、发布回退和成套备份恢复。服务器系统/数量/规格、生产容器化、NAS协议/路径、网络、备份和告警参数逐项列为待确认，不以建议代替已确认配置。</p>
+<p>OPS-01～18 为上线检查编号，继承对应业务规则和测试门槛，不新增优先级体系；与 UAT/INT/DB/AUTH/FIN/UI/TST 证据关联。重点验证真实NAS断挂不落本地、原Key查询、未知受理不重提、数据库/文件/主密钥恢复及恢复后默认关闭真实消费。</p>
+<p>本轮只新增运维设计并同步索引与 HTML；未创建部署脚本或业务代码，未配置服务器、挂载NAS、验证出站、运行备份恢复或调用收费模型。</p>
+<h2 id="section-15">15 全量一致性复核与编码前门槛</h2>
+<p>详见<a href="%E6%96%87%E6%A1%A3%E5%85%A8%E9%87%8F%E6%A0%B8%E5%AF%B9%E4%B8%8E%E7%BC%96%E7%A0%81%E5%89%8D%E7%A1%AE%E8%AE%A4%E6%B8%85%E5%8D%95.html">全量核对与编码前确认清单</a>。本轮核对原有15份文档，补充本报告后为16份Markdown/HTML配对；修正源正文中的409、平台SSE与供应商流式混淆、原Key恢复暗示、预算默认建议、目录分页、隐藏费用与生成权、额度降低和内网部署旧表述。69条规则及唯一优先级登记不变，80张目标业务表和API-DB-01～09设计范围不变。</p>
+<p>当前版本以本索引首表为准，下方各轮记录保留当时版本及事实。未修改正文的文档保留版本，仅同步重生成HTML。待确认事项按模块编码前、真实联调/消费前、正式部署前分开管理；不把全部服务器参数未定视为基础工程不能开始，也不擅自批准产品/费用/权限提案。</p>
+<p>本轮仅文档静态核对与HTML渲染，不代表数据库、权限、供应商、费用、页面或NAS运行验收通过。</p>
+<footer>由同目录 文档一致性与优先级索引.md 生成，内嵌 0 张 SVG 图；修改以 Markdown 为准。</footer></main></body></html>

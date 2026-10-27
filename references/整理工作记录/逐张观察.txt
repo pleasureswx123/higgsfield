@@ -1,0 +1,219 @@
+001|我的项目|完整页面|默认|All项目列表含11|All选中|0|My projects面包屑及项目11卡片
+002|我的项目|新建项目|弹窗|居中对话框|名称空白疑似聚焦；Create禁用|1|New project标题、遮罩及居中表单
+003|我的项目|Hidden筛选|空内容|无隐藏项目|Hidden选中|1|No hidden projects文案
+004|我的项目|搜索框|输入框状态|搜索框展开未输入|All选中|1|右上出现Search输入框；焦点待确认
+005|我的项目|列表排序|弹出菜单|名称升序选中|搜索框展开|1|Sort by下方五项列表及Name A-Z勾选
+006|我的项目|侧栏项目排序|弹出菜单|名称升序选中||1|侧栏排序按钮下方五项列表
+007|我的项目|侧栏项目搜索|输入框状态|搜索框展开未输入||1|Find project输入框及清除按钮
+008|我的项目|侧栏项目更多操作|弹出菜单|含置顶与删除||1|Actions列表含Pin Edit Hide Delete
+009|我的项目|项目卡片|选中或激活|项目11已置顶||1|卡片及侧栏出现图钉标记
+010|我的项目|侧栏项目更多操作|弹出菜单|取消置顶选项|Unpin行高亮；触发方式待确认|9|菜单含Unpin且项目有图钉
+011|我的项目|编辑项目|弹窗|居中对话框项目11|名称已填入11|1|Edit project标题及Save按钮
+012|我的项目|Hidden筛选|选中或激活|隐藏项目project-1||1|Hidden选中且卡片显示Hidden标记
+013|我的项目|项目卡片|触发方式待确认|卡片高亮并显示更多按钮|Hidden选中|12|对比012卡片底色和省略号出现
+014|我的项目|项目卡片更多操作|弹出菜单|含取消隐藏选项|Unhide行高亮|12|卡片旁Actions菜单含Unhide
+015|我的项目|项目取消隐藏提示|提示消息|成功Toast|Hidden空内容|3|左上Project project-1 unhidden及Undo
+016|我的项目|新建文件夹|弹窗|居中对话框|颜色首项选中；Create禁用|3|New folder标题及颜色选项
+017|我的项目|文件夹创建提示|提示消息|创建成功Toast|My elements侧栏行高亮|1|左上Folder created
+018|我的项目|侧栏项目条目|触发方式待确认|project-1高亮并显示更多按钮||1|侧栏项目条目背景高亮及省略号
+019|首页|完整页面|默认|视频生成与项目列表|Video选中；Seedance 2.5|0|Home高亮及BRING YOUR STORIES TO LIFE标题
+020|首页|参考素材按钮|Tooltip|References说明气泡||19|加号上方黑色References短说明
+021|首页|素材选择器|弹窗|Uploads最近上传|Recent选中；仅上传入口|19|居中遮罩面板及Uploads标签
+022|首页|素材选择器|弹窗|Uploads图片分类|Images选中；角色图片|19|上传面板含人物缩略图
+023|首页|素材选择器|弹窗|Elements我的元素|Elements与All选中|19|My Elements及boy角色卡片
+024|首页|素材选择器|弹窗|Elements项目元素|project-1范围；All选中|19|范围标题project-1及boy卡片
+025|首页|素材选择器|空内容|Generations暂无生成|素材选择弹窗；Generations选中|19|Your image generations will appear here
+026|首页|素材选择器|空内容|Liked暂无收藏|素材选择弹窗；Liked选中|19|Your favorite generations will appear here
+027|首页|元素按钮|Tooltip|Elements说明气泡||19|@按钮上方Elements黑色短说明
+028|首页|素材选择器|弹窗|Elements我的元素||19|Elements选中及My Elements范围
+029|首页|提示词元素补全|弹出菜单|boy候选项|提示词已输入@|19|输入框下方人物候选卡片
+030|首页|视频模型选择器|弹出菜单|电影模型与推荐模型|Seedance 2.5勾选|19|模型搜索框及Cinema Studio版本列表
+031|首页|生成模式选择器|弹出菜单|参考与前后续及编辑模式|References高亮|19|References Sequel Prequel Edit video列表
+032|首页|画面比例选择器|弹出菜单|六种画面比例|16比9当前值|19|ASPECT RATIO六项网格
+033|首页|分辨率选择器|弹出菜单|480p至1080p|1080p当前值|19|QUALITY列表
+034|首页|时长设置|弹出面板|12秒滑块||19|Duration浮动设置面板及滑块
+035|首页|视频生成参数栏|选中或激活|后段参数可见|1080p；12秒；1比4；High；On|19|参数栏出现码率和音频等后段控件
+036|首页|码率选择器|弹出菜单|High与Standard|High当前值|35|BITRATE两项及压缩说明
+037|首页|关闭声音确认|弹窗|居中确认框|背景音频On|35|Turn sound off及Cancel和Turn off按钮
+038|首页|音频开关|选中或激活|声音关闭Off||35|参数末尾显示Off
+039|首页|视频生成参数栏|默认|后段参数局部截图|声音On|35|仅截取生成栏1080p时长码率等
+040|首页|视频生成参数栏|默认|前段参数局部截图|References模式|19|仅截取模型比例分辨率等
+041|首页|素材选择器|弹出面板|图片参考上传面板|Image选中；References气泡；原图带红框|0|未见全页遮罩；面板位于生成栏下方；页面局部
+042|首页|图片模型选择器|弹出菜单|电影及推荐图片模型|Higgsfield Soul Cinema勾选|0|AI Cast Cinematic Locations等模型列表
+043|首页|图片画面比例选择器|弹出菜单|八种画面比例|16比9当前值|0|图片模式ASPECT RATIO八项
+044|首页|图片分辨率选择器|弹出菜单|1.5k与2k|2k当前值|0|QUALITY两项；页面局部
+045|首页|图片生成参数栏|选中或激活|数量2比4与增强On|页面局部|0|图片生成栏后段及生成费用0.25
+046|首页|图片生成参数栏|默认|Color transfer入口|页面局部|0|参数栏显示Color transfer New
+047|首页|相机镜头设置|弹窗|Modern与Auto居中设置|背景遮罩|0|Set up camera居中双列设置
+048|首页|相机镜头设置|弹窗|相机镜头长列表|背景遮罩；背景卡片DV Camcorder|0|双列多项设置纵向展开
+049|首页|相机镜头设置|弹窗|Modern与Auto长列表|背景遮罩|0|相机列Modern与镜头列Auto对应背景值
+050|首页|相机镜头设置|弹窗|Modern与Vintage Anamorphic|背景遮罩；镜头列高亮|0|背景相机卡片显示Modern及Vintage Anamorphic
+051|首页|相机镜头设置|弹窗|Modern与Clean Sharp|背景遮罩|0|背景相机卡片显示Modern及Clean Sharp
+052|首页|相机镜头设置|弹出面板|双列长列表局部截图|页面归属参考相似截图|0|仅设置面板局部；无法单图判断遮罩
+053|首页|相机镜头设置|弹出面板|8mm Film与Vintage Anamorphic|原图带红框；右侧浮动面板|0|未见整页遮罩；面板位于生成栏右侧
+054|我的生成|完整页面|空内容|Seedance2.5创作引导|Video选中|0|My generations及START CREATING WITH SEEDANCE 2.5
+055|我的生成|素材选择器|弹出面板|Uploads最近上传|未见整页遮罩|54|生成栏上方大面板及Upload media
+056|我的生成|素材选择器|弹出面板|Elements我的元素|All选中|54|Elements标签及boy卡片
+057|我的生成|素材选择器|弹出面板|Elements我的元素|All选中|54|同056布局及角色卡片
+058|我的生成|视频模型选择器|弹出菜单|电影模型与推荐模型|Seedance 2.5勾选|54|模型列表位于生成栏上方
+059|我的生成|生成模式选择器|弹出菜单|参考与前后续及编辑模式|References高亮|54|References Sequel Prequel Edit video四项
+060|我的生成|画面比例选择器|弹出菜单|六种画面比例|16比9当前值|54|ASPECT RATIO六项
+061|我的生成|分辨率选择器|弹出菜单|480p至1080p|1080p当前值|54|QUALITY三项
+062|我的生成|时长设置|弹出面板|12秒滑块||54|Duration标签及数值滑块
+063|我的生成|视频生成参数栏|选中或激活|后段参数可见|1比4；High；On|54|生成栏后段参数显示
+064|我的生成|码率选择器|弹出菜单|High与Standard|数量2比4|63|BITRATE列表；生成费用384
+065|我的生成|关闭声音确认|弹窗|居中确认框||63|Turn sound off及遮罩
+066|我的生成|音频开关|选中或激活|声音关闭Off|数量2比4|63|音频参数显示Off
+067|我的生成|开启声音确认|弹窗|居中确认框||66|Turn sound on及Cancel和Turn on
+068|我的生成|音频开关|选中或激活|声音开启On|数量2比4|63|音频参数显示On
+069|我的生成|素材选择器|弹出面板|图片模式Uploads|Image选中；仅上传入口|0|图片生成栏上方Uploads面板
+070|我的生成|图片模型选择器|弹出菜单|电影及推荐图片模型|Higgsfield Soul Cinema勾选|0|AI Cast及Soul等模型列表
+071|我的生成|图片画面比例选择器|弹出菜单|八种画面比例|16比9当前值|0|图片模式比例选项
+072|我的生成|图片分辨率选择器|弹出菜单|1.5k与2k|2k当前值|0|QUALITY两项
+073|我的生成|提示词增强按钮|Tooltip|Enhance Prompt说明气泡|数量3比4；增强On|0|黑色Enhance Prompt短说明
+074|我的生成|色彩迁移|弹出面板|Soul HEX色彩预设|十张色彩示例卡片|0|CONTROL YOUR COLORS WITH SOUL HEX与Upload & Create
+075|我的生成|角色选择器|空内容|暂无Soul Cinema角色|弹出面板；Soul Cinema选中|0|MAKE YOUR OWN CHARACTER及No characters yet
+076|我的生成|相机镜头设置|弹出面板|8mm Film与Vintage Anamorphic|紧凑双列|0|生成栏上方Set up camera且无整页遮罩
+077|我的生成|相机镜头设置|弹出面板|双列长列表|8mm Film与Vintage Anamorphic|0|无整页遮罩的纵向展开设置面板
+078|我的元素|元素表格|默认|All分类boy角色|横向滚动条可见|0|My Elements及Name Category Element ID等表头
+079|我的元素|元素表格名称列|触发方式待确认|名称列边界强调||78|名称列左右竖线相较基准更明显
+080|我的元素|元素表格名称列|触发方式待确认|表头右边界强调||78|Name表头右侧亮竖线
+081|我的元素|元素表格列宽|触发方式待确认|名称与分类分隔线高亮||78|Name和Category间黄色竖线；不推断拖拽
+082|我的元素|元素表格列宽|触发方式待确认|分类与元素ID分隔线高亮||78|Category和Element ID间黄色竖线
+083|我的元素|元素表格列宽|触发方式待确认|元素ID与描述分隔线高亮||78|Element ID和Description间黄色竖线
+084|我的元素|元素表格|默认|紧凑列宽与行更多按钮||78|表格列全部收进视口且右侧省略号可见
+085|我的元素|名称单元格|Tooltip|Tap to edit说明气泡||84|boy上方Tap to edit
+086|我的元素|名称单元格|输入框状态|boy文本选中||84|单元格浮动编辑框及蓝色文本选区
+087|我的元素|分类单元格|Tooltip|Tap to change说明气泡||84|Character上方Tap to change
+088|我的元素|分类单元格|弹出菜单|角色分类选中||84|Select category含Auto Character Location Prop
+089|我的元素|元素ID单元格|Tooltip|Tap to edit说明气泡|复制图标可见|84|@boy上方说明气泡及右侧复制图标
+090|我的元素|元素ID单元格|输入框状态|boy文本选中||84|带@前缀编辑框及蓝色文本选区
+091|我的元素|描述单元格|Tooltip|Tap to edit说明气泡|描述Empty|84|Description列黑色编辑说明
+092|我的元素|版本单元格|Tooltip|空版本修改说明|描述已显示description content|84|Version列Tap to change
+093|我的元素|描述单元格|输入框状态|已输入description content|元素ID为@char_boy_1|84|多行编辑框及末尾插入光标
+094|我的元素|版本单元格|Tooltip|版本1修改说明|版本值1|84|1下方Tap to change
+095|我的元素|版本单元格|输入框状态|版本1文本选中||84|版本编辑框及蓝色选区
+096|我的元素|元素表格列宽|触发方式待确认|版本列分隔线高亮||84|Version右侧黄色竖线
+097|我的元素|状态单元格|Tooltip|Tap to change说明气泡|No status|84|状态单元格旁短说明
+098|我的元素|状态单元格|弹出菜单|五种工作状态|No status勾选|84|Select status含In progress Needs review Approved Rejected
+099|我的元素|元素更多操作|弹出菜单|查看复制移动与删除|Move to行高亮|84|右侧竖向菜单含View Duplicate Download等
+100|我的元素|移动元素|弹窗|居中目标文件夹选择|项目树展开；folder-1高亮|84|Move element to标题及文件夹树
+101|我的元素|复制元素|弹窗|项目树折叠|project-1行可见|84|Copy element to居中对话框
+102|我的元素|复制元素新建文件夹按钮|Tooltip|项目行Create Folder说明|复制元素弹窗|101|项目行加号旁Create Folder气泡
+103|我的元素|新建文件夹|弹窗|叠加于复制元素对话框|空名称疑似聚焦；Create禁用|101|New folder前景窗口及后方Copy element to
+104|我的元素|复制元素|弹窗|项目树折叠||84|Copy element to仅project-1行
+105|我的元素|复制元素|弹窗|项目树展开|folder-1行高亮|84|project-1下方多个文件夹
+106|我的元素|复制元素新建文件夹按钮|Tooltip|folder-1行Create Folder说明|复制元素弹窗；项目树展开|105|folder-1加号旁说明气泡
+107|我的元素|复制元素|弹窗|test1行高亮|项目树展开|84|test1行背景高亮且有展开箭头
+108|我的元素|复制元素新建文件夹按钮|Tooltip|sub-test1行Create Folder说明|复制元素弹窗；test1树展开|105|缩进子文件夹sub-test1加号旁气泡
+109|我的元素|元素更多操作|弹出菜单|编辑选项高亮|名称char_boy_1|84|Edit行背景高亮及Pin选项
+110|我的元素|编辑元素|弹窗|居中编辑表单预览空白|名称与描述已有内容|84|Edit element标题；左侧预览空白无明确加载标识
+111|我的元素|编辑元素状态选择器|弹出菜单|五种工作状态|编辑元素弹窗；No status勾选|110|Status字段下方Select status列表
+112|我的元素|编辑元素分类选择器|弹出菜单|角色分类选中|编辑元素弹窗|110|Category下方Auto Character Location Prop
+113|我的元素|编辑元素名称输入框|输入框状态|char_boy_1聚焦|添加自定义属性按钮高亮|110|名称边框及末尾插入光标
+114|我的元素|自定义属性类型选择器|弹出菜单|文本与多选类型|编辑元素弹窗|110|Add custom property上方Text Multi-select
+115|我的元素|自定义属性类型选择器|弹出菜单|文本类型高亮|编辑元素弹窗|110|Text行背景高亮
+116|我的元素|自定义属性名称|弹出面板|文本属性名为空|编辑元素弹窗；保存灰显|110|Text property name小表单含Cancel与Save
+117|我的元素|自定义属性名称|输入框状态|已输入age|文本属性浮动表单|116|age文本及末尾光标
+118|我的元素|编辑元素|弹窗|age属性值为空|自定义属性已显示|110|CUSTOM PROPERTIES下age输入框Empty
+119|我的元素|自定义属性编辑按钮|触发方式待确认|age铅笔按钮高亮|编辑元素弹窗|118|age右侧铅笔图标背景变亮
+120|我的元素|自定义属性名称|输入框状态|age文本选中|文本属性浮动表单；编辑元素弹窗|118|蓝色age选区及Save白色按钮
+121|我的元素|自定义属性类型选择器|弹出菜单|多选类型高亮|age属性已存在|118|Multi-select行高亮
+122|我的元素|自定义属性名称|输入框状态|已输入status|多选属性浮动表单；Save灰显|118|Multi-select property name及status文本
+123|我的元素|自定义属性名称|输入框状态|已输入type|多选属性浮动表单；Save白色|118|Multi-select property name及type文本
+124|我的元素|元素更多操作|弹出菜单|已置顶元素编辑选项|两张人物缩略图；Unpin可见|84|行带图钉且菜单含Unpin
+125|我的元素|编辑元素|弹窗|主图及age与type属性|主图选中；两张缩略图|84|人物大预览Main image及自定义字段
+126|我的元素|编辑元素|弹窗|添加图片入口红框标注|主图选中；原图带红框|125|加号被原图红框圈出；不将标注视作UI状态
+127|我的元素|素材选择器|弹窗|编辑元素内选择图片|一张图片勾选；原图上传入口带红框|125|素材弹窗叠加编辑弹窗；Uploads选中
+128|我的元素|素材上传|加载|Uploading上传中|素材选择弹窗；一张图片已勾选|127|上传卡片显示Uploading及圆环标记
+129|我的元素|素材选择器|弹窗|两张图片中一张选中|Uploads与Recent选中|125|人物缩略图两张且一张黄框勾选
+130|我的元素|编辑元素|弹窗|主图与三张缩略图|age与type属性为空|132|大图Main image及下方三张缩略图
+131|我的元素|元素保存提示|提示消息|保存成功Toast|三张人物缩略图；已置顶|132|左上Element saved
+132|我的元素|元素表格|默认|三张参考图与已置顶角色||0|完整My Elements页及三图表格行
+133|我的元素|搜索框|输入框状态|搜索框展开未输入||132|工具栏Search输入框及插入光标
+134|我的元素|筛选器|弹出菜单|项目状态与排序|All及Last created勾选|132|Filter下方Project Status Sort by分组
+135|我的元素|视图设置|弹出菜单|表格布局选中|Group by None勾选|132|Layout中Table勾选
+136|我的元素|视图设置|弹出菜单|网格布局选中|Card size控件；None分组|138|Layout中Grid勾选且背景为卡片
+137|我的元素|视图设置|弹出菜单|看板布局选中|五个状态列；四列No elements|0|Kanban勾选及五列看板
+138|我的元素|元素网格|默认|单个已置顶角色卡片||0|无浮层的角色网格卡片
+139|我的元素|元素卡片|触发方式待确认|遮罩与操作按钮显现|卡片底色高亮|138|对比138出现复制下载更多按钮及图像暗层
+140|我的元素|元素卡片|触发方式待确认|遮罩与操作按钮显现|卡片底色高亮|138|与139同类可见样式
+141|我的元素|元素更多操作|弹出菜单|网格卡片操作列表|卡片遮罩；Unpin可见|138|卡片旁View Duplicate Select等菜单
+142|我的元素|元素卡片状态入口|触发方式待确认|圆形状态入口强调|操作按钮可见|138|卡片左下空圆环及暗层
+143|我的元素|元素卡片状态入口|弹出菜单|四种工作状态|卡片操作按钮可见|138|Status菜单含In progress Needs review Approved Rejected
+144|我的元素|元素卡片|触发方式待确认|点击文字红色标注|原图带红字；操作按钮可见|138|图上红色点击标注不代表实际点击结果
+145|元素详情|信息侧栏|默认|主图与Info信息|Info选中；三张缩略图|0|全屏图片及右侧作者信息元数据面板；不证明抽屉展开过程
+146|元素详情|评论侧栏|空内容|暂无评论|Comments选中|145|右侧No comments yet及底部评论框
+147|元素详情|评论标注入口|选中或激活|标注入口与评论图标|原图红框；暂无评论|146|底部评论图标黄色且左侧标注入口被红框圈出
+148|元素详情|评论标注工具栏|选中或激活|颜色与绘图工具展开|绿色色块选中；暂无评论|146|评论框上方七色工具栏
+149|元素详情|评论标注工具栏|选中或激活|画笔入口红框标注|绿色色块选中；原图红框|148|工具栏画笔入口被红框圈出
+150|元素详情|图片标注评论框|弹出面板|鼻子圈注与空评论框|绿色圈线；评论侧栏空内容|146|图上鼻子圈线旁Add a comment浮动输入框
+151|元素详情|图片标注评论框|输入框状态|已输入test表情与提及符号|提及候选无匹配；鼻子圈注|150|输入框文字及No matches for this search
+152|元素详情|图片标注评论|弹出面板|鼻子评论详情|右侧一条评论；Comments选中|155|图上Comments卡片显示test与表情
+153|元素详情|评论回复框|输入框状态|回复框展开未输入|鼻子评论浮动面板|152|右侧评论内Reply输入框
+154|元素详情|图片标注评论框|弹出面板|眉心圈注与空评论框|右侧已有一条评论|146|眉心绿色圈线与Add a comment
+155|元素详情|评论侧栏|默认|两条评论与图片定位标记|Comments选中|0|右侧两张评论卡片；图片上两个头像定位点
+156|元素详情|图片标注评论|弹出面板|眉心评论test123|右侧第二条评论高亮|155|眉心绿色圈线旁Comments详情
+157|元素详情|评论线程更多操作|弹出菜单|删除线程选项|眉心评论面板|156|Comments面板内Delete thread红色选项
+158|元素详情|评论更多操作|弹出菜单|编辑评论选项|鼻子评论面板；评论蓝点|152|评论行旁Edit菜单
+159|我的元素|视图设置|弹出菜单|看板布局与评论计数|Kanban选中；卡片计数2|0|五列看板及角色卡片评论计数
+160|我的元素|视图设置|弹出菜单|按创建日期分组|Table与Created date勾选；Today分组|132|Group by Created date标签与Today标题
+161|我的元素|视图设置|弹出菜单|按名称分组|Table与Name勾选|162|Group by Name及char_boy_1分组
+162|我的元素|元素表格|选中或激活|按名称分组|Clear filter按钮高亮；筛选计数1|132|Group by Name标签与分组标题
+163|我的生成|图片画面比例选择器|弹出菜单|GPT Image2自动与八种比例|Auto当前值|0|GPT IMAGE 2引导及ASPECT RATIO列表
+164|我的生成|图片质量选择器|弹出菜单|Low与Medium及High|High当前值|0|QUALITY三档列表
+165|我的生成|图片分辨率选择器|弹出菜单|GPT Image2的1K至4K|2K当前值|0|RESOLUTION及1024px 2048px 4096px
+166|项目素材|完整页面|空内容|全部素材视频模式|All assets选中；Seedance2.5|0|project-1侧栏及Nothing here yet
+167|项目简报|正文|页面滚动位置|顶部|Project brief选中|0|project-1标题及Narrative Visuals Production等段落
+168|项目设置|通用设置|页面滚动位置|顶部|General选中|0|Details名称slug描述封面及Info
+169|项目设置|通用设置|页面滚动位置|底部|Private选中；未发布；团队功能Upgrade|168|Info Access Publish Danger zone末段
+170|项目设置|成员管理|默认|一名Owner成员|Members选中|0|Members 1及Invite members
+171|项目设置|角色与权限|页面滚动位置|中部内容权限|Roles and permissions选中|0|Generate content至Archive project权限行；表头已在视口外
+172|项目设置|角色与权限|页面滚动位置|中部成员权限|Roles and permissions选中|0|上方内容权限尾部及Members和Project settings开头
+173|项目设置|角色与权限|页面滚动位置|底部项目设置权限|Roles and permissions选中|0|Project settings权限表及末尾说明
+174|项目设置|用量统计|页面滚动位置|顶部总体用量|Usage statistics选中；无用量；三项0|0|Overall usage及No usage yet
+175|项目设置|用量统计|页面滚动位置|底部成员与存储|成员用量0；存储0 B|174|Usage by members及Storage size
+176|项目设置|申请管理|空内容|暂无待处理申请|Requests选中|0|No pending requests及All requests All time
+177|项目元素|元素表格|默认|全部元素与右侧分类栏|Elements与All elements选中|0|项目侧栏Elements和右侧Active Drafts分类；非抽屉证据
+178|项目素材|完整页面|空内容|全部素材图片模式|Image选中；GPT Image2|0|Nothing here yet及GPT Image 2生成栏
+179|项目素材|完整页面|空内容|全部素材视频模式|All assets选中；Seedance2.5|166|Nothing here yet及视频生成栏
+180|项目素材|文件夹内容|空内容|folder-1暂无素材|folder-1选中；test1子目录展开|166|面包屑All与folder-1；中央Nothing here yet
+181|项目素材|视图设置|弹出菜单|Square与Masonry布局|Square勾选；Card size控件|180|View下方布局与卡片大小
+182|项目素材|筛选器|弹出菜单|类型模型日期状态与活动|Show subfolders content开启|180|Filter多组设置及开关
+183|项目素材|筛选器状态子菜单|弹出菜单|Needs review选中|筛选计数1；No matches空结果|180|二级Status菜单及Needs review勾选
+184|项目素材|筛选结果|空内容|Needs review无匹配|筛选标签激活|180|No matches及Clear filters
+185|项目素材|筛选器类型子菜单|弹出菜单|图片视频与文档类型||180|二级Type列表含Image Video PDF TXT MD HTML DOCX PPTX
+186|项目素材|筛选器模型子菜单|弹出菜单|模型搜索与多选列表|All models勾选|180|Models二级菜单及Search models
+187|项目素材|筛选器日期子菜单|弹出菜单|日期范围与十月日历|All period勾选|180|Date预设与October 2026日历
+188|项目素材|筛选器状态子菜单|弹出菜单|All状态选中||180|Status二级菜单All勾选
+189|项目素材|筛选器|选中或激活|隐藏失败项开启|筛选菜单展开；Hide failed标签；筛选计数1|180|Hide failed绿色开关
+190|项目元素|导入元素|加载|Extracting elements提取中|居中弹窗；Continue禁用；包含项目名已勾选；原图红框|177|Import elements及Extracting elements文字和圆环
+191|Cully Hill Boys项目元素|元素表格|页面滚动位置|顶部全部元素|All选中|0|项目名Cully Hill Boys及表格第1行起
+192|Cully Hill Boys项目元素|角色分类|选中或激活|Characters选中|表格顶部|191|Characters高亮及角色列表
+193|Cully Hill Boys项目元素|场景分类|选中或激活|Locations选中|表格顶部|191|Locations高亮及室内外场景列表
+194|Cully Hill Boys项目元素|道具分类|选中或激活|Props选中|表格顶部|191|Props高亮及播放器食物汽车话筒
+195|Cully Hill Boys元素详情|信息侧栏|默认|MAYA角色多视图|单张缩略图；下载按钮|0|@char_CB_MAYA_v2及正背面和面部大图
+196|Cully Hill Boys项目素材|筛选器类型子菜单|弹出菜单|Image选中|图片网格；筛选计数1|198|Image勾选及图片缩略图
+197|Cully Hill Boys项目素材|筛选器类型子菜单|弹出菜单|Video选中|视频网格；筛选计数1|198|Video勾选及播放图标
+198|Cully Hill Boys项目素材|素材网格|默认|视频缩略图列表||0|项目标题及多张带播放图标卡片；未见筛选标签
+199|Cully Hill Boys项目素材|筛选器模型子菜单|弹出菜单|Cinematic Cameras选中|街景网格；筛选计数1|198|模型勾选及Cinematic Cameras筛选标签
+200|Cully Hill Boys素材详情|街景组图网格|页面滚动位置|顶部|网格视图选中；提示词折叠|0|组图内部滚动条位于上端；首排图完整
+201|Cully Hill Boys素材详情|街景组图网格|页面滚动位置|中部|网格视图选中；提示词折叠|200|组图内部滚动条滑块移至中段
+202|Cully Hill Boys素材详情|街景组图|选中或激活|单图视图首张选中|底部缩略图条；提示词折叠|200|右上单图视图按钮白色及首个缩略图边框
+203|Cully Hill Boys素材详情|提示词侧栏|展开|街景完整提示词|单图视图；另一缩略图选中|202|提示词从See all变Hide且显示更多段落
+204|Cully Hill Boys项目素材|筛选器日期子菜单|弹出菜单|日期范围与十月日历|Cinematic Cameras筛选激活|198|All period勾选及October 2026日历
+205|Cully Hill Boys项目素材|筛选器状态子菜单|弹出菜单|All状态选中|Cinematic Cameras筛选激活|198|Status二级菜单All勾选
+206|Cully Hill Boys项目素材|视图设置|弹出菜单|Square布局选中|街景网格；Cinematic Cameras筛选|198|Layout及Card size控件
+207|Cully Hill Boys素材详情|视频播放器|播放状态|仓库视频0秒|进度预览缩略图；暂停图标；总时长9秒|0|控制条0:00与0:09及暂停按钮；只证明截图时状态
+208|Cully Hill Boys素材详情|提示词侧栏|展开|仓库视频完整提示词|视频1秒；暂停图标|207|提示词显示Hide及多段文字
+209|Cully Hill Boys项目素材|S16文件夹|选中或激活|海报与视频网格|S16选中；筛选计数1|198|面包屑PRE PROD Test_scene16 S16
+210|Cully Hill Boys素材详情|海报预览|默认|CULLY HILL BOYS黄色海报|提示词展开；Recraft V4.1参数|0|黄色海报大图及右侧生成详情
+211|Cully Hill Boys项目素材|ASSETS文件夹|选中或激活|三张云雾场景图|ASSETS选中；筛选计数1|198|ASSETS面包屑及三张缩略图
+212|Cully Hill Boys项目素材|视图设置|弹出菜单|ASSETS方形卡片|Square勾选|211|三张云雾缩略图与View菜单
+213|Cully Hill Boys项目素材|视图设置|弹出菜单|ASSETS瀑布流大卡片|Masonry勾选|211|横向铺满三张图且Masonry选中
+214|Cully Hill Boys项目素材|视图设置|弹出菜单|ASSETS方形小卡片|Square勾选；Last viewed标记|211|Card size左侧档位及较小卡片
+215|Cully Hill Boys项目素材|视图设置|弹出菜单|ASSETS方形较大卡片|Square勾选；Last viewed标记|211|比214更大卡片及不同大小档位
+216|Cully Hill Boys项目素材|视图设置|弹出菜单|ASSETS瀑布流较小档位|Masonry勾选；Last viewed标记|211|Card size靠左且Masonry选中
+217|Cully Hill Boys项目素材|PROPS文件夹|选中或激活|汽车武器键盘等道具网格|筛选计数1；卡片选择圈可见|198|PROPS面包屑与选中侧栏目录
+218|Cully Hill Boys项目素材|COSTUMES文件夹|选中或激活|人物服装多视图网格|侧栏目录已滚动；卡片选择圈可见|198|COSTUMES面包屑与选中目录
+219|Cully Hill Boys项目素材|Olzhazavre文件夹|选中或激活|夜景表演视频网格|侧栏多级目录展开；筛选计数1|198|面包屑MV PRG B-Roll DRILL B-roll Olzhazavre

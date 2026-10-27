@@ -1,0 +1,128 @@
+name: CI / Frontend
+
+on:
+  workflow_call:
+    inputs:
+      matrix_json:
+        description: 'JSON matrix with framework and target entries under include'
+        required: true
+        type: string
+      full:
+        description: 'Also build every additional React Mobile mini-program and Harmony target'
+        required: false
+        default: false
+        type: boolean
+
+permissions:
+  contents: read
+
+jobs:
+  frontend:
+    name: ${{ matrix.project.framework }} / ${{ matrix.project.target }} / Node ${{ matrix.node }}
+    runs-on: ubuntu-latest
+    timeout-minutes: ${{ matrix.project.framework == 'react' && matrix.project.target == 'mobile' && 60 || 35 }}
+    strategy:
+      fail-fast: false
+      matrix:
+        node: ['22', '24']
+        project: ${{ fromJSON(inputs.matrix_json).include }}
+    defaults:
+      run:
+        shell: bash
+        working-directory: ruoyi-fastapi-frontend/${{ matrix.project.framework }}/${{ matrix.project.target }}
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v6
+        with:
+          node-version: ${{ matrix.node }}
+      - uses: pnpm/action-setup@v5
+        with:
+          package_json_file: ruoyi-fastapi-frontend/${{ matrix.project.framework }}/${{ matrix.project.target }}/package.json
+      - name: Locate the pnpm store
+        id: package-cache
+        run: echo "path=$(pnpm store path --silent)" >> "$GITHUB_OUTPUT"
+      - uses: actions/cache@v5
+        with:
+          path: ${{ steps.package-cache.outputs.path }}
+          key: ${{ runner.os }}-node${{ matrix.node }}-${{ matrix.project.framework }}-${{ matrix.project.target }}-${{ hashFiles(format('ruoyi-fastapi-frontend/{0}/{1}/pnpm-lock.yaml', matrix.project.framework, matrix.project.target), format('ruoyi-fastapi-frontend/{0}/{1}/pnpm-workspace.yaml', matrix.project.framework, matrix.project.target), format('ruoyi-fastapi-frontend/{0}/{1}/package.json', matrix.project.framework, matrix.project.target)) }}
+          restore-keys: |
+            ${{ runner.os }}-node${{ matrix.node }}-${{ matrix.project.framework }}-${{ matrix.project.target }}-
+      - name: Install dependencies from the committed lockfile
+        run: pnpm install --frozen-lockfile
+      - name: Record resolved dependency versions
+        run: |
+          mkdir -p test-results
+          node --version > test-results/node-version.txt
+          if ! pnpm list --depth Infinity --json > test-results/dependency-tree.json; then
+            echo "Dependency tree includes peer diagnostics; inspect dependency-tree.json." >&2
+          fi
+      - name: Run unit and component behavior tests
+        run: pnpm run test:unit
+      - name: Verify time contracts in three host timezones
+        run: |
+          for zone in UTC Asia/Shanghai America/New_York; do
+            TZ="$zone" pnpm run test:contract
+          done
+      - name: Verify Vue 2 Mobile Intl polyfills and development templates
+        if: matrix.project.framework == 'vue2' && matrix.project.target == 'mobile'
+        run: pnpm run test:bundle
+      - name: Build Web production and Docker targets
+        if: matrix.project.target == 'web'
+        run: |
+          pnpm run build:prod
+          pnpm run build:docker
+      - name: Build Mobile H5
+        if: matrix.project.target == 'mobile' && matrix.project.framework != 'react'
+        run: pnpm run build:h5
+      - name: Build and verify React Mobile H5 entry
+        if: matrix.project.target == 'mobile' && matrix.project.framework == 'react'
+        run: pnpm check:platforms h5
+      - uses: actions/setup-python@v6
+        if: matrix.project.target == 'mobile'
+        with:
+          python-version: '3.12'
+      - name: Install the Mobile smoke browser
+        if: matrix.project.target == 'mobile'
+        run: |
+          python -m pip install playwright==1.64.0
+          python -m playwright install --with-deps chromium
+      - name: Verify Mobile H5 login and profile
+        if: matrix.project.target == 'mobile'
+        working-directory: .
+        run: python .github/scripts/mobile_smoke.py --framework ${{ matrix.project.framework }}
+      - name: Verify Vue 2 Mobile development startup
+        if: matrix.project.framework == 'vue2' && matrix.project.target == 'mobile'
+        run: |
+          setsid pnpm run dev:h5 > test-results/dev-h5.log 2>&1 &
+          server_pid=$!
+          trap 'kill -- -"$server_pid" 2>/dev/null || true' EXIT
+          python "$GITHUB_WORKSPACE/.github/scripts/mobile_smoke.py" --framework vue2 --base-url http://127.0.0.1:9090
+      - name: Build Mobile WeChat target
+        if: matrix.project.target == 'mobile' && matrix.project.framework != 'react'
+        run: pnpm run build:mp-weixin
+      - name: Build and verify React Mobile WeChat target
+        if: matrix.project.target == 'mobile' && matrix.project.framework == 'react'
+        run: pnpm check:platforms weapp
+      - name: Build the additional React Mobile platform matrix
+        if: inputs.full && matrix.project.target == 'mobile' && matrix.project.framework == 'react'
+        run: pnpm check:platforms alipay swan tt qq jd kwai lark xhs harmony-hybrid
+      - name: Build Android and iOS JavaScript bundles
+        if: matrix.project.target == 'mobile' && matrix.project.framework == 'react'
+        run: |
+          mkdir -p test-results
+          pnpm build:rn:android --reset-cache 2>&1 | tee test-results/rn-android.log
+          test -s dist/rn/android/index.bundle
+          pnpm build:rn:ios --reset-cache 2>&1 | tee test-results/rn-ios.log
+          test -s dist/rn/ios/main.jsbundle
+      - name: Upload frontend diagnostics
+        if: always()
+        uses: actions/upload-artifact@v6
+        with:
+          name: frontend-${{ matrix.project.framework }}-${{ matrix.project.target }}-node${{ matrix.node }}
+          path: |
+            target/ci/mobile-smoke/${{ matrix.project.framework }}/
+            ruoyi-fastapi-frontend/${{ matrix.project.framework }}/${{ matrix.project.target }}/test-results/
+            ruoyi-fastapi-frontend/${{ matrix.project.framework }}/${{ matrix.project.target }}/.cache/platform-check/
+          include-hidden-files: true
+          if-no-files-found: ignore
+          retention-days: 7

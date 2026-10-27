@@ -1,0 +1,743 @@
+<!doctype html><html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>higgsfield-ai · 页面规格与交互说明书</title><style>
+*{box-sizing:border-box}body{overflow-wrap:anywhere;margin:0;color:#172b3a;background:#f1f4f7;font:16px/1.85 "Microsoft YaHei",sans-serif}header{background:#15394c;color:white;padding:18px 5%;font-size:18px}main{max-width:1280px;margin:28px auto;background:white;padding:44px 56px;box-shadow:0 8px 32px #15394c10}h1{font-size:32px;line-height:1.4}h2{font-size:25px;color:#154c62;border-bottom:2px solid #d9e6ec;margin-top:52px;padding-bottom:12px;scroll-margin-top:20px}h3{font-size:20px;margin-top:30px}a{color:#126886;text-decoration:none}a:hover{text-decoration:underline}nav{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:5px 22px;padding:24px;background:#f2f7fa;border:1px solid #d6e4ec;margin-bottom:32px}table{table-layout:fixed;width:100%;border-collapse:collapse;margin:20px 0;font-size:14px;line-height:1.7}th,td{border:1px solid #d6e0e6;padding:10px 12px;text-align:left;vertical-align:top;overflow-wrap:anywhere}th{background:#eaf1f5}tr:nth-child(even){background:#f9fbfc}pre{overflow:auto;background:#f4f6f8;padding:20px;border:1px solid #e0e6eb;border-radius:5px;font-size:13px;line-height:1.7}code{font-family:Consolas,"Microsoft YaHei",monospace;overflow-wrap:anywhere}p code,td code{background:#eef2f5;padding:1px 3px}.diagram{margin:24px 0;padding:18px;border:1px solid #d9e5ec;background:#fff;overflow:auto}.diagram svg{min-width:780px;height:auto;display:block;margin:auto}footer{color:#586d7a;border-top:1px solid #d9e5ec;margin-top:48px;padding-top:16px;font-size:13px}@media(max-width:800px){main{margin:0;padding:22px}nav{grid-template-columns:1fr}table{display:block;overflow:auto}h1{font-size:27px}}@media print{body{background:white}main{margin:0;padding:0;box-shadow:none;max-width:none}header,nav{display:none}h2{break-before:page}figure,pre{break-inside:avoid}.diagram svg{min-width:0;max-width:100%!important}a{color:inherit}}
+</style></head><body><header>higgsfield-ai · 技术文档 · 2026 年 10 月 27 日</header><main><nav><a href="#section-1">1 依据、边界与阅读约定</a><a href="#section-2">2 截图依据与范围差异</a><a href="#section-3">3 页面地图与通用布局</a><a href="#section-4">4 通用字段校验和反馈</a><a href="#section-5">5 制作平台页面规格</a><a href="#section-6">6 管理平台页面规格</a><a href="#section-7">7 关键交互流程</a><a href="#section-8">8 权限呈现与数据保护</a><a href="#section-9">9 异常与恢复状态表</a><a href="#section-10">10 亮暗双主题与视觉验收</a><a href="#section-11">11 工程落点与接口衔接</a><a href="#section-12">12 页面验收清单</a><a href="#section-13">13 待冻结项与开放门槛</a></nav><h1 id="higgsfield-ai-·-页面规格与交互说明书">higgsfield-ai · 页面规格与交互说明书</h1>
+<p>版本：1.1<br>日期：2026 年 10 月 27 日<br>状态：页面设计评审稿；未实现业务页面，未完成真实业务验收</p>
+<h2 id="section-1">1 依据、边界与阅读约定</h2>
+<p>本说明承接 <a href="../AGENTS.md">AGENTS.md</a>、<a href="%E6%8A%80%E6%9C%AF%E6%9E%B6%E6%9E%84%E6%96%B9%E6%A1%88.html">技术架构方案</a>、<a href="%E9%A6%96%E6%9C%9F%E9%9C%80%E6%B1%82%E4%B8%8E%E4%B8%9A%E5%8A%A1%E8%A7%84%E5%88%99%E8%AF%B4%E6%98%8E%E4%B9%A6.html">P0-1 首期需求</a>、<a href="%E6%A8%A1%E5%9E%8B%E4%BE%9B%E5%BA%94%E5%95%86%E6%8E%A5%E5%85%A5%E5%A5%91%E7%BA%A6%E4%B8%8E%E5%B7%AE%E5%BC%82%E6%B8%85%E5%8D%95.html">P0-2 供应商接入</a>、<a href="%E6%95%B0%E6%8D%AE%E5%BA%93%E8%AF%A6%E7%BB%86%E8%AE%BE%E8%AE%A1.html">P0-3 数据库</a>、<a href="%E5%B9%B3%E5%8F%B0API%E5%A5%91%E7%BA%A6.html">P0-4 平台 API</a>、<a href="%E4%BB%B7%E6%A0%BC%E7%94%A8%E9%87%8F%E9%A2%84%E7%AE%97%E8%AF%B4%E6%98%8E.html">P0-5 价格用量预算</a>、<a href="%E6%9D%83%E9%99%90%E7%9F%A9%E9%98%B5.html">P0-6 权限矩阵</a>，并遵循<a href="%E5%88%B6%E4%BD%9C%E5%B9%B3%E5%8F%B0%E5%89%8D%E7%AB%AF%E7%BC%96%E7%A0%81%E8%A7%84%E8%8C%83.html">前端规范</a>和<a href="%E5%90%8E%E7%AB%AF%E7%BC%96%E7%A0%81%E4%B8%8E%E6%A1%86%E6%9E%B6%E5%AF%B9%E9%BD%90%E8%A7%84%E8%8C%83.html">后端规范</a>。</p>
+<p>业务范围和等级以 P0-1 为唯一来源，权限以 P0-6、费用以 P0-5、请求响应与状态枚举以 P0-4 为准。S01～S12、M01～M06 是页面身份，UI-xx 是验收追踪，不是优先级。本文不为已有需求重新定级，不将页面设计等同于实现或已批准的业务决策。</p>
+<p>“截图证据”仅描述可见内容；“设计约定”是本次形成的待评审交互；“契约要求”不得被视觉设计覆盖。布局尺寸为实现起点，不是截图精确测量。D01～D10 仍沿用 P0-1 的负责人和确认时点；未确认部分只阻断依赖该决策的入口。</p>
+<h2 id="section-2">2 截图依据与范围差异</h2>
+<p>依据 <a href="../references/%E5%B7%B2%E6%95%B4%E7%90%86/%E6%88%AA%E5%9B%BE%E7%8A%B6%E6%80%81%E5%AF%B9%E7%85%A7%E8%A1%A8.csv">截图状态对照表</a>定位素材。本次实际查看以下八张代表截图，未声称逐张复核全部 219 张；编码时仍须按页面选取完整状态集并比较。静态截图不能证明点击、悬浮、自动保存和加载行为。</p>
+<table>
+<thead>
+<tr>
+<th>证据</th>
+<th>可见视觉结构</th>
+<th>本项目承接</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><a href="../references/%E5%B7%B2%E6%95%B4%E7%90%86/%E9%A6%96%E9%A1%B5-%E5%AE%8C%E6%95%B4%E9%A1%B5%E9%9D%A2-%E9%BB%98%E8%AE%A4-%E8%A7%86%E9%A2%91%E7%94%9F%E6%88%90%E4%B8%8E%E9%A1%B9%E7%9B%AE%E5%88%97%E8%A1%A8-01.png">首页</a></td>
+<td>深色全局侧栏、中心输入区、参数胶囊、亮色生成按钮、项目卡片</td>
+<td>S01/S08；以内部费用替换积分文案</td>
+</tr>
+<tr>
+<td><a href="../references/%E5%B7%B2%E6%95%B4%E7%90%86/%E6%88%91%E7%9A%84%E9%A1%B9%E7%9B%AE-%E5%AE%8C%E6%95%B4%E9%A1%B5%E9%9D%A2-%E9%BB%98%E8%AE%A4-All%E9%A1%B9%E7%9B%AE%E5%88%97%E8%A1%A8%E5%90%AB11-01.png">我的项目</a></td>
+<td>面包屑、筛选标签、搜索排序、新建卡片</td>
+<td>S02；只展示契约支持的过滤条件</td>
+</tr>
+<tr>
+<td><a href="../references/%E5%B7%B2%E6%95%B4%E7%90%86/%E9%A1%B9%E7%9B%AE%E7%B4%A0%E6%9D%90-%E5%AE%8C%E6%95%B4%E9%A1%B5%E9%9D%A2-%E7%A9%BA%E5%86%85%E5%AE%B9-%E5%85%A8%E9%83%A8%E7%B4%A0%E6%9D%90%E5%9B%BE%E7%89%87%E6%A8%A1%E5%BC%8F-02.png">项目素材空态</a></td>
+<td>项目侧栏、文件夹树、顶部工具栏、底部生成栏</td>
+<td>S05/S06/S08；上传与生成入口分开</td>
+</tr>
+<tr>
+<td><a href="../references/%E5%B7%B2%E6%95%B4%E7%90%86/%E6%88%91%E7%9A%84%E5%85%83%E7%B4%A0-%E7%BC%96%E8%BE%91%E5%85%83%E7%B4%A0-%E5%BC%B9%E7%AA%97-%E4%B8%BB%E5%9B%BE%E4%B8%8E%E4%B8%89%E5%BC%A0%E7%BC%A9%E7%95%A5%E5%9B%BE-05.png">编辑元素</a></td>
+<td>左图右表单、缩略图、滚动表单、固定保存区</td>
+<td>S07；版本标签与不可变修订分开</td>
+</tr>
+<tr>
+<td><a href="../references/%E5%B7%B2%E6%95%B4%E7%90%86/%E9%A1%B9%E7%9B%AE%E8%AE%BE%E7%BD%AE-%E7%94%A8%E9%87%8F%E7%BB%9F%E8%AE%A1-%E9%A1%B5%E9%9D%A2%E6%BB%9A%E5%8A%A8%E4%BD%8D%E7%BD%AE-%E9%A1%B6%E9%83%A8%E6%80%BB%E4%BD%93%E7%94%A8%E9%87%8F-01.png">用量统计</a></td>
+<td>筛选、三张统计卡、图表、成员统计表</td>
+<td>S10/M05；口径和币种明确</td>
+</tr>
+<tr>
+<td><a href="../references/%E5%B7%B2%E6%95%B4%E7%90%86/%E5%85%83%E7%B4%A0%E8%AF%A6%E6%83%85-%E8%AF%84%E8%AE%BA%E4%BE%A7%E6%A0%8F-%E9%BB%98%E8%AE%A4-%E4%B8%A4%E6%9D%A1%E8%AF%84%E8%AE%BA%E4%B8%8E%E5%9B%BE%E7%89%87%E5%AE%9A%E4%BD%8D%E6%A0%87%E8%AE%B0-02.png">评论侧栏</a></td>
+<td>大媒体、右侧评论、定位标记、底部输入区</td>
+<td>S07/S09；视频逐帧绘制不因此开放</td>
+</tr>
+<tr>
+<td><a href="../references/%E5%B7%B2%E6%95%B4%E7%90%86/%E9%A1%B9%E7%9B%AE%E8%AE%BE%E7%BD%AE-%E8%A7%92%E8%89%B2%E4%B8%8E%E6%9D%83%E9%99%90-%E9%A1%B5%E9%9D%A2%E6%BB%9A%E5%8A%A8%E4%BD%8D%E7%BD%AE-%E4%B8%AD%E9%83%A8%E5%86%85%E5%AE%B9%E6%9D%83%E9%99%90-01.png">角色权限</a></td>
+<td>分组矩阵和角色列</td>
+<td>S10 只读解释；不照抄截图授权值</td>
+</tr>
+<tr>
+<td><a href="../references/%E5%B7%B2%E6%95%B4%E7%90%86/Cully%20Hill%20Boys%E7%B4%A0%E6%9D%90%E8%AF%A6%E6%83%85-%E6%8F%90%E7%A4%BA%E8%AF%8D%E4%BE%A7%E6%A0%8F-%E5%B1%95%E5%BC%80-%E4%BB%93%E5%BA%93%E8%A7%86%E9%A2%91%E5%AE%8C%E6%95%B4%E6%8F%90%E7%A4%BA%E8%AF%8D-02.png">视频提示词详情</a></td>
+<td>视频播放器、参数与提示词侧栏、底部控制</td>
+<td>S09；4K 等需供应商验证</td>
+</tr>
+</tbody></table>
+<p>管理平台没有本轮核实的专用视觉截图，采用现有若依导航、查询表单、表格及弹窗结构，新增业务页统一使用上述卡片层级与双主题变量。这是设计约定，不声称逐像素复制管理端参考图。</p>
+<table>
+<thead>
+<tr>
+<th>截图内容</th>
+<th>范围处理</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>Cinema Studio 品牌、订阅、积分、社区</td>
+<td>替换项目品牌；不引入订阅支付或社区；金额按币种展示</td>
+</tr>
+<tr>
+<td>Private/Shared 标签、公开 Share 链接</td>
+<td>不增加未经契约定义的过滤器或匿名分享；项目成员授权与公共发布分开</td>
+</tr>
+<tr>
+<td>Canvas、AI Director、高级镜头</td>
+<td>按索引 EXT 范围关闭，不以可点击占位伪装实现</td>
+</tr>
+<tr>
+<td>任意角色勾选、Trash 永久清空</td>
+<td>首期不开放任意项目角色编辑器；只使用已定义删除/恢复流程</td>
+</tr>
+<tr>
+<td>导出按钮、自动保存、拖拽排序</td>
+<td>只有存在契约与明确交互时开放；截图本身不是接口授权</td>
+</tr>
+</tbody></table>
+<h2 id="section-3">3 页面地图与通用布局</h2>
+<p>以下路径是前端路由建议，尚未创建。最终路由冻结须与 Vue Router 和若依菜单配置核对；不得拿路由建议当作 API 路径。</p>
+<table>
+<thead>
+<tr>
+<th>页面</th>
+<th>入口/建议路由</th>
+<th>布局与主要资源</th>
+<th>契约定位</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>S01 首页</td>
+<td><code>/</code></td>
+<td>全局侧栏、快捷创作、近期项目</td>
+<td>P0-4 §5、8</td>
+</tr>
+<tr>
+<td>S02 我的项目</td>
+<td><code>/projects</code></td>
+<td>搜索、项目卡片、个人视图</td>
+<td>§5</td>
+</tr>
+<tr>
+<td>S03 我的生成</td>
+<td><code>/generations</code></td>
+<td>筛选、任务卡片、详情</td>
+<td>§8</td>
+</tr>
+<tr>
+<td>S04 我的元素</td>
+<td><code>/elements</code></td>
+<td>元素聚合、收藏、详情</td>
+<td>§7</td>
+</tr>
+<tr>
+<td>S05 项目工作区</td>
+<td><code>/projects/:projectId</code></td>
+<td>项目侧栏、简介与工作入口</td>
+<td>§5</td>
+</tr>
+<tr>
+<td>S06 项目素材</td>
+<td><code>/projects/:projectId/assets</code></td>
+<td>文件夹树、素材网格/表格</td>
+<td>§6</td>
+</tr>
+<tr>
+<td>S07 项目元素</td>
+<td><code>/projects/:projectId/elements</code></td>
+<td>属性表、编辑弹窗、详情侧栏</td>
+<td>§7</td>
+</tr>
+<tr>
+<td>S08 创作面板</td>
+<td>S01/S06 内复用，不强制单独路由</td>
+<td>提示词、引用、参数、报价</td>
+<td>§8</td>
+</tr>
+<tr>
+<td>S09 任务/输出详情</td>
+<td><code>/generations/:taskId</code></td>
+<td>媒体、输入快照、事件与费用</td>
+<td>§8、14</td>
+</tr>
+<tr>
+<td>S10 项目设置</td>
+<td><code>/projects/:projectId/settings</code></td>
+<td>基本、成员、角色说明、请求、用量</td>
+<td>§5、11</td>
+</tr>
+<tr>
+<td>S11 文本会话</td>
+<td><code>/projects/:projectId/chats</code></td>
+<td>会话列表、消息区、输入区</td>
+<td>§8.3</td>
+</tr>
+<tr>
+<td>S12 公共媒体</td>
+<td><code>/public-media</code></td>
+<td>授权目录、预览、引用/发布入口</td>
+<td>§6、11</td>
+</tr>
+<tr>
+<td>M01 组织与项目治理</td>
+<td>原生系统菜单＋新增项目治理菜单</td>
+<td>若依用户/部门/角色；项目治理表</td>
+<td>§9、13</td>
+</tr>
+<tr>
+<td>M02 供应商接入</td>
+<td>新增供应商菜单</td>
+<td>连接、凭据、项目路由页签</td>
+<td>§9</td>
+</tr>
+<tr>
+<td>M03 模型能力</td>
+<td>新增模型菜单</td>
+<td>模型列表、能力版本与验证记录</td>
+<td>§10.1</td>
+</tr>
+<tr>
+<td>M04 价格与预算</td>
+<td>新增价格、预算两个菜单</td>
+<td>价格版本、规则行、预算周期</td>
+<td>§10.2～10.3</td>
+</tr>
+<tr>
+<td>M05 用量与对账</td>
+<td>新增用量、对账、审计菜单</td>
+<td>汇总、明细、导入与差异</td>
+<td>§10.3、11</td>
+</tr>
+<tr>
+<td>M06 异常与资产治理</td>
+<td>新增异常、公共授权菜单</td>
+<td>异常队列、证据、治理操作</td>
+<td>§11</td>
+</tr>
+</tbody></table>
+<p>设计约定：宽屏保持左导航＋主内容，项目内替换为项目导航及目录树，不把两层宽侧栏同时展开挤压内容。以 1440px 和 1920px 作为桌面验收视口；低于 1024px 将侧栏折叠为可键盘操作的抽屉，媒体详情右栏转页签/下方区域。表格允许自身横向滚动，页面整体不产生无意义横向滚动。断点属于建议，冻结前用实际长中文字段验证。</p>
+<p>列表工具栏固定在内容顶部；弹窗标题、关闭和操作区稳定可见，长表单在内容区滚动。生成面板不得覆盖最后一行素材或分页。布局不依赖固定高度裁掉错误信息；空态、骨架和有数据状态使用同一内容边界。</p>
+<p>交互约定：单击名称打开对象；展开图标只展开目录；更多菜单独立操作。悬浮操作必须有键盘聚焦等价入口。Esc 关闭非提交中的弹层；未保存编辑先提供继续编辑/放弃选择，禁止静默丢弃。弹窗打开后聚焦标题或首项，关闭回到触发控件；危险操作按钮不得默认获得回车确认。</p>
+<h2 id="section-4">4 通用字段校验和反馈</h2>
+<p>前端校验用于即时反馈，后端仍是权限、约束、价格和预算的最终裁决。Element Plus 表单使用 ElForm 校验，不绕过组件直接原生提交。shadcn-vue 表单也使用统一字段错误映射；同一表单只有一个提交和校验入口。</p>
+<table>
+<thead>
+<tr>
+<th>字段/场景</th>
+<th>页面校验与提示</th>
+<th>服务端边界</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>名称、标题</td>
+<td>必填项去除首尾空白后不可空；保留原输入便于修改</td>
+<td>长度按 DTO/schema；项目名不自行加全局唯一限制</td>
+</tr>
+<tr>
+<td>ID、revision</td>
+<td>作为字符串传递，不转 JS Number；隐藏字段不代表可信</td>
+<td>服务端确认存在、归属、当前修订；bigint 不丢精度</td>
+</tr>
+<tr>
+<td>金额、单价、汇率、额度</td>
+<td>十进制字符串；单位、币种、基数同时可见；拒绝非数/非法精度</td>
+<td>正负与范围按具体 DTO；调整可正可负，不统一禁止负数</td>
+</tr>
+<tr>
+<td>时间区间</td>
+<td>起点不晚于终点；显示时区，提交契约格式</td>
+<td>有效期重叠、预算周期以服务端判断</td>
+</tr>
+<tr>
+<td>文件</td>
+<td>选择前提示允许类型/大小/数量；逐文件反馈；文件名不作为 MIME 依据</td>
+<td>D04 限制未冻结不得编造数值；校验实际内容、权限及去重绑定</td>
+</tr>
+<tr>
+<td>提示词/模型参数</td>
+<td>必需字段、枚举、互斥、引用数量按已发布能力 schema；更换模型显式提示不兼容项</td>
+<td>不能凭价格表或截图开放模型组合；不悄悄丢弃旧输入</td>
+</tr>
+<tr>
+<td>元素 alias/属性</td>
+<td>alias 按所属空间唯一性反馈；文本/单选按定义校验</td>
+<td>多人并发唯一冲突须显示到字段；不开放任意脚本属性</td>
+</tr>
+<tr>
+<td>标注</td>
+<td>point/rect/path 坐标归一化到 0～1；时间点在媒体时长内</td>
+<td>区分省略标注与传空数组；目标固定文件版本</td>
+</tr>
+<tr>
+<td>密钥</td>
+<td>写入型遮罩输入；不读回、不放 URL/日志/草稿</td>
+<td>空白不等于清除旧值；保存与测试分开</td>
+</tr>
+<tr>
+<td>原因/证据</td>
+<td>调整、撤销、治理等操作显示必填原因和证据项</td>
+<td>按接口权限审计，不接受前端代填执行人</td>
+</tr>
+</tbody></table>
+<p>D04 中未冻结的长度、文件类型/大小/数量和属性限制列入 §13。前端不得通过自定较宽阈值宣称已符合后端契约；上线前必须从确定的 schema 得到统一约束。字段错误放在字段下，提交失败顶部给摘要并定位首个错误，提示文案中文且可操作。</p>
+<p>分页使用 pageNum/pageSize，目标默认 1/20、最大 100，实际以 P0-4 为准；筛选变化回第一页，保留合法页大小。排序只能选择契约支持项。刷新不清空筛选；跨页选择必须明确“本页”，没有批量契约则不提供全量批量操作。</p>
+<h2 id="section-5">5 制作平台页面规格</h2>
+<h3 id="s01-首页">S01 首页</h3>
+<p>布局：沿首页截图保留侧栏、居中创作面板和近期项目卡片，品牌改为 higgsfield-ai。字段：项目选择、生成类型、提示词及能力参数共用 S08。项目未选择时可编辑提示词，但真实提交前必须明确目标项目与可用能力。</p>
+<p>流程：选择有权限的项目→加载已授权能力（不向制作端返回内部路由或密钥）→编辑→按费用权限确认提交信息→提交→进入 S09。点击近期项目进入 S05，点击“新建项目”使用 S02 表单。权限：项目创建和生成分别判断；平台管理员身份不隐含项目访问。异常：无项目显示创建/联系授权入口；无能力显示不可生成原因；近期列表失败可单独重试，不清空输入。验收：切换目标项目后不能继续使用旧项目引用和旧报价。</p>
+<h3 id="s02-我的项目">S02 我的项目</h3>
+<p>布局：面包屑、搜索排序工具栏、新建卡片及项目网格；支持契约中的 q/status/hidden/pinned。字段：创建名称必填，其他可选字段严格使用项目 DTO；允许同名，不以名称作为导航标识。</p>
+<p>流程：新建成功按返回 ID 打开；置顶/隐藏是当前用户个人集合操作，不修改全体成员视图；编辑使用 revision，归档单独确认。权限：仅列可见项目；用户可隐藏自己视图不等于有项目归档权。异常：搜索零结果与无项目分别显示；创建结果不明按原幂等意图恢复；冲突保留输入并要求重载比较。验收：用户 A 隐藏项目不影响用户 B；隐藏项目仍受项目权限约束。</p>
+<h3 id="s03-我的生成">S03 我的生成</h3>
+<p>布局：项目、媒体类型、任务状态筛选＋任务卡片；卡片显示缩略图、状态、时间、项目及可见费用摘要。字段：时间范围、筛选枚举来自契约，不把模型失败等同于业务协作状态。</p>
+<p>流程：打开 S09；取消、归档重试等仅在对应状态提供。权限：任务列表和详情均校验输入/结果访问，不能因可读缩略图而暴露全部提示词。异常：任务进行中使用真实阶段，不编造百分比；缩略图失败保留任务可访问入口；费用未知与无费用权限区别显示。验收：多次事件刷新不重复插卡，失权对象从列表及缓存移除。</p>
+<h3 id="s04-我的元素">S04 我的元素</h3>
+<p>布局：搜索、分类、创建/收藏范围筛选，卡片或表格，详情复用 S07。字段：scope、q、category、workStatus 按接口；收藏是个人偏好，不是权限授予。</p>
+<p>流程：选择元素查看其空间与来源→有权限则编辑或受控复制；收藏切换不改变项目归属。权限：聚合只包含当前可读对象，其他人的私有草稿不可读取。异常：收藏来源失权显示不可用或移除展示，不保留缓存预览泄漏；空态区分尚未创建与无筛选结果。验收：跨项目聚合不能绕过项目授权。</p>
+<h3 id="s05-项目工作区与简介">S05 项目工作区与简介</h3>
+<p>布局：项目名称和更多菜单、项目侧栏、简介区及素材/元素/会话入口。字段：项目基本信息与简介使用契约允许字段；编辑保存携带 revision，不自动派生新字段。</p>
+<p>流程：简介只读→有编辑权进入编辑→保存→更新视图；切换项目清理旧对象上下文。权限：简介编辑、项目治理和内容查看分别判断；归档项目按状态只读，不在前端伪装可写。异常：项目不可见统一资源不可用，不暴露存在性；简介冲突保留本地草稿并显示重载入口。验收：通过手输 URL 访问与菜单导航的权限一致。</p>
+<h3 id="s06-项目素材库与文件夹">S06 项目素材库与文件夹</h3>
+<p>布局：参考空态截图的文件夹树、顶部筛选/视图/上传工具栏、素材网格/表格、底部 S08。树行保留彩色文件夹、层级缩进、数量及选中背景；数量无真实来源时不伪造。树组件可按数据量选 Element Plus 虚拟树或 shadcn-vue 定制外观，必须统一选中/展开/键盘语义；按 P0-4 的 GET /projects/{id}/folders，以 parentId、pageNum、pageSize 分页获取子节点；展开时按需加载并保留分页状态，不假定一次返回全树。虚拟渲染与接口分页分别处理，不新增未定义的游标协议。</p>
+<p>字段：目录名称、parentId、orderNum；素材名称、folderId；过滤 folderId/includeDescendants/kind/q/modelId/from/to/showFailed。新增/移动选择器排除非法父子循环，由服务端再次验证。拖拽移动不是默认必需交互，先提供明确“移动到”操作。</p>
+<p>流程：选文件→校验→创建上传会话→逐分片上传/恢复→完成校验→绑定素材→刷新列表。上传 ready 不等于素材绑定成功，逐项显示“待绑定/已入库/失败”；不得一失败清空整批成功项。素材预览、下载、新版本、移动、逻辑删除/恢复按对象动作入口；删除前显示对象与影响，不提供未经契约定义的永久清空。</p>
+<p>权限：上传、读、下载、移动、删除/恢复独立检查；上传会话只允许本人操作；不因能预览就能下载。异常：过期会话、断网、分片失败、重复绑定、失权、空间/大小限制分别反馈，重试不重新绑定同一会话。验收：切目录不丢上传进度；恢复后的列表与筛选一致；大列表不会导致生成输入丢失。</p>
+<h3 id="s07-项目元素、编辑与协作详情">S07 项目元素、编辑与协作详情</h3>
+<p>布局：项目元素表格/网格，属性筛选；编辑采用截图左媒体主图/缩略图、右字段表单、固定取消/保存。详情右侧信息/评论页签、媒体标注、工作状态；长评论和表单各自滚动。</p>
+<p>字段：name、alias、category、description、attrs、media、workStatus 及契约允许的版本标签。主图和参考图区分；草稿可无主图，但成为生成引用前须满足能力和元素规则。版本标签只是展示，不替代不可变 revision。属性类型首期文本/单选；别名冲突定位到 alias。</p>
+<p>流程：编辑副本→校验→携 revision 保存；选择主图/移除引用需明确按钮；复制时选择目标项目并核验源可读与目标可写。导入按固定模板预检→展示逐项结果→确认入库，D10 未冻结的细节保持关闭。评论提交独立于元素保存，标注绑定当前文件；提交成功再清空输入。</p>
+<p>权限：自己编辑/删除、项目治理及评论能力按 P0-6，不能默认所有成员都能写；他人草稿不因 owner 角色开放。异常：图片失效、引用被删、版本冲突、导入部分失败、评论发送失败分别保留可恢复输入。验收：关闭未保存弹窗有确认；修改 UI 表单不直接修改 props；切主图后历史任务仍引用旧快照。</p>
+<h3 id="s08-共用创作面板">S08 共用创作面板</h3>
+<p>布局：Image/Video 模式入口、提示词区、引用缩略图、模型/比例/分辨率/时长等能力参数、费用预估与主按钮；多模态对话使用 S11。按钮文案明确“生成”；只有 estimateVisibility=visible 时展示币种金额/估算状态，hidden 时不展示金额或价格版本，仍可按服务端 valid/canSubmit 决定提交，不显示无来源积分。</p>
+<p>字段：按可用模型能力 schema 动态呈现；不支持的参数隐藏或显示不可用原因。更换模型前比较不兼容引用/参数并确认，保留用户可恢复输入。前端不提交密钥、采购路由选择、结算金额或执行用户。草稿明确保存归属，不声称截图证明自动保存；首期提供显式保存，自动保存时机待评审。</p>
+<p>流程：校验→按费用权限展示预估或可提交状态→确认提交→禁用同一意图重复点击→收到任务→订阅/查询。预估不冻结预算；提交时服务端重新校验并原子预占。估算无可靠上界、无有效价格、预算不足等按 P0-5 门槛阻断，不以“费用为零”绕过。请求结果未知时保持同一幂等键及相同请求恢复，不换键盲目重发。</p>
+<p>权限：项目写入/生成、引用对象、模型可用性同时满足。异常：参数错误就地反馈；预算不足显示授权范围内的信息；上游不确定受理显示处理中/待核实，不能承诺取消即免费。验收：双击和网络重试只产生同一意图；切主题不重置输入或重新提交。</p>
+<h3 id="s09-任务与输出详情">S09 任务与输出详情</h3>
+<p>布局：大媒体/播放器、输出缩略条、右侧输入快照/参数/事件/费用页签；评论仅对已有协作对象开放，不能临时制造任务评论 API。展示任务技术状态、归档状态与素材工作状态，三者不得合并。</p>
+<p>字段：只读请求快照、模型版本、规格、结果、用量及价格版本；金额同时显示状态和币种。费用无权限隐藏；用量未知显示“待确认”，不是 0。预估、平台计价、采购成本和账单不得混为一个数字。</p>
+<p>流程：事件驱动更新；断线重连按序列去重/补放，不可补放时查询快照。取消是请求，不即刻断言取消成功；归档失败使用归档补偿，不重新生成收费；另一次生成必须是明确新意图。结果入素材库沿输出绑定契约。</p>
+<p>权限：原始输入、下载、费用、归档、取消分别判断；撤权立即停止订阅并清除展示。异常：媒体链接过期重新获取受控地址；供应商成功但归档失败保留“生成成功/待归档”解释；旧状态事件不能回退终态。验收：刷新页面能恢复最新状态，浏览器关闭不等于取消任务。</p>
+<h3 id="s10-项目设置">S10 项目设置</h3>
+<p>布局：参考 General/Members/Roles/Usage/Requests 页签；中文为基本信息、成员、权限说明、用量、申请。申请入口只有发现/申请契约及决策满足才开放；不可发现项目不展示诱导入口。</p>
+<p>字段：基本信息、成员角色、治理原因；用量筛选日期/模型/成员。成员选择不能直接给普通用户开放全量系统用户接口；缺少项目范围候选接口时列为接口缺口，不复制系统用户读取权限。角色只选择已批准角色包，权限矩阵默认只读。</p>
+<p>流程：编辑基本信息→revision 保存；邀请/变更/移除成员→展示影响→确认；最后一个 owner 不能退出或降级；归档前明确只读影响。用量页区分平台费用、采购费用和预算预占，统计表/卡片按同一筛选口径；没有导出契约时不显示可用导出。</p>
+<p>权限：成员管理、项目费用、下载等不由 owner 身份自动推导；权限以 P0-6 分层求交。异常：并发成员变更、最后 owner、统计无权限、未知用量与零用量分别显示。验收：撤权后相关用户既不能从菜单进入，也不能通过旧详情/事件链接访问。</p>
+<h3 id="s11-项目文本会话">S11 项目文本会话</h3>
+<p>布局为设计约定，无本轮确认的专用截图：左会话列表、中央消息区、底部提示词及多模态附件，沿用全站卡片与参数样式。字段：会话标题、消息文本、已授权附件、模型参数；使用已验证 Gemini 底层能力，不把文本会话当图片/视频任务接口。</p>
+<p>流程：选择会话→发送→等待当前轮结束→继续；服务端同一会话串行，前端禁用并发发送但保留新输入。仅当上游流式验证通过才开放增量显示；非流式用等待状态，不模拟逐字返回。发出消息的快照固定，后续编辑不能改变历史。</p>
+<p>权限：本人会话继续写；owner 治理标题/归档不意味着可读他人正文；共享阅读按 P0-6 待决策策略。异常：断网、未知受理和余额门槛沿 S08，不能自动再发一轮收费；未完成轮次显示可恢复状态。验收：跨会话切换不会把 A 的回复写入 B；费用显示遵守权限和未知口径。</p>
+<h3 id="s12-公共媒体">S12 公共媒体</h3>
+<p>布局为架构补充设计：授权目录、类型筛选、媒体卡片、详情、来源及可执行操作。字段：发布描述、授权范围、引用目标项目等仅使用 P0-4 DTO；“公共”不等于匿名互联网可读。</p>
+<p>流程：有发布权者选择固定来源版本→发布确认；使用者选择目标项目→校验 use 权及目标写入权→创建引用/副本；撤销授权后刷新可用动作。权限：canRead、use、publish 分离；下载仍独立。异常：来源不可用、目标失权、授权撤销显示明确原因，禁止沿用缓存链接继续操作。验收：历史任务快照不因源条目编辑被悄悄替换，未来访问仍按授权校验。</p>
+<h2 id="section-6">6 管理平台页面规格</h2>
+<h3 id="m01-组织与项目治理">M01 组织与项目治理</h3>
+<p>布局：原生若依用户/部门/角色/菜单/字典页保持框架操作习惯；项目治理新增列表、筛选、治理详情。字段：原生系统字段沿原生 DTO，不包装成业务新契约；项目治理只暴露允许的状态、负责人及原因字段。</p>
+<p>流程：先配置功能权限，再配置项目成员及对象权限；菜单、按钮、管理数据范围不能替代项目权限。变更后触发权限缓存失效，刷新当前会话可见动作。权限：平台管理员不能通过 <code>*:*:*</code> 自动读取所有项目内容；无项目内容权限时治理页只展示获准元数据。异常：角色使用中、最后 owner、数据范围不足分别反馈。验收：隐藏按钮与服务端拒绝保持一致，旧 token/缓存不会持续绕过撤权。</p>
+<h3 id="m02-供应商连接、凭据与项目路由">M02 供应商连接、凭据与项目路由</h3>
+<p>布局：连接列表＋连接详情；凭据使用遮罩、状态和版本列表；项目路由按能力分组编辑，清晰展示生效 revision。字段：供应商地址/配置、凭据名称和 write-only secret、路由模型映射等按 §9；地址与连接参数服务端校验，不能前端直连第三方。</p>
+<p>流程：保存连接/密钥→显式测试→查看测试证据→满足条件后启用；可能收费的测试须展示费用风险、成本归属并由有权用户确认。测试不是保存的附带动作。轮换按新版本测试、切换、旧版本排空/撤销处理，历史任务继续按原凭据版本查询；不得为了当前密钥列表简洁删除历史证据。</p>
+<p>权限：凭据维护、测试、路由变更分开；财务角色不能读取密钥；详情只显示脱敏标识。异常：超时显示未知测试结果，不能自动再测试；路由 revision 冲突保留编辑；旧凭据仍有在途任务时显示影响。验收：任何 HTML、浏览器存储、审计详情、错误原文均不回显 secret。</p>
+<h3 id="m03-模型与能力版本">M03 模型与能力版本</h3>
+<p>布局：模型列表、能力版本、参数 schema、验证记录和发布区。字段：底层模型标识、模型类型、参数约束、支持输入/输出规格及验证记录按 §10.1；schema 错误定位到字段，不允许任意执行脚本。</p>
+<p>流程：建草稿→维护规格→登记/核实供应商验证证据→检查发布条件→发布不可变版本；修改已发布能力必须新版本。登记验证记录不等于本页面已实际调用供应商。权限：编辑与发布按 P0-6 拆分；制作端仅获得已授权且通过门槛的能力。异常：供应商差异未闭环、价格未覆盖、版本冲突阻止相关开放。验收：截图有 4K、价格有 Fast 均不自动变成可选能力。</p>
+<h3 id="m04-价格配置与预算">M04 价格配置与预算</h3>
+<p>布局：价格列表按供应商/模型/用途/币种筛选，编辑页分基本信息、规格规则、来源、生效期、试算与发布；预算为独立列表及周期详情，不与价格混为一张表。</p>
+<p>价格字段：输入/输出/缓存等计价维度、单位与基数、规格条件、精确单价、币种、有效期、来源说明；按模型类型提供规则行，不强迫视频只按“每秒”或对话只按“每次”。SD 官网价作为已记录来源参考，供应商采购报价与平台计价各自保存，不能未经确认等同实际账单。</p>
+<p>流程：手工录入或粘贴至明确字段→校验→试算→草稿保存→发布前完整性/重叠检查→确认生效。未完整草稿可保存但不能发布；发布后新建版本，旧任务锁定旧快照。规则公式只能使用 P0-5 白名单，禁止粘贴任意可执行公式。试算展示计算步骤、单位、舍入及币种转换，不只是最终值。</p>
+<p>预算字段：用途、主体、币种、周期、额度及状态按 DTO；预算启停和当前周期额度调整使用不同动作。界面展示额度、已结算、预占、可用及计算口径；项目和用户同时适用预算不累计为两笔费用。额度调整填写原因，明确前后金额；历史周期不直接覆盖。按 P0-5 设计，降额可低于现有占用，显示超额并阻断后续提交，不能为凑余额释放在途预占；相关预算细节仍须评审。</p>
+<p>权限：价格查看/维护/发布、预算查看/调整分别判断。异常：无价、重叠价、规格缺失、试算无上界、非法额度值、revision 冲突分别定位；未知费用不能显示为免费。验收：用 P0-5 CALC-01～15 逐项比对，页面格式化不改变结算精度。</p>
+<h3 id="m05-用量、账单、对账与审计">M05 用量、账单、对账与审计</h3>
+<p>布局：日期/模型/项目/用户/币种/费用口径筛选，汇总卡、明细表、账单导入、差异详情与调整记录。字段：账单账号/密钥标识映射、账期、行号、原始金额、用量证据、差异类型、调整金额与原因；敏感原文展示前脱敏。</p>
+<p>流程：导入→预检→确认→匹配→核实差异→有权限时独立创建调整；确认账单事实不自动修改平台价格或预算。原始事件只读，调整以新记录呈现；有效金额展示原始＋调整，不把账单、采购、平台费简单相加。重复导入/调整沿契约幂等处理。</p>
+<p>权限：管理数据范围与财务权限共同约束；有费用权限不等于可读提示词、媒体或密钥。异常：不明账号映射、重复账单、缺失用量、币种混杂、部分预检错误各自可定位；导出按已定义授权和脱敏策略，不虚构缺失导出端点。验收：财务列表和详情使用同一范围，同一记录不会因对账确认二次收费。</p>
+<h3 id="m06-异常任务与资产治理">M06 异常任务与资产治理</h3>
+<p>布局：按异常类型/时间/处理状态筛选的队列，详情展示技术事件、受理证据、归档情况及允许动作；公共授权治理单独页签。字段：处理原因、证据、当前 revision，不能手改任务为“成功”替代核实。</p>
+<p>流程：查询状态 requery、归档补偿 retry_archive、证明未受理 confirm_not_accepted、关闭追踪 close_tracking 按 P0-4 的对应状态和权限开放；点击前说明是否涉及供应商交互、是否生成新消费。未知受理不提供盲目再次生成。资产治理按删除/恢复/授权接口操作，不删除账本/审计/历史证据。</p>
+<p>权限：运维处理权不默认获得全部内容，证据按必要范围脱敏。异常：重复处理、状态已变更、证据不足、归档文件不可达分别反馈并刷新最新详情。验收：关闭追踪不等于免单，归档重试不产生新模型调用；治理行为留审计。</p>
+<h2 id="section-7">7 关键交互流程</h2>
+<h3 id="71-生成提交与恢复">7.1 生成提交与恢复</h3>
+<figure class="diagram" aria-label="图 1"><svg id="sync14d0" width="100%" xmlns="http://www.w3.org/2000/svg" class="flowchart" style="max-width: 456px;" viewBox="4 4 456 1872" role="graphics-document document" aria-roledescription="flowchart-v2"><style>#sync14d0{font-family:Microsoft YaHei,sans-serif;font-size:16px;fill:#000000;}@keyframes edge-animation-frame{from{stroke-dashoffset:0;}}@keyframes dash{to{stroke-dashoffset:0;}}#sync14d0 .edge-animation-slow{stroke-dasharray:9,5!important;stroke-dashoffset:900;animation:dash 50s linear infinite;stroke-linecap:round;}#sync14d0 .edge-animation-fast{stroke-dasharray:9,5!important;stroke-dashoffset:900;animation:dash 20s linear infinite;stroke-linecap:round;}#sync14d0 .error-icon{fill:#552222;}#sync14d0 .error-text{fill:#552222;stroke:#552222;}#sync14d0 .edge-thickness-normal{stroke-width:1px;}#sync14d0 .edge-thickness-thick{stroke-width:3.5px;}#sync14d0 .edge-pattern-solid{stroke-dasharray:0;}#sync14d0 .edge-thickness-invisible{stroke-width:0;fill:none;}#sync14d0 .edge-pattern-dashed{stroke-dasharray:3;}#sync14d0 .edge-pattern-dotted{stroke-dasharray:2;}#sync14d0 .marker{fill:#666;stroke:#666;}#sync14d0 .marker.cross{stroke:#666;}#sync14d0 svg{font-family:Microsoft YaHei,sans-serif;font-size:16px;}#sync14d0 p{margin:0;}#sync14d0 .label{font-family:Microsoft YaHei,sans-serif;color:#000000;}#sync14d0 .cluster-label text{fill:#333;}#sync14d0 .cluster-label span{color:#333;}#sync14d0 .cluster-label span p{background-color:transparent;}#sync14d0 .label text,#sync14d0 span{fill:#000000;color:#000000;}#sync14d0 .node rect,#sync14d0 .node circle,#sync14d0 .node ellipse,#sync14d0 .node polygon,#sync14d0 .node path{fill:#eee;stroke:#999;stroke-width:1px;}#sync14d0 .rough-node .label text,#sync14d0 .node .label text,#sync14d0 .image-shape .label,#sync14d0 .icon-shape .label{text-anchor:middle;}#sync14d0 .node .katex path{fill:#000;stroke:#000;stroke-width:1px;}#sync14d0 .rough-node .label,#sync14d0 .node .label,#sync14d0 .image-shape .label,#sync14d0 .icon-shape .label{text-align:center;}#sync14d0 .node.clickable{cursor:pointer;}#sync14d0 .root .anchor path{fill:#666!important;stroke-width:0;stroke:#666;}#sync14d0 .arrowheadPath{fill:#333333;}#sync14d0 .edgePaths .path{stroke:#666;stroke-width:1px;}#sync14d0 .flowchart-link{stroke:#666;fill:none;}#sync14d0 .edgeLabel{background-color:white;text-align:center;}#sync14d0 .edgeLabel p{background-color:white;}#sync14d0 .edgeLabel rect{opacity:0.5;background-color:white;fill:white;}#sync14d0 .labelBkg{background-color:rgba(255, 255, 255, 0.5);}#sync14d0 .cluster rect{fill:hsl(0, 0%, 98.9215686275%);stroke:#707070;stroke-width:1px;}#sync14d0 .cluster text{fill:#333;}#sync14d0 .cluster span{color:#333;}#sync14d0 .node .collapsed-indicator{fill:#707070;stroke:none;opacity:0.6;}#sync14d0 .node .collapsed-separator{stroke:#707070;stroke-width:0.75px;}#sync14d0 div.mermaidTooltip{position:absolute;text-align:center;max-width:200px;padding:2px;font-family:Microsoft YaHei,sans-serif;font-size:12px;background:hsl(-160, 0%, 93.3333333333%);border:1px solid #707070;border-radius:2px;pointer-events:none;z-index:100;}#sync14d0 .flowchartTitleText{text-anchor:middle;font-size:18px;fill:#000000;}#sync14d0 rect.text{fill:none;stroke-width:0;}#sync14d0 .icon-shape,#sync14d0 .image-shape{background-color:white;text-align:center;}#sync14d0 .icon-shape p,#sync14d0 .image-shape p{background-color:white;padding:2px;}#sync14d0 .icon-shape .label rect,#sync14d0 .image-shape .label rect{opacity:0.5;background-color:white;fill:white;}#sync14d0 .label-icon{display:inline-block;height:1em;overflow:visible;vertical-align:-0.125em;}#sync14d0 .node .label-icon path{fill:currentColor;stroke:revert;stroke-width:revert;}#sync14d0 .node .neo-node{stroke:#999;}#sync14d0 [data-look="neo"].node rect,#sync14d0 [data-look="neo"].cluster rect,#sync14d0 [data-look="neo"].node polygon{stroke:url(#sync14d0-gradient);filter:drop-shadow( 1px 2px 2px rgba(185,185,185,1));}#sync14d0 [data-look="neo"].swimlane.cluster rect{filter:none;}#sync14d0 [data-look="neo"].node path{stroke:url(#sync14d0-gradient);stroke-width:1px;}#sync14d0 [data-look="neo"].node .outer-path{filter:drop-shadow( 1px 2px 2px rgba(185,185,185,1));}#sync14d0 [data-look="neo"].node .neo-line path{stroke:#999;filter:none;}#sync14d0 [data-look="neo"].node circle{stroke:url(#sync14d0-gradient);filter:drop-shadow( 1px 2px 2px rgba(185,185,185,1));}#sync14d0 [data-look="neo"].node circle .state-start{fill:#000000;}#sync14d0 [data-look="neo"].icon-shape .icon{fill:url(#sync14d0-gradient);filter:drop-shadow( 1px 2px 2px rgba(185,185,185,1));}#sync14d0 [data-look="neo"].icon-shape .icon-neo path{stroke:url(#sync14d0-gradient);filter:drop-shadow( 1px 2px 2px rgba(185,185,185,1));}#sync14d0 :root{--mermaid-font-family:Microsoft YaHei,sans-serif;}</style><g><marker id="sync14d0_flowchart-v2-pointEnd" class="marker flowchart-v2" viewBox="0 0 10 10" refX="5" refY="5" markerUnits="userSpaceOnUse" markerWidth="8" markerHeight="8" orient="auto"><path d="M 0 0 L 10 5 L 0 10 z" class="arrowMarkerPath" style="stroke-width: 1; stroke-dasharray: 1, 0;"></path></marker><marker id="sync14d0_flowchart-v2-pointStart" class="marker flowchart-v2" viewBox="0 0 10 10" refX="4.5" refY="5" markerUnits="userSpaceOnUse" markerWidth="8" markerHeight="8" orient="auto"><path d="M 0 5 L 10 10 L 10 0 z" class="arrowMarkerPath" style="stroke-width: 1; stroke-dasharray: 1, 0;"></path></marker><marker id="sync14d0_flowchart-v2-pointEnd-margin" class="marker flowchart-v2" viewBox="0 0 11.5 14" refX="11.5" refY="7" markerUnits="userSpaceOnUse" markerWidth="10.5" markerHeight="14" orient="auto"><path d="M 0 0 L 11.5 7 L 0 14 z" class="arrowMarkerPath" style="stroke-width: 0; stroke-dasharray: 1, 0;"></path></marker><marker id="sync14d0_flowchart-v2-pointStart-margin" class="marker flowchart-v2" viewBox="0 0 11.5 14" refX="1" refY="7" markerUnits="userSpaceOnUse" markerWidth="11.5" markerHeight="14" orient="auto"><polygon points="0,7 11.5,14 11.5,0" class="arrowMarkerPath" style="stroke-width: 0; stroke-dasharray: 1, 0;"></polygon></marker><marker id="sync14d0_flowchart-v2-circleEnd" class="marker flowchart-v2" viewBox="0 0 10 10" refX="11" refY="5" markerUnits="userSpaceOnUse" markerWidth="11" markerHeight="11" orient="auto"><circle cx="5" cy="5" r="5" class="arrowMarkerPath" style="stroke-width: 1; stroke-dasharray: 1, 0;"></circle></marker><marker id="sync14d0_flowchart-v2-circleStart" class="marker flowchart-v2" viewBox="0 0 10 10" refX="-1" refY="5" markerUnits="userSpaceOnUse" markerWidth="11" markerHeight="11" orient="auto"><circle cx="5" cy="5" r="5" class="arrowMarkerPath" style="stroke-width: 1; stroke-dasharray: 1, 0;"></circle></marker><marker id="sync14d0_flowchart-v2-circleEnd-margin" class="marker flowchart-v2" viewBox="0 0 10 10" refY="5" refX="12.25" markerUnits="userSpaceOnUse" markerWidth="14" markerHeight="14" orient="auto"><circle cx="5" cy="5" r="5" class="arrowMarkerPath" style="stroke-width: 0; stroke-dasharray: 1, 0;"></circle></marker><marker id="sync14d0_flowchart-v2-circleStart-margin" class="marker flowchart-v2" viewBox="0 0 10 10" refX="-2" refY="5" markerUnits="userSpaceOnUse" markerWidth="14" markerHeight="14" orient="auto"><circle cx="5" cy="5" r="5" class="arrowMarkerPath" style="stroke-width: 0; stroke-dasharray: 1, 0;"></circle></marker><marker id="sync14d0_flowchart-v2-crossEnd" class="marker cross flowchart-v2" viewBox="0 0 11 11" refX="12" refY="5.2" markerUnits="userSpaceOnUse" markerWidth="11" markerHeight="11" orient="auto"><path d="M 1,1 l 9,9 M 10,1 l -9,9" class="arrowMarkerPath" style="stroke-width: 2; stroke-dasharray: 1, 0;"></path></marker><marker id="sync14d0_flowchart-v2-crossStart" class="marker cross flowchart-v2" viewBox="0 0 11 11" refX="-1" refY="5.2" markerUnits="userSpaceOnUse" markerWidth="11" markerHeight="11" orient="auto"><path d="M 1,1 l 9,9 M 10,1 l -9,9" class="arrowMarkerPath" style="stroke-width: 2; stroke-dasharray: 1, 0;"></path></marker><marker id="sync14d0_flowchart-v2-crossEnd-margin" class="marker cross flowchart-v2" viewBox="0 0 15 15" refX="17.7" refY="7.5" markerUnits="userSpaceOnUse" markerWidth="12" markerHeight="12" orient="auto"><path d="M 1,1 L 14,14 M 1,14 L 14,1" class="arrowMarkerPath" style="stroke-width: 2.5;"></path></marker><marker id="sync14d0_flowchart-v2-crossStart-margin" class="marker cross flowchart-v2" viewBox="0 0 15 15" refX="-3.5" refY="7.5" markerUnits="userSpaceOnUse" markerWidth="12" markerHeight="12" orient="auto"><path d="M 1,1 L 14,14 M 1,14 L 14,1" class="arrowMarkerPath" style="stroke-width: 2.5; stroke-dasharray: 1, 0;"></path></marker><g class="root"><g class="clusters"></g><g class="edges edgePaths"><path d="M158.16666666666669,84L158.16666666666669,120" id="sync14d0-L_A_B_0" class="edge-thickness-normal edge-pattern-solid edge-thickness-normal edge-pattern-solid flowchart-link" style="stroke-dasharray: 0 0 32 4; stroke-dashoffset: 0;;" data-edge="true" data-et="edge" data-id="L_A_B_0" data-points="W3sieCI6MTU4LjE2NjY2NjY2NjY2NjY5LCJ5Ijo4NH0seyJ4IjoxNTguMTY2NjY2NjY2NjY2NjksInkiOjEyNH1d" data-look="neo" marker-end="url(#sync14d0_flowchart-v2-pointEnd-margin)"></path><path d="M132.5,272.3332509994507L132.5,298L132.5,310.9289321881345Q132.5,318 125.42893218813452,318L73.07106781186548,318Q66,318 66,325.0710678118655L66,350L66,589L66,740L66,788" id="sync14d0-L_B_C_0" class="edge-thickness-normal edge-pattern-solid edge-thickness-normal edge-pattern-solid flowchart-link" style="stroke-dasharray: 0 0 572.8384399414062 4; stroke-dashoffset: 0;;" data-edge="true" data-et="edge" data-id="L_B_C_0" data-points="W3sieCI6MTMyLjUsInkiOjI3Mi4zMzMyNTA5OTk0NTA3fSx7IngiOjEzMi41LCJ5IjoyOTh9LHsieCI6MTMyLjUsInkiOjMxOH0seyJ4Ijo2NiwieSI6MzE4fSx7IngiOjY2LCJ5IjozNTB9LHsieCI6NjYsInkiOjU4OX0seyJ4Ijo2NiwieSI6NzQwfSx7IngiOjY2LCJ5Ijo3OTJ9XQ==" data-look="neo" marker-end="url(#sync14d0_flowchart-v2-pointEnd-margin)"></path><path d="M183.83333333333331,272.3332509994507L183.83333333333331,298L183.83333333333331,310.9289321881345Q183.83333333333331,318 190.9044011451988,318L213.09559885480118,318Q220.16666666666666,318 220.16666666666666,325.0710678118655L220.16666666666666,398" id="sync14d0-L_B_D_0" class="edge-thickness-normal edge-pattern-solid edge-thickness-normal edge-pattern-solid flowchart-link" style="stroke-dasharray: 0 0 152.67181396484375 4; stroke-dashoffset: 0;;" data-edge="true" data-et="edge" data-id="L_B_D_0" data-points="W3sieCI6MTgzLjgzMzMzMzMzMzMzMzMxLCJ5IjoyNzIuMzMzMjUwOTk5NDUwN30seyJ4IjoxODMuODMzMzMzMzMzMzMzMzEsInkiOjI5OH0seyJ4IjoxODMuODMzMzMzMzMzMzMzMzEsInkiOjMxOH0seyJ4IjoyMjAuMTY2NjY2NjY2NjY2NjYsInkiOjMxOH0seyJ4IjoyMjAuMTY2NjY2NjY2NjY2NjYsInkiOjQwMn1d" data-look="neo" marker-end="url(#sync14d0_flowchart-v2-pointEnd-margin)"></path><path d="M220.16666666666666,450L220.16666666666666,486" id="sync14d0-L_D_E_0" class="edge-thickness-normal edge-pattern-solid edge-thickness-normal edge-pattern-solid flowchart-link" style="stroke-dasharray: 0 0 32 4; stroke-dashoffset: 0;;" data-edge="true" data-et="edge" data-id="L_D_E_0" data-points="W3sieCI6MjIwLjE2NjY2NjY2NjY2NjY2LCJ5Ijo0NTB9LHsieCI6MjIwLjE2NjY2NjY2NjY2NjY2LCJ5Ijo0OTB9XQ==" data-look="neo" marker-end="url(#sync14d0_flowchart-v2-pointEnd-margin)"></path><path d="M190.5,658.333309173584L190.5,688L190.5,700.9289321881345Q190.5,708 183.42893218813452,708L142.23773447853216,708Q135.16666666666669,708 135.16666666666669,715.0710678118655L135.16666666666669,764.9289321881345Q135.16666666666669,772 128.0955988548012,772L117.07106781186548,772Q110,772 110,779.0710678118655L110,788" id="sync14d0-L_E_C_0" class="edge-thickness-normal edge-pattern-solid edge-thickness-normal edge-pattern-solid flowchart-link" style="stroke-dasharray: 0 0 195.51014709472656 4; stroke-dashoffset: 0;;" data-edge="true" data-et="edge" data-id="L_E_C_0" data-points="W3sieCI6MTkwLjUsInkiOjY1OC4zMzMzMDkxNzM1ODR9LHsieCI6MTkwLjUsInkiOjY4OH0seyJ4IjoxOTAuNSwieSI6NzA4fSx7IngiOjEzNS4xNjY2NjY2NjY2NjY2OSwieSI6NzA4fSx7IngiOjEzNS4xNjY2NjY2NjY2NjY2OSwieSI6NzcyfSx7IngiOjExMCwieSI6NzcyfSx7IngiOjExMCwieSI6NzkyfV0=" data-look="neo" marker-end="url(#sync14d0_flowchart-v2-pointEnd-margin)"></path><path d="M249.83333333333334,658.333309173584L249.83333333333334,688L249.83333333333334,700.9289321881345Q249.83333333333334,708 256.9044011451988,708L272.9289321881345,708Q280,708 280,715.0710678118655L280,788" id="sync14d0-L_E_F_0" class="edge-thickness-normal edge-pattern-solid edge-thickness-normal edge-pattern-solid flowchart-link" style="stroke-dasharray: 0 0 150.50506591796875 4; stroke-dashoffset: 0;;" data-edge="true" data-et="edge" data-id="L_E_F_0" data-points="W3sieCI6MjQ5LjgzMzMzMzMzMzMzMzM0LCJ5Ijo2NTguMzMzMzA5MTczNTg0fSx7IngiOjI0OS44MzMzMzMzMzMzMzMzNCwieSI6Njg4fSx7IngiOjI0OS44MzMzMzMzMzMzMzMzNCwieSI6NzA4fSx7IngiOjI4MCwieSI6NzA4fSx7IngiOjI4MCwieSI6NzkyfV0=" data-look="neo" marker-end="url(#sync14d0_flowchart-v2-pointEnd-margin)"></path><path d="M280,864L280,900" id="sync14d0-L_F_G_0" class="edge-thickness-normal edge-pattern-solid edge-thickness-normal edge-pattern-solid flowchart-link" style="stroke-dasharray: 0 0 32 4; stroke-dashoffset: 0;;" data-edge="true" data-et="edge" data-id="L_F_G_0" data-points="W3sieCI6MjgwLCJ5Ijo4NjR9LHsieCI6MjgwLCJ5Ijo5MDR9XQ==" data-look="neo" marker-end="url(#sync14d0_flowchart-v2-pointEnd-margin)"></path><path d="M280,976L280,1012" id="sync14d0-L_G_H_0" class="edge-thickness-normal edge-pattern-solid edge-thickness-normal edge-pattern-solid flowchart-link" style="stroke-dasharray: 0 0 32 4; stroke-dashoffset: 0;;" data-edge="true" data-et="edge" data-id="L_G_H_0" data-points="W3sieCI6MjgwLCJ5Ijo5NzZ9LHsieCI6MjgwLCJ5IjoxMDE2fV0=" data-look="neo" marker-end="url(#sync14d0_flowchart-v2-pointEnd-margin)"></path><path d="M254.33333333333331,1164.3332509994507L254.33333333333331,1190L254.33333333333331,1202.9289321881345Q254.33333333333331,1210 247.26226552146784,1210L238.57106781186548,1210Q231.5,1210 231.5,1217.0710678118655L231.5,1330L231.5,1378.9289321881345Q231.5,1386 238.57106781186548,1386L250.92893218813452,1386Q258,1386 258,1393.0710678118655L258,1402" id="sync14d0-L_H_I_0" class="edge-thickness-normal edge-pattern-solid edge-thickness-normal edge-pattern-solid flowchart-link" style="stroke-dasharray: 0 0 272.3434753417969 4; stroke-dashoffset: 0;;" data-edge="true" data-et="edge" data-id="L_H_I_0" data-points="W3sieCI6MjU0LjMzMzMzMzMzMzMzMzMxLCJ5IjoxMTY0LjMzMzI1MDk5OTQ1MDd9LHsieCI6MjU0LjMzMzMzMzMzMzMzMzMxLCJ5IjoxMTkwfSx7IngiOjI1NC4zMzMzMzMzMzMzMzMzMSwieSI6MTIxMH0seyJ4IjoyMzEuNSwieSI6MTIxMH0seyJ4IjoyMzEuNSwieSI6MTMzMH0seyJ4IjoyMzEuNSwieSI6MTM4Nn0seyJ4IjoyNTgsInkiOjEzODZ9LHsieCI6MjU4LCJ5IjoxNDA2fV0=" data-look="neo" marker-end="url(#sync14d0_flowchart-v2-pointEnd-margin)"></path><path d="M305.66666666666663,1164.3332509994507L305.66666666666663,1190L305.66666666666663,1202.9289321881345Q305.66666666666663,1210 312.7377344785321,1210L321.4289321881345,1210Q328.5,1210 328.5,1217.0710678118655L328.5,1290" id="sync14d0-L_H_J_0" class="edge-thickness-normal edge-pattern-solid edge-thickness-normal edge-pattern-solid flowchart-link" style="stroke-dasharray: 0 0 139.1717529296875 4; stroke-dashoffset: 0;;" data-edge="true" data-et="edge" data-id="L_H_J_0" data-points="W3sieCI6MzA1LjY2NjY2NjY2NjY2NjYzLCJ5IjoxMTY0LjMzMzI1MDk5OTQ1MDd9LHsieCI6MzA1LjY2NjY2NjY2NjY2NjYzLCJ5IjoxMTkwfSx7IngiOjMwNS42NjY2NjY2NjY2NjY2MywieSI6MTIxMH0seyJ4IjozMjguNSwieSI6MTIxMH0seyJ4IjozMjguNSwieSI6MTI5NH1d" data-look="neo" marker-end="url(#sync14d0_flowchart-v2-pointEnd-margin)"></path><path d="M328.5,1366L328.5,1378.9289321881345Q328.5,1386 321.4289321881345,1386L309.0710678118655,1386Q302,1386 302,1393.0710678118655L302,1402" id="sync14d0-L_J_I_0" class="edge-thickness-normal edge-pattern-solid edge-thickness-normal edge-pattern-solid flowchart-link" style="stroke-dasharray: 0 0 53.17170715332031 4; stroke-dashoffset: 0;;" data-edge="true" data-et="edge" data-id="L_J_I_0" data-points="W3sieCI6MzI4LjUsInkiOjEzNjZ9LHsieCI6MzI4LjUsInkiOjEzODZ9LHsieCI6MzAyLCJ5IjoxMzg2fSx7IngiOjMwMiwieSI6MTQwNn1d" data-look="neo" marker-end="url(#sync14d0_flowchart-v2-pointEnd-margin)"></path><path d="M280,1478L280,1514" id="sync14d0-L_I_K_0" class="edge-thickness-normal edge-pattern-solid edge-thickness-normal edge-pattern-solid flowchart-link" style="stroke-dasharray: 0 0 32 4; stroke-dashoffset: 0;;" data-edge="true" data-et="edge" data-id="L_I_K_0" data-points="W3sieCI6MjgwLCJ5IjoxNDc4fSx7IngiOjI4MCwieSI6MTUxOH1d" data-look="neo" marker-end="url(#sync14d0_flowchart-v2-pointEnd-margin)"></path><path d="M254.33333333333331,1666.3332509994507L254.33333333333331,1692L254.33333333333331,1704.9289321881345Q254.33333333333331,1712 247.26226552146784,1712L191.07106781186548,1712Q184,1712 184,1719.0710678118655L184,1792" id="sync14d0-L_K_L_0" class="edge-thickness-normal edge-pattern-solid edge-thickness-normal edge-pattern-solid flowchart-link" style="stroke-dasharray: 0 0 186.67185974121094 4; stroke-dashoffset: 0;;" data-edge="true" data-et="edge" data-id="L_K_L_0" data-points="W3sieCI6MjU0LjMzMzMzMzMzMzMzMzMxLCJ5IjoxNjY2LjMzMzI1MDk5OTQ1MDd9LHsieCI6MjU0LjMzMzMzMzMzMzMzMzMxLCJ5IjoxNjkyfSx7IngiOjI1NC4zMzMzMzMzMzMzMzMzMSwieSI6MTcxMn0seyJ4IjoxODQsInkiOjE3MTJ9LHsieCI6MTg0LCJ5IjoxNzk2fV0=" data-look="neo" marker-end="url(#sync14d0_flowchart-v2-pointEnd-margin)"></path><path d="M305.66666666666663,1666.3332509994507L305.66666666666663,1692L305.66666666666663,1704.9289321881345Q305.66666666666663,1712 312.7377344785321,1712L368.9289321881345,1712Q376,1712 376,1719.0710678118655L376,1792" id="sync14d0-L_K_M_0" class="edge-thickness-normal edge-pattern-solid edge-thickness-normal edge-pattern-solid flowchart-link" style="stroke-dasharray: 0 0 186.67184448242188 4; stroke-dashoffset: 0;;" data-edge="true" data-et="edge" data-id="L_K_M_0" data-points="W3sieCI6MzA1LjY2NjY2NjY2NjY2NjYzLCJ5IjoxNjY2LjMzMzI1MDk5OTQ1MDd9LHsieCI6MzA1LjY2NjY2NjY2NjY2NjYzLCJ5IjoxNjkyfSx7IngiOjMwNS42NjY2NjY2NjY2NjY2MywieSI6MTcxMn0seyJ4IjozNzYsInkiOjE3MTJ9LHsieCI6Mzc2LCJ5IjoxNzk2fV0=" data-look="neo" marker-end="url(#sync14d0_flowchart-v2-pointEnd-margin)"></path></g><g class="edgeLabels"><g class="edgeLabel" transform="translate(66, 426)"><g class="label" data-id="L_B_C_0" transform="translate(-8, -12)"><foreignObject width="16" height="24"><div xmlns="http://www.w3.org/1999/xhtml" class="labelBkg" style="display: table-cell; white-space: nowrap; line-height: 1.5; max-width: 200px; text-align: center;"><span class="edgeLabel"><p>否</p></span></div></foreignObject></g></g><g class="edgeLabel" transform="translate(220.16666666666666, 350)"><g class="label" data-id="L_B_D_0" transform="translate(-8, -12)"><foreignObject width="16" height="24"><div xmlns="http://www.w3.org/1999/xhtml" class="labelBkg" style="display: table-cell; white-space: nowrap; line-height: 1.5; max-width: 200px; text-align: center;"><span class="edgeLabel"><p>是</p></span></div></foreignObject></g></g><g class="edgeLabel" transform="translate(135.16666666666669, 740)"><g class="label" data-id="L_E_C_0" transform="translate(-8, -12)"><foreignObject width="16" height="24"><div xmlns="http://www.w3.org/1999/xhtml" class="labelBkg" style="display: table-cell; white-space: nowrap; line-height: 1.5; max-width: 200px; text-align: center;"><span class="edgeLabel"><p>否</p></span></div></foreignObject></g></g><g class="edgeLabel" transform="translate(280, 740)"><g class="label" data-id="L_E_F_0" transform="translate(-8, -12)"><foreignObject width="16" height="24"><div xmlns="http://www.w3.org/1999/xhtml" class="labelBkg" style="display: table-cell; white-space: nowrap; line-height: 1.5; max-width: 200px; text-align: center;"><span class="edgeLabel"><p>是</p></span></div></foreignObject></g></g><g class="edgeLabel" transform="translate(231.5, 1242)"><g class="label" data-id="L_H_I_0" transform="translate(-8, -12)"><foreignObject width="16" height="24"><div xmlns="http://www.w3.org/1999/xhtml" class="labelBkg" style="display: table-cell; white-space: nowrap; line-height: 1.5; max-width: 200px; text-align: center;"><span class="edgeLabel"><p>是</p></span></div></foreignObject></g></g><g class="edgeLabel" transform="translate(328.5, 1242)"><g class="label" data-id="L_H_J_0" transform="translate(-8, -12)"><foreignObject width="16" height="24"><div xmlns="http://www.w3.org/1999/xhtml" class="labelBkg" style="display: table-cell; white-space: nowrap; line-height: 1.5; max-width: 200px; text-align: center;"><span class="edgeLabel"><p>否</p></span></div></foreignObject></g></g><g class="edgeLabel" transform="translate(184, 1744)"><g class="label" data-id="L_K_L_0" transform="translate(-16, -12)"><foreignObject width="32" height="24"><div xmlns="http://www.w3.org/1999/xhtml" class="labelBkg" style="display: table-cell; white-space: nowrap; line-height: 1.5; max-width: 200px; text-align: center;"><span class="edgeLabel"><p>失败</p></span></div></foreignObject></g></g><g class="edgeLabel" transform="translate(376, 1744)"><g class="label" data-id="L_K_M_0" transform="translate(-16, -12)"><foreignObject width="32" height="24"><div xmlns="http://www.w3.org/1999/xhtml" class="labelBkg" style="display: table-cell; white-space: nowrap; line-height: 1.5; max-width: 200px; text-align: center;"><span class="edgeLabel"><p>完成</p></span></div></foreignObject></g></g></g><g class="nodes"><g class="node default" id="sync14d0-flowchart-A-0" data-look="neo" transform="translate(158.16666666666669, 48)"><rect class="basic label-container" style="" x="-76" y="-36" width="152" height="72"></rect><g class="label" style="" transform="translate(-60, -24)"><rect></rect><foreignObject width="120" height="48"><div xmlns="http://www.w3.org/1999/xhtml" style="display: table; white-space: break-spaces; line-height: 1.5; max-width: 120px; text-align: center; width: 120px;"><span class="nodeLabel"><p>编辑项目与能力参数</p></span></div></foreignObject></g></g><g class="node default" id="sync14d0-flowchart-B-1" data-look="neo" transform="translate(158.16666666666669, 211)"><polygon points="87,0 174,-87 87,-174 0,-87" class="label-container" transform="translate(-86.5, 87)"></polygon><g class="label" style="" transform="translate(-60, -12)"><rect></rect><foreignObject width="120" height="24"><div xmlns="http://www.w3.org/1999/xhtml" style="display: table; white-space: nowrap; line-height: 1.5; max-width: 120px; text-align: center; width: 120px;"><span class="nodeLabel"><p>权限和字段有效</p></span></div></foreignObject></g></g><g class="node default" id="sync14d0-flowchart-C-3" data-look="neo" transform="translate(88, 828)"><rect class="basic label-container" style="" x="-76" y="-36" width="152" height="72"></rect><g class="label" style="" transform="translate(-60, -24)"><rect></rect><foreignObject width="120" height="48"><div xmlns="http://www.w3.org/1999/xhtml" style="display: table; white-space: break-spaces; line-height: 1.5; max-width: 120px; text-align: center; width: 120px;"><span class="nodeLabel"><p>保留输入并定位原因</p></span></div></foreignObject></g></g><g class="node default" id="sync14d0-flowchart-D-5" data-look="neo" transform="translate(220.16666666666666, 426)"><rect class="basic label-container" style="" x="-76" y="-24" width="152" height="48"></rect><g class="label" style="" transform="translate(-60, -12)"><rect></rect><foreignObject width="120" height="24"><div xmlns="http://www.w3.org/1999/xhtml" style="display: table; white-space: nowrap; line-height: 1.5; max-width: 120px; text-align: center; width: 120px;"><span class="nodeLabel"><p>试算和费用预览</p></span></div></foreignObject></g></g><g class="node default" id="sync14d0-flowchart-E-7" data-look="neo" transform="translate(220.16666666666666, 589)"><polygon points="99,0 198,-99 99,-198 0,-99" class="label-container" transform="translate(-98.5, 99)"></polygon><g class="label" style="" transform="translate(-60, -24)"><rect></rect><foreignObject width="120" height="48"><div xmlns="http://www.w3.org/1999/xhtml" style="display: table; white-space: break-spaces; line-height: 1.5; max-width: 120px; text-align: center; width: 120px;"><span class="nodeLabel"><p>满足价格与预算开放门槛</p></span></div></foreignObject></g></g><g class="node default" id="sync14d0-flowchart-F-11" data-look="neo" transform="translate(280, 828)"><rect class="basic label-container" style="" x="-76" y="-36" width="152" height="72"></rect><g class="label" style="" transform="translate(-60, -24)"><rect></rect><foreignObject width="120" height="48"><div xmlns="http://www.w3.org/1999/xhtml" style="display: table; white-space: break-spaces; line-height: 1.5; max-width: 120px; text-align: center; width: 120px;"><span class="nodeLabel"><p>确认同一提交意图</p></span></div></foreignObject></g></g><g class="node default" id="sync14d0-flowchart-G-13" data-look="neo" transform="translate(280, 940)"><rect class="basic label-container" style="" x="-76" y="-36" width="152" height="72"></rect><g class="label" style="" transform="translate(-60, -24)"><rect></rect><foreignObject width="120" height="48"><div xmlns="http://www.w3.org/1999/xhtml" style="display: table; white-space: break-spaces; line-height: 1.5; max-width: 120px; text-align: center; width: 120px;"><span class="nodeLabel"><p>携幂等键提交 服务端预占</p></span></div></foreignObject></g></g><g class="node default" id="sync14d0-flowchart-H-15" data-look="neo" transform="translate(280, 1103)"><polygon points="87,0 174,-87 87,-174 0,-87" class="label-container" transform="translate(-86.5, 87)"></polygon><g class="label" style="" transform="translate(-60, -12)"><rect></rect><foreignObject width="120" height="24"><div xmlns="http://www.w3.org/1999/xhtml" style="display: table; white-space: nowrap; line-height: 1.5; max-width: 120px; text-align: center; width: 120px;"><span class="nodeLabel"><p>受理响应明确</p></span></div></foreignObject></g></g><g class="node default" id="sync14d0-flowchart-I-17" data-look="neo" transform="translate(280, 1442)"><rect class="basic label-container" style="" x="-76" y="-36" width="152" height="72"></rect><g class="label" style="" transform="translate(-60, -24)"><rect></rect><foreignObject width="120" height="48"><div xmlns="http://www.w3.org/1999/xhtml" style="display: table; white-space: break-spaces; line-height: 1.5; max-width: 120px; text-align: center; width: 120px;"><span class="nodeLabel"><p>任务快照和事件订阅</p></span></div></foreignObject></g></g><g class="node default" id="sync14d0-flowchart-J-19" data-look="neo" transform="translate(328.5, 1330)"><rect class="basic label-container" style="" x="-76" y="-36" width="152" height="72"></rect><g class="label" style="" transform="translate(-60, -24)"><rect></rect><foreignObject width="120" height="48"><div xmlns="http://www.w3.org/1999/xhtml" style="display: table; white-space: break-spaces; line-height: 1.5; max-width: 120px; text-align: center; width: 120px;"><span class="nodeLabel"><p>保留原请求及幂等键恢复</p></span></div></foreignObject></g></g><g class="node default" id="sync14d0-flowchart-K-23" data-look="neo" transform="translate(280, 1605)"><polygon points="87,0 174,-87 87,-174 0,-87" class="label-container" transform="translate(-86.5, 87)"></polygon><g class="label" style="" transform="translate(-60, -12)"><rect></rect><foreignObject width="120" height="24"><div xmlns="http://www.w3.org/1999/xhtml" style="display: table; white-space: nowrap; line-height: 1.5; max-width: 120px; text-align: center; width: 120px;"><span class="nodeLabel"><p>归档状态</p></span></div></foreignObject></g></g><g class="node default" id="sync14d0-flowchart-L-25" data-look="neo" transform="translate(184, 1820)"><rect class="basic label-container" style="" x="-76" y="-24" width="152" height="48"></rect><g class="label" style="" transform="translate(-60, -12)"><rect></rect><foreignObject width="120" height="24"><div xmlns="http://www.w3.org/1999/xhtml" style="display: table; white-space: nowrap; line-height: 1.5; max-width: 120px; text-align: center; width: 120px;"><span class="nodeLabel"><p>只重试归档</p></span></div></foreignObject></g></g><g class="node default" id="sync14d0-flowchart-M-27" data-look="neo" transform="translate(376, 1832)"><rect class="basic label-container" style="" x="-76" y="-36" width="152" height="72"></rect><g class="label" style="" transform="translate(-60, -24)"><rect></rect><foreignObject width="120" height="48"><div xmlns="http://www.w3.org/1999/xhtml" style="display: table; white-space: break-spaces; line-height: 1.5; max-width: 120px; text-align: center; width: 120px;"><span class="nodeLabel"><p>展示输出及结算状态</p></span></div></foreignObject></g></g></g></g></g><defs><filter id="sync14d0-drop-shadow" height="130%" width="130%"><feDropShadow dx="4" dy="4" stdDeviation="0" flood-opacity="0.06" flood-color="#000000"></feDropShadow></filter></defs><defs><filter id="sync14d0-drop-shadow-small" height="150%" width="150%"><feDropShadow dx="2" dy="2" stdDeviation="0" flood-opacity="0.06" flood-color="#000000"></feDropShadow></filter></defs><linearGradient id="sync14d0-gradient" gradientUnits="objectBoundingBox" x1="0%" y1="0%" x2="100%" y2="0%"><stop offset="0%" stop-color="hsl(0, 0%, 83.3333333333%)" stop-opacity="1"></stop><stop offset="100%" stop-color="hsl(0, 0%, 88.9215686275%)" stop-opacity="1"></stop></linearGradient></svg></figure>
+
+<h3 id="72-事件与撤权">7.2 事件与撤权</h3>
+<figure class="diagram" aria-label="图 2"><svg id="sync14d1" width="100%" xmlns="http://www.w3.org/2000/svg" style="max-width: 664px;" viewBox="-58 -10 664 846" role="graphics-document document" aria-roledescription="sequence"><g><rect x="406" y="718" fill="#eaeaea" stroke="#666" width="150" height="77" name="S" rx="6" ry="6" class="actor actor-bottom" data-look="neo" filter="url(#sync14d1-drop-shadow)"></rect><text x="481" y="756.5" dominant-baseline="central" alignment-baseline="central" class="actor actor-box" style="text-anchor: middle; font-size: 16px; font-weight: 400; font-family: &quot;Microsoft YaHei&quot;, sans-serif;"><tspan x="481" dy="0">事件流</tspan></text></g><g><rect x="206" y="718" fill="#eaeaea" stroke="#666" width="150" height="77" name="A" rx="6" ry="6" class="actor actor-bottom" data-look="neo" filter="url(#sync14d1-drop-shadow)"></rect><text x="281" y="756.5" dominant-baseline="central" alignment-baseline="central" class="actor actor-box" style="text-anchor: middle; font-size: 16px; font-weight: 400; font-family: &quot;Microsoft YaHei&quot;, sans-serif;"><tspan x="281" dy="0">平台 API</tspan></text></g><g><rect x="0" y="718" fill="#eaeaea" stroke="#666" width="150" height="77" name="U" rx="6" ry="6" class="actor actor-bottom" data-look="neo" filter="url(#sync14d1-drop-shadow)"></rect><text x="75" y="756.5" dominant-baseline="central" alignment-baseline="central" class="actor actor-box" style="text-anchor: middle; font-size: 16px; font-weight: 400; font-family: &quot;Microsoft YaHei&quot;, sans-serif;"><tspan x="75" dy="0">页面</tspan></text></g><g><line id="actor71" x1="481" y1="77" x2="481" y2="718" class="actor-line 200" stroke-width="0.5px" stroke="#999" name="S" data-et="life-line" data-id="S"></line><g id="root-71" data-look="neo" data-et="participant" data-type="participant" data-id="S"><rect x="406" y="0" fill="#eaeaea" stroke="#666" width="150" height="77" name="S" rx="6" ry="6" class="actor actor-top" data-look="neo" filter="url(#sync14d1-drop-shadow)"></rect><text x="481" y="38.5" dominant-baseline="central" alignment-baseline="central" class="actor actor-box" style="text-anchor: middle; font-size: 16px; font-weight: 400; font-family: &quot;Microsoft YaHei&quot;, sans-serif;"><tspan x="481" dy="0">事件流</tspan></text></g></g><g><line id="actor70" x1="281" y1="77" x2="281" y2="718" class="actor-line 200" stroke-width="0.5px" stroke="#999" name="A" data-et="life-line" data-id="A"></line><g id="root-70" data-look="neo" data-et="participant" data-type="participant" data-id="A"><rect x="206" y="0" fill="#eaeaea" stroke="#666" width="150" height="77" name="A" rx="6" ry="6" class="actor actor-top" data-look="neo" filter="url(#sync14d1-drop-shadow)"></rect><text x="281" y="38.5" dominant-baseline="central" alignment-baseline="central" class="actor actor-box" style="text-anchor: middle; font-size: 16px; font-weight: 400; font-family: &quot;Microsoft YaHei&quot;, sans-serif;"><tspan x="281" dy="0">平台 API</tspan></text></g></g><g><line id="actor69" x1="75" y1="77" x2="75" y2="718" class="actor-line 200" stroke-width="0.5px" stroke="#999" name="U" data-et="life-line" data-id="U"></line><g id="root-69" data-look="neo" data-et="participant" data-type="participant" data-id="U"><rect x="0" y="0" fill="#eaeaea" stroke="#666" width="150" height="77" name="U" rx="6" ry="6" class="actor actor-top" data-look="neo" filter="url(#sync14d1-drop-shadow)"></rect><text x="75" y="38.5" dominant-baseline="central" alignment-baseline="central" class="actor actor-box" style="text-anchor: middle; font-size: 16px; font-weight: 400; font-family: &quot;Microsoft YaHei&quot;, sans-serif;"><tspan x="75" dy="0">页面</tspan></text></g></g><style>#sync14d1{font-family:Microsoft YaHei,sans-serif;font-size:16px;fill:#000000;}@keyframes edge-animation-frame{from{stroke-dashoffset:0;}}@keyframes dash{to{stroke-dashoffset:0;}}#sync14d1 .edge-animation-slow{stroke-dasharray:9,5!important;stroke-dashoffset:900;animation:dash 50s linear infinite;stroke-linecap:round;}#sync14d1 .edge-animation-fast{stroke-dasharray:9,5!important;stroke-dashoffset:900;animation:dash 20s linear infinite;stroke-linecap:round;}#sync14d1 .error-icon{fill:#552222;}#sync14d1 .error-text{fill:#552222;stroke:#552222;}#sync14d1 .edge-thickness-normal{stroke-width:1px;}#sync14d1 .edge-thickness-thick{stroke-width:3.5px;}#sync14d1 .edge-pattern-solid{stroke-dasharray:0;}#sync14d1 .edge-thickness-invisible{stroke-width:0;fill:none;}#sync14d1 .edge-pattern-dashed{stroke-dasharray:3;}#sync14d1 .edge-pattern-dotted{stroke-dasharray:2;}#sync14d1 .marker{fill:#666;stroke:#666;}#sync14d1 .marker.cross{stroke:#666;}#sync14d1 svg{font-family:Microsoft YaHei,sans-serif;font-size:16px;}#sync14d1 p{margin:0;}#sync14d1 .actor{stroke:hsl(0, 0%, 83%);fill:#eee;stroke-width:1;}#sync14d1 rect.actor.outer-path[data-look="neo"]{filter:drop-shadow( 1px 2px 2px rgba(185,185,185,1));}#sync14d1 rect.note[data-look="neo"]{stroke:#999;fill:#666;filter:drop-shadow( 1px 2px 2px rgba(185,185,185,1));}#sync14d1 text.actor&gt;tspan{fill:#333;stroke:none;}#sync14d1 .actor-line{stroke:hsl(0, 0%, 83%);}#sync14d1 .innerArc{stroke-width:1.5;stroke-dasharray:none;}#sync14d1 .messageLine0{stroke-width:1.5;stroke-dasharray:none;stroke:#333;}#sync14d1 .messageLine1{stroke-width:1.5;stroke-dasharray:2,2;stroke:#333;}#sync14d1 [id$="-arrowhead"] path{fill:#333;stroke:#333;}#sync14d1 .sequenceNumber{fill:white;}#sync14d1 [id$="-sequencenumber"]{fill:#333;}#sync14d1 [id$="-crosshead"] path{fill:#333;stroke:#333;}#sync14d1 .messageText{fill:#333;stroke:none;}#sync14d1 .labelBox{stroke:hsl(0, 0%, 83%);fill:#eee;filter:drop-shadow( 1px 2px 2px rgba(185,185,185,1));}#sync14d1 .labelText,#sync14d1 .labelText&gt;tspan{fill:#333;stroke:none;}#sync14d1 .loopText,#sync14d1 .loopText&gt;tspan{fill:#333;stroke:none;}#sync14d1 .sectionTitle,#sync14d1 .sectionTitle&gt;tspan{fill:#333;stroke:none;}#sync14d1 .loopLine{stroke-width:2px;stroke-dasharray:2,2;stroke:hsl(0, 0%, 83%);fill:hsl(0, 0%, 83%);}#sync14d1 .note{stroke:#999;fill:#666;}#sync14d1 .noteText,#sync14d1 .noteText&gt;tspan{fill:#fff;stroke:none;}#sync14d1 .activation0{fill:#f4f4f4;stroke:#666;}#sync14d1 .activation1{fill:#f4f4f4;stroke:#666;}#sync14d1 .activation2{fill:#f4f4f4;stroke:#666;}#sync14d1 .actorPopupMenu{position:absolute;}#sync14d1 .actorPopupMenuPanel{position:absolute;fill:#eee;box-shadow:0px 8px 16px 0px rgba(0,0,0,0.2);filter:drop-shadow(3px 5px 2px rgb(0 0 0 / 0.4));}#sync14d1 .actor-man circle,#sync14d1 line{fill:#eee;stroke-width:2px;}#sync14d1 g rect.rect{filter:drop-shadow( 1px 2px 2px rgba(185,185,185,1));stroke:#999;}#sync14d1 .node .neo-node{stroke:#999;}#sync14d1 [data-look="neo"].node rect,#sync14d1 [data-look="neo"].cluster rect,#sync14d1 [data-look="neo"].node polygon{stroke:url(#sync14d1-gradient);filter:drop-shadow( 1px 2px 2px rgba(185,185,185,1));}#sync14d1 [data-look="neo"].swimlane.cluster rect{filter:none;}#sync14d1 [data-look="neo"].node path{stroke:url(#sync14d1-gradient);stroke-width:1px;}#sync14d1 [data-look="neo"].node .outer-path{filter:drop-shadow( 1px 2px 2px rgba(185,185,185,1));}#sync14d1 [data-look="neo"].node .neo-line path{stroke:#999;filter:none;}#sync14d1 [data-look="neo"].node circle{stroke:url(#sync14d1-gradient);filter:drop-shadow( 1px 2px 2px rgba(185,185,185,1));}#sync14d1 [data-look="neo"].node circle .state-start{fill:#000000;}#sync14d1 [data-look="neo"].icon-shape .icon{fill:url(#sync14d1-gradient);filter:drop-shadow( 1px 2px 2px rgba(185,185,185,1));}#sync14d1 [data-look="neo"].icon-shape .icon-neo path{stroke:url(#sync14d1-gradient);filter:drop-shadow( 1px 2px 2px rgba(185,185,185,1));}#sync14d1 :root{--mermaid-font-family:Microsoft YaHei,sans-serif;}</style><g></g><defs><symbol id="sync14d1-computer" width="24" height="24"><path transform="scale(.5)" d="M2 2v13h20v-13h-20zm18 11h-16v-9h16v9zm-10.228 6l.466-1h3.524l.467 1h-4.457zm14.228 3h-24l2-6h2.104l-1.33 4h18.45l-1.297-4h2.073l2 6zm-5-10h-14v-7h14v7z"></path></symbol></defs><defs><symbol id="sync14d1-database" fill-rule="evenodd" clip-rule="evenodd"><path transform="scale(.5)" d="M12.258.001l.256.004.255.005.253.008.251.01.249.012.247.015.246.016.242.019.241.02.239.023.236.024.233.027.231.028.229.031.225.032.223.034.22.036.217.038.214.04.211.041.208.043.205.045.201.046.198.048.194.05.191.051.187.053.183.054.18.056.175.057.172.059.168.06.163.061.16.063.155.064.15.066.074.033.073.033.071.034.07.034.069.035.068.035.067.035.066.035.064.036.064.036.062.036.06.036.06.037.058.037.058.037.055.038.055.038.053.038.052.038.051.039.05.039.048.039.047.039.045.04.044.04.043.04.041.04.04.041.039.041.037.041.036.041.034.041.033.042.032.042.03.042.029.042.027.042.026.043.024.043.023.043.021.043.02.043.018.044.017.043.015.044.013.044.012.044.011.045.009.044.007.045.006.045.004.045.002.045.001.045v17l-.001.045-.002.045-.004.045-.006.045-.007.045-.009.044-.011.045-.012.044-.013.044-.015.044-.017.043-.018.044-.02.043-.021.043-.023.043-.024.043-.026.043-.027.042-.029.042-.03.042-.032.042-.033.042-.034.041-.036.041-.037.041-.039.041-.04.041-.041.04-.043.04-.044.04-.045.04-.047.039-.048.039-.05.039-.051.039-.052.038-.053.038-.055.038-.055.038-.058.037-.058.037-.06.037-.06.036-.062.036-.064.036-.064.036-.066.035-.067.035-.068.035-.069.035-.07.034-.071.034-.073.033-.074.033-.15.066-.155.064-.16.063-.163.061-.168.06-.172.059-.175.057-.18.056-.183.054-.187.053-.191.051-.194.05-.198.048-.201.046-.205.045-.208.043-.211.041-.214.04-.217.038-.22.036-.223.034-.225.032-.229.031-.231.028-.233.027-.236.024-.239.023-.241.02-.242.019-.246.016-.247.015-.249.012-.251.01-.253.008-.255.005-.256.004-.258.001-.258-.001-.256-.004-.255-.005-.253-.008-.251-.01-.249-.012-.247-.015-.245-.016-.243-.019-.241-.02-.238-.023-.236-.024-.234-.027-.231-.028-.228-.031-.226-.032-.223-.034-.22-.036-.217-.038-.214-.04-.211-.041-.208-.043-.204-.045-.201-.046-.198-.048-.195-.05-.19-.051-.187-.053-.184-.054-.179-.056-.176-.057-.172-.059-.167-.06-.164-.061-.159-.063-.155-.064-.151-.066-.074-.033-.072-.033-.072-.034-.07-.034-.069-.035-.068-.035-.067-.035-.066-.035-.064-.036-.063-.036-.062-.036-.061-.036-.06-.037-.058-.037-.057-.037-.056-.038-.055-.038-.053-.038-.052-.038-.051-.039-.049-.039-.049-.039-.046-.039-.046-.04-.044-.04-.043-.04-.041-.04-.04-.041-.039-.041-.037-.041-.036-.041-.034-.041-.033-.042-.032-.042-.03-.042-.029-.042-.027-.042-.026-.043-.024-.043-.023-.043-.021-.043-.02-.043-.018-.044-.017-.043-.015-.044-.013-.044-.012-.044-.011-.045-.009-.044-.007-.045-.006-.045-.004-.045-.002-.045-.001-.045v-17l.001-.045.002-.045.004-.045.006-.045.007-.045.009-.044.011-.045.012-.044.013-.044.015-.044.017-.043.018-.044.02-.043.021-.043.023-.043.024-.043.026-.043.027-.042.029-.042.03-.042.032-.042.033-.042.034-.041.036-.041.037-.041.039-.041.04-.041.041-.04.043-.04.044-.04.046-.04.046-.039.049-.039.049-.039.051-.039.052-.038.053-.038.055-.038.056-.038.057-.037.058-.037.06-.037.061-.036.062-.036.063-.036.064-.036.066-.035.067-.035.068-.035.069-.035.07-.034.072-.034.072-.033.074-.033.151-.066.155-.064.159-.063.164-.061.167-.06.172-.059.176-.057.179-.056.184-.054.187-.053.19-.051.195-.05.198-.048.201-.046.204-.045.208-.043.211-.041.214-.04.217-.038.22-.036.223-.034.226-.032.228-.031.231-.028.234-.027.236-.024.238-.023.241-.02.243-.019.245-.016.247-.015.249-.012.251-.01.253-.008.255-.005.256-.004.258-.001.258.001zm-9.258 20.499v.01l.001.021.003.021.004.022.005.021.006.022.007.022.009.023.01.022.011.023.012.023.013.023.015.023.016.024.017.023.018.024.019.024.021.024.022.025.023.024.024.025.052.049.056.05.061.051.066.051.07.051.075.051.079.052.084.052.088.052.092.052.097.052.102.051.105.052.11.052.114.051.119.051.123.051.127.05.131.05.135.05.139.048.144.049.147.047.152.047.155.047.16.045.163.045.167.043.171.043.176.041.178.041.183.039.187.039.19.037.194.035.197.035.202.033.204.031.209.03.212.029.216.027.219.025.222.024.226.021.23.02.233.018.236.016.24.015.243.012.246.01.249.008.253.005.256.004.259.001.26-.001.257-.004.254-.005.25-.008.247-.011.244-.012.241-.014.237-.016.233-.018.231-.021.226-.021.224-.024.22-.026.216-.027.212-.028.21-.031.205-.031.202-.034.198-.034.194-.036.191-.037.187-.039.183-.04.179-.04.175-.042.172-.043.168-.044.163-.045.16-.046.155-.046.152-.047.148-.048.143-.049.139-.049.136-.05.131-.05.126-.05.123-.051.118-.052.114-.051.11-.052.106-.052.101-.052.096-.052.092-.052.088-.053.083-.051.079-.052.074-.052.07-.051.065-.051.06-.051.056-.05.051-.05.023-.024.023-.025.021-.024.02-.024.019-.024.018-.024.017-.024.015-.023.014-.024.013-.023.012-.023.01-.023.01-.022.008-.022.006-.022.006-.022.004-.022.004-.021.001-.021.001-.021v-4.127l-.077.055-.08.053-.083.054-.085.053-.087.052-.09.052-.093.051-.095.05-.097.05-.1.049-.102.049-.105.048-.106.047-.109.047-.111.046-.114.045-.115.045-.118.044-.12.043-.122.042-.124.042-.126.041-.128.04-.13.04-.132.038-.134.038-.135.037-.138.037-.139.035-.142.035-.143.034-.144.033-.147.032-.148.031-.15.03-.151.03-.153.029-.154.027-.156.027-.158.026-.159.025-.161.024-.162.023-.163.022-.165.021-.166.02-.167.019-.169.018-.169.017-.171.016-.173.015-.173.014-.175.013-.175.012-.177.011-.178.01-.179.008-.179.008-.181.006-.182.005-.182.004-.184.003-.184.002h-.37l-.184-.002-.184-.003-.182-.004-.182-.005-.181-.006-.179-.008-.179-.008-.178-.01-.176-.011-.176-.012-.175-.013-.173-.014-.172-.015-.171-.016-.17-.017-.169-.018-.167-.019-.166-.02-.165-.021-.163-.022-.162-.023-.161-.024-.159-.025-.157-.026-.156-.027-.155-.027-.153-.029-.151-.03-.15-.03-.148-.031-.146-.032-.145-.033-.143-.034-.141-.035-.14-.035-.137-.037-.136-.037-.134-.038-.132-.038-.13-.04-.128-.04-.126-.041-.124-.042-.122-.042-.12-.044-.117-.043-.116-.045-.113-.045-.112-.046-.109-.047-.106-.047-.105-.048-.102-.049-.1-.049-.097-.05-.095-.05-.093-.052-.09-.051-.087-.052-.085-.053-.083-.054-.08-.054-.077-.054v4.127zm0-5.654v.011l.001.021.003.021.004.021.005.022.006.022.007.022.009.022.01.022.011.023.012.023.013.023.015.024.016.023.017.024.018.024.019.024.021.024.022.024.023.025.024.024.052.05.056.05.061.05.066.051.07.051.075.052.079.051.084.052.088.052.092.052.097.052.102.052.105.052.11.051.114.051.119.052.123.05.127.051.131.05.135.049.139.049.144.048.147.048.152.047.155.046.16.045.163.045.167.044.171.042.176.042.178.04.183.04.187.038.19.037.194.036.197.034.202.033.204.032.209.03.212.028.216.027.219.025.222.024.226.022.23.02.233.018.236.016.24.014.243.012.246.01.249.008.253.006.256.003.259.001.26-.001.257-.003.254-.006.25-.008.247-.01.244-.012.241-.015.237-.016.233-.018.231-.02.226-.022.224-.024.22-.025.216-.027.212-.029.21-.03.205-.032.202-.033.198-.035.194-.036.191-.037.187-.039.183-.039.179-.041.175-.042.172-.043.168-.044.163-.045.16-.045.155-.047.152-.047.148-.048.143-.048.139-.05.136-.049.131-.05.126-.051.123-.051.118-.051.114-.052.11-.052.106-.052.101-.052.096-.052.092-.052.088-.052.083-.052.079-.052.074-.051.07-.052.065-.051.06-.05.056-.051.051-.049.023-.025.023-.024.021-.025.02-.024.019-.024.018-.024.017-.024.015-.023.014-.023.013-.024.012-.022.01-.023.01-.023.008-.022.006-.022.006-.022.004-.021.004-.022.001-.021.001-.021v-4.139l-.077.054-.08.054-.083.054-.085.052-.087.053-.09.051-.093.051-.095.051-.097.05-.1.049-.102.049-.105.048-.106.047-.109.047-.111.046-.114.045-.115.044-.118.044-.12.044-.122.042-.124.042-.126.041-.128.04-.13.039-.132.039-.134.038-.135.037-.138.036-.139.036-.142.035-.143.033-.144.033-.147.033-.148.031-.15.03-.151.03-.153.028-.154.028-.156.027-.158.026-.159.025-.161.024-.162.023-.163.022-.165.021-.166.02-.167.019-.169.018-.169.017-.171.016-.173.015-.173.014-.175.013-.175.012-.177.011-.178.009-.179.009-.179.007-.181.007-.182.005-.182.004-.184.003-.184.002h-.37l-.184-.002-.184-.003-.182-.004-.182-.005-.181-.007-.179-.007-.179-.009-.178-.009-.176-.011-.176-.012-.175-.013-.173-.014-.172-.015-.171-.016-.17-.017-.169-.018-.167-.019-.166-.02-.165-.021-.163-.022-.162-.023-.161-.024-.159-.025-.157-.026-.156-.027-.155-.028-.153-.028-.151-.03-.15-.03-.148-.031-.146-.033-.145-.033-.143-.033-.141-.035-.14-.036-.137-.036-.136-.037-.134-.038-.132-.039-.13-.039-.128-.04-.126-.041-.124-.042-.122-.043-.12-.043-.117-.044-.116-.044-.113-.046-.112-.046-.109-.046-.106-.047-.105-.048-.102-.049-.1-.049-.097-.05-.095-.051-.093-.051-.09-.051-.087-.053-.085-.052-.083-.054-.08-.054-.077-.054v4.139zm0-5.666v.011l.001.02.003.022.004.021.005.022.006.021.007.022.009.023.01.022.011.023.012.023.013.023.015.023.016.024.017.024.018.023.019.024.021.025.022.024.023.024.024.025.052.05.056.05.061.05.066.051.07.051.075.052.079.051.084.052.088.052.092.052.097.052.102.052.105.051.11.052.114.051.119.051.123.051.127.05.131.05.135.05.139.049.144.048.147.048.152.047.155.046.16.045.163.045.167.043.171.043.176.042.178.04.183.04.187.038.19.037.194.036.197.034.202.033.204.032.209.03.212.028.216.027.219.025.222.024.226.021.23.02.233.018.236.017.24.014.243.012.246.01.249.008.253.006.256.003.259.001.26-.001.257-.003.254-.006.25-.008.247-.01.244-.013.241-.014.237-.016.233-.018.231-.02.226-.022.224-.024.22-.025.216-.027.212-.029.21-.03.205-.032.202-.033.198-.035.194-.036.191-.037.187-.039.183-.039.179-.041.175-.042.172-.043.168-.044.163-.045.16-.045.155-.047.152-.047.148-.048.143-.049.139-.049.136-.049.131-.051.126-.05.123-.051.118-.052.114-.051.11-.052.106-.052.101-.052.096-.052.092-.052.088-.052.083-.052.079-.052.074-.052.07-.051.065-.051.06-.051.056-.05.051-.049.023-.025.023-.025.021-.024.02-.024.019-.024.018-.024.017-.024.015-.023.014-.024.013-.023.012-.023.01-.022.01-.023.008-.022.006-.022.006-.022.004-.022.004-.021.001-.021.001-.021v-4.153l-.077.054-.08.054-.083.053-.085.053-.087.053-.09.051-.093.051-.095.051-.097.05-.1.049-.102.048-.105.048-.106.048-.109.046-.111.046-.114.046-.115.044-.118.044-.12.043-.122.043-.124.042-.126.041-.128.04-.13.039-.132.039-.134.038-.135.037-.138.036-.139.036-.142.034-.143.034-.144.033-.147.032-.148.032-.15.03-.151.03-.153.028-.154.028-.156.027-.158.026-.159.024-.161.024-.162.023-.163.023-.165.021-.166.02-.167.019-.169.018-.169.017-.171.016-.173.015-.173.014-.175.013-.175.012-.177.01-.178.01-.179.009-.179.007-.181.006-.182.006-.182.004-.184.003-.184.001-.185.001-.185-.001-.184-.001-.184-.003-.182-.004-.182-.006-.181-.006-.179-.007-.179-.009-.178-.01-.176-.01-.176-.012-.175-.013-.173-.014-.172-.015-.171-.016-.17-.017-.169-.018-.167-.019-.166-.02-.165-.021-.163-.023-.162-.023-.161-.024-.159-.024-.157-.026-.156-.027-.155-.028-.153-.028-.151-.03-.15-.03-.148-.032-.146-.032-.145-.033-.143-.034-.141-.034-.14-.036-.137-.036-.136-.037-.134-.038-.132-.039-.13-.039-.128-.041-.126-.041-.124-.041-.122-.043-.12-.043-.117-.044-.116-.044-.113-.046-.112-.046-.109-.046-.106-.048-.105-.048-.102-.048-.1-.05-.097-.049-.095-.051-.093-.051-.09-.052-.087-.052-.085-.053-.083-.053-.08-.054-.077-.054v4.153zm8.74-8.179l-.257.004-.254.005-.25.008-.247.011-.244.012-.241.014-.237.016-.233.018-.231.021-.226.022-.224.023-.22.026-.216.027-.212.028-.21.031-.205.032-.202.033-.198.034-.194.036-.191.038-.187.038-.183.04-.179.041-.175.042-.172.043-.168.043-.163.045-.16.046-.155.046-.152.048-.148.048-.143.048-.139.049-.136.05-.131.05-.126.051-.123.051-.118.051-.114.052-.11.052-.106.052-.101.052-.096.052-.092.052-.088.052-.083.052-.079.052-.074.051-.07.052-.065.051-.06.05-.056.05-.051.05-.023.025-.023.024-.021.024-.02.025-.019.024-.018.024-.017.023-.015.024-.014.023-.013.023-.012.023-.01.023-.01.022-.008.022-.006.023-.006.021-.004.022-.004.021-.001.021-.001.021.001.021.001.021.004.021.004.022.006.021.006.023.008.022.01.022.01.023.012.023.013.023.014.023.015.024.017.023.018.024.019.024.02.025.021.024.023.024.023.025.051.05.056.05.06.05.065.051.07.052.074.051.079.052.083.052.088.052.092.052.096.052.101.052.106.052.11.052.114.052.118.051.123.051.126.051.131.05.136.05.139.049.143.048.148.048.152.048.155.046.16.046.163.045.168.043.172.043.175.042.179.041.183.04.187.038.191.038.194.036.198.034.202.033.205.032.21.031.212.028.216.027.22.026.224.023.226.022.231.021.233.018.237.016.241.014.244.012.247.011.25.008.254.005.257.004.26.001.26-.001.257-.004.254-.005.25-.008.247-.011.244-.012.241-.014.237-.016.233-.018.231-.021.226-.022.224-.023.22-.026.216-.027.212-.028.21-.031.205-.032.202-.033.198-.034.194-.036.191-.038.187-.038.183-.04.179-.041.175-.042.172-.043.168-.043.163-.045.16-.046.155-.046.152-.048.148-.048.143-.048.139-.049.136-.05.131-.05.126-.051.123-.051.118-.051.114-.052.11-.052.106-.052.101-.052.096-.052.092-.052.088-.052.083-.052.079-.052.074-.051.07-.052.065-.051.06-.05.056-.05.051-.05.023-.025.023-.024.021-.024.02-.025.019-.024.018-.024.017-.023.015-.024.014-.023.013-.023.012-.023.01-.023.01-.022.008-.022.006-.023.006-.021.004-.022.004-.021.001-.021.001-.021-.001-.021-.001-.021-.004-.021-.004-.022-.006-.021-.006-.023-.008-.022-.01-.022-.01-.023-.012-.023-.013-.023-.014-.023-.015-.024-.017-.023-.018-.024-.019-.024-.02-.025-.021-.024-.023-.024-.023-.025-.051-.05-.056-.05-.06-.05-.065-.051-.07-.052-.074-.051-.079-.052-.083-.052-.088-.052-.092-.052-.096-.052-.101-.052-.106-.052-.11-.052-.114-.052-.118-.051-.123-.051-.126-.051-.131-.05-.136-.05-.139-.049-.143-.048-.148-.048-.152-.048-.155-.046-.16-.046-.163-.045-.168-.043-.172-.043-.175-.042-.179-.041-.183-.04-.187-.038-.191-.038-.194-.036-.198-.034-.202-.033-.205-.032-.21-.031-.212-.028-.216-.027-.22-.026-.224-.023-.226-.022-.231-.021-.233-.018-.237-.016-.241-.014-.244-.012-.247-.011-.25-.008-.254-.005-.257-.004-.26-.001-.26.001z"></path></symbol></defs><defs><symbol id="sync14d1-clock" width="24" height="24"><path transform="scale(.5)" d="M12 2c5.514 0 10 4.486 10 10s-4.486 10-10 10-10-4.486-10-10 4.486-10 10-10zm0-2c-6.627 0-12 5.373-12 12s5.373 12 12 12 12-5.373 12-12-5.373-12-12-12zm5.848 12.459c.202.038.202.333.001.372-1.907.361-6.045 1.111-6.547 1.111-.719 0-1.301-.582-1.301-1.301 0-.512.77-5.447 1.125-7.445.034-.192.312-.181.343.014l.985 6.238 5.394 1.011z"></path></symbol></defs><defs><marker id="sync14d1-arrowhead" refX="7.9" refY="5" markerUnits="userSpaceOnUse" markerWidth="12" markerHeight="12" orient="auto-start-reverse"><path d="M -1 0 L 10 5 L 0 10 z"></path></marker></defs><defs><marker id="sync14d1-crosshead" markerWidth="15" markerHeight="8" orient="auto" refX="4" refY="4.5"><path fill="none" stroke="#000000" stroke-width="1pt" d="M 1,2 L 6,7 M 6,2 L 1,7" style="stroke-dasharray: 0, 0;"></path></marker></defs><defs><marker id="sync14d1-filled-head" refX="15.5" refY="7" markerWidth="20" markerHeight="28" orient="auto"><path d="M 18,7 L9,13 L14,7 L9,1 Z"></path></marker></defs><defs><marker id="sync14d1-sequencenumber" refX="15" refY="15" markerWidth="60" markerHeight="40" orient="auto"><circle cx="15" cy="15" r="6"></circle></marker></defs><defs><marker id="sync14d1-solidTopArrowHead" refX="7.9" refY="7.25" markerUnits="userSpaceOnUse" markerWidth="12" markerHeight="12" orient="auto-start-reverse"><path d="M 0 0 L 10 8 L 0 8 z"></path></marker></defs><defs><marker id="sync14d1-solidBottomArrowHead" refX="7.9" refY="0.75" markerUnits="userSpaceOnUse" markerWidth="12" markerHeight="12" orient="auto-start-reverse"><path d="M 0 0 L 10 0 L 0 8 z"></path></marker></defs><defs><marker id="sync14d1-stickTopArrowHead" refX="7.5" refY="7" markerUnits="userSpaceOnUse" markerWidth="12" markerHeight="12" orient="auto-start-reverse"><path d="M 0 0 L 7 7" stroke="black" stroke-width="1.5" fill="none"></path></marker></defs><defs><marker id="sync14d1-stickBottomArrowHead" refX="7.5" refY="0" markerUnits="userSpaceOnUse" markerWidth="12" markerHeight="12" orient="auto-start-reverse"><path d="M 0 7 L 7 0" stroke="black" stroke-width="1.5" fill="none"></path></marker></defs><defs><filter id="sync14d1-drop-shadow" height="130%" width="130%"><feDropShadow dx="4" dy="4" stdDeviation="0" flood-opacity="0.06" flood-color="#FFFFFF"></feDropShadow></filter></defs><g data-et="note" data-id="i5"><rect x="50" y="398" fill="#EDF2AE" stroke="#666" width="456" height="41" class="note" data-look="neo"></rect><text x="278" y="403" text-anchor="middle" dominant-baseline="middle" alignment-baseline="middle" class="noteText" dy="1em" style="font-family: &quot;Microsoft YaHei&quot;, sans-serif; font-size: 16px; font-weight: 400;"><tspan x="278">断线后按契约重放 无法重放则重新取快照</tspan></text></g><text x="175" y="92" text-anchor="middle" dominant-baseline="middle" alignment-baseline="middle" class="messageText" dy="1em" style="font-family: &quot;Microsoft YaHei&quot;, sans-serif; font-size: 16px; font-weight: 400;">获取任务快照并鉴权</text><line x1="76" y1="129" x2="274" y2="129" class="messageLine0" data-et="message" data-id="i0" data-from="U" data-to="A" stroke-width="2" stroke="none" marker-end="url(#sync14d1-arrowhead)" style="fill: none;"></line><text x="181" y="144" text-anchor="middle" dominant-baseline="middle" alignment-baseline="middle" class="messageText" dy="1em" style="font-family: &quot;Microsoft YaHei&quot;, sans-serif; font-size: 16px; font-weight: 400;">快照及可恢复位置</text><line x1="280" y1="181" x2="82" y2="181" class="messageLine1" data-et="message" data-id="i1" data-from="A" data-to="U" stroke-width="2" stroke="none" marker-end="url(#sync14d1-arrowhead)" style="stroke-dasharray: 3, 3; fill: none;"></line><text x="275" y="196" text-anchor="middle" dominant-baseline="middle" alignment-baseline="middle" class="messageText" dy="1em" style="font-family: &quot;Microsoft YaHei&quot;, sans-serif; font-size: 16px; font-weight: 400;">Bearer 认证连接与恢复位置</text><line x1="76" y1="233" x2="474" y2="233" class="messageLine0" data-et="message" data-id="i2" data-from="U" data-to="S" stroke-width="2" stroke="none" marker-end="url(#sync14d1-arrowhead)" style="fill: none;"></line><text x="281" y="248" text-anchor="middle" dominant-baseline="middle" alignment-baseline="middle" class="messageText" dy="1em" style="font-family: &quot;Microsoft YaHei&quot;, sans-serif; font-size: 16px; font-weight: 400;">带序列的事件</text><line x1="480" y1="285" x2="82" y2="285" class="messageLine1" data-et="message" data-id="i3" data-from="S" data-to="U" stroke-width="2" stroke="none" marker-end="url(#sync14d1-arrowhead)" style="stroke-dasharray: 3, 3; fill: none;"></line><text x="76" y="300" text-anchor="middle" dominant-baseline="middle" alignment-baseline="middle" class="messageText" dy="1em" style="font-family: &quot;Microsoft YaHei&quot;, sans-serif; font-size: 16px; font-weight: 400;">去重并更新</text><text x="76" y="321" text-anchor="middle" dominant-baseline="middle" alignment-baseline="middle" class="messageText" dy="1em" style="font-family: &quot;Microsoft YaHei&quot;, sans-serif; font-size: 16px; font-weight: 400;">不回退终态</text><path d="M 76,358 C 136,348 136,388 76,378" class="messageLine0" data-et="message" data-id="i4" data-from="U" data-to="U" stroke-width="2" stroke="none" marker-end="url(#sync14d1-arrowhead)" style="fill: none;"></path><text x="281" y="454" text-anchor="middle" dominant-baseline="middle" alignment-baseline="middle" class="messageText" dy="1em" style="font-family: &quot;Microsoft YaHei&quot;, sans-serif; font-size: 16px; font-weight: 400;">权限已失效或连接被关闭</text><line x1="480" y1="491" x2="82" y2="491" class="messageLine1" data-et="message" data-id="i6" data-from="S" data-to="U" stroke-width="2" stroke="none" marker-end="url(#sync14d1-arrowhead)" style="stroke-dasharray: 3, 3; fill: none;"></line><text x="175" y="506" text-anchor="middle" dominant-baseline="middle" alignment-baseline="middle" class="messageText" dy="1em" style="font-family: &quot;Microsoft YaHei&quot;, sans-serif; font-size: 16px; font-weight: 400;">重新确认访问权限</text><line x1="76" y1="543" x2="274" y2="543" class="messageLine0" data-et="message" data-id="i7" data-from="U" data-to="A" stroke-width="2" stroke="none" marker-end="url(#sync14d1-arrowhead)" style="fill: none;"></line><text x="181" y="558" text-anchor="middle" dominant-baseline="middle" alignment-baseline="middle" class="messageText" dy="1em" style="font-family: &quot;Microsoft YaHei&quot;, sans-serif; font-size: 16px; font-weight: 400;">无权或资源不可见</text><line x1="280" y1="595" x2="82" y2="595" class="messageLine1" data-et="message" data-id="i8" data-from="A" data-to="U" stroke-width="2" stroke="none" marker-end="url(#sync14d1-arrowhead)" style="stroke-dasharray: 3, 3; fill: none;"></line><text x="76" y="610" text-anchor="middle" dominant-baseline="middle" alignment-baseline="middle" class="messageText" dy="1em" style="font-family: &quot;Microsoft YaHei&quot;, sans-serif; font-size: 16px; font-weight: 400;">停止订阅并清理受保护-</text><text x="76" y="631" text-anchor="middle" dominant-baseline="middle" alignment-baseline="middle" class="messageText" dy="1em" style="font-family: &quot;Microsoft YaHei&quot;, sans-serif; font-size: 16px; font-weight: 400;">内容</text><path d="M 76,668 C 136,658 136,698 76,688" class="messageLine0" data-et="message" data-id="i9" data-from="U" data-to="U" stroke-width="2" stroke="none" marker-end="url(#sync14d1-arrowhead)" style="fill: none;"></path></svg></figure>
+
+<p>事件连接通过支持认证头的 fetch 方案封装于 api/use 层，不把 token 放查询参数。事件序列不是列表分页游标。断网本身不等于撤权，先显示连接状态，恢复时重校验；明确撤权后清理数据。</p>
+<h3 id="73-价格发布">7.3 价格发布</h3>
+<figure class="diagram" aria-label="图 3"><svg id="sync14d2" width="100%" xmlns="http://www.w3.org/2000/svg" class="flowchart" style="max-width: 1422px;" viewBox="4 4 1422 214" role="graphics-document document" aria-roledescription="flowchart-v2"><style>#sync14d2{font-family:Microsoft YaHei,sans-serif;font-size:16px;fill:#000000;}@keyframes edge-animation-frame{from{stroke-dashoffset:0;}}@keyframes dash{to{stroke-dashoffset:0;}}#sync14d2 .edge-animation-slow{stroke-dasharray:9,5!important;stroke-dashoffset:900;animation:dash 50s linear infinite;stroke-linecap:round;}#sync14d2 .edge-animation-fast{stroke-dasharray:9,5!important;stroke-dashoffset:900;animation:dash 20s linear infinite;stroke-linecap:round;}#sync14d2 .error-icon{fill:#552222;}#sync14d2 .error-text{fill:#552222;stroke:#552222;}#sync14d2 .edge-thickness-normal{stroke-width:1px;}#sync14d2 .edge-thickness-thick{stroke-width:3.5px;}#sync14d2 .edge-pattern-solid{stroke-dasharray:0;}#sync14d2 .edge-thickness-invisible{stroke-width:0;fill:none;}#sync14d2 .edge-pattern-dashed{stroke-dasharray:3;}#sync14d2 .edge-pattern-dotted{stroke-dasharray:2;}#sync14d2 .marker{fill:#666;stroke:#666;}#sync14d2 .marker.cross{stroke:#666;}#sync14d2 svg{font-family:Microsoft YaHei,sans-serif;font-size:16px;}#sync14d2 p{margin:0;}#sync14d2 .label{font-family:Microsoft YaHei,sans-serif;color:#000000;}#sync14d2 .cluster-label text{fill:#333;}#sync14d2 .cluster-label span{color:#333;}#sync14d2 .cluster-label span p{background-color:transparent;}#sync14d2 .label text,#sync14d2 span{fill:#000000;color:#000000;}#sync14d2 .node rect,#sync14d2 .node circle,#sync14d2 .node ellipse,#sync14d2 .node polygon,#sync14d2 .node path{fill:#eee;stroke:#999;stroke-width:1px;}#sync14d2 .rough-node .label text,#sync14d2 .node .label text,#sync14d2 .image-shape .label,#sync14d2 .icon-shape .label{text-anchor:middle;}#sync14d2 .node .katex path{fill:#000;stroke:#000;stroke-width:1px;}#sync14d2 .rough-node .label,#sync14d2 .node .label,#sync14d2 .image-shape .label,#sync14d2 .icon-shape .label{text-align:center;}#sync14d2 .node.clickable{cursor:pointer;}#sync14d2 .root .anchor path{fill:#666!important;stroke-width:0;stroke:#666;}#sync14d2 .arrowheadPath{fill:#333333;}#sync14d2 .edgePaths .path{stroke:#666;stroke-width:1px;}#sync14d2 .flowchart-link{stroke:#666;fill:none;}#sync14d2 .edgeLabel{background-color:white;text-align:center;}#sync14d2 .edgeLabel p{background-color:white;}#sync14d2 .edgeLabel rect{opacity:0.5;background-color:white;fill:white;}#sync14d2 .labelBkg{background-color:rgba(255, 255, 255, 0.5);}#sync14d2 .cluster rect{fill:hsl(0, 0%, 98.9215686275%);stroke:#707070;stroke-width:1px;}#sync14d2 .cluster text{fill:#333;}#sync14d2 .cluster span{color:#333;}#sync14d2 .node .collapsed-indicator{fill:#707070;stroke:none;opacity:0.6;}#sync14d2 .node .collapsed-separator{stroke:#707070;stroke-width:0.75px;}#sync14d2 div.mermaidTooltip{position:absolute;text-align:center;max-width:200px;padding:2px;font-family:Microsoft YaHei,sans-serif;font-size:12px;background:hsl(-160, 0%, 93.3333333333%);border:1px solid #707070;border-radius:2px;pointer-events:none;z-index:100;}#sync14d2 .flowchartTitleText{text-anchor:middle;font-size:18px;fill:#000000;}#sync14d2 rect.text{fill:none;stroke-width:0;}#sync14d2 .icon-shape,#sync14d2 .image-shape{background-color:white;text-align:center;}#sync14d2 .icon-shape p,#sync14d2 .image-shape p{background-color:white;padding:2px;}#sync14d2 .icon-shape .label rect,#sync14d2 .image-shape .label rect{opacity:0.5;background-color:white;fill:white;}#sync14d2 .label-icon{display:inline-block;height:1em;overflow:visible;vertical-align:-0.125em;}#sync14d2 .node .label-icon path{fill:currentColor;stroke:revert;stroke-width:revert;}#sync14d2 .node .neo-node{stroke:#999;}#sync14d2 [data-look="neo"].node rect,#sync14d2 [data-look="neo"].cluster rect,#sync14d2 [data-look="neo"].node polygon{stroke:url(#sync14d2-gradient);filter:drop-shadow( 1px 2px 2px rgba(185,185,185,1));}#sync14d2 [data-look="neo"].swimlane.cluster rect{filter:none;}#sync14d2 [data-look="neo"].node path{stroke:url(#sync14d2-gradient);stroke-width:1px;}#sync14d2 [data-look="neo"].node .outer-path{filter:drop-shadow( 1px 2px 2px rgba(185,185,185,1));}#sync14d2 [data-look="neo"].node .neo-line path{stroke:#999;filter:none;}#sync14d2 [data-look="neo"].node circle{stroke:url(#sync14d2-gradient);filter:drop-shadow( 1px 2px 2px rgba(185,185,185,1));}#sync14d2 [data-look="neo"].node circle .state-start{fill:#000000;}#sync14d2 [data-look="neo"].icon-shape .icon{fill:url(#sync14d2-gradient);filter:drop-shadow( 1px 2px 2px rgba(185,185,185,1));}#sync14d2 [data-look="neo"].icon-shape .icon-neo path{stroke:url(#sync14d2-gradient);filter:drop-shadow( 1px 2px 2px rgba(185,185,185,1));}#sync14d2 :root{--mermaid-font-family:Microsoft YaHei,sans-serif;}</style><g><marker id="sync14d2_flowchart-v2-pointEnd" class="marker flowchart-v2" viewBox="0 0 10 10" refX="5" refY="5" markerUnits="userSpaceOnUse" markerWidth="8" markerHeight="8" orient="auto"><path d="M 0 0 L 10 5 L 0 10 z" class="arrowMarkerPath" style="stroke-width: 1; stroke-dasharray: 1, 0;"></path></marker><marker id="sync14d2_flowchart-v2-pointStart" class="marker flowchart-v2" viewBox="0 0 10 10" refX="4.5" refY="5" markerUnits="userSpaceOnUse" markerWidth="8" markerHeight="8" orient="auto"><path d="M 0 5 L 10 10 L 10 0 z" class="arrowMarkerPath" style="stroke-width: 1; stroke-dasharray: 1, 0;"></path></marker><marker id="sync14d2_flowchart-v2-pointEnd-margin" class="marker flowchart-v2" viewBox="0 0 11.5 14" refX="11.5" refY="7" markerUnits="userSpaceOnUse" markerWidth="10.5" markerHeight="14" orient="auto"><path d="M 0 0 L 11.5 7 L 0 14 z" class="arrowMarkerPath" style="stroke-width: 0; stroke-dasharray: 1, 0;"></path></marker><marker id="sync14d2_flowchart-v2-pointStart-margin" class="marker flowchart-v2" viewBox="0 0 11.5 14" refX="1" refY="7" markerUnits="userSpaceOnUse" markerWidth="11.5" markerHeight="14" orient="auto"><polygon points="0,7 11.5,14 11.5,0" class="arrowMarkerPath" style="stroke-width: 0; stroke-dasharray: 1, 0;"></polygon></marker><marker id="sync14d2_flowchart-v2-circleEnd" class="marker flowchart-v2" viewBox="0 0 10 10" refX="11" refY="5" markerUnits="userSpaceOnUse" markerWidth="11" markerHeight="11" orient="auto"><circle cx="5" cy="5" r="5" class="arrowMarkerPath" style="stroke-width: 1; stroke-dasharray: 1, 0;"></circle></marker><marker id="sync14d2_flowchart-v2-circleStart" class="marker flowchart-v2" viewBox="0 0 10 10" refX="-1" refY="5" markerUnits="userSpaceOnUse" markerWidth="11" markerHeight="11" orient="auto"><circle cx="5" cy="5" r="5" class="arrowMarkerPath" style="stroke-width: 1; stroke-dasharray: 1, 0;"></circle></marker><marker id="sync14d2_flowchart-v2-circleEnd-margin" class="marker flowchart-v2" viewBox="0 0 10 10" refY="5" refX="12.25" markerUnits="userSpaceOnUse" markerWidth="14" markerHeight="14" orient="auto"><circle cx="5" cy="5" r="5" class="arrowMarkerPath" style="stroke-width: 0; stroke-dasharray: 1, 0;"></circle></marker><marker id="sync14d2_flowchart-v2-circleStart-margin" class="marker flowchart-v2" viewBox="0 0 10 10" refX="-2" refY="5" markerUnits="userSpaceOnUse" markerWidth="14" markerHeight="14" orient="auto"><circle cx="5" cy="5" r="5" class="arrowMarkerPath" style="stroke-width: 0; stroke-dasharray: 1, 0;"></circle></marker><marker id="sync14d2_flowchart-v2-crossEnd" class="marker cross flowchart-v2" viewBox="0 0 11 11" refX="12" refY="5.2" markerUnits="userSpaceOnUse" markerWidth="11" markerHeight="11" orient="auto"><path d="M 1,1 l 9,9 M 10,1 l -9,9" class="arrowMarkerPath" style="stroke-width: 2; stroke-dasharray: 1, 0;"></path></marker><marker id="sync14d2_flowchart-v2-crossStart" class="marker cross flowchart-v2" viewBox="0 0 11 11" refX="-1" refY="5.2" markerUnits="userSpaceOnUse" markerWidth="11" markerHeight="11" orient="auto"><path d="M 1,1 l 9,9 M 10,1 l -9,9" class="arrowMarkerPath" style="stroke-width: 2; stroke-dasharray: 1, 0;"></path></marker><marker id="sync14d2_flowchart-v2-crossEnd-margin" class="marker cross flowchart-v2" viewBox="0 0 15 15" refX="17.7" refY="7.5" markerUnits="userSpaceOnUse" markerWidth="12" markerHeight="12" orient="auto"><path d="M 1,1 L 14,14 M 1,14 L 14,1" class="arrowMarkerPath" style="stroke-width: 2.5;"></path></marker><marker id="sync14d2_flowchart-v2-crossStart-margin" class="marker cross flowchart-v2" viewBox="0 0 15 15" refX="-3.5" refY="7.5" markerUnits="userSpaceOnUse" markerWidth="12" markerHeight="12" orient="auto"><path d="M 1,1 L 14,14 M 1,14 L 14,1" class="arrowMarkerPath" style="stroke-width: 2.5; stroke-dasharray: 1, 0;"></path></marker><g class="root"><g class="clusters"></g><g class="edges edgePaths"><path d="M164,111L200,111" id="sync14d2-L_A_B_0" class="edge-thickness-normal edge-pattern-solid edge-thickness-normal edge-pattern-solid flowchart-link" style="stroke-dasharray: 0 0 32 4; stroke-dashoffset: 0;;" data-edge="true" data-et="edge" data-id="L_A_B_0" data-points="W3sieCI6MTY0LCJ5IjoxMTF9LHsieCI6MjA0LCJ5IjoxMTF9XQ==" data-look="neo" marker-end="url(#sync14d2_flowchart-v2-pointEnd-margin)"></path><path d="M356,106.33333333333334L368.9289321881345,106.33333333333334Q376,106.33333333333334 376,99.26226552146787L376,79.82106781186549Q376,72.75000000000001 383.0710678118655,72.75000000000001L392,72.75000000000001" id="sync14d2-L_B_C_0" class="edge-thickness-normal edge-pattern-solid edge-thickness-normal edge-pattern-solid flowchart-link" style="stroke-dasharray: 0 0 60.25505065917969 4; stroke-dashoffset: 0;;" data-edge="true" data-et="edge" data-id="L_B_C_0" data-points="W3sieCI6MzU2LCJ5IjoxMDYuMzMzMzMzMzMzMzMzMzR9LHsieCI6Mzc2LCJ5IjoxMDYuMzMzMzMzMzMzMzMzMzR9LHsieCI6Mzc2LCJ5Ijo3Mi43NTAwMDAwMDAwMDAwMX0seyJ4IjozOTYsInkiOjcyLjc1MDAwMDAwMDAwMDAxfV0=" data-look="neo" marker-end="url(#sync14d2_flowchart-v2-pointEnd-margin)"></path><path d="M548,72.75000000000001L563.7083333333334,72.75000000000001Q568,72.75000000000001 568,77.04166666666669L568,77.04166666666669Q568,81.33333333333334 572.2916666666666,81.33333333333334L588,81.33333333333334L613.666690826416,81.33333333333334" id="sync14d2-L_C_D_0" class="edge-thickness-normal edge-pattern-solid edge-thickness-normal edge-pattern-solid flowchart-link" style="stroke-dasharray: 0 0 67.0160903930664 4; stroke-dashoffset: 0;;" data-edge="true" data-et="edge" data-id="L_C_D_0" data-points="W3sieCI6NTQ4LCJ5Ijo3Mi43NTAwMDAwMDAwMDAwMX0seyJ4Ijo1NjgsInkiOjcyLjc1MDAwMDAwMDAwMDAxfSx7IngiOjU2OCwieSI6ODEuMzMzMzMzMzMzMzMzMzR9LHsieCI6NTg4LCJ5Ijo4MS4zMzMzMzMzMzMzMzMzNH0seyJ4Ijo2MTcuNjY2NjkwODI2NDE2LCJ5Ijo4MS4zMzMzMzMzMzMzMzMzNH1d" data-look="neo" marker-end="url(#sync14d2_flowchart-v2-pointEnd-margin)"></path><path d="M617.666690826416,140.66666666666669L588,140.66666666666669L572.2916666666666,140.66666666666669Q568,140.66666666666669 568,144.95833333333337L568,144.95833333333337Q568,149.25000000000003 563.7083333333334,149.25000000000003L383.0710678118655,149.25000000000003Q376,149.25000000000003 376,142.17893218813455L376,122.73773447853215Q376,115.66666666666667 368.9289321881345,115.66666666666667L360,115.66666666666667" id="sync14d2-L_D_B_0" class="edge-thickness-normal edge-pattern-solid edge-thickness-normal edge-pattern-solid flowchart-link" style="stroke-dasharray: 0 0 287.2711181640625 4; stroke-dashoffset: 0;;" data-edge="true" data-et="edge" data-id="L_D_B_0" data-points="W3sieCI6NjE3LjY2NjY5MDgyNjQxNiwieSI6MTQwLjY2NjY2NjY2NjY2NjY5fSx7IngiOjU4OCwieSI6MTQwLjY2NjY2NjY2NjY2NjY5fSx7IngiOjU2OCwieSI6MTQwLjY2NjY2NjY2NjY2NjY5fSx7IngiOjU2OCwieSI6MTQ5LjI1MDAwMDAwMDAwMDAzfSx7IngiOjM3NiwieSI6MTQ5LjI1MDAwMDAwMDAwMDAzfSx7IngiOjM3NiwieSI6MTE1LjY2NjY2NjY2NjY2NjY3fSx7IngiOjM1NiwieSI6MTE1LjY2NjY2NjY2NjY2NjY3fV0=" data-look="neo" marker-end="url(#sync14d2_flowchart-v2-pointEnd-margin)"></path><path d="M786,111L878,111" id="sync14d2-L_D_E_0" class="edge-thickness-normal edge-pattern-solid edge-thickness-normal edge-pattern-solid flowchart-link" style="stroke-dasharray: 0 0 88 4; stroke-dashoffset: 0;;" data-edge="true" data-et="edge" data-id="L_D_E_0" data-points="W3sieCI6Nzg2LCJ5IjoxMTF9LHsieCI6ODgyLCJ5IjoxMTF9XQ==" data-look="neo" marker-end="url(#sync14d2_flowchart-v2-pointEnd-margin)"></path><path d="M1034,111L1070,111" id="sync14d2-L_E_F_0" class="edge-thickness-normal edge-pattern-solid edge-thickness-normal edge-pattern-solid flowchart-link" style="stroke-dasharray: 0 0 32 4; stroke-dashoffset: 0;;" data-edge="true" data-et="edge" data-id="L_E_F_0" data-points="W3sieCI6MTAzNCwieSI6MTExfSx7IngiOjEwNzQsInkiOjExMX1d" data-look="neo" marker-end="url(#sync14d2_flowchart-v2-pointEnd-margin)"></path><path d="M1226,102.33333333333333L1238.9289321881345,102.33333333333333Q1246,102.33333333333333 1246,95.26226552146785L1246,62.07106781186547Q1246,54.99999999999999 1253.0710678118655,54.99999999999999L1262,54.99999999999999" id="sync14d2-L_F_G_0" class="edge-thickness-normal edge-pattern-solid edge-thickness-normal edge-pattern-solid flowchart-link" style="stroke-dasharray: 0 0 74.00503540039062 4; stroke-dashoffset: 0;;" data-edge="true" data-et="edge" data-id="L_F_G_0" data-points="W3sieCI6MTIyNiwieSI6MTAyLjMzMzMzMzMzMzMzMzMzfSx7IngiOjEyNDYsInkiOjEwMi4zMzMzMzMzMzMzMzMzM30seyJ4IjoxMjQ2LCJ5Ijo1NC45OTk5OTk5OTk5OTk5OX0seyJ4IjoxMjY2LCJ5Ijo1NC45OTk5OTk5OTk5OTk5OX1d" data-look="neo" marker-end="url(#sync14d2_flowchart-v2-pointEnd-margin)"></path><path d="M1226,119.66666666666666L1238.9289321881345,119.66666666666666Q1246,119.66666666666666 1246,126.73773447853213L1246,159.9289321881345Q1246,166.99999999999997 1253.0710678118655,166.99999999999997L1262,166.99999999999997" id="sync14d2-L_F_H_0" class="edge-thickness-normal edge-pattern-solid edge-thickness-normal edge-pattern-solid flowchart-link" style="stroke-dasharray: 0 0 74.00503540039062 4; stroke-dashoffset: 0;;" data-edge="true" data-et="edge" data-id="L_F_H_0" data-points="W3sieCI6MTIyNiwieSI6MTE5LjY2NjY2NjY2NjY2NjY2fSx7IngiOjEyNDYsInkiOjExOS42NjY2NjY2NjY2NjY2Nn0seyJ4IjoxMjQ2LCJ5IjoxNjYuOTk5OTk5OTk5OTk5OTd9LHsieCI6MTI2NiwieSI6MTY2Ljk5OTk5OTk5OTk5OTk3fV0=" data-look="neo" marker-end="url(#sync14d2_flowchart-v2-pointEnd-margin)"></path></g><g class="edgeLabels"><g class="edgeLabel" transform="translate(472, 148.75000000000003)"><g class="label" data-id="L_D_B_0" transform="translate(-8, -12)"><foreignObject width="16" height="24"><div xmlns="http://www.w3.org/1999/xhtml" class="labelBkg" style="display: table-cell; white-space: nowrap; line-height: 1.5; max-width: 200px; text-align: center;"><span class="edgeLabel"><p>否</p></span></div></foreignObject></g></g><g class="edgeLabel" transform="translate(834, 110.5)"><g class="label" data-id="L_D_E_0" transform="translate(-8, -12)"><foreignObject width="16" height="24"><div xmlns="http://www.w3.org/1999/xhtml" class="labelBkg" style="display: table-cell; white-space: nowrap; line-height: 1.5; max-width: 200px; text-align: center;"><span class="edgeLabel"><p>是</p></span></div></foreignObject></g></g></g><g class="nodes"><g class="node default" id="sync14d2-flowchart-A-0" data-look="neo" transform="translate(88, 111)"><rect class="basic label-container" style="" x="-76" y="-24" width="152" height="48"></rect><g class="label" style="" transform="translate(-60, -12)"><rect></rect><foreignObject width="120" height="24"><div xmlns="http://www.w3.org/1999/xhtml" style="display: table; white-space: nowrap; line-height: 1.5; max-width: 120px; text-align: center; width: 120px;"><span class="nodeLabel"><p>录入规则与来源</p></span></div></foreignObject></g></g><g class="node default" id="sync14d2-flowchart-B-1" data-look="neo" transform="translate(280, 111)"><rect class="basic label-container" style="" x="-76" y="-24" width="152" height="48"></rect><g class="label" style="" transform="translate(-60, -12)"><rect></rect><foreignObject width="120" height="24"><div xmlns="http://www.w3.org/1999/xhtml" style="display: table; white-space: nowrap; line-height: 1.5; max-width: 120px; text-align: center; width: 120px;"><span class="nodeLabel"><p>保存草稿</p></span></div></foreignObject></g></g><g class="node default" id="sync14d2-flowchart-C-3" data-look="neo" transform="translate(472, 72.75000000000001)"><rect class="basic label-container" style="" x="-76" y="-24" width="152" height="48"></rect><g class="label" style="" transform="translate(-60, -12)"><rect></rect><foreignObject width="120" height="24"><div xmlns="http://www.w3.org/1999/xhtml" style="display: table; white-space: nowrap; line-height: 1.5; max-width: 120px; text-align: center; width: 120px;"><span class="nodeLabel"><p>规格覆盖和试算</p></span></div></foreignObject></g></g><g class="node default" id="sync14d2-flowchart-D-5" data-look="neo" transform="translate(687, 111)"><polygon points="99,0 198,-99 99,-198 0,-99" class="label-container" transform="translate(-98.5, 99)"></polygon><g class="label" style="" transform="translate(-60, -24)"><rect></rect><foreignObject width="120" height="48"><div xmlns="http://www.w3.org/1999/xhtml" style="display: table; white-space: break-spaces; line-height: 1.5; max-width: 120px; text-align: center; width: 120px;"><span class="nodeLabel"><p>发布条件完整且无冲突</p></span></div></foreignObject></g></g><g class="node default" id="sync14d2-flowchart-E-9" data-look="neo" transform="translate(958, 111)"><rect class="basic label-container" style="" x="-76" y="-36" width="152" height="72"></rect><g class="label" style="" transform="translate(-60, -24)"><rect></rect><foreignObject width="120" height="48"><div xmlns="http://www.w3.org/1999/xhtml" style="display: table; white-space: break-spaces; line-height: 1.5; max-width: 120px; text-align: center; width: 120px;"><span class="nodeLabel"><p>有发布权限者确认生效</p></span></div></foreignObject></g></g><g class="node default" id="sync14d2-flowchart-F-11" data-look="neo" transform="translate(1150, 111)"><rect class="basic label-container" style="" x="-76" y="-36" width="152" height="72"></rect><g class="label" style="" transform="translate(-60, -24)"><rect></rect><foreignObject width="120" height="48"><div xmlns="http://www.w3.org/1999/xhtml" style="display: table; white-space: break-spaces; line-height: 1.5; max-width: 120px; text-align: center; width: 120px;"><span class="nodeLabel"><p>生成不可变价格版本</p></span></div></foreignObject></g></g><g class="node default" id="sync14d2-flowchart-G-13" data-look="neo" transform="translate(1342, 54.99999999999999)"><rect class="basic label-container" style="" x="-76" y="-36" width="152" height="72"></rect><g class="label" style="" transform="translate(-60, -24)"><rect></rect><foreignObject width="120" height="48"><div xmlns="http://www.w3.org/1999/xhtml" style="display: table; white-space: break-spaces; line-height: 1.5; max-width: 120px; text-align: center; width: 120px;"><span class="nodeLabel"><p>新任务采用生效版本</p></span></div></foreignObject></g></g><g class="node default" id="sync14d2-flowchart-H-15" data-look="neo" transform="translate(1342, 166.99999999999997)"><rect class="basic label-container" style="" x="-76" y="-36" width="152" height="72"></rect><g class="label" style="" transform="translate(-60, -24)"><rect></rect><foreignObject width="120" height="48"><div xmlns="http://www.w3.org/1999/xhtml" style="display: table; white-space: break-spaces; line-height: 1.5; max-width: 120px; text-align: center; width: 120px;"><span class="nodeLabel"><p>旧任务保持原价格快照</p></span></div></foreignObject></g></g></g></g></g><defs><filter id="sync14d2-drop-shadow" height="130%" width="130%"><feDropShadow dx="4" dy="4" stdDeviation="0" flood-opacity="0.06" flood-color="#000000"></feDropShadow></filter></defs><defs><filter id="sync14d2-drop-shadow-small" height="150%" width="150%"><feDropShadow dx="2" dy="2" stdDeviation="0" flood-opacity="0.06" flood-color="#000000"></feDropShadow></filter></defs><linearGradient id="sync14d2-gradient" gradientUnits="objectBoundingBox" x1="0%" y1="0%" x2="100%" y2="0%"><stop offset="0%" stop-color="hsl(0, 0%, 83.3333333333%)" stop-opacity="1"></stop><stop offset="100%" stop-color="hsl(0, 0%, 88.9215686275%)" stop-opacity="1"></stop></linearGradient></svg></figure>
+
+<h2 id="section-8">8 权限呈现与数据保护</h2>
+<p>菜单可见、按钮可用、数据范围、项目身份、对象归属和状态是不同层次。采用 P0-6 的权限码原文和动作矩阵，不在本文新造权限码。页面初始化加载权限；服务端每次请求再检查，前端隐藏绝非安全边界。</p>
+<table>
+<thead>
+<tr>
+<th>情况</th>
+<th>页面处理</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>没有菜单/能力权限</td>
+<td>不显示导航；直接访问显示无权入口；不可见对象遵循资源不可用语义</td>
+</tr>
+<tr>
+<td>可读对象但无动作权限</td>
+<td>动作隐藏；若需解释协作流程，可展示明确只读说明，不给可点击假按钮</td>
+</tr>
+<tr>
+<td>有权限但当前状态不可执行</td>
+<td>按钮禁用并显示状态原因，如任务已终态、项目已归档</td>
+</tr>
+<tr>
+<td>项目角色默认包尚待确认</td>
+<td>依据 P0-6 提案评审，不自行把 viewer、producer、owner 作为已授权配置</td>
+</tr>
+<tr>
+<td>财务与运维</td>
+<td>仅返回必要元数据；不得为方便详情而附带密钥、私有草稿、正文</td>
+</tr>
+<tr>
+<td>页面打开期间被撤权</td>
+<td>清理受保护列表/预览/缓存，停止订阅；未发送敏感输入不得转移到其他项目</td>
+</tr>
+</tbody></table>
+<p>下载、复制、公共发布、费用查看与生成不是“可读”的自动附加能力。所有对象链接、文件地址和事件流都要重校验；前端缓存按用户/项目隔离，退出登录清除受保护数据。</p>
+<h2 id="section-9">9 异常与恢复状态表</h2>
+<table>
+<thead>
+<tr>
+<th>状态</th>
+<th>展示</th>
+<th>可执行恢复及禁止事项</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>首次加载</td>
+<td>与目标布局一致骨架；区域 aria-busy</td>
+<td>不闪现上个项目数据</td>
+</tr>
+<tr>
+<td>真空数据/筛选零结果</td>
+<td>不同说明和创建/清除筛选入口</td>
+<td>无权限时不显示创建按钮</td>
+</tr>
+<tr>
+<td>局部查询失败</td>
+<td>区域错误和重试；其余区域可用</td>
+<td>不清空未提交表单</td>
+</tr>
+<tr>
+<td>字段校验失败</td>
+<td>字段错误＋摘要</td>
+<td>原生 422 等按框架映射，禁止只显示“网络错误”</td>
+</tr>
+<tr>
+<td>HTTP 200 业务失败</td>
+<td>解析 code；601 读取 data.errorCode</td>
+<td>不能以 HTTP 成功直接弹“保存成功”</td>
+</tr>
+<tr>
+<td>登录失效/禁止访问</td>
+<td>按 code 401/403 及原生 HTTP 错误处理</td>
+<td>不循环重试；不可见对象按 RESOURCE_NOT_FOUND 呈现</td>
+</tr>
+<tr>
+<td>revision 冲突</td>
+<td>显示已更新，保留输入，提供重载比较</td>
+<td>不自动覆盖最新数据</td>
+</tr>
+<tr>
+<td>写请求结果未知</td>
+<td>显示结果待确认和恢复入口</td>
+<td>同意图同 key 同 body；禁止换 key 重复消费</td>
+</tr>
+<tr>
+<td>部分上传/导入失败</td>
+<td>逐项状态、失败原因、可重试项</td>
+<td>不把部分成功显示为全失败再全部重发</td>
+</tr>
+<tr>
+<td>模型受理未知/归档失败</td>
+<td>分别显示待核实/待归档</td>
+<td>不将重试归档改成重新生成</td>
+</tr>
+<tr>
+<td>预算不足/价格缺失</td>
+<td>费用状态与允许的管理联系入口</td>
+<td>不泄漏其他项目额度，不用 0 代替未知</td>
+</tr>
+<tr>
+<td>媒体加载失败/过期</td>
+<td>媒体占位、重取授权链接</td>
+<td>不暴露内部存储地址或密钥</td>
+</tr>
+</tbody></table>
+<p>请求 ID 可供排查，错误展示不包含供应商 secret、完整未脱敏响应和数据库栈。成功提示在确定服务端结果后出现，长操作须有可再次查看的任务状态，不仅使用短暂 toast。</p>
+<h2 id="section-10">10 亮暗双主题与视觉验收</h2>
+<p>亮色与暗黑是同一页面的两套配色，不是两套业务模板。截图暗色版先按源图对齐，亮色版保留几何、间距、圆角、密度、主次按钮、品牌强调和状态身份。本稿不宣称已从截图采样精确色值；最终 token 色值、字重和尺寸须在页面实现前形成对照表并验证。</p>
+<table>
+<thead>
+<tr>
+<th>语义 token 组</th>
+<th>暗黑目标</th>
+<th>亮色目标</th>
+<th>共同要求</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>background/surface/elevated</td>
+<td>深色画布、可分辨卡片与弹层</td>
+<td>浅色画布、白色或近白卡片</td>
+<td>层级和阴影强度等价，不机械反色</td>
+</tr>
+<tr>
+<td>text/secondary/disabled</td>
+<td>高可读浅文字、弱化次级文字</td>
+<td>深文字、中灰次级文字</td>
+<td>禁用不与正文同权重，不能只靠透明度导致不可读</td>
+</tr>
+<tr>
+<td>border/divider</td>
+<td>低亮度边界</td>
+<td>浅灰边界</td>
+<td>表格分隔、输入边界可识别</td>
+</tr>
+<tr>
+<td>brand/primary/on-primary</td>
+<td>保留截图亮黄绿品牌身份</td>
+<td>同品牌色系并调整文字对比</td>
+<td>生成主按钮层级稳定，主文字对比达标</td>
+</tr>
+<tr>
+<td>selected/hover/focus</td>
+<td>选中表面与焦点环清晰</td>
+<td>浅强调背景与清晰焦点环</td>
+<td>选中、悬浮、键盘焦点不可混为一种状态</td>
+</tr>
+<tr>
+<td>success/warning/error/info</td>
+<td>适配深底的色与图标</td>
+<td>适配浅底的色与图标</td>
+<td>不仅用颜色传递状态，配文字或图标</td>
+</tr>
+<tr>
+<td>overlay/popover/tooltip</td>
+<td>深色遮罩与浮层</td>
+<td>浅底浮层和适度遮罩</td>
+<td>两组件库 Teleport 弹层跟随主题</td>
+</tr>
+<tr>
+<td>media</td>
+<td>原始图片和视频</td>
+<td>原始图片和视频</td>
+<td>禁止整体 invert；透明素材可用中性棋盘底</td>
+</tr>
+</tbody></table>
+<p>可见主题切换放全局侧栏底部或用户菜单固定位置，管理端放顶栏；图标附文字/可访问名称。Pinia 单一主题源、useTheme 统一应用，Element Plus 与 shadcn-vue 映射同一变量；本地仅存非敏感偏好。先用用户明确选择，否则首次遵循系统偏好，首屏绘制前应用；“跟随系统”的独立选项是否展示可后续评审。</p>
+<p>切换不刷新路由、不清空筛选、已选条目、表单、上传或事件订阅。主题测试覆盖卡片、表格、表单、侧栏、树、主/次/危险按钮、菜单、弹窗、tooltip 和媒体详情，以及默认/选中/禁用/聚焦/错误状态。建议普通文本对比至少 4.5:1，大字及关键非文本边界至少 3:1，作为本稿可访问性验收设计目标；键盘路径、焦点可见和不只靠颜色同样验收。</p>
+<h2 id="section-11">11 工程落点与接口衔接</h2>
+<p>制作端目录仍为 <code>higgsfield-frontend</code>，管理端仍为 <code>ruoyi-fastapi-frontend/vue3/web</code>，共用 <code>ruoyi-fastapi-backend</code>。前端 Vue3、Vue Router、Pinia、Axios；新增业务统一 script setup，制作端 TypeScript；页面/组件/use 组合函数/api 模块分层。表单双向绑定优先 defineModel，支持 v-model:xxx，禁止 .sync、Options API 和子组件修改 props。</p>
+<p>页面只消费平台契约，不直接带公司 APIKey 调用第三方。后端 controller/service/dao/entity/do 和 entity/vo、异步 AsyncSession、若依响应/异常/权限机制保持不变。数据库仍为 PostgreSQL、bigserial、RuoYi 公共字段及逻辑删除，无物理外键；不可变历史不提供删除 UI。本文不增加表或端点。</p>
+<table>
+<thead>
+<tr>
+<th>页面 UI 状态</th>
+<th>对应持久化边界</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>个人置顶/隐藏/收藏</td>
+<td>P0-3 已有个人集合；不写项目公共状态</td>
+</tr>
+<tr>
+<td>表单编辑副本</td>
+<td>前端临时状态；只有契约草稿可持久化且仅本人可读</td>
+</tr>
+<tr>
+<td>提交、价格、模型、引用版本</td>
+<td>已有任务/调用快照；不可由后续 UI 编辑回写历史</td>
+</tr>
+<tr>
+<td>上传进度与素材入库</td>
+<td>已有上传会话与绑定关系；成功状态分阶段呈现</td>
+</tr>
+<tr>
+<td>预算/费用/对账</td>
+<td>已有预占、账本、调整及审计；前端不自行结算</td>
+</tr>
+</tbody></table>
+<p>本地仍由 Docker 运行 PostgreSQL/Redis，后端和两前端手动启动，具体步骤见<a href="%E6%9C%AC%E5%9C%B0%E5%BC%80%E5%8F%91%E4%B8%8E%E5%B7%A5%E7%A8%8B%E5%88%9D%E5%A7%8B%E5%8C%96%E6%89%8B%E5%86%8C.html">初始化手册</a>。本文检查不启动这些服务。</p>
+<h2 id="section-12">12 页面验收清单</h2>
+<p>UI 编号仅追踪覆盖，等级继承 P0-1，不新增分级。每项必须记录身份、对象范围、固定数据、视口、主题、操作、预期响应与截图；不能只用管理员验证所有页面。</p>
+<table>
+<thead>
+<tr>
+<th>用例</th>
+<th>覆盖页面</th>
+<th>最低验收路径</th>
+<th>规则族/配套验收</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>UI-01</td>
+<td>S01/S08</td>
+<td>切项目、引用失效、报价与重复点击</td>
+<td>GEN、BIL；FIN</td>
+</tr>
+<tr>
+<td>UI-02</td>
+<td>S02</td>
+<td>同名创建、个人隐藏、冲突恢复</td>
+<td>PRJ、UX</td>
+</tr>
+<tr>
+<td>UI-03</td>
+<td>S03</td>
+<td>筛选、事件重复、失权任务</td>
+<td>GEN；AUTH</td>
+</tr>
+<tr>
+<td>UI-04</td>
+<td>S04</td>
+<td>跨项目聚合、收藏失权</td>
+<td>ELM、COL；AUTH</td>
+</tr>
+<tr>
+<td>UI-05</td>
+<td>S05</td>
+<td>简介编辑、归档只读、手输路由</td>
+<td>PRJ；AUTH</td>
+</tr>
+<tr>
+<td>UI-06</td>
+<td>S06</td>
+<td>多文件部分失败、恢复上传、重复绑定、移动循环</td>
+<td>AST；P0-4 契约验收</td>
+</tr>
+<tr>
+<td>UI-07</td>
+<td>S07</td>
+<td>别名冲突、主图、revision、评论标注</td>
+<td>ELM、COL</td>
+</tr>
+<tr>
+<td>UI-08</td>
+<td>S08/S11</td>
+<td>未知受理不重复消费、无价/预算不足</td>
+<td>GEN、BIL；FIN</td>
+</tr>
+<tr>
+<td>UI-09</td>
+<td>S09</td>
+<td>断流重放、归档补偿、费用未知、取消</td>
+<td>GEN、BIL</td>
+</tr>
+<tr>
+<td>UI-10</td>
+<td>S10</td>
+<td>最后 owner、撤权、费用隔离</td>
+<td>PRJ、BIL；AUTH</td>
+</tr>
+<tr>
+<td>UI-11</td>
+<td>S11</td>
+<td>串行发送、切会话、禁止读他人私有正文</td>
+<td>GEN、COL；AUTH</td>
+</tr>
+<tr>
+<td>UI-12</td>
+<td>S12</td>
+<td>读/用/发布分离、目标项目失权</td>
+<td>AST、COL；AUTH</td>
+</tr>
+<tr>
+<td>UI-13</td>
+<td>M01</td>
+<td>菜单按钮数据范围、无项目内容特权</td>
+<td>ADM；AUTH</td>
+</tr>
+<tr>
+<td>UI-14</td>
+<td>M02</td>
+<td>保存不测试、收费测试确认、轮换原 key 查询</td>
+<td>ADM、GEN</td>
+</tr>
+<tr>
+<td>UI-15</td>
+<td>M03</td>
+<td>未验证规格不可发布/开放</td>
+<td>ADM；DIF</td>
+</tr>
+<tr>
+<td>UI-16</td>
+<td>M04</td>
+<td>规则试算、版本冻结、额度调整与并发</td>
+<td>BIL；CALC、FIN</td>
+</tr>
+<tr>
+<td>UI-17</td>
+<td>M05</td>
+<td>导入重复、账单确认与调整分离、脱敏</td>
+<td>BIL；FIN、AUTH</td>
+</tr>
+<tr>
+<td>UI-18</td>
+<td>M06</td>
+<td>受理未知、证据不足、归档重试不收费</td>
+<td>GEN、ADM、BIL</td>
+</tr>
+<tr>
+<td>UI-19</td>
+<td>全部页面</td>
+<td>亮暗同数据截图、键盘、弹层、长文本和窄屏</td>
+<td>UX-08；UAT-19</td>
+</tr>
+<tr>
+<td>UI-20</td>
+<td>全部写页面</td>
+<td>HTTP200业务失败、原生422、冲突、断网保留输入</td>
+<td>UX、QLT；P0-4</td>
+</tr>
+</tbody></table>
+<p>验收层次分开：本稿只进行文档与 HTML 检查；后续还有组件交互、接口契约、权限负向、真实供应商、预算并发及双主题浏览器验收。代表截图对比不等于业务闭环通过。</p>
+<h2 id="section-13">13 待冻结项与开放门槛</h2>
+<table>
+<thead>
+<tr>
+<th>项目</th>
+<th>来源与当前状态</th>
+<th>后续产出/门槛</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>字段长度、文件限制、属性数量</td>
+<td>P0-1 D04 未完全冻结</td>
+<td>DTO/schema 和两端校验表一致后开放相关写入口</td>
+</tr>
+<tr>
+<td>默认角色包、共享阅读与可发现申请</td>
+<td>P0-1/P0-6 既有待决策</td>
+<td>确认权限包和必要接口；此前不开放任意角色编辑/可发现申请</td>
+</tr>
+<tr>
+<td>预算周期、无预算/无上界处理</td>
+<td>P0-5 既有提案</td>
+<td>评审前按阻断消费方案设计，不能称已批准</td>
+</tr>
+<tr>
+<td>固定模板导入和逐项错误</td>
+<td>D10 及接口细节</td>
+<td>固定模板、预检/确认 DTO、部分失败展示冻结</td>
+</tr>
+<tr>
+<td>成员候选选择</td>
+<td>普通项目管理员不能直接继承全量系统用户权限</td>
+<td>在 P0-4/P0-6 明确候选查询范围和接口；缺口闭环前不开放不安全选择器</td>
+</tr>
+<tr>
+<td>页面参数持久化、自动保存、拖拽</td>
+<td>本稿设计边界</td>
+<td>默认显式保存/明确按钮；新持久化需先核对 API/数据库</td>
+</tr>
+<tr>
+<td>导出、统计曲线、文件夹数量</td>
+<td>截图不能证明接口存在</td>
+<td>逐项核对数据源、口径及授权，无来源不假造数字和按钮</td>
+</tr>
+<tr>
+<td>精确视觉参数与响应断点</td>
+<td>本稿布局/色彩语义建议</td>
+<td>补 token 色值和关键页面两主题设计对照；按完整截图状态验收</td>
+</tr>
+</tbody></table>
+<p>这些是已有决策或契约/设计完善项，不重编号为新优先级任务。若影响源规则，应先更新对应 P0 文档与索引，再实施页面。技术强制规范和已确认双主题要求不因存在待冻结项而降级。</p>
+<footer>由同目录 页面规格与交互说明书.md 生成，内嵌 3 张 SVG 图；修改以 Markdown 为准。</footer></main></body></html>

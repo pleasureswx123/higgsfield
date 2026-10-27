@@ -1,386 +1,200 @@
-<h1 align="center">
-    <img alt="logo" src="./ruoyi-fastapi-frontend/vue3/web/src/assets/logo/logo.png">
-</h1>
-<h1 align="center" style="margin: 30px 0 30px; font-weight: bold;">RuoYi-FastAPI</h1>
-<h4 align="center">基于 Vue/React + FastAPI 的前后端分离快速开发框架</h4>
-<p align="center">
-    <a href="https://gitee.com/insistence2022/RuoYi-FastAPI/stargazers">
-        <img alt="Gitee" src="https://gitee.com/insistence2022/RuoYi-FastAPI/badge/star.svg?theme=dark">
-    </a>
-    <a href="https://github.com/insistence/RuoYi-FastAPI">
-        <img alt="Github" src="https://img.shields.io/github/stars/insistence/RuoYi-FastAPI?style=social">
-    </a>
-    <a href="https://github.com/insistence/RuoYi-FastAPI/actions/workflows/ci.yml">
-        <img alt="CI" src="https://github.com/insistence/RuoYi-FastAPI/actions/workflows/ci.yml/badge.svg?branch=master">
-    </a>
-    <a href="https://gitee.com/insistence2022/RuoYi-FastAPI">
-        <img alt="project version" src="https://img.shields.io/badge/version-2.0.0-brightgreen.svg">
-    </a>
-    <a href="https://github.com/astral-sh/ruff">
-        <img alt="Ruff" src="https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/astral-sh/ruff/main/assets/badge/v2.json">
-    </a>
-    <a href="https://gitee.com/insistence2022/RuoYi-FastAPI/blob/master/LICENSE">
-        <img alt="LICENSE" src="https://img.shields.io/github/license/mashape/apistatus.svg">
-    </a>
-    <img alt="node version" src="https://img.shields.io/badge/node-22.22.2%2B%20%7C%2024.15.0%2B-blue">
-    <img alt="python version" src="https://img.shields.io/badge/python-≥3.10-blue">
-    <img alt="mysql version" src="https://img.shields.io/badge/MySQL-≥5.7-blue">
-    <img alt="redis version" src="https://img.shields.io/badge/redis-≥6.2-blue">
-</p>
+# higgsfield-ai
 
-## 平台简介
+基于 RuoYi-FastAPI 开发的 AI 制作平台，包含管理平台与制作平台两个前端。后端使用 Python FastAPI，数据库统一使用 PostgreSQL。
 
-RuoYi-FastAPI是一套全部开源的快速开发平台，毫无保留给个人及企业免费使用。
+本地开发方式：**Docker 仅运行 PostgreSQL 和 Redis；后端、管理前端、制作前端分别在宿主机手动启动。** 本文命令使用 Windows PowerShell，项目目录为 `D:\laputta\higgsfield`。
 
-* Web 前端提供 Vue2 + Element UI、Vue3 + Element Plus 和 React + Ant Design 三套工程。Vue2、Vue3 版本分别基于<u>[RuoYi-Vue](https://github.com/yangzongzhuan/RuoYi-Vue)</u>和<u>[RuoYi-Vue3](https://github.com/yangzongzhuan/RuoYi-Vue3)</u>修改。
-* 移动端提供基于 uni-app 的 Vue2、Vue3 和 基于 Taro 的 React 三套工程，内置 Tailwind CSS，Vue2、Vue3 版本基于<u>[RuoYi-App](https://github.com/yangzongzhuan/RuoYi-App)</u>项目修改。
-* 后端采用FastAPI、sqlalchemy、MySQL（PostgreSQL）、Redis、OAuth2 & Jwt。
-* 权限认证使用OAuth2 & Jwt，支持多终端认证系统。
-* 内置 OAuth 2.0 / OpenID Connect（OIDC）统一认证中心，为业务应用提供单点登录（SSO）、授权和单点退出能力。
-* 支持加载动态权限菜单，多方式轻松权限控制。
-* 特别鸣谢：<u>[RuoYi-Vue](https://github.com/yangzongzhuan/RuoYi-Vue)</u>、<u>[RuoYi-Vue3](https://github.com/yangzongzhuan/RuoYi-Vue3)</u>、<u>[RuoYi-App](https://github.com/yangzongzhuan/RuoYi-App)</u>
+## 项目结构与当前状态
 
-## 内置功能
+| 目录 / 文件 | 用途与状态 |
+|---|---|
+| `ruoyi-fastapi-backend/` | 后端框架，FastAPI + 异步 SQLAlchemy + Redis + JWT/OAuth2 |
+| `ruoyi-fastapi-frontend/vue3/web/` | Vue3 管理平台，基于现有 RuoYi 管理工程 |
+| `higgsfield-frontend/` | 制作平台待初始化，目前仅有 `AGENTS.md`，尚无应用代码和 `package.json` |
+| `docker-compose.local.yml` | 本地 PostgreSQL、Redis 配置 |
+| `.env.local-infra.example` | 本地基础设施环境变量示例 |
+| `docs/` | 已有需求、架构、开发与部署文档 |
+| `AGENTS.md` | 项目技术栈、编码规范及 RuoYi 能力参考规则 |
 
-1. 用户管理：用户是系统操作者，该功能主要完成系统用户配置。
-2. 角色管理：角色菜单权限分配、设置角色按机构进行数据范围权限划分。
-3. 菜单管理：配置系统菜单，操作权限，按钮权限标识等。
-4. 部门管理：配置系统组织机构（公司、部门、小组）。
-5. 岗位管理：配置系统用户所属担任职务。
-6. 字典管理：对系统中经常使用的一些较为固定的数据进行维护。
-7. 参数管理：对系统动态配置常用参数。
-8. 通知公告：系统通知公告信息发布维护。
-9. 操作日志：系统正常操作日志记录和查询；系统异常信息日志记录和查询。
-10. 登录日志：系统登录日志记录查询包含登录异常。
-11. 在线用户：当前系统中活跃用户状态监控。
-12. 定时任务：在线（添加、修改、删除）任务调度包含执行结果日志。
-13. 服务监控：监视当前系统CPU、内存、磁盘、堆栈等相关信息。
-14. 缓存监控：对系统的缓存信息查询，命令统计等。
-15. 传输加密：支持前后端请求加密、响应解密、公钥轮换、运行策略下发与监控统计。
-16. 在线构建器：拖动表单元素生成相应的HTML代码。
-17. 系统接口：根据业务代码自动生成相关的api接口文档。
-18. 代码生成：配置数据库表信息，一键生成前后端代码（Python、SQL、Vue、JavaScript、React JSX）并打包下载。
-19. AI管理：提供AI模型管理和AI对话功能。
-20. 文件管理：统一管理公开文件和受保护附件，支持访问控制、业务引用保护、操作审计、回收站、保留策略及存储对账。
-21. 插件系统：支持插件发现、安装、启停、升级、卸载与清理，提供依赖与配置管理、迁移与种子、定时任务、菜单权限、批量预演、健康诊断、操作审计及前后端插件脚手架。
-22. 统一认证中心：基于 OAuth 2.0 / OIDC，支持授权码 + PKCE S256、刷新令牌、客户端凭据、SSO 和单点退出，提供客户端、资源、Scope、授权记录、访问策略、会话、签名密钥及认证审计管理。
+制作端业务尚未实现；框架现有能力不等于制作平台业务已完成。其他前端版本、MySQL 配置和全栈 Compose 保留为框架参考，不作为本项目本地启动入口。
 
-## 演示图
+## 本地启动顺序
 
-<table>
-    <tr>
-        <td>
-            <img alt="login" src="https://gitee.com/insistence2022/ruoyi-fastapi-pictures/raw/master/vue3/web/login.png">
-        </td>
-        <td>
-            <img alt="dashboard" src="https://gitee.com/insistence2022/ruoyi-fastapi-pictures/raw/master/vue3/web/dashboard.png">
-        </td>
-    </tr>
-    <tr>
-        <td>
-            <img alt="user" src="https://gitee.com/insistence2022/ruoyi-fastapi-pictures/raw/master/vue3/web/user.png">
-        </td>
-        <td>
-            <img alt="role" src="https://gitee.com/insistence2022/ruoyi-fastapi-pictures/raw/master/vue3/web/role.png">
-        </td>
-    </tr>
-    <tr>
-        <td>
-            <img alt="menu" src="https://gitee.com/insistence2022/ruoyi-fastapi-pictures/raw/master/vue3/web/menu.png">
-        </td>
-        <td>
-            <img alt="dept" src="https://gitee.com/insistence2022/ruoyi-fastapi-pictures/raw/master/vue3/web/dept.png">
-        </td>
-    </tr>
-    <tr>
-        <td>
-            <img alt=""post src="https://gitee.com/insistence2022/ruoyi-fastapi-pictures/raw/master/vue3/web/post.png">
-        </td>
-        <td>
-            <img alt="dict" src="https://gitee.com/insistence2022/ruoyi-fastapi-pictures/raw/master/vue3/web/dict.png">
-        </td>
-    </tr>  
-    <tr>
-        <td>
-            <img alt="config" src="https://gitee.com/insistence2022/ruoyi-fastapi-pictures/raw/master/vue3/web/config.png">
-        </td>
-        <td>
-            <img alt="notice" src="https://gitee.com/insistence2022/ruoyi-fastapi-pictures/raw/master/vue3/web/notice.png">
-        </td>
-    </tr>
-    <tr>
-        <td>
-            <img alt="operLog" src="https://gitee.com/insistence2022/ruoyi-fastapi-pictures/raw/master/vue3/web/operLog.png">
-        </td>
-        <td>
-            <img alt="loginLog" src="https://gitee.com/insistence2022/ruoyi-fastapi-pictures/raw/master/vue3/web/loginLog.png">
-        </td>
-    </tr>
-    <tr>
-        <td>
-            <img alt="online" src="https://gitee.com/insistence2022/ruoyi-fastapi-pictures/raw/master/vue3/web/online.png">
-        </td>
-        <td>
-            <img alt="job" src="https://gitee.com/insistence2022/ruoyi-fastapi-pictures/raw/master/vue3/web/job.png">
-        </td>
-    </tr>
-    <tr>
-        <td>
-            <img alt="server" src="https://gitee.com/insistence2022/ruoyi-fastapi-pictures/raw/master/vue3/web/server.png">
-        </td>
-        <td>
-            <img alt="cache" src="https://gitee.com/insistence2022/ruoyi-fastapi-pictures/raw/master/vue3/web/cache.png">
-        </td>
-    </tr>
-    <tr>
-        <td>
-            <img alt="cacheList" src="https://gitee.com/insistence2022/ruoyi-fastapi-pictures/raw/master/vue3/web/cacheList.png">
-        </td>
-        <td>
-            <img alt="form" src="https://gitee.com/insistence2022/ruoyi-fastapi-pictures/raw/master/vue3/web/form.png">
-        </td>
-    </tr>
-    <tr>
-        <td>
-            <img alt="api" src="https://gitee.com/insistence2022/ruoyi-fastapi-pictures/raw/master/vue3/web/api.png">
-        </td>
-        <td>
-            <img alt="gen" src="https://gitee.com/insistence2022/ruoyi-fastapi-pictures/raw/master/vue3/web/gen.png">
-        </td>
-    </tr>
-    <tr>
-        <td>
-            <img alt="aiModel" src="https://gitee.com/insistence2022/ruoyi-fastapi-pictures/raw/master/vue3/web/aiModel.png">
-        </td>
-        <td>
-            <img alt="aiChat" src="https://gitee.com/insistence2022/ruoyi-fastapi-pictures/raw/master/vue3/web/aiChat.png">
-        </td>
-    </tr>
-    <tr>
-        <td>
-            <img alt="file" src="https://gitee.com/insistence2022/ruoyi-fastapi-pictures/raw/master/vue3/web/file.png">
-        </td>
-        <td>
-            <img alt="plugin" src="https://gitee.com/insistence2022/ruoyi-fastapi-pictures/raw/master/vue3/web/plugin.png">
-        </td>
-    </tr>
-    <tr>
-        <td>
-            <img alt="profile" src="https://gitee.com/insistence2022/ruoyi-fastapi-pictures/raw/master/vue3/web/profile.png">
-        </td>
-    </tr>
-</table>
+1. 配置环境变量，启动 PostgreSQL 与 Redis。
+2. 配置并启动后端。
+3. 在另一个终端启动管理平台 Web 前端。
+4. 制作平台待工程初始化后再启动。
 
-<table>
-    <tr>
-        <td>
-            <img alt="applogin" src="https://gitee.com/insistence2022/ruoyi-fastapi-pictures/raw/master/vue3/app/login.png">
-        </td>
-        <td>
-            <img alt="appWorkbench" src="https://gitee.com/insistence2022/ruoyi-fastapi-pictures/raw/master/vue3/app/workbench.png">
-        </td>
-        <td>
-            <img alt="appProfile" src="https://gitee.com/insistence2022/ruoyi-fastapi-pictures/raw/master/vue3/app/profile.png">
-        </td>
-    </tr>
-</table>
+| 服务 | 本地地址 / 端口 |
+|---|---|
+| PostgreSQL | `127.0.0.1:35432` → 容器 `5432` |
+| Redis | `127.0.0.1:36379` → 容器 `6379` |
+| 后端 | `http://127.0.0.1:9099` |
+| 后端接口文档 | `http://127.0.0.1:9099/docs` |
+| 管理平台 | `http://127.0.0.1:5173`，按下方启动参数固定 |
+| 制作平台 | 待初始化，约定开发端口 `5174` |
 
-## 在线体验
+基础设施沿用 PostgreSQL 14、Redis 7.4。后端按 Python 3.12 准备本地虚拟环境。管理端 `package.json` 要求 Node.js `^22.22.2 || ^24.15.0`、pnpm `11.28.6`。
 
-* *账号：admin*
-* *密码：admin123*
-* 演示地址：<a href="https://vfadmin.insistence.tech">RuoYi-FastAPI<a>
+## 1. Docker 启动 PostgreSQL 与 Redis
 
-## 项目开发及发布相关
+### 首次配置
 
-### 工程目录
+在项目根目录执行：
 
-前端目录约定为 `ruoyi-fastapi-frontend/<framework>/{web,mobile}`，其中 `<framework>` 是前端框架标识，当前为 `vue2`、`vue3`、`react`。
+```powershell
+Set-Location D:\laputta\higgsfield
 
-```text
-RuoYi-FastAPI/
-├── ruoyi-fastapi-backend/       # 共用 FastAPI 后端
-├── ruoyi-fastapi-frontend/
-│   ├── react/
-│   │   ├── web/                # React + Ant Design
-│   │   └── mobile/             # Taro + React
-│   ├── vue2/
-│   │   ├── web/                # Vue2 + Element UI
-│   │   └── mobile/             # uni-app + Vue2
-│   └── vue3/
-│       ├── web/                # Vue3 + Element Plus + Vite
-│       └── mobile/             # uni-app + Vue3 + Vite
-└── ruoyi-fastapi-test/          # 端到端与跨工程契约测试
+# 仅首次复制，不覆盖已有配置。
+if (-not (Test-Path .env.local-infra)) {
+  Copy-Item .env.local-infra.example .env.local-infra
+}
+notepad .env.local-infra
 ```
 
-### 传输层加解密配置说明
+填写并保存以下配置，密码使用本机独立随机密码，不保留占位文字：
 
-后端密钥配置与轮换说明：[ruoyi-fastapi-backend/docs/transport_crypto_config.md](./ruoyi-fastapi-backend/docs/transport_crypto_config.md)
-
-### 统一认证中心接入说明
-
-统一认证中心支持 Web 服务端应用、SPA 和服务间调用接入，提供 Discovery、JWKS、UserInfo、令牌撤销与内省接口，支持应用发起退出和 Back-channel Logout。
-
-功能启用、签名密钥初始化、客户端注册及接入示例详见：[统一认证中心开发者使用手册](./ruoyi-fastapi-backend/docs/unified_authentication_developer_guide.md)。
-
-### 开发
-
-```bash
-# 克隆项目
-git clone https://gitee.com/insistence2022/RuoYi-FastAPI.git
-
-# 进入项目根目录
-cd RuoYi-FastAPI
+```dotenv
+LOCAL_PG_PASSWORD=替换为本机独立随机密码
+LOCAL_PG_PORT=35432
+LOCAL_REDIS_PORT=36379
 ```
 
-#### Web 前端
+真实环境文件已加入 Git 忽略列表。PostgreSQL 数据库为 `higgsfield_ai_dev`，用户为 `higgsfield_dev`。Redis 仅绑定本机回环，无密码，后端使用逻辑库 `2`。
 
-```bash
-# 从仓库根目录进入 Vue3 Web 工程
-cd ruoyi-fastapi-frontend/vue3/web
-# 使用 Vue2 时改为：cd ruoyi-fastapi-frontend/vue2/web
+### 启动、查看状态和日志
 
-# 安装依赖
+由开发者在项目根目录手动执行：
+
+```powershell
+Set-Location D:\laputta\higgsfield
+
+docker compose --env-file .env.local-infra -f docker-compose.local.yml config --quiet
+if ($LASTEXITCODE -ne 0) { throw '请先修正 Compose 配置' }
+
+docker compose --env-file .env.local-infra -f docker-compose.local.yml up -d postgres redis
+docker compose --env-file .env.local-infra -f docker-compose.local.yml ps
+docker compose --env-file .env.local-infra -f docker-compose.local.yml logs --tail 80 postgres redis
+```
+
+等待两个服务显示 `healthy`。持续查看日志可执行：
+
+```powershell
+docker compose --env-file .env.local-infra -f docker-compose.local.yml logs -f --tail 80 postgres redis
+```
+
+`Ctrl+C` 仅退出日志查看。首次启动会在专属空数据卷中导入框架 PostgreSQL 初始化 SQL；该脚本含删表语句，不要手工重跑到已有数据库。框架种子初始化不替代后续业务数据库迁移，数据核验见[本地开发手册第 5 节](docs/本地开发与工程初始化手册.md#5-框架数据库初始化与验证)。
+
+Compose 顶层项目名为 `higgsfield-ai-local`，容器、网络及数据卷自动使用该项目名称隔离。不要用 `-p` 或 `COMPOSE_PROJECT_NAME` 覆盖它。若端口冲突，调整 `.env.local-infra` 和后端对应端口，不停止其他项目服务。
+
+### 数据持久化、停止和再次启动
+
+| 数据 | Docker 命名卷 | 容器内目录 |
+|---|---|---|
+| PostgreSQL | `higgsfield-ai-local_pg_data` | `/var/lib/postgresql/data` |
+| Redis（开启 AOF） | `higgsfield-ai-local_redis_data` | `/data` |
+
+命名卷由 Docker 管理，保存在 Docker Desktop 的 Linux 数据磁盘中，不在项目源码目录内。
+
+```powershell
+# 停止服务，保留容器和数据。
+docker compose --env-file .env.local-infra -f docker-compose.local.yml stop postgres redis
+
+# 再次启动已存在的容器。
+docker compose --env-file .env.local-infra -f docker-compose.local.yml start postgres redis
+```
+
+若修改了 Compose 配置，使用前面的 `up -d postgres redis` 应用变更。不要执行 `down -v` 或 `volume prune`，以免删除持久化数据。修改环境文件密码不会自动修改已有数据库角色的密码。
+
+## 2. 后端服务启动步骤
+
+### 安装依赖（首次或依赖变更时）
+
+```powershell
+Set-Location D:\laputta\higgsfield\ruoyi-fastapi-backend
+
+# 查看已安装的 Python 版本。
+py -0p
+
+# 首次创建虚拟环境；已有 .venv 时跳过此行。
+py -3.12 -m venv .venv
+.\.venv\Scripts\python.exe -m pip install -r requirements-pg.txt
+.\.venv\Scripts\python.exe -m pip check
+```
+
+### 配置开发环境
+
+首次克隆后，在后端目录执行以下命令复制示例；已有配置时不会覆盖：
+
+```powershell
+if (-not (Test-Path .env.dev)) {
+  Copy-Item .env.dev.example .env.dev
+}
+```
+
+编辑后端目录的 `.env.dev`，替换示例密码与 JWT 密钥，保留其他已有配置，核对以下字段：
+
+```dotenv
+APP_ENV=dev
+APP_HOST=127.0.0.1
+APP_PORT=9099
+APP_ROOT_PATH=
+DB_DEFAULT_SOURCE=primary
+DB_SOURCES={"primary":{"db_type":"postgresql","db_host":"127.0.0.1","db_port":35432,"db_username":"higgsfield_dev","db_password":"替换为LOCAL_PG_PASSWORD的实际值","db_database":"higgsfield_ai_dev","db_echo":false}}
+REDIS_HOST=127.0.0.1
+REDIS_PORT=36379
+REDIS_USERNAME=
+REDIS_PASSWORD=
+REDIS_DATABASE=2
+```
+
+`DB_SOURCES` 必须是一行合法 JSON，密码与根目录 `.env.local-infra` 中的实际值一致；含引号或反斜线时需正确转义。后端不会自动读取基础设施环境文件，不使用旧式 `DB_HOST` 等变量代替 `DB_SOURCES`。JWT 等其他配置沿用已有框架配置方式，开发密钥使用本机独立值。
+
+### 运行后端
+
+确认 PostgreSQL、Redis 已启动并完成初始化核验，再执行：
+
+```powershell
+Set-Location D:\laputta\higgsfield\ruoyi-fastapi-backend
+.\.venv\Scripts\ruoyi.exe app run --env=dev
+```
+
+保留终端查看日志，`Ctrl+C` 停止。接口文档地址：`http://127.0.0.1:9099/docs`。此命令会实际连接数据库和 Redis，并执行框架启动初始化；不要将 `.env.dev` 指向其他项目或生产数据库。
+
+## 3. 管理平台 Web 前端启动步骤
+
+在另一个 PowerShell 终端执行：
+
+```powershell
+Set-Location D:\laputta\higgsfield\ruoyi-fastapi-frontend\vue3\web
+
+# 检查 Node.js；首次安装或版本不符时安装指定 pnpm。
+node --version
 npm install -g pnpm@11.28.6
-pnpm install
+pnpm --version
 
-# 建议不要直接使用 cnpm 安装依赖，会有各种诡异的 bug。可以通过如下操作解决 npm 下载速度慢的问题
-pnpm install --registry=https://registry.npmmirror.com
+# 安装依赖，沿用仓库锁文件。
+pnpm install --frozen-lockfile --registry=https://registry.npmmirror.com
 
-# 启动服务
-pnpm run dev
+# 启动管理平台。
+pnpm run dev --host 127.0.0.1 --port 5173 --strictPort
 ```
 
-三个 Web 工程默认都使用 `80` 端口，开发代理均指向同一个 `9099` 后端。同时运行时，请分别配置不同的前端端口。
+访问 `http://127.0.0.1:5173`。已安装指定 pnpm 且依赖没有变更时，直接执行最后一条启动命令。
 
-#### Vue3 移动端
+现有 `pnpm run dev` 会运行 Vite，但框架默认配置使用 `80` 端口；这里显式固定为本项目约定的 `5173`，并在占用时报错，避免自动换端口。开发代理将 `/dev-api` 请求转发到 `http://127.0.0.1:9099`。`Ctrl+C` 停止前端。
 
-```bash
-# 从仓库根目录进入移动端工程
-cd ruoyi-fastapi-frontend/vue3/mobile
+## 4. 制作平台 higgsfield-frontend
 
-# 安装依赖
-npm install -g pnpm@11.28.6
-pnpm install
+**制作平台尚未初始化。** `higgsfield-frontend/` 当前仅有开发规范文件 `AGENTS.md`，没有 `package.json`、页面或启动脚本，暂不能执行 `pnpm install` 或 `pnpm run dev`。
 
-# 启动 H5
-pnpm dev:h5
+后续按 Vue3 + TypeScript + Vue Router + Pinia + Axios 架构实现，业务组件使用 `<script setup lang="ts">`，支持亮色与暗黑主题。具体规范见[制作端 AGENTS.md](higgsfield-frontend/AGENTS.md)。
 
-# 启动微信小程序
-pnpm dev:mp-weixin
-```
+## 开发约定与资料
 
-#### Vue2 移动端
+- 项目约束见[AGENTS.md](AGENTS.md)。参考 RuoYi 代码生成、表单构建、系统接口、菜单权限的功能设计，实际实现及生成代码仍使用 FastAPI、Vue3 setup、PostgreSQL，不生成 Java/Spring Boot 后端。
+- 更完整的环境配置、数据核验及故障定位见[本地开发手册](docs/本地开发与工程初始化手册.md)。
+- 正式环境面向公司内网服务器，媒体长期保存到公司 NAS；本地 Compose 不作为正式部署方案。
+- 本项目基于 RuoYi-FastAPI，保留其框架来源与[许可证](LICENSE)。
 
-```bash
-# 从仓库根目录进入移动端工程
-cd ruoyi-fastapi-frontend/vue2/mobile
-pnpm install
-
-# 启动 H5
-pnpm dev:h5
-
-# 启动微信小程序
-pnpm dev:mp-weixin
-```
-
-移动端详细文档请参考：[Vue3 移动端](./ruoyi-fastapi-frontend/vue3/mobile/README.md)、[Vue2 移动端](./ruoyi-fastapi-frontend/vue2/mobile/README.md)。
-
-#### 后端
-
-```bash
-# 进入后端目录
-cd ruoyi-fastapi-backend
-
-# 如果使用的是MySQL数据库，请执行以下命令安装项目依赖环境
-pip3 install -r requirements.txt
-# 如果使用的是PostgreSQL数据库，请执行以下命令安装项目依赖环境
-pip3 install -r requirements-pg.txt
-
-# 安装AI插件依赖，如果不需要AI插件，可忽略此步骤
-ruoyi plugin install-deps ai
-
-# 配置环境
-在.env.dev文件中配置开发环境的数据库和redis
-
-# 运行sql文件
-1.新建数据库ruoyi-fastapi(默认，可修改)
-2.如果使用的是MySQL数据库，使用命令或数据库连接工具运行sql文件夹下的ruoyi-fastapi.sql；如果使用的是PostgreSQL数据库，使用命令或数据库连接工具运行sql文件夹下的ruoyi-fastapi-pg.sql
-
-# 运行后端
-ruoyi app run --env=dev
-```
-
-后端 CLI 使用说明请参考：[ruoyi-fastapi-backend/docs/cli_usage.md](./ruoyi-fastapi-backend/docs/cli_usage.md)
-
-#### 访问
-
-```bash
-# 默认账号密码
-账号：admin
-密码：admin123
-
-# 浏览器访问
-地址：http://localhost:80
-```
-
-### 发布
-
-#### Web 前端
-
-先进入要发布的 `ruoyi-fastapi-frontend/vue2/web` 或 `ruoyi-fastapi-frontend/vue3/web` 工程，再运行：
-
-```bash
-# 构建测试环境
-pnpm run build:stage
-
-# 构建生产环境
-pnpm run build:prod
-```
-
-#### 后端
-
-```bash
-# 配置环境
-在.env.prod文件中配置生产环境的数据库和redis
-
-# 运行后端
-ruoyi app run --env=prod
-```
-
-### Docker Compose部署方式
-
-> ⚠️ **警告：** 默认未做数据持久化配置，请注意数据备份或自行配置持久化
-
-Compose 通过前端框架标识选择 Web 工程。仓库根目录的 `docker.env` 默认设置 `FRONTEND_FRAMEWORK=vue3`，当前可选值为 `vue2`、`vue3`；改为 `vue2` 可切换到 Vue2 Web。执行下方命令时，通过 `--env-file docker.env` 显式加载配置。该变量同时选择 `ruoyi-fastapi-frontend/<framework>/web` 构建目录与对应的 nginx 配置，并通过 `RUOYI_PLUGIN_FRONTEND_FRAMEWORK` 传入后端，使插件依赖检查和安装使用相同框架分类。各框架共用后端服务与数据库配置；本次部署只构建所选 Web 工程，不会构建移动端。
-
-#### MySQL版本
-
-```bash
-docker compose --env-file docker.env -f docker-compose.my.yml up -d --build
-```
-
-#### PostgreSQL版本
-
-```bash
-docker compose --env-file docker.env -f docker-compose.pg.yml up -d --build
-```
-
-## 交流与赞助
-
-如果有对本项目及FastAPI感兴趣的朋友，欢迎加入知识星球一起交流学习，让我们一起变得更强。如果你觉得这个项目帮助到了你，你可以请作者喝杯咖啡表示鼓励☕。扫描下面微信二维码添加微信备注VF-Admin即可进群。
-<table>
-    <tr>
-        <td>
-            <img alt="zsxq" src="https://gitee.com/insistence2022/ruoyi-fastapi-pictures/raw/master/common/zsxq.jpg">
-        </td>
-        <td>
-            <img alt="zanzhu" src="https://gitee.com/insistence2022/ruoyi-fastapi-pictures/raw/master/common/zanzhu.jpg">
-        </td>
-    </tr>
-    <tr>
-        <td>
-            <img alt="wxcode" src="https://gitee.com/insistence2022/ruoyi-fastapi-pictures/raw/master/common/wxcode.jpg">
-        </td>
-    </tr>
-</table>
+本文按仓库配置整理启动步骤，不代表服务已启动或业务联调已通过。

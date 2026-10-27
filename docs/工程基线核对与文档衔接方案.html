@@ -1,0 +1,253 @@
+<!doctype html><html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>higgsfield-ai · 工程基线核对与文档衔接方案</title><style>
+*{box-sizing:border-box}body{overflow-wrap:anywhere;margin:0;color:#172b3a;background:#f1f4f7;font:16px/1.85 "Microsoft YaHei",sans-serif}header{background:#15394c;color:white;padding:18px 5%;font-size:18px}main{max-width:1280px;margin:28px auto;background:white;padding:44px 56px;box-shadow:0 8px 32px #15394c10}h1{font-size:32px;line-height:1.4}h2{font-size:25px;color:#154c62;border-bottom:2px solid #d9e6ec;margin-top:52px;padding-bottom:12px;scroll-margin-top:20px}h3{font-size:20px;margin-top:30px}a{color:#126886;text-decoration:none}a:hover{text-decoration:underline}nav{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:5px 22px;padding:24px;background:#f2f7fa;border:1px solid #d6e4ec;margin-bottom:32px}table{table-layout:fixed;width:100%;border-collapse:collapse;margin:20px 0;font-size:14px;line-height:1.7}th,td{border:1px solid #d6e0e6;padding:10px 12px;text-align:left;vertical-align:top;overflow-wrap:anywhere}th{background:#eaf1f5}tr:nth-child(even){background:#f9fbfc}pre{overflow:auto;background:#f4f6f8;padding:20px;border:1px solid #e0e6eb;border-radius:5px;font-size:13px;line-height:1.7}code{font-family:Consolas,"Microsoft YaHei",monospace;overflow-wrap:anywhere}p code,td code{background:#eef2f5;padding:1px 3px}.diagram{margin:24px 0;padding:18px;border:1px solid #d9e5ec;background:#fff;overflow:auto}.diagram svg{min-width:780px;height:auto;display:block;margin:auto}footer{color:#586d7a;border-top:1px solid #d9e5ec;margin-top:48px;padding-top:16px;font-size:13px}@media(max-width:800px){main{margin:0;padding:22px}nav{grid-template-columns:1fr}table{display:block;overflow:auto}h1{font-size:27px}}@media print{body{background:white}main{margin:0;padding:0;box-shadow:none;max-width:none}header,nav{display:none}h2{break-before:page}figure,pre{break-inside:avoid}.diagram svg{min-width:0;max-width:100%!important}a{color:inherit}}
+</style></head><body><header>higgsfield-ai · 技术文档 · 2026 年 10 月 27 日</header><main><nav><a href="#section-1">1 结论</a><a href="#section-2">2 源码证据与衔接决策</a><a href="#section-3">3 目标代码组织与复用边界</a><a href="#section-4">4 协议衔接</a><a href="#section-5">5 文档同步范围</a><a href="#section-6">6 本地开发基线（用户已确认）</a><a href="#section-7">7 建议实施顺序与验收门槛</a><a href="#section-8">附录 源码基线指纹</a><a href="#section-9">8 前端选型与强制编码规范（已确认）</a><a href="#section-10">9 后端统一约束与源码差异</a></nav><h1 id="higgsfield-ai-·-工程基线核对与文档衔接方案">higgsfield-ai · 工程基线核对与文档衔接方案</h1>
+<p>版本：1.8 评审稿<br>日期：2026 年 10 月 27 日<br>范围：已导入 RuoYi-FastAPI 源码与设计文档及制作端编码规范</p>
+<p><strong>项目名称与本地开发基线（已确认）：</strong> 整体项目名称为 <code>higgsfield-ai</code>。现有工作目录 <code>D:\laputta\higgsfield</code>、制作端 <code>higgsfield-frontend/</code>、管理端 <code>ruoyi-fastapi-frontend/vue3/web/</code> 和后端 <code>ruoyi-fastapi-backend/</code> 均保持不变；本次不改仓库地址、包名、模块名或数据库实例名。本地开发使用 Docker 启动 PostgreSQL 与 Redis，后端及两个前端在宿主机分别手动启动。制作端尚待初始化，未来生成/media Worker 在本机作为独立进程手动启动；正式部署在公司内网服务器，素材与视频长期保存到公司 NAS；具体部署参数另行定义。</p>
+<p><strong>若依数据库设计基线（本次确认）：</strong> 全部新增业务数据库设计遵循本地 RuoYi-FastAPI PostgreSQL 约定：hf_ 模块表名、语义 xxx_id 自增 bigint、若依审计字段、按职责使用 del_flag（0/2）、复用 sys_dict_type/sys_dict_data、关联表自增主键与联合唯一约束、禁止物理外键、服务层事务维护逻辑关联。物理表/字段/字典映射以 <a href="%E6%95%B0%E6%8D%AE%E5%BA%93%E8%AF%A6%E7%BB%86%E8%AE%BE%E8%AE%A1.html">P0-3 数据库详细设计</a> 为准；平台业务 ID 传输为十进制字符串，API 基础审计时间为 createTime/updateTime。不可变历史、幂等、价格版本及权限规则仍须保留。本次只更新设计，不改基础框架或业务代码。</p>
+<p><strong>统一约束与优先级：</strong> 以<a href="../AGENTS.md">项目 AGENTS.md</a>为工程约束；<a href="%E6%96%87%E6%A1%A3%E4%B8%80%E8%87%B4%E6%80%A7%E4%B8%8E%E4%BC%98%E5%85%88%E7%BA%A7%E7%B4%A2%E5%BC%95.html">文档一致性与优先级索引</a>统一文档编号、需求等级和处理规则。P0-1～P0-6 是文档编号，不是需求优先级；业务规则等级以 P0-1 的规则表为唯一来源，本文引用规则 ID 时继承其等级，不另行定级。设计完成不等于实现或验收通过。</p>
+<p><strong>正式部署基线（用户已确认）：</strong> 平台部署在公司内网服务器，素材、图片、视频及其长期归档文件存放公司 NAS。员工通过平台访问受授权内容，浏览器不直接访问 NAS 共享目录。内网服务器的操作系统、数量、正式环境容器化方式、域名及 NAS 协议/挂载路径仍待运维确认；本地 Docker 启动 PostgreSQL/Redis、后端及两前端手动启动的方式不变。</p>
+<h2 id="section-1">1 结论</h2>
+<p>沿用一个后端、两个独立前端的架构：制作平台位于 <code>higgsfield-frontend/</code>，管理平台选用 <code>ruoyi-fastapi-frontend/vue3/web/</code>，两者依托 <code>ruoyi-fastapi-backend/</code>。不新建第二套用户库，不把制作平台嵌入管理端页面，也不重命名已导入的框架根目录。</p>
+<p>本次只做静态源码核对与文档修订，没有安装依赖、启动服务、连接数据库或修改业务代码。<code>higgsfield-frontend/</code> 当前仅有新增的 AGENTS.md 工程约束，尚未初始化 Vue 应用。管理前端父目录包含 Vue2/Vue3/React 与 mobile/web 多套工程；结合既定 Vue3+Element Plus 方案，本项目使用 Vue3 Web，其余代码保留但不作为首期构建目标。</p>
+<p>已查看<a href="https://github.com/insistence/RuoYi-FastAPI">上游仓库</a>；最终结论以当前本地文件为准。上游介绍的多前端、JWT/OIDC、文件管理与插件能力不能自动证明本地服务已经配置启用。本地 CHANGELOG/package.json 标示 v2.0.0，但复制来源的上游 commit 尚未证明；当前项目 Git HEAD 是 <code>c23ae97630af3a0d603f6547fa7f6d37d1179d8f</code>，不是已确认的上游版本。导入代码目前未跟踪，未作提交。后续应登记来源 commit/下载日期并保留 MIT 许可与版权。</p>
+<h2 id="section-2">2 源码证据与衔接决策</h2>
+<table>
+<thead>
+<tr>
+<th>核对项</th>
+<th>当前证据</th>
+<th>本项目采用方式</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>后端入口</td>
+<td><a href="../ruoyi-fastapi-backend/server.py">server.py</a> 注册路由、数据库、Redis、调度和插件生命周期</td>
+<td>复用启动壳；AI 业务新增 module_higgsfield，保持自身领域边界</td>
+</tr>
+<tr>
+<td>路由/身份</td>
+<td><a href="../ruoyi-fastapi-backend/common/aspect/pre_auth.py">pre_auth.py</a>、<a href="../ruoyi-fastapi-backend/module_admin/service/login_service.py">login_service.py</a> 读取 Authorization、JWT及Redis会话</td>
+<td>首期复用平台 Bearer 身份；供应商 Key 与用户登录 token 完全分开</td>
+</tr>
+<tr>
+<td>登录页面接口</td>
+<td><a href="../ruoyi-fastapi-frontend/vue3/web/src/api/login.js">login.js</a>：/login、/getInfo、/logout、/captchaImage</td>
+<td>基础认证调用现有协议，/api/v1/me作为新业务归一视图；不虚构框架已经具备新门面</td>
+</tr>
+<tr>
+<td>Token存储</td>
+<td><a href="../ruoyi-fastapi-frontend/vue3/web/src/utils/auth.js">auth.js</a> 通过js-cookie管理Admin-Token</td>
+<td>这是JS可读Cookie，不是HttpOnly会话。首期保留管理端现状；制作端独立token封装，禁止依赖复制Cookie实现SSO</td>
+</tr>
+<tr>
+<td>统一认证中心</td>
+<td>module_identity及相关控制器已有OIDC源码</td>
+<td>未来需要真正双端SSO时验证PKCE/退出/权限映射；首期不将OIDC令牌当作现有/login JWT直接互换</td>
+</tr>
+<tr>
+<td>功能权限</td>
+<td><a href="../ruoyi-fastapi-backend/common/aspect/interface_auth.py">interface_auth.py</a> 含 <code>*:*:*</code> 快捷授权</td>
+<td>可复用身份和基础权限码，但AI项目资源必须额外校验项目成员/对象权限，管理员不能凭快捷授权自动读全部项目内容</td>
+</tr>
+<tr>
+<td>数据范围</td>
+<td><a href="../ruoyi-fastapi-backend/common/aspect/data_scope.py">data_scope.py</a> 为部门/本人维度，admin可直接通过</td>
+<td>不等同于项目协作授权；新增业务AccessPolicy，不用部门数据范围替代成员关系</td>
+</tr>
+<tr>
+<td>返回协议</td>
+<td><a href="../ruoyi-fastapi-backend/utils/response_util.py">response_util.py</a>、common/vo.py，code/msg/data或rows/total，页码分页</td>
+<td>新旧业务均复用 ResponseUtil、PageResponseModel 和全局异常；不另建业务信封或列表游标</td>
+</tr>
+<tr>
+<td>管理前端请求器</td>
+<td><a href="../ruoyi-fastapi-frontend/vue3/web/src/utils/request.js">request.js</a> 附加Bearer、传输加密、短时防重复</td>
+<td>不能把短时前端去重当消费幂等；新业务适配框架 code/msg、异步业务状态、SSE 和 Idempotency-Key</td>
+</tr>
+<tr>
+<td>组织表</td>
+<td>sys_user.user_id、sys_dept.dept_id、sys_role.role_id均BigInteger</td>
+<td>P0-3逻辑身份引用映射到现有主键；新业务主键统一语义 xxx_id + 自增 bigint</td>
+</tr>
+<tr>
+<td>PostgreSQL</td>
+<td>requirements-pg.txt、config/database.py和PG compose均存在</td>
+<td>使用PostgreSQL线路；样例compose为PG14，不证明实际已运行数据库版本</td>
+</tr>
+<tr>
+<td>迁移</td>
+<td><a href="../ruoyi-fastapi-backend/alembic/env.py">alembic/env.py</a> 存在，当前没有versions目录；启动调用create_all</td>
+<td>新业务必须建立真实迁移链，不能用create_all升级已有表；先核对空库/已初始化库基线</td>
+</tr>
+<tr>
+<td>调度</td>
+<td>requirements-pg包含APScheduler，config/scheduler已有调度实现；所查依赖未声明Celery</td>
+<td>框架定时任务继续保留，AI持久任务使用架构计划的Celery+Outbox，Worker为待新增，不宣称现成</td>
+</tr>
+<tr>
+<td>文件管理</td>
+<td><a href="../ruoyi-fastapi-backend/module_admin/entity/do/file_do.py">file_do.py</a>已有sys_file_info/sys_file_reference，file_id为String(36)</td>
+<td>首期AI hf_stored_file和NAS受独立业务适配器治理，不让两个管理器同时删除同一文件；未来复用需显式绑定与生命周期整合</td>
+</tr>
+<tr>
+<td>AI插件</td>
+<td><a href="../ruoyi-fastapi-backend/plugins/ai/entity/do/ai_model_do.py">ai_model_do.py</a>已有ai_models，api_key为String字段</td>
+<td>不直接把该表当版本化加密凭据/价格账本；现有插件不能替代任务快照、双口径费用、原Key查询</td>
+</tr>
+<tr>
+<td>部署</td>
+<td>docker-compose.pg.yml目前只包含框架前端/后端与基础设施，管理Vite base为/</td>
+<td>/studio和/admin、制作端镜像、Celery/media Worker与NAS仍需后续补齐，不能写成已部署</td>
+</tr>
+</tbody></table>
+<h2 id="section-3">3 目标代码组织与复用边界</h2>
+<pre><code class="language-text">higgsfield-frontend/                     制作平台独立Vue3/TS工程；Element Plus + shadcn-vue；待初始化
+ruoyi-fastapi-frontend/vue3/web/          管理平台，保留既有系统管理
+ruoyi-fastapi-backend/
+  module_admin/                         复用用户、部门、菜单、身份等框架能力
+  module_identity/                      保留认证中心，SSO另行验证
+  module_higgsfield/                    待新增核心业务模块
+    controller/                         studio/admin路由入口及DTO适配
+    service/                            业务规则、用例与事务编排
+    dao/                                AsyncSession 数据操作与查询
+    entity/do/                          SQLAlchemy ORM 模型
+    entity/vo/                          Pydantic 请求、响应与分页模型
+    adapter/                            外部供应商及 NAS 适配
+    workers/                            待新增Celery任务入口
+  alembic/                              复用迁移工具，新增真实版本链
+ruoyi-fastapi-test/                      保留框架测试，新增业务契约/流程测试
+</code></pre>
+<p>module_higgsfield为建议模块名，不代表已经创建。框架RouterRegister扫描后端根目录下 <code>*/controller/[!_]*.py</code>，因此module_higgsfield/controller适配该发现层级；仍需定向注册测试。新增 ORM 放 entity/do，使用框架 Base，并验证模型注册和 Alembic metadata 可见性。共享后端指共用身份、数据库与业务应用服务，API进程与生成/media Worker仍可独立部署。</p>
+<p>直接复用用户/部门/角色/菜单及其既有管理页面；适配复用认证依赖、数据库会话、Redis、审计公共设施；新增项目权限、素材版本、元素修订、供应商Key版本、价格、任务、预算账本；框架AI插件与文件模块仅作为可借鉴实现，不绕过新业务契约。</p>
+<h2 id="section-4">4 协议衔接</h2>
+<p>框架原生接口（/login、/getInfo、/system/*、/monitor/*等）维持原路径和原响应。管理端继续使用原请求器；新业务接口固定 <code>/api/v1</code> 与 <code>/api/admin/v1</code>，由遵循框架响应码的统一请求适配处理 DTO、Decimal 字符串、页码分页与幂等。反向代理保留业务/api前缀，不把它按/dev-api的规则剥掉；原框架开发代理继续按现有配置工作。</p>
+<p>P0-4中曾列出的/users、/roles、/departments等身份管理门面改为后续可选适配，首期默认复用原生系统页面和API，避免维护两套用户角色写路径。/api/v1/me仍是供制作端使用的新增归一读取视图。新业务权限码登记到框架菜单/权限体系，项目范围由独立策略强制检查；即使功能权限含通配符也不能跳过对象范围。</p>
+<p>Bearer鉴权下SSE采用fetch流式读取，携带Authorization和Last-Event-ID，不使用无法附加该头的原生EventSource。文件下载用授权fetch；视频Range/媒体播放器需要支持附加鉴权头的加载层，不能直接把受保护URL放进video标签后假定自动带Bearer，不能把token放query。后台上传、SSE和Range流需与传输加密中间件协作：核对实际启用/排除策略，禁止把二进制或事件流当普通JSON加密，传输加密也不能代替HTTPS。</p>
+<p>两个前端使用同一用户目录与登录后端，但“同一后端”不等于已实现自动单点登录。首期各自维护受控会话，制作端默认内存持有token；是否跨刷新保留、是否启用OIDC统一认证需另行评审。框架的同账号多终端登录配置也需联调，不能承诺登录另一端必定不踢出原会话。</p>
+<h2 id="section-5">5 文档同步范围</h2>
+<table>
+<thead>
+<tr>
+<th>文档</th>
+<th>本次修订</th>
+<th>尚待后续工作</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>技术架构</td>
+<td>实际目录、Bearer认证、平台/供应商协议边界、框架/业务权限、Worker与部署现状</td>
+<td>真实运行与模块注册验证</td>
+</tr>
+<tr>
+<td>P0-1</td>
+<td>系统管理直接复用，制作平台仍待初始化；当前会话与未来SSO分开</td>
+<td>P0-6角色矩阵、产品建议确认</td>
+</tr>
+<tr>
+<td>P0-2</td>
+<td>供应商适配落入统一后端的新业务模块；用户token与供应商Key隔离</td>
+<td>原20项供应商差异继续验证</td>
+</tr>
+<tr>
+<td>P0-3</td>
+<td>sys_*实体主键映射，框架表/新业务表边界、create_all与迁移区别</td>
+<td>P0-4 的9项补充已完成字段级设计同步，若依规范已对齐；尚未实现或执行迁移</td>
+</tr>
+<tr>
+<td>P0-4</td>
+<td>撤销HttpOnly假设，改Bearer及fetch SSE，统一复用若依响应、分页与异常协议，原生系统API复用</td>
+<td>权限注册、错误映射、传输加密与代理契约测试</td>
+</tr>
+</tbody></table>
+<p>本次每份Markdown与HTML同步生成。原有领域模型、供应商价格来源、历史任务快照、计费去重规则保持不变。</p>
+<h2 id="section-6">6 本地开发基线（用户已确认）</h2>
+<table>
+<thead>
+<tr>
+<th>组件</th>
+<th>本地运行方式</th>
+<th>目录/边界</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>PostgreSQL</td>
+<td>Docker 启动</td>
+<td>数据库选型固定，主版本与宿主机映射端口待环境落地确定</td>
+</tr>
+<tr>
+<td>Redis</td>
+<td>Docker 启动</td>
+<td>通过本机映射端口提供缓存、会话与队列基础设施</td>
+</tr>
+<tr>
+<td>后端</td>
+<td>本机手动启动</td>
+<td><code>ruoyi-fastapi-backend/</code>，本机 Python 环境</td>
+</tr>
+<tr>
+<td>管理端</td>
+<td>本机手动启动</td>
+<td><code>ruoyi-fastapi-frontend/vue3/web/</code></td>
+</tr>
+<tr>
+<td>制作端</td>
+<td>本机手动启动</td>
+<td><code>higgsfield-frontend/</code>，工程初始化后执行</td>
+</tr>
+<tr>
+<td>AI Worker</td>
+<td>后续实现后本机独立手动启动</td>
+<td>与后端共用业务包，进程独立</td>
+</tr>
+</tbody></table>
+<p>两个前端使用不同开发端口，通过代理访问同一后端。后端访问数据库和Redis使用宿主机地址与映射端口，不使用Docker内部服务名。现有全栈Compose保留为框架参考，不自动启动其后端和前端容器；基础设施开发Compose模板、端口与启动顺序已记录于<a href="%E6%9C%AC%E5%9C%B0%E5%BC%80%E5%8F%91%E4%B8%8E%E5%B7%A5%E7%A8%8B%E5%88%9D%E5%A7%8B%E5%8C%96%E6%89%8B%E5%86%8C.html">本地开发与工程初始化手册</a>，实际配置文件尚未创建。</p>
+<p>项目显示名称改为higgsfield-ai不意味着移动本地根目录、改名制作端/管理端/后端、修改Git远端或重建数据库。正式部署基线为公司内网服务器与 NAS，详细步骤见<a href="%E5%86%85%E7%BD%91%E9%83%A8%E7%BD%B2%E4%B8%8ENAS%E5%AD%98%E5%82%A8%E8%BF%90%E7%BB%B4%E6%96%B9%E6%A1%88.html">运维方案</a>；具体参数待确认，不能将本地手动启动方式描述为生产方案。本次没有写启动脚本、修改环境变量、重建容器或执行迁移。</p>
+<h2 id="section-7">7 建议实施顺序与验收门槛</h2>
+<ol>
+<li>固定导入源码来源和依赖锁文件，核对实际Node/pnpm/Python版本与框架声明；记录基线，不以旧项目经验替代本仓库事实。</li>
+<li>只验证原框架登录、用户/部门/菜单、PostgreSQL、Redis、迁移与退出路径；分开记录现有测试、基线失败和业务未实现部分。</li>
+<li>按已补齐并统一若依规范的 P0-3/P0-4 实现并验收持久化约束，评审已形成的P0-5计费规则和P0-6权限矩阵提案；管理员不得自动绕过项目内容边界，具体角色包待确认。</li>
+<li>初始化制作端，新增业务API边界/客户端/异常映射，先用一个只读项目接口验证身份、路由、响应、撤权与数据范围。</li>
+<li>按需求B1–B4推进，先管理配置与项目，再上传/图片闭环，随后视频/会话与协作；保留原系统管理回归测试。</li>
+<li>最后验证两前端构建路径、代理、流式读取、Range、Worker、NAS、备份与恢复；未经真实联调不发布相应供应商能力。</li>
+</ol>
+<p>本次未执行以上实施步骤。当前最值得优先解决的是认证/权限边界和基础迁移，而不是先扩充大量页面。</p>
+<h2 id="section-8">附录 源码基线指纹</h2>
+<p>下列SHA-256仅用于标记本次实际阅读的本地文件内容，不证明与某个上游commit完全一致；没有读取或复制.env秘密。</p>
+<table>
+<thead>
+<tr>
+<th>文件</th>
+<th>SHA-256</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>ruoyi-fastapi-backend/server.py</code></td>
+<td><code>02216c998e05717c5cb7f949df16896b453a5b46742b1363379251d8490debf3</code></td>
+</tr>
+<tr>
+<td><code>ruoyi-fastapi-backend/common/aspect/pre_auth.py</code></td>
+<td><code>80cf88421e1f4f9e29f1c1b84faa98bd22537f710cf6a7ab666d90ef75f13fc4</code></td>
+</tr>
+<tr>
+<td><code>ruoyi-fastapi-backend/utils/response_util.py</code></td>
+<td><code>517b804c480fff25df33b030e95b607e6e7b3f2009cfe8ba3f2a8b11cc066bef</code></td>
+</tr>
+<tr>
+<td><code>ruoyi-fastapi-backend/module_admin/entity/do/user_do.py</code></td>
+<td><code>ae2d23494c63d1f93c623d89ea312ea1311f2b576436d5aab72c3ccb89acfbae</code></td>
+</tr>
+<tr>
+<td><code>ruoyi-fastapi-frontend/vue3/web/package.json</code></td>
+<td><code>af03d410f4a5511fa029ae623407f98d9df772b330e85ef34b51b283e7e8f74a</code></td>
+</tr>
+</tbody></table>
+<h2 id="section-9">8 前端选型与强制编码规范（已确认）</h2>
+<p>管理端使用 <code>ruoyi-fastapi-frontend/vue3/web/</code> 的 Vue3 工程；本地 package.json 已声明 vue、pinia、element-plus，不切换至父目录中的 Vue2/React 版本。制作端 <code>higgsfield-frontend/</code> 使用 Vue3、TypeScript，Element Plus 与 shadcn-vue 共存，按实际场景选择组件。</p>
+<p>制作端全部业务组件使用 <code>&lt;script setup lang=&quot;ts&quot;&gt;</code>，使用组合式 API；use 开头的 composables 承载业务逻辑；API 请求集中独立模块；组件单一职责；共享状态使用 Pinia，不使用 Vuex；命名、导出、ref/reactive/computed 按统一组合式规范执行。</p>
+<p>新增<a href="%E5%88%B6%E4%BD%9C%E5%B9%B3%E5%8F%B0%E5%89%8D%E7%AB%AF%E7%BC%96%E7%A0%81%E8%A7%84%E8%8C%83.html">制作平台前端编码规范</a>及<a href="../higgsfield-frontend/AGENTS.md">制作端 AGENTS.md</a>，明确模块职责、组件库共存和评审要求。当前只是规范落盘，未安装依赖、创建业务组件或配置 lint/typecheck 门禁。两套前端手动启动、共享后端和 Docker 基础设施的本地开发方式保持既定约定。</p>
+<p><strong>前端统一编码约束（补充确认）：</strong> 两端新增及修改的前端业务代码使用 Vue3 + Vue Router + Pinia + Axios，统一 <code>&lt;script setup&gt;</code>，禁止 Options API；业务逻辑放 use 开头的 composables，请求放 api/ 独立模块，路由定义和守卫由 Vue Router 管理，全局状态由 Pinia 管理。代码风格遵循<a href="%E5%88%B6%E4%BD%9C%E5%B9%B3%E5%8F%B0%E5%89%8D%E7%AB%AF%E7%BC%96%E7%A0%81%E8%A7%84%E8%8C%83.html">制作平台前端编码规范</a>中的明确约定。保留管理端存量工程；本次未重写已有组件或初始化制作端。</p>
+<p><strong>制作端双向绑定约束：</strong> higgsfield-frontend 使用 Vue3.4+，自定义组件双向绑定优先 defineModel()，支持多个 v-model:xxx；禁止 .sync，子组件严禁直接修改 props（包括嵌套对象/数组）。详见<a href="%E5%88%B6%E4%BD%9C%E5%B9%B3%E5%8F%B0%E5%89%8D%E7%AB%AF%E7%BC%96%E7%A0%81%E8%A7%84%E8%8C%83.html">制作平台前端编码规范</a>第9章。数据库继续执行已确认的若依统一规范，无物理外键。</p>
+<h2 id="section-10">9 后端统一约束与源码差异</h2>
+<p>新增后端严格沿用 controller/service/dao/entity/do 与 entity/vo，统一响应、分页、异常及拦截链，数据库继续 PostgreSQL。详细规则见<a href="%E5%90%8E%E7%AB%AF%E7%BC%96%E7%A0%81%E4%B8%8E%E6%A1%86%E6%9E%B6%E5%AF%B9%E9%BD%90%E8%A7%84%E8%8C%83.html">后端编码与框架对齐规范</a>。当前登录链校验 Redis token，用户和权限经 DAO 查询；用户/权限 Redis 缓存及授权变更失效是明确待实现项，不写成已完成。</p>
+<footer>由同目录 工程基线核对与文档衔接方案.md 生成，内嵌 0 张 SVG 图；修改以 Markdown 为准。</footer></main></body></html>
