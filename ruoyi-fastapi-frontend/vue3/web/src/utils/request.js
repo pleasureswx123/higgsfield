@@ -42,7 +42,7 @@ service.interceptors.request.use(
     // 是否需要设置 token
     const isToken = (config.headers || {}).isToken === false
     // 是否需要防止数据重复提交
-    const isRepeatSubmit = (config.headers || {}).repeatSubmit === false
+    const isRepeatSubmit = config.sensitiveRequest || (config.headers || {}).repeatSubmit === false
     // 间隔时间(ms)，小于此时间视为重复提交
     const interval = (config.headers || {}).interval || 1000
     if (getToken() && !isToken) {
@@ -94,6 +94,7 @@ service.interceptors.request.use(
     return config
   },
   (error) => {
+    if (error.config?.sensitiveRequest) return Promise.reject(new Error('敏感请求发送失败，请重试'))
     console.log(error)
     return Promise.reject(error)
   }
@@ -112,6 +113,10 @@ service.interceptors.response.use(
     res = await decryptTransportResponse(res)
     // 未设置状态码则默认成功状态
     const code = res.data.code || 200
+    if (res.config?.sensitiveRequest && code !== 200) {
+      // 秘密接口失败不传递原始响应、请求配置或可能含输入值的服务端消息。
+      return Promise.reject(new Error('凭据保存失败，请检查权限、有效期及版本是否最新后重试'))
+    }
     // 获取错误信息
     const msg = errorCode[code] || res.data.msg || errorCode['default']
     // 二进制数据则直接返回
@@ -148,7 +153,12 @@ service.interceptors.response.use(
       return Promise.reject(new Error(msg))
     } else if (code === 601) {
       ElMessage({ message: msg, type: 'warning' })
-      return Promise.reject(new Error(msg))
+      const cause = new Error(msg)
+      if (res.config?.businessErrorDetails) {
+        cause.code = code
+        cause.errorCode = res.data?.data?.errorCode
+      }
+      return Promise.reject(cause)
     } else if (code !== 200) {
       ElNotification.error({ title: msg })
       return Promise.reject('error')
@@ -157,6 +167,9 @@ service.interceptors.response.use(
     }
   },
   async (error) => {
+    if (error.config?.sensitiveRequest) {
+      return Promise.reject(new Error('凭据请求未确认成功，请刷新列表核对后使用相同内容重试'))
+    }
     if (axios.isCancel(error)) return Promise.reject(error)
     // 错误响应也可能是加密信封，先尝试解密再进入统一错误提示流程。
     error = await decryptTransportErrorResponse(error)

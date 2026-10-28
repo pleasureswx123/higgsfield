@@ -164,3 +164,7 @@ reference/
 /ruoyi-fastapi-backend/.env.prod
 /ruoyi-fastapi-backend/.env.dockerpg
 /ruoyi-fastapi-backend/.env.dockermy
+# 本地校验用运行时及下载包，不进入源码版本管理。
+/output/runtime/
+/output/backups/
+/.local-data/

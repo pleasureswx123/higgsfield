@@ -6,6 +6,7 @@
   "license": "MIT",
   "type": "module",
   "scripts": {
+    "test:join-requests": "node --experimental-vm-modules --test tests/security/join-requests.test.mjs",
     "dev": "vite",
     "build:prod": "vite build",
     "build:docker": "vite build --mode docker",
@@ -13,14 +14,15 @@
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "test": "pnpm run test:unit && pnpm run test:contract",
-    "test:unit": "pnpm run test:auth-center && pnpm run test:plugin && pnpm run test:job && pnpm run test:session",
+    "test:unit": "pnpm run test:auth-center && pnpm run test:plugin && pnpm run test:job && pnpm run test:session && pnpm run test:studio",
+    "test:studio": "node --experimental-vm-modules --test tests/security/provider-console.test.mjs tests/security/credential-state.test.mjs tests/security/credential-activation.test.mjs tests/security/credential-test-form.test.mjs tests/security/billing-console.test.mjs tests/security/reconciliations.test.mjs tests/security/reconciliation-action.test.mjs tests/security/reconciliation-create.test.mjs tests/security/billing-adjustment.test.mjs tests/security/billing-query.test.mjs tests/security/budget-console.test.mjs tests/security/budget-editor.test.mjs tests/security/budget-period.test.mjs tests/security/budget-period-editor.test.mjs tests/security/model-console.test.mjs tests/security/model-actions.test.mjs tests/security/model-profile.test.mjs tests/security/model-variant.test.mjs tests/security/model-version-editor.test.mjs tests/security/routing.test.mjs tests/security/routing-console.test.mjs tests/security/price-console.test.mjs tests/security/price-book.test.mjs tests/security/price-version.test.mjs tests/security/price-source.test.mjs tests/security/price-source-editor.test.mjs tests/security/document-upload.test.mjs tests/security/price-simulation.test.mjs tests/security/price-publish.test.mjs tests/security/price-activation-end.test.mjs tests/security/exchange-rates.test.mjs tests/security/exchange-rate-editor.test.mjs tests/security/project-governance.test.mjs tests/security/audit-console.test.mjs tests/security/provider-calls.test.mjs tests/security/incidents.test.mjs tests/security/incident-recovery.test.mjs tests/security/join-requests.test.mjs tests/security/member-session.test.mjs",
     "test:contract": "pnpm run test:time",
     "test:job": "node tests/run-tests.js job",
     "test:plugin": "node tests/run-tests.js plugins",
     "test:auth-center": "node tests/run-tests.js auth-center",
     "test:time": "node --test tests/time/time.test.js",
     "preview": "vite preview",
-    "test:session": "node --experimental-vm-modules --test tests/security/logout.test.mjs"
+    "test:session": "node --experimental-vm-modules --test tests/security/logout.test.mjs tests/security/credential-request.test.mjs"
   },
   "repository": {
     "type": "git",
@@ -80,3 +82,5 @@
     "node": "^22.22.2 || ^24.15.0"
   }
 }
+
+

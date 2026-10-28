@@ -162,7 +162,7 @@ class TransportCryptoMiddleware:
             send=send,
             crypto_context=crypto_context,
         )
-        await self.app(decrypted_scope, self._build_receive(decrypted_body), send_wrapper)
+        await self.app(decrypted_scope, self._build_receive(decrypted_body, receive), send_wrapper)
 
     async def _decrypt_request(
         self,
@@ -536,11 +536,12 @@ class TransportCryptoMiddleware:
         return b''.join(body_chunks)
 
     @staticmethod
-    def _build_receive(body: bytes) -> Receive:
+    def _build_receive(body: bytes, downstream_receive: Receive | None = None) -> Receive:
         """
         根据指定请求体重建一次性可消费的ASGI receive函数
 
         :param body: 需要回放的请求体字节串
+        :param downstream_receive: 回放完成后继续接收真实断开事件的通道
         :return: 重建后的ASGI receive函数
         """
         has_been_called = False
@@ -548,6 +549,9 @@ class TransportCryptoMiddleware:
         async def _receive() -> Message:
             nonlocal has_been_called
             if has_been_called:
+                # SSE旧版ASGI路径监听断开时必须等待真实事件，不能忙循环空请求。
+                if downstream_receive is not None:
+                    return await downstream_receive()
                 return {'type': 'http.request', 'body': b'', 'more_body': False}
             has_been_called = True
             return {'type': 'http.request', 'body': body, 'more_body': False}

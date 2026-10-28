@@ -1,0 +1,16 @@
+const { test } = require('node:test')
+const assert = require('node:assert/strict')
+const { readFileSync } = require('node:fs')
+const { join } = require('node:path')
+const { runInNewContext } = require('node:vm')
+const ts = require('typescript')
+const exportsObject = {}
+runInNewContext(ts.transpileModule(readFileSync(join(__dirname, '../src/utils/libraryWindow.ts'), 'utf8'), { compilerOptions: { module: ts.ModuleKind.CommonJS } }).outputText, { exports: exportsObject })
+test('上海单日、跨年和闰日正确转换为UTC右开区间，清空不发送日期', () => {
+  const window = exportsObject.libraryWindow(['2026-10-28', '2026-10-28'])
+  assert.equal(window.from, '2026-10-27T16:00:00.000Z'); assert.equal(window.to, '2026-10-28T16:00:00.000Z')
+  assert.equal(exportsObject.libraryWindow(['2024-02-29', '2024-02-29']).to, '2024-02-29T16:00:00.000Z')
+  assert.equal(exportsObject.libraryWindow(['2026-12-31', '2027-01-01']).to, '2027-01-01T16:00:00.000Z')
+  assert.equal(Object.keys(exportsObject.libraryWindow(null)).length, 0)
+  for (const dates of [['2026-02-29','2026-03-01'], ['2026-10-29','2026-10-28'], ['2026-10-28'], ['bad','2026-10-28']]) assert.throws(() => exportsObject.libraryWindow(dates))
+})

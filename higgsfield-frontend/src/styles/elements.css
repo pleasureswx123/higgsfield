@@ -1,0 +1,295 @@
+.element-workspace {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  padding: 20px;
+}
+.element-toolbar {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-bottom: 18px;
+}
+.element-toolbar h2 {
+  margin: 0 auto 0 0;
+  font-size: 18px;
+}
+.element-toolbar .el-input {
+  max-width: 300px;
+}
+.element-toolbar .el-select {
+  width: 210px;
+}
+.element-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, var(--element-card-width, 200px)), 1fr));
+  gap: 16px;
+}
+.element-board {
+  display: flex;
+  gap: 16px;
+  overflow-x: auto;
+  padding-bottom: 16px;
+}
+.element-board-column {
+  flex: 1 0 calc(var(--element-card-width, 200px) + 30px);
+  min-width: 0;
+  background: var(--surface-hover);
+  border-radius: 12px;
+  padding: 12px;
+}
+.element-board-column h3 {
+  font-size: 14px;
+  margin: 0 0 14px;
+}
+.element-board-column .element-card {
+  width: 100%;
+  margin-bottom: 12px;
+}
+.element-card-description {
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  font-size: 13px;
+  line-height: 1.6;
+  margin: 0;
+}
+.element-table {
+  width: 100%;
+  border-radius: 10px;
+}
+.element-card:focus-visible {
+  outline: 2px solid var(--foreground);
+  outline-offset: 3px;
+}
+.element-card {
+  display: flex;
+  flex-direction: column;
+  text-align: left;
+  gap: 9px;
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 12px;
+  background: var(--surface);
+  color: var(--foreground);
+  cursor: pointer;
+  min-width: 0;
+}
+.element-card strong,
+.element-card small {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.element-card-image {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-direction: column;
+  gap: 10px;
+  border-radius: 10px;
+  aspect-ratio: 4/3;
+  background: var(--surface-hover);
+  color: var(--muted-foreground);
+  width: 100%;
+}
+.element-card-meta {
+  display: flex;
+  justify-content: space-between;
+  font-size: 12px;
+  color: var(--muted-foreground);
+}
+.element-dialog {
+  display: flex;
+  flex-direction: column;
+  max-height: 90vh;
+  margin-bottom: 0;
+}
+.element-dialog > .el-dialog__body {
+  min-height: 0;
+  overflow: auto;
+}
+.element-editor-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 330px;
+  min-height: 0;
+  height: min(560px, 65vh);
+}
+.element-image-panel {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+  overflow: auto;
+  padding: 16px;
+  background: var(--surface-hover);
+  border-radius: 12px 0 0 12px;
+}
+.element-image-stage {
+  flex: 1;
+  min-height: 220px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  overflow: hidden;
+}
+.element-image-stage img {
+  width: 100%;
+  height: 100%;
+  max-height: 52vh;
+  object-fit: contain;
+}
+.element-image-empty {
+  text-align: center;
+  color: var(--muted-foreground);
+}
+.element-fields {
+  overflow: auto;
+  padding: 8px 20px;
+  border-left: 1px solid var(--border);
+}
+.element-fields .el-select {
+  width: 100%;
+}
+.element-fields small {
+  display: block;
+  width: 100%;
+}
+.element-media-strip,
+.element-media-actions {
+  display: flex;
+  gap: 8px;
+  justify-content: center;
+  flex-wrap: wrap;
+  margin-top: 12px;
+}
+.element-media-strip > button {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface);
+  color: var(--foreground);
+  padding: 8px;
+  cursor: pointer;
+}
+.element-media-strip > button.active {
+  border-color: var(--primary);
+  outline: 1px solid var(--primary);
+}
+.element-picker-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 0;
+  border-bottom: 1px solid var(--border);
+}
+.element-picker-row > span {
+  flex: 1;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+@media (max-width: 760px) {
+  .element-editor-layout {
+    grid-template-columns: 1fr;
+    overflow-y: auto;
+  }
+  .element-fields {
+    overflow: visible;
+    border-left: 0;
+    padding-top: 20px;
+  }
+  .element-image-stage img {
+    max-height: 35vh;
+  }
+}
+.element-copy-projects {
+  width: 100%;
+}
+.element-copy-project {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  width: 100%;
+  text-align: left;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface);
+  color: var(--foreground);
+  cursor: pointer;
+  margin: 5px 0;
+}
+.element-copy-project.active {
+  border-color: var(--primary);
+  background: var(--surface-hover);
+}
+.element-history-layout {
+  display: grid;
+  grid-template-columns: 210px minmax(0, 1fr);
+  gap: 20px;
+  max-height: 68vh;
+  overflow: auto;
+}
+.element-history-list {
+  border-right: 1px solid var(--border);
+  padding-right: 14px;
+}
+.element-history-image {
+  display: grid;
+  place-items: center;
+  min-height: 150px;
+  background: var(--surface-hover);
+  border-radius: 12px;
+}
+.element-history-image img {
+  display: block;
+  width: 100%;
+  height: 35vh;
+  object-fit: contain;
+}
+.element-history-description {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.element-history-properties {
+  display: grid;
+  grid-template-columns: minmax(100px, 1fr) 2fr;
+  gap: 8px 16px;
+}
+.element-history-properties dd {
+  margin: 0;
+}
+@media (max-width: 640px) {
+  .element-history-layout {
+    grid-template-columns: 1fr;
+  }
+  .element-history-list {
+    border-right: 0;
+  }
+}
+.property-settings-layout {
+  display: grid;
+  grid-template-columns: minmax(180px, 1fr) minmax(240px, 1.4fr);
+  gap: 24px;
+  max-height: 65vh;
+  overflow: auto;
+}
+.property-settings-layout aside {
+  border-right: 1px solid var(--border);
+  padding-right: 18px;
+}
+.property-settings-layout .el-select {
+  width: 100%;
+}
+.property-settings-layout small {
+  display: block;
+}
+@media (max-width: 640px) {
+  .property-settings-layout {
+    grid-template-columns: 1fr;
+  }
+  .property-settings-layout aside {
+    border-right: 0;
+  }
+}

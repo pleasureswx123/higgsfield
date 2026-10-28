@@ -1,0 +1,273 @@
+.folder-workspace {
+  display: grid;
+  grid-template-columns: 240px minmax(0, 1fr);
+  min-height: 520px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  overflow: hidden;
+}
+.folder-sidebar {
+  padding: 18px 12px;
+  border-right: 1px solid var(--border);
+}
+.folder-heading,
+.folder-toolbar,
+.folder-filters,
+.folder-tree-row,
+.folder-list-row,
+.folder-colors {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.folder-heading {
+  justify-content: space-between;
+  color: var(--muted-foreground);
+  font-size: 12px;
+  margin: 0 8px 12px;
+}
+.folder-tree,
+.folder-tree-children {
+  padding: 0;
+  margin: 0;
+  list-style: none;
+}
+.folder-tree-children {
+  padding-left: 15px;
+}
+.folder-tree-row {
+  gap: 2px;
+  border-radius: 9px;
+  min-height: 38px;
+}
+.folder-tree-row:hover,
+.folder-tree-row.active,
+.folder-root.active {
+  background: var(--surface-hover);
+}
+.folder-icon-button,
+.folder-tree-label,
+.folder-text-button,
+.folder-breadcrumb button,
+.folder-row-title,
+.folder-actions button,
+.folder-destination {
+  background: transparent;
+  border: 0;
+}
+.folder-icon-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 5px;
+}
+.folder-icon-button .rotated {
+  transform: rotate(90deg);
+}
+.folder-tree-label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  flex: 1;
+  text-align: left;
+  padding: 9px 3px;
+  font-size: 13px;
+}
+.folder-tree-label span {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+.folder-tree-label svg {
+  flex-shrink: 0;
+}
+.folder-root {
+  width: 100%;
+  padding: 10px;
+  border-radius: 9px;
+  margin-bottom: 6px;
+}
+.folder-text-button {
+  font-size: 12px;
+  padding: 10px;
+  color: var(--muted-foreground);
+}
+.folder-content {
+  padding: 22px;
+  min-width: 0;
+}
+.folder-toolbar {
+  margin-bottom: 22px;
+  flex-wrap: wrap;
+}
+.folder-breadcrumb {
+  flex: 1;
+  font-size: 13px;
+  line-height: 1.8;
+}
+.folder-breadcrumb button {
+  padding: 2px;
+}
+.folder-filters {
+  margin-bottom: 24px;
+}
+.folder-filters .el-input {
+  max-width: 320px;
+}
+.folder-filters .el-select {
+  width: 150px;
+}
+.folder-destination-filters {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+.folder-destination-filters > .el-input {
+  grid-column: 1 / -1;
+}
+.folder-destination-filters > .el-select {
+  width: 100%;
+  min-width: 0;
+}
+.folder-destination-filters > .ui-button {
+  white-space: nowrap;
+}
+.folder-list-row {
+  padding: 15px 8px;
+  border-bottom: 1px solid var(--border);
+}
+.folder-row-title {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  flex: 1;
+  min-width: 0;
+  text-align: left;
+}
+.folder-row-title strong,
+.folder-row-title small {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 100%;
+}
+.folder-row-title small {
+  color: var(--muted-foreground);
+  font-weight: normal;
+}
+.folder-actions {
+  display: flex;
+  gap: 10px;
+}
+.folder-actions button {
+  padding: 5px;
+  font-size: 12px;
+  color: var(--muted-foreground);
+}
+.folder-actions button:hover {
+  color: var(--foreground);
+}
+.folder-empty {
+  min-height: 270px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 15px;
+  color: var(--muted-foreground);
+  font-size: 14px;
+}
+.folder-colors button {
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  padding: 6px;
+  display: flex;
+}
+.folder-colors button.selected {
+  border-color: var(--focus);
+  background: var(--surface-raised);
+}
+.folder-destination {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  padding: 14px;
+  text-align: left;
+  border-radius: 9px;
+}
+.folder-destination:hover {
+  background: var(--surface-hover);
+}
+.folder-color-lime {
+  color: #789000;
+}
+.folder-color-cyan {
+  color: #008b9a;
+}
+.folder-color-slate {
+  color: #718096;
+}
+.folder-color-violet {
+  color: #7458c5;
+}
+.folder-color-purple {
+  color: #9e43b8;
+}
+.folder-color-pink {
+  color: #c7478a;
+}
+.folder-color-yellow {
+  color: #a97c00;
+}
+.dark .folder-color-lime {
+  color: #d6f500;
+}
+.dark .folder-color-cyan {
+  color: #61d5df;
+}
+.dark .folder-color-slate {
+  color: #a2adbd;
+}
+.dark .folder-color-violet {
+  color: #b49aef;
+}
+.dark .folder-color-purple {
+  color: #d795eb;
+}
+.dark .folder-color-pink {
+  color: #f18aba;
+}
+.dark .folder-color-yellow {
+  color: #edcf62;
+}
+@media (max-width: 850px) {
+  .folder-workspace {
+    grid-template-columns: 190px minmax(0, 1fr);
+  }
+  .folder-list-row {
+    flex-wrap: wrap;
+  }
+  .folder-actions {
+    width: 100%;
+    justify-content: flex-end;
+  }
+}
+@media (max-width: 600px) {
+  .folder-workspace {
+    grid-template-columns: 1fr;
+  }
+  .folder-sidebar {
+    border-right: 0;
+    border-bottom: 1px solid var(--border);
+    max-height: 260px;
+    overflow: auto;
+  }
+  .folder-content {
+    padding: 15px;
+  }
+}

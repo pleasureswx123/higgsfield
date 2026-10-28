@@ -248,6 +248,8 @@ def _engine_options(config: DataSourceSettings, echo: bool | None = None) -> dic
     """
     return {
         'echo': config.db_echo if echo is None else echo,
+        # 绑定参数可能包含凭据密文及业务隐私，SQL日志与异常统一隐藏参数。
+        'hide_parameters': True,
         'max_overflow': config.db_max_overflow,
         'pool_size': config.db_pool_size,
         'pool_recycle': config.db_pool_recycle,

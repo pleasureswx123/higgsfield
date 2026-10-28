@@ -1,4 +1,4 @@
-@use './variables.module.scss' as vars;
+@use './tokens.scss' as vars;
 
 #app {
   .main-container {
@@ -327,3 +327,4 @@
     }
   }
 }
+

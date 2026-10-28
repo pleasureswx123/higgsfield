@@ -85,7 +85,7 @@ function setLayout() {
 
 <style lang="scss" scoped>
 @use '@/assets/styles/mixin.scss' as mix;
-@use '@/assets/styles/variables.module.scss' as vars;
+@use '@/assets/styles/tokens.scss' as vars;
 
 .app-wrapper {
   @include mix.clearfix;
@@ -135,3 +135,4 @@ function setLayout() {
   width: 100%;
 }
 </style>
+
