@@ -273,6 +273,10 @@ class StorageService:
         """媒体默认校验；管理文档由独立存储策略覆盖。"""
         return self.verify_media(handle)
 
+    def accepts_verified_mime(self, actual_mime, declared_mime):
+        """默认要求声明格式与实际格式一致。"""
+        return actual_mime == declared_mime
+
     def assemble(self, parts, expected_size, expected_sha256, declared_mime):
         key = 'media/' + uuid.uuid4().hex
         digest, size = hashlib.sha256(), 0
@@ -299,6 +303,6 @@ class StorageService:
             output.flush()
             os.fsync(output.fileno())
             metadata = self.verify_file(output, declared_mime)
-            if metadata['mime_type'] != declared_mime:
+            if not self.accepts_verified_mime(metadata['mime_type'], declared_mime):
                 raise ServiceWarning(message='实际文件类型与声明不符', data={'errorCode': 'MEDIA_TYPE_MISMATCH'})
         return {'storage_key': key, 'sha256': digest.hexdigest(), 'byte_size': size, **metadata}

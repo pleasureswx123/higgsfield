@@ -326,7 +326,7 @@ watch(
         <AssetCardMenu :compact="compact" :name="entry.name">
           <button class="asset-menu-item" @click="openMedia(entry.asset)"><IconMaximize :size="18" />打开</button>
           <button class="asset-menu-item" @click="selection.toggle(entry.asset.id, !selection.selected.value.includes(entry.asset.id))"><IconCheckbox :size="18" />{{ selection.selected.value.includes(entry.asset.id) ? '取消选择' : '选择' }}</button>
-          <button class="asset-menu-item" :disabled="!canCreateElement || entry.asset.mediaType !== 'image'" :title="entry.asset.mediaType !== 'image' ? '元素目前支持图片素材' : !canCreateElement ? '暂无创建元素权限' : '从当前图片创建元素'" @click="elementSource = entry.asset"><IconAt :size="18" />创建元素</button>
+          <button class="asset-menu-item" :disabled="!canCreateElement || !['image', 'video'].includes(entry.asset.mediaType)" :title="!['image', 'video'].includes(entry.asset.mediaType) ? '元素支持图片和视频素材' : !canCreateElement ? '暂无创建元素权限' : '从当前素材创建元素'" @click="elementSource = entry.asset"><IconAt :size="18" />创建元素</button>
           <span class="asset-menu-divider" />
           <button class="asset-menu-item" :disabled="actionsLocked || !entry.asset.allowedActions?.includes('asset:edit')" :title="!entry.asset.allowedActions?.includes('asset:edit') ? '暂无重命名权限' : ''" @click="edit(entry.asset)"><IconPencil :size="18" />重命名</button>
           <button class="asset-menu-item" :disabled="!canDownload || mediaLoading" :title="canDownload ? '' : '暂无下载权限'" @click="canDownload && openMedia(entry.asset, true)"><IconDownload :size="18" />下载</button>

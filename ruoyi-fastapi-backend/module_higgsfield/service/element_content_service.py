@@ -53,9 +53,10 @@ class ElementContentService:
         for version, asset, file in sources:
             await WorkspaceService.authorize(db, user, project_id, 'asset:read', owner_id=asset.create_user_id)
             if asset.space_id != space_id or asset.del_flag != '0':
-                cls.fail('REFERENCE_UNAVAILABLE', '图片必须来自当前项目的可用素材')
-            if asset.media_type != 'image' or file.state != '1' or not file.mime_type.startswith('image/'):
-                cls.fail('REFERENCE_MEDIA_INVALID', '元素图片必须是归档就绪的图片素材版本')
+                cls.fail('REFERENCE_UNAVAILABLE', '素材必须来自当前项目的可用素材')
+            if (asset.media_type not in ('image', 'video') or file.state != '1'
+                    or not file.mime_type.startswith(asset.media_type + '/')):
+                cls.fail('REFERENCE_MEDIA_INVALID', '元素素材必须是归档就绪的图片或视频版本')
         return sorted(snapshots, key=lambda item: item['propertyKey'])
 
     @staticmethod

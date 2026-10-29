@@ -65,6 +65,8 @@ const {
   allowed,
   selectedVersion,
   previewUrl,
+  previewKind,
+  pickerKind,
   previewLoading,
   previewError,
   pickerOpen,
@@ -161,12 +163,13 @@ async function removeSelectedImage() {
     <div v-if="!loading" class="element-editor-layout">
       <section class="element-image-panel">
         <div class="element-image-stage">
-          <img v-if="previewUrl" :src="previewUrl" :alt="fields.name || '元素图片'" />
-          <p v-else-if="previewLoading" role="status">正在授权读取图片…</p>
+          <video v-if="previewUrl && previewKind === 'video'" :src="previewUrl" controls playsinline preload="metadata" />
+          <img v-else-if="previewUrl" :src="previewUrl" :alt="fields.name || '元素素材'" />
+          <p v-else-if="previewLoading" role="status">正在授权读取素材…</p>
           <p v-else-if="previewError" class="project-error" role="alert">{{ previewError }}</p>
           <div v-else class="element-image-empty">
             <IconPhoto :size="56" />
-            <p>添加项目图片，或先保存无图元素</p>
+            <p>添加项目图片或视频，或先保存无素材元素</p>
           </div>
         </div>
         <div class="element-media-strip">
@@ -177,14 +180,14 @@ async function removeSelectedImage() {
             :aria-pressed="selectedVersion === media.assetVersionId"
             @click="selectImage(media.assetVersionId)"
           >
-            图片 {{ index + 1 }}{{ media.isPrimary ? ' · 主图' : '' }}
+            素材 {{ index + 1 }}{{ media.isPrimary ? ' · 主图' : '' }}
           </button>
           <Button
             v-if="canEdit && allowed.includes('asset:read')"
             variant="ghost"
             :disabled="downloader.pending.value || using || locked"
             @click="showPicker"
-            ><IconPlus :size="18" />选择图片</Button
+            ><IconPlus :size="18" />选择素材</Button
           >
         </div>
         <div v-if="selectedVersion && canEdit" class="element-media-actions">
@@ -227,7 +230,7 @@ async function removeSelectedImage() {
             移除引用
           </button>
         </div>
-        <p class="muted">图片引用固定素材版本；移除引用不会删除原素材。</p>
+        <p class="muted">素材引用固定素材版本；移除引用不会删除原素材。</p>
       </section>
       <section class="element-detail-panel">
         <div class="element-detail-tabs" role="group" aria-label="元素详情视图">
@@ -239,7 +242,7 @@ async function removeSelectedImage() {
             variant="ghost"
             :aria-pressed="detailTab === 'comments'"
             @click="detailTab = 'comments'"
-            >图片评论</Button
+            >素材评论</Button
           >
         </div>
         <ElForm
@@ -348,13 +351,13 @@ async function removeSelectedImage() {
           class="element-comments"
         >
           <p class="muted">
-            评论绑定当前选中的图片版本，独立于元素保存；切换图片会读取对应版本的评论。
+            评论绑定当前选中的素材版本，独立于元素保存；切换素材会读取对应版本的评论。
           </p>
           <MediaComments
             :visible="active"
             ref="comments"
             :target="{ assetVersionId: selectedVersion }"
-            media-kind="image"
+            :media-kind="previewKind"
           />
         </div>
       </section>
@@ -390,9 +393,9 @@ async function removeSelectedImage() {
         v-if="detail && actions.includes('asset:download')"
         variant="ghost"
         :disabled="downloader.pending.value || using || saving || loading || dirty"
-        :title="dirty ? '请先保存修改后下载' : '下载已保存修订的全部图片'"
+        :title="dirty ? '请先保存修改后下载' : '下载已保存修订的全部素材'"
         @click="downloader.download([detail.element])"
-        >下载元素图片</Button
+        >下载元素素材</Button
       ><Button v-if="downloader.pending.value" variant="ghost" @click="downloader.stop"
         >停止下载</Button
       ><span v-if="dirty" class="muted">有未保存修改</span
@@ -444,24 +447,25 @@ async function removeSelectedImage() {
     >
     <ElDialog
       v-model="pickerOpen"
-      title="选择项目图片"
+      title="选择项目素材"
       width="min(760px, 92vw)"
       append-to-body
       :close-on-click-modal="false"
     >
       <template #header="{ titleId, titleClass }">
-        <DialogHeading :title-id="titleId" :title-class="titleClass" title="选择项目图片" />
+        <DialogHeading :title-id="titleId" :title-class="titleClass" title="选择项目素材" />
       </template>
       <div class="element-toolbar">
+        <ElSelect v-model="pickerKind" aria-label="素材类型" style="width:110px"><ElOption label="图片" value="image" /><ElOption label="视频" value="video" /></ElSelect>
         <ElInput
           v-model="pickerSearch"
-          placeholder="搜索项目图片"
+          placeholder="搜索项目素材"
           clearable
           @keyup.enter="searchCandidates"
           @clear="searchCandidates"
         /><Button variant="ghost" @click="searchCandidates">搜索</Button>
       </div>
-      <p v-if="pickerLoading" role="status">正在加载图片…</p>
+      <p v-if="pickerLoading" role="status">正在加载素材…</p>
       <p v-if="pickerError" class="project-error" role="alert">{{ pickerError }}</p>
       <div v-for="entry in candidates" :key="entry.id" class="element-picker-row">
         <IconPhoto :size="24" /><span
@@ -483,7 +487,7 @@ async function removeSelectedImage() {
         >
       </div>
       <p v-if="!pickerLoading && !candidates.length" class="muted">
-        暂无匹配图片，请先到素材目录上传。
+        暂无匹配素材，请先到素材目录上传。
       </p>
       <ElPagination
         v-if="pickerTotal > 30"

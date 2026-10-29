@@ -12,3 +12,10 @@ class ProjectUploadStorageService(StorageService):
         if declared_mime in self.document_types:
             return DocumentStorageService(self.policy).verify_file(handle, declared_mime)
         return super().verify_file(handle, declared_mime)
+
+    def accepts_verified_mime(self, actual_mime, declared_mime):
+        """下载图片可能扩展名不符；仅对已完整解码的支持图片采用实际格式。"""
+        images = {'image/png', 'image/jpeg', 'image/webp'}
+        return (actual_mime in images and declared_mime in images) or super().accepts_verified_mime(
+            actual_mime, declared_mime
+        )

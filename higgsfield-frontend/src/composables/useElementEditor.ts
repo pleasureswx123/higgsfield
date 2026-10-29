@@ -115,8 +115,10 @@ export function useElementEditor(
   )
   const selectedVersion = ref(''),
     previewUrl = ref(''),
+    previewKind = ref<'image' | 'video'>('image'),
     previewLoading = ref(false),
     previewError = ref('')
+  const pickerKind = ref<'image' | 'video'>('image')
   const pickerOpen = ref(false),
     candidates = ref<LibraryEntry[]>([]),
     pickerSearch = ref(''),
@@ -260,7 +262,10 @@ export function useElementEditor(
     previewLoading.value = true
     try {
       const blob = await readMedia(version, false, controller.signal, () => {})
-      if (!controller.signal.aborted) previewUrl.value = URL.createObjectURL(blob)
+      if (!controller.signal.aborted) {
+        previewKind.value = blob.type.startsWith('video/') ? 'video' : 'image'
+        previewUrl.value = URL.createObjectURL(blob)
+      }
     } catch (cause) {
       if (!controller.signal.aborted) previewError.value = message(cause)
     } finally {
@@ -281,7 +286,7 @@ export function useElementEditor(
         {
           folderId: null,
           includeDescendants: true,
-          fileType: 'image',
+          fileType: pickerKind.value,
           pageNum: pickerPage.value,
           q: pickerSearch.value,
         },
@@ -306,12 +311,13 @@ export function useElementEditor(
     if (pickerPage.value !== 1) pickerPage.value = 1
     else void loadCandidates()
   }
+  watch(pickerKind, searchCandidates)
   watch(pickerPage, () => {
     void loadCandidates()
   })
   function addMedia(asset: Asset) {
     if (
-      asset.mediaType !== 'image' ||
+      !['image', 'video'].includes(asset.mediaType) ||
       !canEdit.value ||
       locked.value ||
       fields.media.some((item) => item.assetVersionId === asset.currentVersionId)
@@ -597,6 +603,8 @@ export function useElementEditor(
     allowed,
     selectedVersion,
     previewUrl,
+    previewKind,
+    pickerKind,
     previewLoading,
     previewError,
     pickerOpen,

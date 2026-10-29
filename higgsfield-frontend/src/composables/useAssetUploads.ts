@@ -1,6 +1,7 @@
 import { markRaw, onActivated, onBeforeUnmount, onDeactivated, reactive, ref, watch } from 'vue'
 import { useAuthStore } from '@/stores/auth'
 import { bindAsset, bindAssetVersion, completeUpload, createUpload, putUploadPart, readUpload, type Asset } from '@/api/assets'
+import { ApiError } from '@/api/client'
 import { hashBlob } from '@/utils/hash'
 import { assetUploadMime } from '@/utils/assetFormats'
 
@@ -83,10 +84,25 @@ export function useAssetUploads(projectId: string, changed: () => void) {
           }
           signal.throwIfAborted()
           // 创建请求的幂等结果可能是旧快照，每次恢复都读取实时分片状态。
-          session = (await readUpload(item.uploadId, signal)).data
+          try {
+            session = (await readUpload(item.uploadId, signal)).data
+          } catch (error) {
+            if (!(error instanceof ApiError) || error.code !== 410) throw error
+            session = undefined
+          }
           signal.throwIfAborted()
-          if (['failed', 'cancelled', 'expired'].includes(session.state))
-            throw new Error('上传会话已失效，请重新选择此文件')
+          if (!session || ['failed', 'cancelled', 'expired'].includes(session.state)) {
+            // 仅终态会话重新创建；网络结果不明和绑定重试继续复用原幂等键。
+            item.uploadId = ''
+            item.createKey = crypto.randomUUID()
+            item.completeKey = crypto.randomUUID()
+            item.bindKey = crypto.randomUUID()
+            item.uploadedBytes = 0
+            item.progress = 0
+            session = (await createUpload(projectId, item.file, item.sha, item.createKey, signal)).data
+            item.uploadId = session.id
+            session = (await readUpload(item.uploadId, signal)).data
+          }
           if (session.state !== 'ready') {
             item.stage = 'uploading'
             const size = Number(session.partSize)
