@@ -29,15 +29,17 @@ const props = defineProps<{
   projectId: string
   visible?: boolean
   sidebar?: boolean
+  navigationActive?: boolean
   canWrite: boolean
   canUpload: boolean
   canDownload: boolean
   canGenerate?: boolean
 }>()
-const emit = defineEmits<{ create: []; reference: [asset: Asset, kind: 'image' | 'video']; selectionChange: [count: number] }>()
+const emit = defineEmits<{ create: []; select: []; reference: [asset: Asset, kind: 'image' | 'video']; selectionChange: [count: number] }>()
 const assetRefreshKey = ref(0)
 const {
   active,
+  assetCounts,
   rows,
   roots,
   crumbs,
@@ -66,8 +68,8 @@ const {
   loadTree,
   toggle,
   refresh,
-  navigate,
-  showTrash,
+  navigate: navigateFolder,
+  showTrash: navigateTrash,
   filter,
   changePage,
   startCreate,
@@ -91,6 +93,8 @@ const {
   createInDestination,
   transfer,
 } = useFolders(props.projectId, () => props.visible !== false)
+function navigate(path: import('@/api/folders').Folder[]) { emit('select'); navigateFolder(path) }
+function showTrash() { emit('select'); navigateTrash() }
 const batchRestore = useFolderBatchRestore(() => recycled.value, () => props.canWrite && !pending.value, refresh)
 const personal = useFolderPresentation(expanded, loadTree)
 const orderedRoots = computed(() => personal.arrange(roots.value))
@@ -144,10 +148,10 @@ const rules: FormRules = {
       <div v-if="sidebar && search" class="folder-search-results"><button v-for="folder in rows" :key="folder.id" class="folder-tree-label" @click="navigate([folder])"><IconFolder :size="18" />{{ folder.name }}</button><span v-if="!rows.length && !loading">无匹配目录</span><button v-if="total > page * 30" class="folder-text-button" @click="changePage(page + 1)">下一页</button></div>
       <button
         class="folder-tree-label folder-root"
-        :class="{ active: !currentId && !trash }"
+        :class="{ active: navigationActive !== false && !currentId && !trash }"
         @click="navigate([])"
       >
-        <IconFolder :size="19" />全部素材
+        <IconFolder :size="19" />全部素材<span class="folder-asset-count">{{ assetCounts?.total ?? '—' }}</span>
       </button>
       <button v-if="canWrite" class="folder-tree-label folder-add" :disabled="pending" @click="startCreate(null)"><IconPlus :size="18" />添加文件夹</button>
       <ul class="folder-tree">
@@ -155,11 +159,12 @@ const rules: FormRules = {
           v-for="folder in orderedRoots"
           :key="folder.id"
           :folder="folder"
+          :counts="assetCounts?.folders"
           :path="[]"
           :children="orderedChildren"
           :pinned="personal.pinned.value"
           :expanded="expanded"
-          :current-id="currentId"
+          :current-id="navigationActive === false ? null : currentId"
           :can-write="canWrite"
           :pending="pending"
           :tree-next="treeNext"
@@ -181,7 +186,7 @@ const rules: FormRules = {
       <button
         v-if="canWrite"
         class="folder-tree-label folder-root folder-trash-entry"
-        :class="{ active: trash }"
+        :class="{ active: navigationActive !== false && trash }"
         @click="showTrash"
       >
         <IconTrash :size="18" />回收站

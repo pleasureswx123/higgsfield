@@ -5,7 +5,7 @@ import { ref, watch } from 'vue'
 import { IconChevronLeft, IconFolder, IconAdjustmentsHorizontal, IconAt, IconPhotoVideo, IconSparkles } from '@tabler/icons-vue'
 import { useRoute } from 'vue-router'
 import { useProjectWorkspace } from '@/composables/useProjectWorkspace'
-import { formatProjectDate } from '@/utils/projects'
+import { formatProjectDate, projectStatusLabels } from '@/utils/projects'
 import BriefEditor from './BriefEditor.vue'
 import BriefPreview from './BriefPreview.vue'
 import ProjectMembers from './ProjectMembers.vue'
@@ -83,8 +83,8 @@ watch(
       <RouterLink to="/projects" class="nav-link"><IconChevronLeft :size="16" aria-hidden="true" /><span>返回我的项目</span></RouterLink>
       <strong class="project-nav-name"><span class="project-nav-icon"><IconFolder :size="17" aria-hidden="true" /></span><span>{{ project.name }}</span></strong>
       <button class="nav-link" :class="{ active: tab === 'brief' || tab === 'members' || tab === 'permissions' }" :aria-current="tab === 'brief' || tab === 'members' || tab === 'permissions' ? 'page' : undefined" @click="tab = ['members', 'permissions'].includes(tab) ? tab : 'brief'"><span class="project-nav-icon"><IconAdjustmentsHorizontal :size="17" aria-hidden="true" /></span><span>项目设置<span v-if="dirty"> ·</span></span></button>
-      <button v-if="brief?.allowedActions.includes('element:read')" class="nav-link" :class="{ active: tab === 'elements' }" @click="tab = 'elements'"><span class="project-nav-icon"><IconAt :size="17" aria-hidden="true" /></span><span>项目元素</span></button>
-      <button v-if="brief?.allowedActions.includes('generation:read')" class="nav-link" :class="{ active: tab === 'generations' }" @click="tab = 'generations'"><span class="project-nav-icon"><IconPhotoVideo :size="17" aria-hidden="true" /></span><span>项目生成</span></button>
+      <button v-if="brief?.allowedActions.includes('element:read')" class="nav-link" :class="{ active: tab === 'elements' }" @click="tab = 'elements'"><span class="project-nav-icon"><IconAt :size="17" aria-hidden="true" /></span><span>项目元素库</span></button>
+      <button v-if="brief?.allowedActions.includes('generation:read')" class="nav-link" :class="{ active: tab === 'generations' }" @click="tab = 'generations'"><span class="project-nav-icon"><IconPhotoVideo :size="17" aria-hidden="true" /></span><span>项目生成记录</span></button>
       <button v-if="brief?.allowedActions.includes('generation:create')" class="nav-link" :class="{ active: tab === 'creation' }" @click="tab = 'creation'"><span class="project-nav-icon"><IconSparkles :size="17" aria-hidden="true" /></span><span>开始创作</span></button>
     </div>
   </Teleport>
@@ -96,17 +96,24 @@ watch(
     </button>
     <button v-if="canReadMembers" :class="{ active: tab === 'permissions' }" @click="tab = 'permissions'">角色和权限</button>
   </nav>
-  <div v-show="tab === 'brief' || tab === 'members' || tab === 'permissions'" class="brief-actions">
-    <Button v-if="brief?.allowedActions.includes('project:manage') && project.status === 'active'" variant="ghost" :disabled="saving"
-      @click="lifecycle?.start(project, 'rename')">编辑项目名称</Button>
-    <Button v-if="brief?.allowedActions.includes('project:manage') && project.status === 'active'" variant="ghost" :disabled="saving"
-      @click="lifecycle?.start(project, 'pause')">暂停项目</Button>
-    <Button v-if="brief?.allowedActions.includes('project:manage') && project.status === 'paused'" variant="ghost" :disabled="saving"
+  <div v-show="tab === 'brief' || tab === 'members' || tab === 'permissions'" class="project-management" aria-label="项目管理">
+    <div class="project-management-summary">
+      <span class="project-management-label">项目管理</span>
+      <div class="project-management-title"><strong :title="project.name">{{ project.name }}</strong><span class="project-management-status">{{ projectStatusLabels[project.status] }}</span></div>
+      <p class="muted">管理项目名称与运行状态；暂停或归档前需确认。</p>
+    </div>
+    <div class="project-management-actions">
+    <Button v-if="brief?.allowedActions.includes('project:manage') && project.status === 'active'" variant="outline" :disabled="saving"
+      @click="lifecycle?.start(project, 'rename')" title="修改项目显示名称">修改名称</Button>
+    <Button v-if="brief?.allowedActions.includes('project:manage') && project.status === 'active'" variant="outline" :disabled="saving"
+      @click="lifecycle?.start(project, 'pause')" title="暂停新的创作与编辑，已受理任务继续维护">暂停项目</Button>
+    <Button v-if="brief?.allowedActions.includes('project:manage') && project.status === 'paused'" variant="outline" :disabled="saving"
       @click="lifecycle?.start(project, 'resume')">恢复运行</Button>
-    <Button v-if="brief?.allowedActions.includes('project:archive') && ['active', 'paused'].includes(project.status)" variant="ghost" :disabled="saving"
-      @click="lifecycle?.start(project, 'archive')">归档项目</Button>
-    <Button v-else-if="brief?.allowedActions.includes('project:archive') && project.status === 'archived'" variant="ghost" :disabled="saving"
+    <Button v-if="brief?.allowedActions.includes('project:archive') && ['active', 'paused'].includes(project.status)" variant="outline" :disabled="saving"
+      @click="lifecycle?.start(project, 'archive')" title="将项目转为只读，保留已有内容">归档项目</Button>
+    <Button v-else-if="brief?.allowedActions.includes('project:archive') && project.status === 'archived'" variant="outline" :disabled="saving"
       @click="lifecycle?.start(project, 'restore')">恢复项目</Button>
+    </div>
   </div>
   <ProjectLifecycleDialog ref="lifecycle" @changed="lifecycleChanged" />
   <GenerationCollection
@@ -131,7 +138,7 @@ watch(
         </p>
       </div>
       <div class="brief-actions">
-        <Button v-if="canEdit" variant="ghost" :disabled="saving" @click="editing = !editing">{{
+        <Button v-if="canEdit" variant="outline" :disabled="saving" @click="editing = !editing">{{
           editing ? '预览' : '编辑简报'
         }}</Button
         ><Button v-if="canEdit && dirty" :disabled="saving" @click="save">{{
@@ -152,11 +159,12 @@ watch(
     :project-id="projectId"
     @changed="memberChanged"
   />
-  <ProjectFolders ref="folderWorkspace" @selection-change="selectedAssetCount = $event"
+  <ProjectFolders @select="tab = 'folders'" ref="folderWorkspace" @selection-change="selectedAssetCount = $event"
     v-if="brief?.allowedActions.includes('asset:read')"
     v-show="tab === 'folders'"
     :visible="route.params.id === projectId"
     sidebar
+    :navigation-active="tab === 'folders'"
     :project-id="projectId"
     :project-actions="brief.allowedActions"
     :can-write="brief.allowedActions.includes('folder:write')"

@@ -1,8 +1,8 @@
 <script setup lang="ts">
 import { ref, watch, computed } from 'vue'
-import { useRoute } from 'vue-router'
-import { ElInput, ElSelect, ElOption, ElPagination, ElCheckbox, ElInputNumber } from 'element-plus'
-import { IconPlus } from '@tabler/icons-vue'
+import { useRoute, useRouter } from 'vue-router'
+import { ElInput, ElSelect, ElOption, ElPagination, ElCheckbox, ElInputNumber, ElPopover, ElMessageBox } from 'element-plus'
+import { IconPlus, IconSearch, IconFilter, IconLayoutGrid, IconUpload, IconFolder, IconAt } from '@tabler/icons-vue'
 import DirectoryMoveDialog from './DirectoryMoveDialog.vue'
 import ElementBatchCopyDialog from './ElementBatchCopyDialog.vue'
 import type { ElementRecord } from '@/api/elements'
@@ -15,6 +15,7 @@ import Button from '@/components/ui/Button.vue'
 import ElementEditor from './ElementEditor.vue'
 import ElementImportDialog from './ElementImportDialog.vue'
 import PropertyDefinitionsDialog from './PropertyDefinitionsDialog.vue'
+import { useElementLibrary } from '@/composables/useElementLibrary'
 import { useElements } from '@/composables/useElements'
 import { useElementBatchDelete } from '@/composables/useElementBatchDelete'
 import { useElementBatchRestore } from '@/composables/useElementBatchRestore'
@@ -33,10 +34,15 @@ const copier = ref<InstanceType<typeof ElementBatchCopyDialog>>()
 const moveMessage = ref('')
 const propertiesOpen = ref(false)
 const importOpen = ref(false)
-const layout = ref<'grid' | 'board' | 'table'>('grid')
+const layout = ref<'grid' | 'board' | 'table'>('table')
 const cardSize = ref(4),
   splitByDate = ref(false)
 const route = useRoute()
+const router = useRouter()
+function previewAsset(versionId: string) {
+  if (batchBusy.value) return
+  void router.push({ query: { ...route.query, tab: 'folders', asset: undefined, assetVersion: versionId, previewFrom: 'elements' } })
+}
 const {
   rows,
   recycled,
@@ -45,6 +51,7 @@ const {
   search,
   category,
   group,
+  folderId,
   workStatus,
   trash,
   loading,
@@ -57,6 +64,15 @@ const {
   open,
   restore,
 } = useElements(props.projectId, () => props.visible !== false)
+const searchOpen = ref(false)
+const library = useElementLibrary(props.projectId, rows, () => props.visible !== false && !trash.value, () => ({ q: search.value, category: category.value || undefined, statusGroup: group.value || undefined, workStatus: workStatus.value || undefined, folderId: folderId.value || undefined }))
+function chooseGroup(value: '' | 'active' | 'drafts') { group.value = value; folderId.value = ''; filter() }
+async function addFolder() {
+  try {
+    const { value } = await ElMessageBox.prompt('输入元素文件夹名称', '添加文件夹', { inputPattern: /\S+/, inputErrorMessage: '请输入名称', confirmButtonText: '创建', cancelButtonText: '取消' })
+    await library.addFolder(value.trim())
+  } catch { /* 取消时保留当前列表 */ }
+}
 const batchRestore = useElementBatchRestore(
   () => recycled.value,
   () => props.visible !== false && trash.value && props.actions.includes('element:remove') && !pending.value && !loading.value,
@@ -173,92 +189,43 @@ function saved() {
 }
 </script>
 <template>
-  <section class="element-workspace">
-    <header class="element-toolbar" :inert="batchBusy">
-      <h2>{{ trash ? '元素回收站' : '项目元素' }}</h2>
-      <Button
-        v-if="!trash && actions.includes('element:import')"
-        variant="ghost"
-        @click="importOpen = true"
-        >导入元素</Button
-      >
-      <Button
-        v-if="actions.includes('element:configure')"
-        variant="ghost"
-        @click="propertiesOpen = true"
-        >属性配置</Button
-      >
-      <Button variant="ghost" :disabled="loading || batchRestore.pending.value" @click="refresh"
-        >刷新</Button
-      ><Button
-        v-if="actions.includes('element:remove')"
-        variant="ghost"
-        :disabled="pending || batchRestore.pending.value"
-        @click="trash = !trash"
-        >{{ trash ? '返回元素' : '回收站' }}</Button
-      ><Button v-if="!trash && actions.includes('element:create')" @click="open(null)"
-        ><IconPlus :size="16" />新建元素</Button
-      >
+  <section class="element-workspace element-library">
+    <header class="element-library-heading" :inert="batchBusy">
+      <strong>{{ trash ? '元素回收站' : '全部元素' }}</strong>
+      <div class="element-library-actions">
+        <Button v-if="!trash && actions.includes('element:import')" variant="outline" @click="importOpen = true"><IconUpload :size="16" />导入</Button>
+        <Button v-if="!trash" variant="outline" :disabled="library.exporting.value" @click="library.exportCsv">{{ library.exporting.value ? '导出中…' : '导出 CSV' }}</Button>
+        <Button v-if="!trash && actions.includes('element:create')" @click="open(null)"><IconPlus :size="17" />新建元素</Button>
+        <Button v-if="trash" variant="ghost" @click="trash = false">返回元素</Button>
+      </div>
     </header>
-    <div v-show="!trash" class="element-toolbar" :inert="batchBusy">
-      <ElementViewPreference
-        :key="projectId"
-        :project-id="projectId"
-        :settings="viewSettings"
-        @restore="restoreView"
-      />
-      <ElCheckbox v-model="splitByDate">按日期分组</ElCheckbox>
-      <label class="muted"
-        >卡片尺寸
-        <ElInputNumber
-          v-model="cardSize"
-          :min="1"
-          :max="8"
-          :precision="0"
-          :disabled="layout === 'table'"
-          aria-label="元素卡片尺寸"
-      /></label>
-      <ElSelect
-        v-model="workStatus"
-        placeholder="全部制作状态"
-        aria-label="制作状态"
-        @change="filter"
-      >
-        <ElOption label="全部制作状态" value="" /><ElOption label="未开始" value="none" /><ElOption
-          label="制作中"
-          value="working"
-        />
-        <ElOption label="待审核" value="review" /><ElOption
-          label="已通过"
-          value="approved"
-        /><ElOption label="已驳回" value="rejected" />
-      </ElSelect>
-      <ElInput
-        v-model="search"
-        placeholder="搜索名称或别名"
-        clearable
-        maxlength="200"
-        @keyup.enter="filter"
-        @clear="filter"
-      /><ElSelect v-model="category" aria-label="元素分类" @change="filter"
-        ><ElOption label="全部分类" value="" /><ElOption
-          v-for="(label, value) in categoryNames"
-          :key="value"
-          :value="value"
-          :label="label" /></ElSelect
-      ><ElSelect v-model="group" aria-label="元素状态" @change="filter"
-        ><ElOption label="全部状态" value="" /><ElOption
-          label="Active · 已通过"
-          value="active" /><ElOption
-          label="Drafts · 未开始/制作中/待审核"
-          value="drafts" /></ElSelect
-      ><Button variant="ghost" @click="filter">搜索</Button>
-      <ElSelect v-model="layout" aria-label="元素布局"
-        ><ElOption label="网格" value="grid" /><ElOption label="看板" value="board" /><ElOption
-          label="表格"
-          value="table"
-      /></ElSelect>
+    <div v-if="!trash" class="element-library-navigation" :inert="batchBusy">
+      <nav class="element-category-tabs" aria-label="元素分类">
+        <button :class="{ active: !category }" @click="category = ''; filter()">全部</button>
+        <button v-for="(label, value) in categoryNames" :key="value" :class="{ active: category === value }" @click="category = value; filter()">{{ label }}</button>
+      </nav>
+      <div class="element-library-actions">
+        <ElInput v-if="searchOpen" v-model="search" class="element-library-search" placeholder="搜索名称或别名" clearable @keyup.enter="filter" @clear="filter" />
+        <Button variant="ghost" @click="searchOpen = !searchOpen"><IconSearch :size="16" />搜索</Button>
+        <ElPopover trigger="click" :width="260">
+          <template #reference><Button variant="ghost"><IconFilter :size="16" />筛选</Button></template>
+          <div class="element-library-options"><label>制作状态</label><ElSelect v-model="workStatus" @change="filter"><ElOption label="全部" value="" /><ElOption label="未开始" value="none" /><ElOption label="制作中" value="working" /><ElOption label="待审核" value="review" /><ElOption label="已通过" value="approved" /><ElOption label="已驳回" value="rejected" /></ElSelect></div>
+        </ElPopover>
+        <ElPopover trigger="click" :width="280">
+          <template #reference><Button variant="ghost"><IconLayoutGrid :size="16" />视图</Button></template>
+          <div class="element-library-options">
+            <ElSelect v-model="layout" aria-label="元素布局"><ElOption label="表格" value="table" /><ElOption label="网格" value="grid" /><ElOption label="看板" value="board" /></ElSelect>
+            <ElCheckbox v-model="splitByDate">按日期分组</ElCheckbox>
+            <ElInputNumber v-model="cardSize" :min="1" :max="8" :precision="0" :disabled="layout === 'table'" aria-label="卡片尺寸" />
+            <ElementViewPreference :project-id="projectId" :settings="viewSettings" @restore="restoreView" />
+            <Button variant="ghost" @click="refresh">刷新</Button>
+            <Button v-if="actions.includes('element:configure')" variant="ghost" @click="propertiesOpen = true">属性配置</Button>
+            <Button v-if="actions.includes('element:remove')" variant="ghost" @click="trash = true">回收站</Button>
+          </div>
+        </ElPopover>
+      </div>
     </div>
+    <p v-if="library.error.value" class="project-error" role="alert">{{ library.error.value }}</p>
     <p v-if="error" class="project-error" role="alert">{{ error }}</p>
     <p v-if="loading" role="status">正在加载元素…</p>
     <template v-else-if="trash">
@@ -308,7 +275,7 @@ function saved() {
       <p v-if="!recycled.length" class="muted">没有可查看的回收元素。</p></template
     >
     <template v-else>
-      <div class="element-toolbar">
+      <div v-if="selection.selected.value.length" class="element-toolbar element-batch-toolbar">
         <ElCheckbox
           :model-value="selection.allSelected.value"
           :disabled="batchBusy"
@@ -367,17 +334,27 @@ function saved() {
       </p>
       <p v-if="downloader.message.value" role="status">{{ downloader.message.value }}</p>
       <p v-if="moveMessage" role="status">{{ moveMessage }}</p>
-      <ElementViewCollection
+      <div class="element-library-body"><div class="element-library-content"><ElementViewCollection
         selectable
         :selected="selection.selected.value"
         :selection-disabled="batchBusy"
         @select="selection.toggle"
-        :rows="rows"
+        @preview="previewAsset"
+        :rows="library.displayRows.value"
         :layout="layout"
         :card-size="cardSize"
         :split-by-date="splitByDate"
         @open="!batchBusy && open($event.id)"
-      />
+      /></div>
+      <aside class="element-library-sidebar" aria-label="元素范围">
+        <button :class="{ active: !group && !folderId }" @click="chooseGroup('')"><IconAt :size="21" />全部元素</button>
+        <small>状态</small>
+        <button :class="{ active: group === 'active' }" @click="chooseGroup('active')">✧ 已通过</button>
+        <button :class="{ active: group === 'drafts' }" @click="chooseGroup('drafts')">▤ 草稿</button>
+        <small>文件夹</small>
+        <button v-for="folder in library.folders.value" :key="folder.id" :class="{ active: folderId === folder.id }" :style="{ paddingLeft: `${12 + folder.depth * 12}px` }" @click="folderId = folder.id; group = ''; filter()"><IconFolder :size="18" />{{ folder.name }}</button>
+        <button v-if="actions.includes('folder:write')" :disabled="library.creating.value" @click="addFolder"><IconPlus :size="18" />添加文件夹</button>
+      </aside></div>
     </template>
     <ElementBatchCopyDialog
       :visible="visible !== false"

@@ -37,7 +37,8 @@ export function useCommentOverview(target: () => CommentTarget, visible: () => b
           const result = await listComments(thread.id, page, controller.signal)
           total = result.total
           count += result.rows.length
-          allRows.push(...result.rows)
+          // 分页进度仍按接口原始行数累计，已删除评论不进入展示列表。
+          allRows.push(...result.rows.filter(row => !row.deleted))
           if (!result.rows.length) break
         }
       }
@@ -53,7 +54,7 @@ export function useCommentOverview(target: () => CommentTarget, visible: () => b
     }
   }
   watch(
-    () => [JSON.stringify(target()), visible(), auth.token],
+    [() => JSON.stringify(target()), visible, () => auth.token],
     () => {
       reader?.abort()
       rows.value = []

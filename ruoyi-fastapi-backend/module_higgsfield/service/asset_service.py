@@ -1,6 +1,7 @@
 from module_higgsfield.service.stored_media_service import StoredMediaService
 from common.vo import PageModel
 from module_higgsfield.dao.asset_dao import AssetDao
+from module_higgsfield.dao.comment_dao import CommentDao
 from module_higgsfield.dao.folder_dao import FolderDao
 from module_higgsfield.dao.project_workspace_dao import WorkspaceDao
 from module_higgsfield.entity.do.asset_do import HfAsset, HfAssetVersion, HfFolderEntry, HfUploadBinding
@@ -76,9 +77,12 @@ class AssetService:
         if query.folder_id:
             await FolderService.check_target(db, space.space_id, int(query.folder_id), 'media')
         rows, total = await AssetDao.library(db, space.space_id, query, user.user.user_id)
+        can_read_comments = 'comment:read' in scopes and (role == 'owner' or '*:*:*' in user.permissions or 'comment:read' in user.permissions)
+        comment_counts = await CommentDao.asset_version_counts(db, [asset.current_version_id for asset, _ in rows]) if can_read_comments else {}
         items = []
         for asset, entry in rows:
             result = await cls.result(db, asset)
+            result['commentCount'] = comment_counts.get(asset.current_version_id, 0) if can_read_comments else None
             result['allowedActions'] = sorted(
                 code
                 for code in ('asset:edit', 'asset:remove', 'content:review')
@@ -203,8 +207,8 @@ class AssetService:
         return result
 
     @staticmethod
-    async def result(db, asset):
-        version = await AssetDao.version(db, asset.current_version_id)
+    async def result(db, asset, version=None):
+        version = version or await AssetDao.version(db, asset.current_version_id)
         file = await AssetDao.file(db, version.file_id)
         return {
             'id': str(asset.asset_id),
@@ -212,8 +216,8 @@ class AssetService:
             'name': asset.asset_name,
             'mediaType': asset.media_type,
             'workStatus': asset.work_status,
-            'currentVersionId': str(asset.current_version_id),
-            'uploaded': await AssetDao.is_uploaded_version(db, asset.current_version_id),
+            'currentVersionId': str(version.version_id),
+            'uploaded': await AssetDao.is_uploaded_version(db, version.version_id),
             'revision': str(asset.revision),
             'createUserId': str(asset.create_user_id),
             'createTime': asset.create_time,
@@ -238,6 +242,16 @@ class AssetService:
         if asset.del_flag != '0':
             cls.fail('RESOURCE_NOT_FOUND', '素材不存在或已删除')
         return await cls.result(db, asset)
+
+    @classmethod
+    async def get_version(cls, db, user, version_id):
+        """固定版本预览复用素材对象授权，避免元素引用误开最新版本。"""
+        version = await AssetDao.version(db, version_id)
+        if version is None:
+            cls.fail('RESOURCE_NOT_FOUND', '素材版本不存在或无权访问')
+        await cls.get(db, user, version.asset_id)
+        asset = await AssetDao.asset(db, version.asset_id)
+        return await cls.result(db, asset, version)
 
     @classmethod
     async def bind(cls, db, user, payload, key, asset_id=None):

@@ -155,6 +155,11 @@ async def add_version(request: Request, asset_id: ProjectId, payload: AssetVersi
     return mutation_response(await AssetService.bind(db, user, payload, key, asset_id=asset_id))
 
 
+@asset_controller.get('/asset-versions/{version_id}', summary='读取授权素材固定版本详情')
+async def asset_version_detail(request: Request, version_id: ProjectId, db: Db, user: User):
+    return ResponseUtil.success(data=await AssetService.get_version(db, user, version_id))
+
+
 @asset_controller.get('/assets/{asset_id}', summary='读取授权素材详情')
 async def asset_detail(request: Request, asset_id: ProjectId, db: Db, user: User):
     return ResponseUtil.success(data=await AssetService.get(db, user, asset_id))

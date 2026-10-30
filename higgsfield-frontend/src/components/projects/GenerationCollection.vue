@@ -57,6 +57,7 @@ const dateRules: FormRules = { dates: [{ trigger: 'change', validator: (_rule, v
 </script>
 <template>
   <section class="generation-collection" aria-label="生成任务记录">
+    <div v-if="projectId" class="project-page-heading"><div><h2>项目生成记录</h2><p class="muted">查看当前项目团队的 AI 生成任务与结果，显示范围由项目权限决定。</p></div></div>
     <div class="generation-toolbar">
       <ProjectFilter v-if="!projectId" v-model="filteredProject" :active="active" />
       <ElSelect v-model="kind" aria-label="生成类型" placeholder="全部类型"

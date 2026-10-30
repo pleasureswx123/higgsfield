@@ -5,6 +5,18 @@ from module_higgsfield.entity.do.comment_do import HfCommentThread, HfComment, H
 
 class CommentDao:
     @staticmethod
+    async def asset_version_counts(db, version_ids):
+        """批量统计当前版本有效评论，含回复，不含已删除讨论。"""
+        if not version_ids:
+            return {}
+        query = (select(HfCommentThread.asset_version_id, func.count(HfComment.comment_id))
+            .join(HfComment, HfComment.thread_id == HfCommentThread.thread_id)
+            .where(HfCommentThread.asset_version_id.in_(version_ids),
+                   HfCommentThread.del_flag == '0', HfComment.del_flag == '0')
+            .group_by(HfCommentThread.asset_version_id))
+        return dict((await db.execute(query)).all())
+
+    @staticmethod
     async def clear_annotations(db, comment_id):
         await db.execute(delete(HfAnnotation).where(HfAnnotation.comment_id == comment_id))
 

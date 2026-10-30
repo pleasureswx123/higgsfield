@@ -24,6 +24,21 @@ class CommentEditTests(unittest.IsolatedAsyncioTestCase):
     thread = fixture.CommentServiceTests.thread
     post = fixture.CommentServiceTests.post
 
+    async def test_status_color_survives_resolve_and_can_clear(self):
+        from module_higgsfield.entity.vo.comment_vo import ThreadPatch
+        async def act(revision, action, color=None):
+            async with self.sessions() as db:
+                result, _ = await Service.collaborate(db, self.owner, self.thread_id, ThreadPatch(revision=revision, action=action, color=color), str(uuid4()))
+                return result['data']
+        colored = await act('1', 'color', '#4798fa')
+        self.assertEqual(colored['statusColor'], '#4798fa')
+        solved = await act(colored['revision'], 'resolve')
+        self.assertEqual(solved['statusColor'], '#4798fa')
+        self.assertIsNotNone(solved['resolvedAt'])
+        cleared = await act(solved['revision'], 'color')
+        self.assertIsNone(cleared['statusColor'])
+        self.assertIsNotNone(cleared['resolvedAt'])
+
     async def asyncSetUp(self):
         await fixture.CommentServiceTests.asyncSetUp(self)
         spec = importlib.util.spec_from_file_location('comment_edit_permissions', Path(__file__).resolve().parents[1] / 'alembic/versions/20261028_70_comment_edit_permissions.py')
@@ -34,7 +49,7 @@ class CommentEditTests(unittest.IsolatedAsyncioTestCase):
         async with self.sessions() as db:
             for permission in ('comment:edit:own', 'comment:moderate'):
                 self.assertEqual(await db.scalar(text('SELECT count(*) FROM sys_menu WHERE perms=:p'), {'p': permission}), 1)
-            await db.execute(text("INSERT INTO hf_project_role_permission(role_id,permission_code,data_scope) SELECT role_id,'comment:edit:own','own' FROM hf_project_role WHERE code='owner'"))
+            await db.execute(text("INSERT INTO hf_project_role_permission(role_id,permission_code,data_scope) SELECT role_id,'comment:edit:own','own' FROM hf_project_role WHERE code='owner' ON CONFLICT DO NOTHING"))
             await db.commit()
         thread, _ = await self.thread()
         self.thread_id = int(thread['data']['id'])

@@ -11,6 +11,7 @@ export interface CommentThread {
   id: string
   target: CommentTarget
   revision: string
+  statusColor?: string | null
   resolvedAt: string | null
   createTime: string
 }
@@ -77,5 +78,5 @@ export const changeComment = (
     headers: { 'Idempotency-Key': key },
   })
 
-export const updateCommentThread = (id:string, data:{revision:string;action:'resolve'|'reopen'|'delete'}, key:string, signal:AbortSignal) => request<{code:number;data:CommentThread}>({url:`/api/v1/comment-threads/${id}`,method:'PATCH',data,signal,headers:{'Idempotency-Key':key}})
+export const updateCommentThread = (id:string, data:{revision:string;action:'resolve'|'reopen'|'delete'|'color';color?:string|null}, key:string, signal:AbortSignal) => request<{code:number;data:CommentThread}>({url:`/api/v1/comment-threads/${id}`,method:'PATCH',data,signal,headers:{'Idempotency-Key':key}})
 export const setCommentReaction = (id:string,data:{emoji:string;active:boolean},key:string,signal:AbortSignal) => request<{code:number;data:MediaComment}>({url:`/api/v1/comments/${id}/reaction`,method:'PATCH',data,signal,headers:{'Idempotency-Key':key}})

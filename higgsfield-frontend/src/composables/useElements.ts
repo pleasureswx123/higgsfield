@@ -23,6 +23,7 @@ export function useElements(projectId: string, visible: () => boolean = () => tr
     category = ref<'' | ElementCategory>(''),
     group = ref<'' | 'active' | 'drafts'>(''),
     trash = ref(false)
+  const folderId = ref('')
   const workStatus = ref<'' | WorkStatus>('')
   const loading = ref(false),
     error = ref(''),
@@ -66,6 +67,7 @@ export function useElements(projectId: string, visible: () => boolean = () => tr
           {
             pageNum: requestedPage,
             q: search.value,
+            folderId: folderId.value || undefined,
             category: category.value || undefined,
             statusGroup: group.value || undefined,
             workStatus: workStatus.value || undefined,
@@ -167,6 +169,7 @@ export function useElements(projectId: string, visible: () => boolean = () => tr
     search,
     category,
     group,
+    folderId,
     workStatus,
     trash,
     loading,

@@ -8,6 +8,7 @@ class HfCommentThread(ContentRecord):
     __tablename__ = 'hf_comment_thread'
     __table_args__ = (
         CheckConstraint('num_nonnulls(asset_version_id,output_id)=1 AND create_user_id>0 AND (asset_version_id IS NULL OR asset_version_id>0) AND (output_id IS NULL OR output_id>0)', name='ck_hf_comment_thread_target'),
+        CheckConstraint("status_color IS NULL OR status_color IN ('#ffffff','#fa551e','#f39c20','#f4d42a','#7bd65b','#4798fa','#8257ef')", name='ck_hf_comment_thread_status_color'),
         Index('ix_hf_comment_thread_asset', 'asset_version_id', 'create_time'),
         Index('ix_hf_comment_thread_output', 'output_id', 'create_time'),
         {'comment': '评论主题及固定版本目标', 'info': {'migration_managed': True}},
@@ -18,6 +19,7 @@ class HfCommentThread(ContentRecord):
     create_user_id = Column(BigInteger, nullable=False, comment='主题发起人ID')
     revision = Column(BigInteger, nullable=False, server_default='1', comment='讨论并发修订')
     del_flag = Column(CHAR(1), nullable=False, server_default='0', comment='0存在2删除')
+    status_color = Column(String(7), nullable=True, comment='讨论状态标签颜色，空值表示无标签')
     resolved_time = Column(TIMESTAMP(timezone=True, precision=3), comment='协作处理时间')
 
 

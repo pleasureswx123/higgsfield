@@ -3,6 +3,8 @@ import { request } from './client'
 export type ElementCategory = 'character' | 'scene' | 'prop' | 'other'
 export type WorkStatus = 'none' | 'working' | 'review' | 'approved' | 'rejected'
 export interface ElementRecord {
+  media?: ElementMedia[]
+  performerName?: string
   projectName?: string
   description?: string
   label?: string
@@ -97,6 +99,7 @@ export const listElements = (
     pageSize?: number
     q: string
     category?: ElementCategory
+    folderId?: string
     statusGroup?: 'active' | 'drafts'
     workStatus?: WorkStatus
     scope?: 'project' | 'mine'

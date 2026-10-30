@@ -1,10 +1,12 @@
 <script setup lang="ts">
+import { groupCommentThreads } from '@/utils/commentThreads'
 import {
   IconDotsVertical,
+  IconSearch,
   IconCheck,
   IconMessageCircle,
 } from '@tabler/icons-vue'
-import { computed, ref, watch } from 'vue'
+import { computed, reactive, ref, watch } from 'vue'
 import CommentCanvas from './CommentCanvas.vue'
 import CommentComposer from './CommentComposer.vue'
 import CommentCard from './CommentCard.vue'
@@ -26,7 +28,7 @@ import { useMediaComments } from '@/composables/useMediaComments'
 import Button from '@/components/ui/Button.vue'
 import { useAuthStore } from '@/stores/auth'
 import { useCommentVideo } from '@/composables/useCommentVideo'
-import { validCommentVideoTime } from '@/utils/commentVideoTime'
+import { validCommentVideoTime, playerTimeToComment } from '@/utils/commentVideoTime'
 const props = defineProps<{
   target: CommentTarget
   mediaKind?: string
@@ -35,8 +37,12 @@ const props = defineProps<{
   projectId?: string
   canvasHost?: HTMLElement
   sourceWidth?: number
+  timecode?: boolean
+  playbackTime?: number
   sourceHeight?: number
 }>()
+const emit = defineEmits<{ seek: [time: number]; pause: []; timeline: [rows: MediaComment[]]; count: [value: number] }>()
+const timestampEnabled = ref(true)
 const viewedAnnotations = ref<string>()
 watch([() => JSON.stringify(props.target), () => useAuthStore().token], () => {
   viewedAnnotations.value = undefined
@@ -88,6 +94,8 @@ const {
   () => props.mediaKind || '',
   () => props.visible !== false,
 )
+// 表单始终读取同一份响应式草稿，避免创建讨论后校验到旧正文。
+const commentFormModel = reactive({ body, videoTime })
 watch(threads, (list) => {
   if (props.sidebar && !threadId.value && !body.value && list.length) threadId.value = list[0]!.id
 })
@@ -101,6 +109,9 @@ const overview = useCommentOverview(
   () => props.target,
   () => props.sidebar === true && props.visible !== false,
 )
+watch([overview.rows, overview.loading], () => {
+  if (!overview.loading.value && !overview.error.value && canRead.value) emit('count', overview.rows.value.length)
+})
 const collaboration = useCommentCollaboration(
   () => props.projectId,
   () => JSON.stringify(props.target),
@@ -120,13 +131,11 @@ const currentThread = computed(() =>
 const resolved = computed(() => !!currentThread.value?.resolvedAt)
 const busy = computed(() => locked.value || collaboration.pending.value)
 const blocked = computed(() => !!threadError.value || threadLoading.value || !canCreate.value)
-const filteredRows = computed(() =>
-  overview.rows.value.filter(
-    (row) =>
-      (!search.value || row.body?.includes(search.value)) &&
-      (filter.value === 'all' || (filter.value === 'resolved') === isResolved(row)),
-  ),
-)
+const discussionGroups = computed(() => groupCommentThreads(overview.rows.value, search.value, props.mediaKind === 'video')
+  .filter(group => filter.value === 'all' || (filter.value === 'resolved') === isResolved(group.comments[0]!)))
+const selectedThreadId = computed(() => overview.rows.value.find(row => row.id === selectedId.value)?.threadId)
+const selectedThreadRows = computed(() => groupCommentThreads(overview.rows.value).find(group => group.id === selectedThreadId.value)?.comments || [])
+const canvasSelectedId = computed(() => selectedThreadRows.value.find(row => row.annotations.length)?.id || '')
 watch(
   () => JSON.stringify(props.target),
   () => {
@@ -138,18 +147,26 @@ function isResolved(row: MediaComment) {
   return !!overview.threads.value.find((thread) => thread.id === row.threadId)?.resolvedAt
 }
 async function send() {
+  if (props.mediaKind === 'video' && !editing.value) {
+    videoTime.value = parent.value ? '' : annotations.value.length ? videoTime.value : timestampEnabled.value ? playerTimeToComment(props.playbackTime || 0) : ''
+  }
   await sendFromSidebar(true)
   await overview.reload()
   if (!body.value && !error.value) {
     drawing.value = false
-    selectedId.value = overview.rows.value.filter((row) => !row.deleted).at(-1)?.id || ''
+    selectedId.value = overview.rows.value.filter(row => row.threadId === threadId.value).sort((a, b) => Date.parse(a.createTime) - Date.parse(b.createTime)).at(-1)?.id || ''
   }
 }
 function cancelDraft() {
   if (busy.value) return
+  const keepDrawing = drawing.value && !editing.value && !parent.value
   resetEditor()
-  drawing.value = false
+  drawing.value = keepDrawing
   selectedId.value = ''
+}
+async function setThreadColor(row: MediaComment, value: string | null) {
+  const thread = overview.threads.value.find(item => item.id === row.threadId)
+  if (thread) await collaboration.update(thread, 'color', value)
 }
 async function resolveThread(row?: MediaComment) {
   if (row) selectedId.value = row.id
@@ -173,7 +190,27 @@ async function deleteThread() {
     }
   }
 }
-defineExpose({ confirmLeave })
+const timelineRows = computed(() => overview.rows.value.filter(row => !row.parentId && row.videoTime != null && !row.deleted))
+watch(timelineRows, value => emit('timeline', value), { immediate: true })
+function selectVideoComment(id: string) {
+  selectedId.value = id
+  const row = overview.rows.value.find(item => item.id === id)
+  const root = overview.rows.value.find(item => item.threadId === row?.threadId && !item.parentId)
+  if (props.mediaKind === 'video' && root?.videoTime != null) emit('seek', Number(root.videoTime))
+}
+function toggleDrawing() {
+  drawing.value = !drawing.value
+  if (drawing.value && props.mediaKind === 'video') emit('pause')
+}
+function captureDraft() {
+  selectedId.value = ''
+  if (props.mediaKind === 'video') {
+    emit('pause')
+    videoTime.value = playerTimeToComment(props.playbackTime || 0)
+  }
+}
+const canvasRows = computed(() => props.mediaKind !== 'video' ? overview.rows.value : overview.rows.value.filter(row => row.videoTime != null && Math.abs(Number(row.videoTime) - (props.playbackTime || 0)) < .1))
+defineExpose({ confirmLeave, selectVideoComment })
 async function selectThread(value: string) {
   if (value === threadId.value) return
   await runConfirmed(() => {
@@ -244,7 +281,7 @@ async function remove(row: MediaComment) {
   >
     <template v-if="sidebar">
       <div v-if="overview.rows.value.length" class="sidebar-comment-topbar">
-        <ElInput v-model="search" placeholder="搜索评论" aria-label="搜索评论" /><ElSelect
+        <ElInput v-model="search" placeholder="搜索评论" aria-label="搜索评论"><template #prefix><IconSearch :size="16" /></template></ElInput><ElSelect
           v-model="filter"
           aria-label="筛选评论"
           ><ElOption label="全部" value="all" /><ElOption label="未解决" value="open" /><ElOption
@@ -252,37 +289,41 @@ async function remove(row: MediaComment) {
             value="resolved"
         /></ElSelect>
       </div>
-      <div class="sidebar-comment-list">
-        <p v-if="overview.loading.value" role="status">正在加载评论…</p>
+      <div class="sidebar-comment-list" :aria-busy="overview.loading.value">
+        <span v-if="overview.loading.value" class="comment-loading-status" role="status">正在加载评论…</span>
         <div
-          v-else-if="overview.error.value || commentsError || !canRead"
+          v-if="!overview.loading.value && (overview.error.value || commentsError || !canRead)"
           class="sidebar-comment-empty"
         >
           <span class="sidebar-comment-empty-icon"><IconMessageCircle :size="24" /></span>
           <p role="alert">{{ overview.error.value || commentsError || '当前没有评论阅读权限' }}</p>
           <Button @click="threadId ? refresh() : loadThreads()">重新加载</Button>
         </div>
-        <div v-else-if="!overview.rows.value.length" class="sidebar-comment-empty">
+        <div v-else-if="!overview.loading.value && !overview.rows.value.length" class="sidebar-comment-empty">
           <span class="sidebar-comment-empty-icon"><IconMessageCircle :size="24" /></span
           ><strong>暂无评论</strong>
         </div>
-        <CommentCard
-          v-for="row in filteredRows"
+        <p v-if="overview.rows.value.length && !discussionGroups.length" class="muted">没有匹配的讨论</p>
+        <section v-for="group in discussionGroups" :key="group.id" class="comment-discussion" :class="{ selected: selectedThreadId === group.id || parent?.threadId === group.id }" aria-label="评论讨论">
+        <CommentCard :timecode="timecode"
+          v-for="row in group.comments"
           :key="row.id"
           :row="row"
           :selected="selectedId === row.id"
           :resolved="isResolved(row)"
+          :status-color="overview.threads.value.find(thread => thread.id === row.threadId)?.statusColor"
+          @color="value => setThreadColor(row, value)"
           :disabled="busy"
           :can-create="canCreate"
           :editing="editing?.id === row.id"
-          @select="selectedId = row.id"
+          @select="selectVideoComment(row.id)"
           @reply="startReply(row)"
           @edit="startEdit(row)"
           @remove="remove(row)"
           @react="(emoji) => collaboration.react(row, emoji)"
           @resolve="resolveThread(row)"
           ><template #editor
-            ><CommentComposer
+            ><CommentComposer :timecode="timecode"
               v-model="body"
               editing
               :disabled="busy"
@@ -290,6 +331,11 @@ async function remove(row: MediaComment) {
               @send="send"
               @cancel="cancelDraft" /></template
         ></CommentCard>
+        <div v-if="parent?.threadId === group.id && !editing" class="comment-inline-reply" @click.stop>
+          <span class="comment-reply-avatar">我</span>
+          <CommentComposer :timecode="timecode" :key="parent.id" v-model="body" floating reply autofocus :disabled="busy" :blocked="blocked" :members="collaboration.members.value" @send="send" @cancel="cancelDraft" />
+        </div>
+        </section>
       </div>
       <p v-if="error || collaboration.error.value" role="alert">
         {{ error || collaboration.error.value }}
@@ -297,52 +343,52 @@ async function remove(row: MediaComment) {
       <Button v-if="uncertain" :disabled="saving || retryBlocked" @click="retry"
         >重试确认结果</Button
       >
-      <ElForm ref="form" :model="{ body, videoTime }" :rules="rules" class="comment-sidebar-form">
+      <ElForm @submit.prevent ref="form" :model="commentFormModel" :rules="rules" class="comment-sidebar-form">
         <ElFormItem prop="body"
-          ><CommentComposer
-            v-show="!editing && !annotations.length"
-            v-model="body"
+          ><CommentComposer :timecode="timecode"
+            v-show="!editing && !parent"
+            :model-value="annotations.length ? '' : body"
+            @update:model-value="body = $event"
+            :input-disabled="!!annotations.length"
             :disabled="busy || !canCreate"
             :blocked="blocked"
             :members="collaboration.members.value"
-            :annotation="mediaKind === 'image'"
+            :annotation="mediaKind === 'image' || mediaKind === 'video'"
+            :video="mediaKind === 'video'" :timestamp="timestampEnabled" :time="playbackTime || 0" @timestamp="timestampEnabled = !timestampEnabled"
             :drawing="drawing"
             :color="color"
             :tool="tool"
-            @drawing="drawing = !drawing"
+            @drawing="toggleDrawing"
             @color="color = $event"
             @tool="tool = $event"
             @send="send"
         /></ElFormItem>
-        <p v-if="parent" class="sidebar-comment-reply">
-          回复 #{{ parent.id }} <button @click="cancelDraft">取消</button>
-        </p>
-        <ElFormItem v-if="mediaKind === 'video'" prop="videoTime"
-          ><ElInput v-model="videoTime" placeholder="视频时间点（秒，可选）" :disabled="busy"
-        /></ElFormItem>
+
       </ElForm>
       <CommentCanvas
-        v-if="canvasHost && sourceWidth && sourceHeight && mediaKind === 'image'"
+        v-if="canvasHost && sourceWidth && sourceHeight && (mediaKind === 'image' || mediaKind === 'video')"
         :host="canvasHost"
         :width="sourceWidth"
         :height="sourceHeight"
-        :drawing="drawing"
+        :drawing="drawing && !annotations.length"
         :disabled="busy || blocked"
         :color="color"
         :tool="tool"
-        :comments="overview.rows.value"
+        :comments="canvasRows"
         :resolved-ids="overview.rows.value.filter(isResolved).map((row) => row.id)"
-        :selected-id="selectedId"
+        :selected-id="canvasSelectedId"
         :resolved="resolved"
         :model-value="annotations"
         @update:model-value="updateAnnotations"
-        @select="selectedId = $event"
-        @draft="drawing = false"
+        @select="selectVideoComment($event)"
+        @draft="captureDraft"
       >
         <template #draft
-          ><CommentComposer
+          ><CommentComposer :timecode="timecode"
             v-model="body"
-            floating
+            floating autofocus
+            :mark-color="annotations[0]?.color"
+            :video="mediaKind === 'video'" :timestamp="true" :time="Number(videoTime)"
             :editing="!!editing"
             :disabled="busy"
             :blocked="blocked"
@@ -351,12 +397,14 @@ async function remove(row: MediaComment) {
             @cancel="cancelDraft"
         /></template>
         <template #thread-tools>
-          <ElPopover trigger="click" placement="bottom-end" :width="160"><template #reference><button aria-label="讨论更多操作" :disabled="busy"><IconDotsVertical :size="17" /></button></template><Button variant="ghost" :disabled="busy" @click="deleteThread">删除讨论</Button></ElPopover>
-          <button :disabled="busy" :class="{ 'thread-resolved': resolved }" :title="resolved?'重新打开':'标记为已解决'" aria-label="切换讨论解决状态" @click="resolveThread()"><IconCheck :size="17" /></button>
+          <ElPopover trigger="click" placement="bottom-end" :width="160"><template #reference><button type="button" aria-label="讨论更多操作" :disabled="busy"><IconDotsVertical :size="17" /></button></template><Button variant="ghost" :disabled="busy" @click="deleteThread">删除讨论</Button></ElPopover>
+          <button type="button" :disabled="busy" :class="{ 'thread-resolved': resolved }" :title="resolved?'重新打开':'标记为已解决'" aria-label="切换讨论解决状态" @click="resolveThread()"><IconCheck :size="17" /></button>
         </template>
-        <template #comment="{ comment }"
-          ><CommentCard
-            :row="comment"
+        <template #comment
+          ><div class="comment-discussion comment-discussion-floating"><CommentCard :timecode="timecode"
+            v-for="comment in selectedThreadRows" :key="comment.id"
+            :row="comment" compact
+            @select="selectVideoComment(comment.id)"
             :resolved="resolved"
             :disabled="busy"
             :can-create="canCreate"
@@ -367,14 +415,14 @@ async function remove(row: MediaComment) {
             @react="(emoji) => collaboration.react(comment, emoji)"
             @resolve="resolveThread"
             ><template #editor
-              ><CommentComposer
+              ><CommentComposer :timecode="timecode"
                 v-model="body"
                 editing
                 :disabled="busy"
                 :members="collaboration.members.value"
                 @send="send"
                 @cancel="cancelDraft" /></template></CommentCard
-        ></template>
+        ></div></template>
       </CommentCanvas>
     </template>
     <template v-else>
@@ -499,10 +547,10 @@ async function remove(row: MediaComment) {
           :disabled="locked"
           layout="prev, pager, next"
         />
-        <ElForm
+        <ElForm @submit.prevent
           v-if="canCreate || editing"
           ref="form"
-          :model="{ body, videoTime }"
+          :model="commentFormModel"
           :rules="rules"
           :disabled="locked"
           label-position="top"
@@ -596,7 +644,20 @@ async function remove(row: MediaComment) {
   flex-direction: column;
   gap: 8px;
 }
+/* 刷新提示只供读屏，不进入布局，保留卡片位置和滚动位置。 */
+.comment-loading-status {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
 .sidebar-comment-list {
+  position: relative;
+  scrollbar-gutter: stable;
   flex: 1;
   min-height: 0;
   overflow: auto;
@@ -749,4 +810,42 @@ async function remove(row: MediaComment) {
 
 <style scoped>
 .thread-resolved {background:var(--primary)!important;color:var(--primary-foreground)!important}
+</style>
+
+<style scoped>
+.comment-discussion { position: relative; background: var(--surface-hover); border: 1px solid transparent; border-radius: 14px; margin-bottom: 10px; padding: 2px; }
+.comment-discussion.selected { background: var(--surface-raised); border-color: var(--muted-foreground); }
+.comment-discussion :deep(.comment-card) { background: transparent; border: 0; margin: 0; position: relative; }
+.comment-discussion :deep(.comment-card.selected) { background: transparent; }
+.comment-discussion :deep(.comment-card:not(:last-child)::after) { content: ''; position: absolute; left: 24px; top: 46px; bottom: 0; width: 2px; background: var(--border); }
+.comment-inline-reply { display: flex; align-items: flex-start; gap: 8px; padding: 10px; }
+.comment-reply-avatar { display: grid; place-items: center; width: 30px; height: 30px; flex-shrink: 0; border-radius: 50%; background: var(--surface); font-size: 12px; }
+.comment-inline-reply :deep(.comment-compose-shell) { flex: 1; min-width: 0; }
+.comment-discussion-floating { margin: 0; background: transparent; border: 0; max-height: 50vh; overflow-y: auto; }
+</style>
+
+<style scoped>
+/* 侧栏讨论独立分组，避免影响画布上的浮动评论。 */
+.sidebar-comment-topbar { align-items: center; min-height: 34px; gap: 12px; }
+.sidebar-comment-topbar :deep(.el-input__wrapper),
+.sidebar-comment-topbar :deep(.el-select__wrapper) { background: transparent; box-shadow: none; padding: 4px 6px; }
+.sidebar-comment-topbar :deep(.el-input__wrapper.is-focus),
+.sidebar-comment-topbar :deep(.el-select__wrapper.is-focused) { box-shadow: 0 0 0 1px var(--focus); }
+.sidebar-comment-topbar :deep(input),
+.sidebar-comment-topbar :deep(.el-select__placeholder) { font-size: 14px; }
+.sidebar-comment-list { padding: 0 1px; }
+.sidebar-comment-list .comment-discussion { background: var(--comment-card-surface); border: 1px solid transparent; border-radius: 16px; padding: 4px 0; margin-bottom: 10px; }
+.sidebar-comment-list .comment-discussion.selected { background: var(--comment-card-selected); border-color: var(--comment-card-border); }
+.sidebar-comment-list :deep(.comment-card) { gap: 10px; padding: 8px 10px 10px; font-size: 14px; line-height: 1.5; }
+.sidebar-comment-list :deep(.comment-card-avatar) { width: 34px; height: 34px; flex-shrink: 0; font-size: 14px; border: 1px solid var(--comment-card-border); background: var(--comment-sidebar-surface); }
+.sidebar-comment-list :deep(.comment-card header) { min-height: 24px; gap: 5px; }
+.sidebar-comment-list :deep(.comment-card header strong) { font-size: 14px; font-weight: 500; max-width: 115px; }
+.sidebar-comment-list :deep(.comment-card time) { font-size: 10px; white-space: nowrap; }
+.sidebar-comment-list :deep(.comment-card-body) { margin: 3px 0 5px; }
+.sidebar-comment-list :deep(.comment-card-body svg) { padding: 2px; border-radius: 5px; background: #009fff20; color: #009fff; box-sizing: content-box; }
+.sidebar-comment-list :deep(.comment-card-reactions button) { min-height: 25px; padding: 1px 8px; border-radius: 8px; }
+.sidebar-comment-list :deep(.comment-card footer) { margin-top: 5px; font-size: 12px; }
+.sidebar-comment-list :deep(.comment-card:not(:last-child)::after) { left: 25px; top: 49px; bottom: 2px; width: 4px; border-radius: 4px; background: var(--comment-card-border); opacity: .5; }
+.comment-sidebar-form :deep(.comment-compose-box) { min-height: 80px; padding: 10px; border: 1px solid var(--border); background: var(--comment-card-surface); border-radius: 16px; }
+.comment-sidebar-form :deep(textarea) { font-size: 14px; line-height: 22px; }
 </style>

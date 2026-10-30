@@ -67,9 +67,11 @@ function anchor(items: Annotation[]) {
   return { x: Number(p?.x || 0), y: Number(p?.y || 0) }
 }
 const popup = computed(() => {
-  const p = anchor(annotations.value.length ? annotations.value : selected.value?.annotations || [])
+  const items = annotations.value.length ? annotations.value : selected.value?.annotations || []
+  const p = anchor(items)
+  const right = Math.max(p.x, ...items.flatMap(item => item.shape === 'path' ? (item.geometry.points as AnnotationPoint[]).map(point => point.x) : [Number(item.geometry.x || 0) + Number(item.geometry.width || 0)]))
   return {
-    left: `clamp(8px, ${p.x * 100}% + 34px, calc(100% - 340px))`,
+    left: `clamp(8px, ${right * 100}% + 12px, calc(100% - 372px))`,
     top: `clamp(8px, ${p.y * 100}%, calc(100% - 240px))`,
   }
 })
@@ -94,8 +96,9 @@ function move(e: PointerEvent) {
 function finish(e: PointerEvent) {
   if (pointer.value !== e.pointerId) return
   move(e)
-  if (draft.value) {
-    annotations.value = [draft.value]
+  const mark = draft.value || buildAnnotation('point', points.value, props.color, props.width, props.height)
+  if (mark) {
+    annotations.value = [mark]
     emit('draft')
   }
   clear()
@@ -151,7 +154,8 @@ function path(item: Annotation) {
           />
         </g>
       </svg>
-      <button
+      <span v-if="annotations.length" class="comment-pin active draft-pin" :style="{left: `${anchor(annotations).x * 100}%`, top: `${anchor(annotations).y * 100}%`}">我</span>
+      <button type="button"
         v-for="item in comments.filter((value) => !value.deleted && value.annotations.length)"
         :key="item.id"
         class="comment-pin"
@@ -174,8 +178,8 @@ function path(item: Annotation) {
         <slot v-if="annotations.length" name="draft" />
         <template v-else-if="selected"
           ><header>
-            <strong>评论</strong><slot name="thread-tools" /><button
-              aria-label="关闭评论浮层"
+            <strong>评论</strong><slot name="thread-tools" /><button type="button"
+              aria-label="关闭评论浮层" title="关闭"
               @click="emit('select', '')"
             >
               <IconX :size="18" />
@@ -202,8 +206,10 @@ function path(item: Annotation) {
 .comment-drawing.drawing {
   pointer-events: auto;
   touch-action: none;
-  cursor: crosshair;
+  /* 光标热点位于笔尖，白色轮廓兼顾明暗画面。 */
+  cursor: url("data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%2232%22%20height%3D%2232%22%20viewBox%3D%220%200%2032%2032%22%3E%3Cpath%20d%3D%22M5%2027l2-8L23%203a3%203%200%200%201%204%204L11%2023z%22%20fill%3D%22%23fff%22%20stroke%3D%22%23171819%22%20stroke-width%3D%222%22%20stroke-linejoin%3D%22round%22%2F%3E%3Cpath%20d%3D%22M8%2019L23%204l4%204-15%2015z%22%20fill%3D%22%23f4d42a%22%2F%3E%3Cpath%20d%3D%22M8%2019l4%204M21%206l5%205%22%20fill%3D%22none%22%20stroke%3D%22%23171819%22%20stroke-width%3D%222%22%2F%3E%3Cpath%20d%3D%22M5%2027l2-5%203%203z%22%20fill%3D%22%23171819%22%2F%3E%3C%2Fsvg%3E") 5 27, crosshair;
 }
+.draft-pin { display: grid; place-items: center; }
 .comment-pin {
   position: absolute;
   transform: translate(-50%, -50%);
@@ -227,11 +233,12 @@ function path(item: Annotation) {
 }
 .comment-canvas-popup {
   position: absolute;
-  width: min(330px, 95%);
-  padding: 10px;
+  width: min(360px, calc(100% - 16px));
+  box-sizing: border-box;
+  padding: 12px 14px;
   border: 1px solid var(--border);
-  border-radius: 20px;
-  background: var(--surface-raised);
+  border-radius: 24px;
+  background: var(--comment-floating-surface);
   color: var(--foreground);
   box-shadow: 0 8px 20px #0003;
   pointer-events: auto;
@@ -240,20 +247,23 @@ header {
   display: flex;
   align-items: center;
   gap: 6px;
-  padding: 0 2px 8px;
-  font-size: 14px;
+  padding: 0 0 8px;
+  font-size: 16px;
+  line-height: 32px;
 }
 header strong {
   margin-right: auto;
 }
-header button {
+header :deep(button) {
   border: 0;
   border-radius: 50%;
-  width: 28px;
-  height: 28px;
+  width: 32px;
+  height: 32px;
+  flex-shrink: 0;
+  padding: 0;
   display: grid;
   place-items: center;
-  background: var(--surface-hover);
+  background: var(--comment-floating-control);
   color: var(--foreground);
   cursor: pointer;
 }
@@ -261,5 +271,13 @@ header button {
 
 <style scoped>
 .comment-canvas-popup :deep(.comment-emoji-pop) {bottom:auto;top:calc(100% + 8px)}
-.comment-canvas-popup :deep(.comment-card) {background:transparent;border:0;padding:0;margin:0}
+.comment-canvas-popup :deep(.comment-card) {background:transparent;border:0;padding:10px 0 14px;margin:0;gap:12px;font-size:14px;line-height:1.5}
+.comment-canvas-popup :deep(.comment-card-avatar) {width:34px;height:34px;border:1px solid var(--border);background:var(--comment-floating-control);font-size:14px}
+.comment-canvas-popup :deep(.comment-card header) {min-height:26px;gap:5px}
+.comment-canvas-popup :deep(.comment-card header strong) {font-size:14px;font-weight:500;max-width:140px}
+.comment-canvas-popup :deep(.comment-card time) {font-size:11px}
+.comment-canvas-popup :deep(.comment-card-body) {margin:5px 0 8px}
+.comment-canvas-popup :deep(.comment-card-reactions button) {padding:2px 9px;min-height:25px;border-radius:8px;font-size:13px;line-height:18px}
+.comment-canvas-popup :deep(.comment-card-body svg) {padding:2px;box-sizing:content-box;background:#358cff20;border-radius:5px}
+.comment-canvas-popup :deep(.comment-card:not(:last-child)::after) {left:16px;top:48px;bottom:4px;width:4px;border-radius:4px;background:var(--comment-floating-control);}
 </style>

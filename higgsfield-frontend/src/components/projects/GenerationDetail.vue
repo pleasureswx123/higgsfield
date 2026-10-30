@@ -12,7 +12,6 @@ import { formatProjectDate } from '@/utils/projects'
 import GenerationBilling from './GenerationBilling.vue'
 import GenerationGuidance from './GenerationGuidance.vue'
 import GenerationOutputMetadata from './GenerationOutputMetadata.vue'
-import FavoriteButton from './FavoriteButton.vue'
 import OutputToAssetDialog from './OutputToAssetDialog.vue'
 import OutputToElementDialog from './OutputToElementDialog.vue'
 import OutputStatusDialog from './OutputStatusDialog.vue'
@@ -252,7 +251,7 @@ const billing = { pending: '待确认', calculated: '已计算', confirmed: '已
             @click="toAsset = output.id"
             >转为素材</Button
           >
-          <FavoriteButton :target="{ outputId: output.id }" />
+
           <Button
             v-if="output.previewUrl"
             variant="ghost"

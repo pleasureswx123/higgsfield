@@ -22,7 +22,7 @@ export function useCommentCollaboration(
     writer: AbortController | undefined
   const intents = new Map<string, string>()
   watch(
-    () => [projectId(), target(), auth.token, JSON.stringify(auth.user?.permissions)],
+    [projectId, target, () => auth.token, () => JSON.stringify(auth.user?.permissions)],
     async (_, __, cleanup) => {
       epoch++
       reader?.abort()
@@ -87,11 +87,11 @@ export function useCommentCollaboration(
       refresh,
     )
   }
-  const update = (thread: CommentThread, action: 'resolve' | 'reopen' | 'delete') =>
+  const update = (thread: CommentThread, action: 'resolve' | 'reopen' | 'delete' | 'color', color?: string | null) =>
     run(
-      `thread:${thread.id}:${thread.revision}:${action}`,
+      `thread:${thread.id}:${thread.revision}:${action}:${color || ""}`,
       (key, signal) =>
-        updateCommentThread(thread.id, { revision: thread.revision, action }, key, signal),
+        updateCommentThread(thread.id, { revision: thread.revision, action, ...(action === 'color' ? { color } : {}) }, key, signal),
       reload,
     )
   onBeforeUnmount(() => {

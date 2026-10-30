@@ -4,7 +4,7 @@ import type { ElementRecord } from '@/api/elements'
 import { groupContentByDate, contentCardWidth } from '@/utils/contentView'
 import ElementCollection from './ElementCollection.vue'
 const props = defineProps<{ rows: ElementRecord[]; layout: 'grid' | 'board' | 'table'; cardSize: number; splitByDate: boolean; showProject?: boolean; selectable?: boolean; selected?: string[]; selectionDisabled?: boolean }>()
-const emit = defineEmits<{ open: [element: ElementRecord]; select: [id: string, checked: boolean] }>()
+const emit = defineEmits<{ open: [element: ElementRecord]; select: [id: string, checked: boolean]; preview: [versionId: string] }>()
 const groups = computed(() => groupContentByDate(props.rows, props.splitByDate))
 </script>
 <template>
@@ -13,7 +13,7 @@ const groups = computed(() => groupContentByDate(props.rows, props.splitByDate))
     <p v-if="splitByDate && !rows.length" class="muted">暂无匹配的元素。</p>
     <section v-for="group in groups" :key="group.key" class="element-date-group">
       <h3 v-if="splitByDate">{{ group.label }} <small class="muted">{{ group.rows.length }} 项</small></h3>
-      <ElementCollection :rows="group.rows" :selectable="selectable" :selected="selected" :selection-disabled="selectionDisabled" @select="(id, checked) => emit('select', id, checked)" :layout="layout" :show-project="showProject" @open="emit('open', $event)" />
+      <ElementCollection @preview="emit('preview', $event)" :rows="group.rows" :selectable="selectable" :selected="selected" :selection-disabled="selectionDisabled" @select="(id, checked) => emit('select', id, checked)" :layout="layout" :show-project="showProject" @open="emit('open', $event)" />
     </section>
   </div>
 </template>

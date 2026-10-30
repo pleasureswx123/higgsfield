@@ -1,0 +1,113 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="color-scheme" content="light dark">
+<title>higgsfield-ai 技术方案</title>
+<style>
+:root{--bg:#f3f5f8;--paper:#fff;--text:#1d2939;--muted:#58677c;--line:#dce3ec;--accent:#335dc9;--soft:#edf2ff;--head:#142b50;--warn:#fff6e5;--warn-text:#754c12;--shadow:0 12px 40px #142b5010;color-scheme:light}
+html[data-theme=dark]{--bg:#111722;--paper:#192230;--text:#e4ebf5;--muted:#a9b8cc;--line:#354358;--accent:#9ab6ff;--soft:#243653;--head:#dbe6ff;--warn:#362c1b;--warn-text:#f2cc85;--shadow:none;color-scheme:dark}
+*{box-sizing:border-box}html{scroll-behavior:smooth;scroll-padding-top:24px}body{margin:0;background:var(--bg);color:var(--text);font-family:"Segoe UI","Microsoft YaHei",sans-serif;line-height:1.85;font-size:15px}a{color:var(--accent);text-decoration:none}a:hover{text-decoration:underline}button{font:inherit;cursor:pointer;border:1px solid var(--line);border-radius:7px;background:var(--paper);color:var(--text);padding:5px 13px}button:focus-visible,a:focus-visible{outline:3px solid var(--accent);outline-offset:3px}.wrap{max-width:1270px;margin:auto;padding:28px;display:grid;grid-template-columns:205px minmax(0,1fr);gap:28px}aside{position:sticky;top:28px;height:fit-content}aside strong{font-size:17px;color:var(--head)}nav{margin:18px 0}nav a{display:block;font-size:13px;color:var(--muted);padding:6px 0;border-bottom:1px solid var(--line)}.tools{display:flex;gap:8px;flex-wrap:wrap}.small{font-size:12px;color:var(--muted)}main{min-width:0;background:var(--paper);box-shadow:var(--shadow);border:1px solid var(--line);border-radius:14px;overflow:hidden}header{padding:46px 46px 36px;border-bottom:1px solid var(--line);background:linear-gradient(130deg,var(--soft),var(--paper))}.eyebrow{font-size:12px;color:var(--accent);letter-spacing:2px;font-weight:700}h1{font-size:34px;line-height:1.35;color:var(--head);margin:12px 0 16px;letter-spacing:-1px}.lead{font-size:18px;color:var(--head);max-width:780px}.meta{display:flex;gap:9px;flex-wrap:wrap;margin-top:24px}.tag{font-size:12px;border:1px solid var(--line);padding:3px 10px;border-radius:20px;background:var(--paper);color:var(--muted)}article{padding:0 46px 30px}section{padding:29px 0 20px;border-bottom:1px solid var(--line)}section:last-child{border:0}h2{font-size:23px;line-height:1.5;color:var(--head);margin:0 0 16px}h2 span{color:var(--accent);font-size:13px;margin-right:12px}h3{font-size:16px;margin:20px 0 8px;color:var(--head)}p{margin:10px 0}ul,ol{padding-left:23px;margin:10px 0}li{margin:6px 0}.grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;margin:18px 0}.card{border:1px solid var(--line);border-radius:9px;padding:16px;background:var(--paper)}.card strong{display:block;color:var(--head);margin-bottom:7px}.card p{font-size:13px;color:var(--muted);margin:0}.note{padding:15px 18px;background:var(--soft);border-left:3px solid var(--accent);border-radius:0 6px 6px 0;font-size:14px;margin:18px 0}.pending{background:var(--warn);color:var(--warn-text);border-left-color:var(--warn-text)}.table{overflow-x:auto;margin:16px 0}table{border-collapse:collapse;width:100%;font-size:13px;line-height:1.75}th{text-align:left;background:var(--soft);color:var(--head);font-weight:600}th,td{border:1px solid var(--line);padding:11px 13px;vertical-align:top}td:first-child{font-weight:600;min-width:112px}code{font-family:Consolas,monospace;font-size:.9em;overflow-wrap:anywhere}.arch{border:1px solid var(--line);padding:22px;border-radius:10px;background:var(--bg);margin:18px 0}.row{display:flex;gap:12px;justify-content:center}.box{padding:13px;text-align:center;border:1px solid var(--line);border-radius:8px;background:var(--paper);flex:1;font-weight:600;color:var(--head)}.box small{display:block;font-size:12px;font-weight:400;color:var(--muted)}.arrow{text-align:center;color:var(--muted);font-size:12px;padding:7px}.boundary{border:1px dashed var(--accent);padding:13px;border-radius:9px}.caption{font-size:12px;color:var(--muted);text-align:center;margin-top:12px}.flow{display:grid;grid-template-columns:repeat(4,1fr);gap:10px}.flow .card{font-size:13px}.num{display:block;color:var(--accent);font-size:12px;font-weight:700}.sources{font-size:12px;color:var(--muted)}footer{padding:20px 46px;border-top:1px solid var(--line);color:var(--muted);font-size:12px}
+@media(max-width:950px){.wrap{display:block;padding:16px}aside{position:static;margin-bottom:20px}nav{display:flex;gap:6px 18px;flex-wrap:wrap}nav a{border:0}header{padding:28px}article{padding:0 28px 20px}.grid{grid-template-columns:1fr}.flow{grid-template-columns:1fr 1fr}}
+@media(max-width:560px){header{padding:23px}h1{font-size:28px}article{padding:0 20px 16px}.row{flex-direction:column}.flow{grid-template-columns:1fr}.arch{padding:12px}footer{padding:20px}.wrap{padding:10px}th,td{padding:9px;min-width:120px}}
+@media print{:root,html[data-theme=dark]{--bg:#fff;--paper:#fff;--text:#17202d;--muted:#4e5b6c;--line:#ccd4e0;--accent:#254ca5;--soft:#f0f3fa;--head:#142b50;--warn:#faf5e9;--warn-text:#684c20;color-scheme:light}body{font-size:10pt}.wrap{display:block;padding:0;max-width:none}aside{display:none}main{border:0;border-radius:0;box-shadow:none}header{padding:12px 0 22px}article{padding:0}section{padding:20px 0 12px}h1{font-size:27pt}h2{font-size:17pt;break-after:avoid}h3{break-after:avoid}table{font-size:9pt}.card,.note,.arch,tr{break-inside:avoid}.table{overflow:visible}.grid{grid-template-columns:repeat(3,1fr)}footer{padding:15px 0}.sources{font-size:9pt}a{color:inherit}@page{size:A4;margin:16mm}}
+</style>
+</head>
+<body>
+<div class="wrap">
+<aside aria-label="阅读导航"><strong>higgsfield-ai</strong><div class="small">技术方案</div>
+<nav>
+<a href="#overview">01　架构结论与边界</a><a href="#architecture">02　总体架构与技术栈</a><a href="#flow">03　端到端生成链路</a><a href="#data">04　领域模型与数据约束</a><a href="#reliability">05　异步执行与故障恢复</a><a href="#providers">06　供应商与凭据治理</a><a href="#billing">07　费用与预算一致性</a><a href="#security">08　权限与工程规范</a><a href="#deployment">09　部署、容量与运维</a>
+</nav><div class="tools"><button id="theme" type="button" aria-pressed="false">切换暗色</button><button id="print" type="button">打印 / PDF</button></div><p class="small">单文件 · 无外部资源<br>可离线阅读与转发</p></aside>
+<main>
+<header><div class="eyebrow">TECHNICAL ARCHITECTURE</div><h1>AI 图片与视频制作平台<br>技术方案</h1><p class="lead">双前端、统一业务后端、独立异步执行。以项目管理创作，以不可变快照保证可追溯，以公司 NAS 保存长期资产。</p><div class="meta"><span class="tag">higgsfield-ai</span><span class="tag">整理日期：2026-10-28</span><span class="tag">依据：架构方案 v1.14 及当前补充条款</span></div></header>
+<article>
+<section id="overview"><h2><span>01</span>架构结论与边界</h2>
+<p>首期采用<strong>模块化单体 + 独立 API / Worker 进程</strong>。制作端与管理端共享同一套领域服务和数据库事务，在控制工程复杂度的同时，将长时间模型调用、媒体处理与普通请求隔离；后续按实际负载拆分和扩容。</p>
+<div class="grid"><div class="card"><strong>创作主线</strong><p>先用生图模型制作图片，选定图片后交给视频模型生成视频。元素是可选的多图复用容器，直接使用图片也能完成链路。</p></div><div class="card"><strong>事实与资产归属</strong><p>PostgreSQL 保存项目、任务、权限与费用事实；NAS 保存长期媒体；Redis 承担队列通知、缓存与短期限流。</p></div><div class="card"><strong>消费安全</strong><p>生成前校验授权、能力与预算；调用后保留受理证据、用量和结果。提交结果未知时先核查，防止重复消费。</p></div></div>
+<p><strong>方案覆盖：</strong>项目、素材与版本、元素多图及 @ 引用、图片/视频生成、协作、供应商治理、费用预算及 NAS 归档。</p>
+<div class="note">本文介绍平台的目标架构、核心技术链路与设计约束；具体实现进度和运行状态以实际交付记录为准。</div>
+</section>
+<section id="architecture"><h2><span>02</span>总体架构与技术栈</h2>
+<div class="arch" role="img" aria-label="制作端与管理端经过入口访问统一后端；后端将业务事实与Outbox写入PostgreSQL，调度器通过Redis通知Worker，Worker调用供应商并将结果归档到NAS。">
+<div class="row"><div class="box">制作平台<small>项目 · 图片/视频 · 素材 · 协作</small></div><div class="box">管理平台<small>权限 · 模型 · 凭据 · 价格 · 审计</small></div></div>
+<div class="arrow">↓ HTTPS / Authorization Bearer · 统一入口 Nginx ↓</div>
+<div class="boundary"><div class="box">FastAPI 业务 API<small>身份与对象鉴权 · 参数校验 · 预算预占 · 任务快照</small></div><div class="arrow">↓ 本地事务写入任务、预算、Outbox</div><div class="box">PostgreSQL · 业务事实源<small>项目与媒体元数据 / 任务与事件 / 权限 / 用量和账本</small></div><div class="arrow">↓ 调度器扫描数据库与 Outbox → Redis 队列通知 ↓</div><div class="row"><div class="box">生成 Worker<small>素材准备 · 模型调用 · 状态查询</small></div><div class="box">媒体 Worker<small>结果归档 · 校验 · FFmpeg 衍生处理</small></div></div><div class="arrow">各进程通过 Service / DAO 读写任务与状态；Redis 另供 API 缓存与限流</div></div>
+<div class="arrow">↓ 生成 Worker 受控出站调用　 /　 媒体 Worker 下载并归档 ↓</div><div class="row"><div class="box">外部模型供应商<small>推理计算 · 临时结果 · 上游用量</small></div><div class="box">公司 NAS<small>原始素材 · 生成结果 · 预览文件</small></div></div>
+<div class="caption">逻辑进程与数据流示意，不代表生产服务器数量或容器编排方式。浏览器经平台鉴权访问媒体。</div></div>
+<div class="table"><table><thead><tr><th>层次</th><th>选型</th><th>职责与约束</th></tr></thead><tbody>
+<tr><td>制作前端</td><td>Vue 3、TypeScript、Vite、Vue Router、Pinia、Axios；Element Plus + shadcn-vue；Tiptap</td><td>页面 / 组件 / composable / API 分层；统一亮暗主题；不持有供应商密钥。</td></tr>
+<tr><td>管理前端</td><td>现有 RuoYi Vue3 Web、JavaScript、Element Plus</td><td>复用组织、菜单、按钮及管理权限能力；独立构建与发布。</td></tr>
+<tr><td>业务后端</td><td>RuoYi-FastAPI、异步 SQLAlchemy 2.0、JWT/OAuth2 Bearer</td><td>统一响应、分页、异常、中间件与鉴权链；API 和 Worker 复用领域服务。</td></tr>
+<tr><td>异步与存储</td><td>Celery、Redis、PostgreSQL、NAS、FFmpeg</td><td>任务及费用以数据库为准；媒体字节长期存 NAS；独立扩展生成与媒体执行能力。</td></tr>
+</tbody></table></div>
+<p>后端沿用 <code>controller → service → dao → entity/do</code>，输入输出模型放 <code>entity/vo</code>，供应商协议封装在适配器。Service 管理事务；外部网络调用安排在数据库事务之外，避免长时间持锁。</p>
+</section>
+<section id="flow"><h2><span>03</span>端到端生成链路</h2>
+<div class="flow"><div class="card"><span class="num">STEP 1</span><strong>准备图片</strong><p>上传或生图，选择需要的结果并归档；可直接引用，也可加入角色、场景或道具元素。</p></div><div class="card"><span class="num">STEP 2</span><strong>固定输入</strong><p>选项目、目录、模型及参数，固定图片版本、元素修订和引用角色；@ 操作只编辑草稿。</p></div><div class="card"><span class="num">STEP 3</span><strong>受理与执行</strong><p>校验授权和预算，原子写入快照及事件；后台准备素材，调用模型并跟踪结果。</p></div><div class="card"><span class="num">STEP 4</span><strong>归档与复用</strong><p>结果下载到 NAS，校验后授权预览；用量结算独立推进，作品可再次转为素材。</p></div></div>
+<ol><li><strong>服务端重新校验：</strong>身份、项目状态、对象使用权、模型已发布能力、路由与价格有效性；不能信任前端可选项。</li><li><strong>原子受理：</strong>同一 PostgreSQL 事务内预占全部适用预算、创建任务不可变快照并写入 Outbox。任务固定发起目录，后续切换页面不改变结果归属。</li><li><strong>异步调度：</strong>Outbox 投递任务 ID，Worker 从数据库读取上下文；外部提交前再次核验授权与项目消费状态。</li><li><strong>供应商执行：</strong>适配器将平台素材转为已验证的上传、注册或临时传输形式；同步图片响应直接记录输出，异步视频取得上游任务 ID 后查询，不混用两种协议。</li><li><strong>输出落地：</strong>先建立输出记录，再归档并关联可用文件；归档、用量与费用分别推进。生成成功但归档失败时只补偿归档。</li></ol>
+<p>任务状态通过平台 SSE 与数据库快照恢复。浏览器刷新、关闭或网络断开不终止后台任务；平台状态 SSE 不依赖供应商支持流式生成。</p>
+</section>
+<section id="data"><h2><span>04</span>领域模型与数据约束</h2>
+<div class="table"><table><thead><tr><th>领域</th><th>核心建模</th><th>关键不变量</th></tr></thead><tbody>
+<tr><td>项目与授权</td><td>项目、成员、项目角色、目录、用户偏好</td><td>任务与成本必属项目；隐藏、置顶和目录移动不改变权限。</td></tr>
+<tr><td>媒体与元素</td><td>文件 → 素材版本 → 元素修订；元素可含多图</td><td>历史文件与修订不可覆盖；可编辑业务别名不替代永久 ID。</td></tr>
+<tr><td>创作与作品</td><td>草稿、任务快照、引用、供应商调用、输出槽位</td><td>编辑草稿不改变已受理输入；固定引用角色，不误合并首尾帧。</td></tr>
+<tr><td>供应商治理</td><td>连接、账号、凭据版本、能力版本、路由、上游素材绑定</td><td>业务项目与上游账号分离；绑定受账号、区域、注册策略等作用域限制。</td></tr>
+<tr><td>费用与可靠性</td><td>价格版本、用量证据、预算预占、账本、Outbox、审计</td><td>计费去重；差额追加调整；事件和历史证据不能以业务删除覆盖。</td></tr>
+</tbody></table></div>
+<p>数据库统一为 PostgreSQL，业务表使用 <code>hf_</code> 前缀、小写下划线及 <code>bigserial</code> 主键；平台业务 ID 经 API 传为十进制字符串。沿用 <code>create_by/create_time/update_by/update_time</code>；可删除业务对象使用 <code>del_flag=0/2</code>，不可变账本与审计不开放删除。</p>
+<p><strong>无物理外键：</strong>依靠 Service 事务、锁、引用校验和数据库联合唯一约束维护逻辑关联。这要求覆盖并发写入、删除、恢复及跨项目复制测试。迁移必须真实执行，所有表和字段保留中文注释。</p>
+<p>金额采用 PostgreSQL <code>numeric</code> 与 Python <code>Decimal</code>；金额带币种，跨币种不得直接相加。时间按 UTC 保存，报表默认以 Asia/Shanghai 展示，供应商账期保留独立口径。</p>
+</section>
+<section id="reliability"><h2><span>05</span>异步执行与故障恢复</h2>
+<p>采用<strong>可靠投递 + 消费去重 + 阶段状态控制</strong>，不把消息队列或分布式锁等同于外部收费调用“恰好一次”。生成、归档、费用、用量及内容审核分别记录状态。</p>
+<div class="table"><table><thead><tr><th>故障 / 并发场景</th><th>设计处理</th></tr></thead><tbody>
+<tr><td>重复点击或请求重放</td><td>按用户、项目和幂等键建立唯一约束；同键同请求返回原任务，同键不同摘要返回业务冲突。</td></tr>
+<tr><td>数据库已提交但未入队</td><td>调度器扫描 Outbox 重投；Redis 丢失后由数据库未完成任务与到期时间重建通知。</td></tr>
+<tr><td>重复消息 / Worker 重启</td><td>事件去重、状态版本比较、阶段租约及 fencing token；拒绝过期执行者写回。</td></tr>
+<tr><td>提交超时 / 响应丢失</td><td>进入 submission_unknown，依据上游任务 ID、受理查询或人工核查恢复；无证据不得直接重发生成。</td></tr>
+<tr><td>同步图片结果未持久化即崩溃</td><td>若供应商不能查询或安全重放，保留未知和来源不可恢复证据，人工处理，不承诺自动找回。</td></tr>
+<tr><td>查询失败 / 临时结果过期</td><td>查询有界退避；若可用则刷新原任务结果，否则人工处理，不能以重新生成掩盖归档丢失。</td></tr>
+<tr><td>NAS 不可用</td><td>阻断新上传、限制新生成，优先归档在途结果；禁止写入断挂后的本地同名空目录。</td></tr>
+<tr><td>取消或撤权</td><td>未提交任务阻止消费；已提交任务继续查询、归档与计费。取消不等于上游已停止，也不等于免费。</td></tr>
+</tbody></table></div>
+<p>所有自动重试设置次数上限、截止时间和下次执行时间，超出后进入可审计的人工处理流程。已有上游任务 ID 时只查询原任务；租约过期不能直接触发再次收费提交。</p>
+</section>
+<section id="providers"><h2><span>06</span>供应商与凭据治理</h2>
+<p>模型目录、网关调用别名、底层模型名称、精确版本、能力配置及价格分别建模。发布后的模型参数来自已验证契约，不能依据截图或报价表自行开放 4K、Fast、音频或高级运镜。</p>
+<ul><li><strong>统一适配：</strong>适配器承担参数映射、媒体上传/注册、同步与异步响应归一、错误分类和用量提取。供应商无法直接读取 NAS 或公司内网 URL。</li><li><strong>凭据集中治理：</strong>管理端配置 API Key，密文保存、版本化和脱敏展示；采用经审查的认证加密方案，例如 AES-GCM，主密钥通过部署秘密注入并与数据库备份分离。</li><li><strong>路由可重现：</strong>项目运行时固定经授权的供应商、账号、凭据及配置修订；不能在失败时透明切换到不相关账号。</li><li><strong>安全轮换：</strong>新任务使用新凭据，在途任务保留原绑定。VideoPlus 按当前契约使用创建时原 Key 查询；同账号新 Key 不能未经验证替代。</li><li><strong>启用门槛：</strong>连接安全、账号作用域、输入限制、结果保留期、幂等/取消语义和用量证据验证后才发布相关组合。</li></ul>
+</section>
+<section id="billing"><h2><span>07</span>费用与预算一致性</h2>
+<p>区分<strong>平台计价、供应商采购成本、供应商账单结算</strong>三个口径；价格由后台手动维护并版本化发布，调用保留价格、汇率、能力及路由快照，历史可重算和解释。</p>
+<div class="table"><table><thead><tr><th>阶段</th><th>一致性措施</th></tr></thead><tbody>
+<tr><td>受理前估算</td><td>依据已发布价格与模型规格计算预估和所需预占。未知价格不是免费；预算周期、估算上界等策略需在启用前明确。</td></tr>
+<tr><td>受理事务</td><td>锁定并原子校验全部适用预算，预占、任务与 Outbox 同事务提交，避免并发超额受理。</td></tr>
+<tr><td>执行后结算</td><td>保留原始用量证据并归一；按上游计费身份去重，累计 usage 重复返回不能重复扣费。</td></tr>
+<tr><td>不确定费用</td><td>缺失用量标记 unknown 或 partial；失败、取消、提交未知均不能直接记零或盲目释放预占。</td></tr>
+<tr><td>对账与修正</td><td>账单导入去重；无法唯一匹配的记录进入差异队列。保留原账本，追加调整，不以采购对账覆盖平台计价。</td></tr>
+</tbody></table></div>
+<p>费用查看、预算维护、导出与凭据管理分别授权。费用结算不以作品是否完成归档或可预览为判断依据。</p>
+</section>
+<section id="security"><h2><span>08</span>权限与工程规范</h2>
+<p>复用框架 Authorization Bearer JWT、Redis 会话、菜单按钮与管理数据权限；Service 对项目和对象执行二次鉴权，覆盖搜索、详情、下载、预览、引用和跨项目复制。</p>
+<ul><li>授权变更需使用户/权限缓存失效，长连接重验；任务快照固定历史输入，但不提供永久访问授权。</li><li>浏览器只能经平台授权入口访问文件，路径由服务端生成；密钥、登录令牌不进入 URL、队列载荷或日志。</li><li>所有新增 ORM 使用 AsyncSession；DAO 处理数据库操作，Service 管理事务；并发任务不得共享同一个 Session。</li><li>制作端采用 TypeScript 与 <code>&lt;script setup lang="ts"&gt;</code>，组件不直接发请求；业务表单复用框架校验和显式操作流程。</li><li>亮暗主题共享布局和语义色变量，Element Plus 与 shadcn-vue 统一主题状态；切换保留筛选、选择和未提交输入，媒体原图不反色。</li></ul>
+<p>接口继续使用若依响应信封、分页与业务错误约定。制作端和管理端的路由拆分只是组织边界，不能代替服务端鉴权。</p>
+</section>
+<section id="deployment"><h2><span>09</span>部署、容量与运维</h2>
+<p><strong>正式部署基线：</strong>公司内网服务器运行平台，公司 NAS 长期保存素材及输出；模型调用通过受控出站访问外部供应商。生产操作系统、容器化方式、服务器数量、域名及 NAS 协议/挂载路径由运维确认。</p>
+<p>本地开发仅通过 Docker 启动 PostgreSQL 与 Redis；后端、管理端、制作端及需要运行的 Worker 在宿主机分别启动。本地运行方式不直接推导生产部署方式。</p>
+<h3>扩展与容量</h3><p>按 generation、polling、media 队列隔离长短任务。API、生成 Worker、媒体 Worker 按瓶颈独立扩容；供应商账号并发与额度独立限流，增加 Worker 不提高采购额度。容量按每日输入、输出、衍生文件、保留期、版本增长及备份系数估算。单机起步不宣称高可用。</p>
+<h3>发布与恢复</h3><p>数据库、NAS 文件及解密主密钥分别备份、受控保管，并以同一恢复计划核对。验证文件大小、哈希、引用关系与密钥可恢复性；NAS 快照不能单独替代完整备份。迁移优先兼容新增，破坏性变更先暂停受影响写入并排空任务；API、Worker 和事件 schema 保持兼容。</p><p><strong>恢复后默认关闭真实供应商提交</strong>，先核对在途任务和上游状态，防止从备份重放已经消费的生成请求。生产联验覆盖 NAS 断连重挂、原子改名、并发归档、视频 Range 播放及外部素材交换。</p>
+</section>
+</article><footer>higgsfield-ai · 技术方案 · 2026-10-28</footer>
+</main>
+</div>
+<script>
+const themeButton=document.getElementById('theme');
+themeButton.addEventListener('click',()=>{const dark=document.documentElement.dataset.theme!=='dark';document.documentElement.dataset.theme=dark?'dark':'light';themeButton.textContent=dark?'切换亮色':'切换暗色';themeButton.setAttribute('aria-pressed',String(dark));});
+document.getElementById('print').addEventListener('click',()=>window.print());
+</script>
+</body>
+</html>

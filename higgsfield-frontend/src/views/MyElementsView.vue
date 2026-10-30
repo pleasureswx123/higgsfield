@@ -58,7 +58,7 @@ const statuses = {
   rejected: '已退回',
 }
 function restoreView(value: ElementViewSettings) {
-  mineFilter.value = value.mineFilter || 'all'
+  mineFilter.value = 'created'
   layout.value = value.layout
   cardSize.value = value.cardSize
   splitByDate.value = value.splitByDate
@@ -81,8 +81,8 @@ function open(element: ElementRecord) {
   <section class="projects-page element-workspace">
     <div class="project-page-heading">
       <div>
-        <h1>我的元素</h1>
-        <p class="muted">查看你创建或收藏且当前仍有访问权限的项目元素。</p>
+        <h1>我创建的元素</h1>
+        <p class="muted">跨项目查看你本人创建的角色、场景、道具等可复用元素，仅展示当前有权访问的内容。</p>
       </div>
       <Button variant="ghost" :disabled="loading" @click="refresh">刷新</Button>
     </div>
@@ -95,11 +95,6 @@ function open(element: ElementRecord) {
         @keyup.enter="filter"
         @clear="filter"
       />
-      <ElSelect v-model="mineFilter" aria-label="元素来源范围" @change="filter">
-        <ElOption label="创建或收藏" value="all" />
-        <ElOption label="我创建的" value="created" />
-        <ElOption label="我收藏的" value="favorites" />
-      </ElSelect>
       <ElSelect v-model="category" placeholder="全部分类" aria-label="元素分类" @change="filter"
         ><ElOption label="全部分类" value="" /><ElOption
           v-for="(label, value) in categories"
@@ -180,7 +175,7 @@ function open(element: ElementRecord) {
         {{
           filteredResult
             ? '没有符合当前筛选的元素，可清除筛选后重试。'
-            : '当前没有可查看的创建或收藏元素。可进入有权限的项目创建或收藏元素。'
+            : '当前没有可查看的创建元素。可进入有权限的项目创建元素。'
         }}
       </p>
     </div>

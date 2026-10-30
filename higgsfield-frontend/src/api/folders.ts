@@ -93,3 +93,7 @@ export const actOnFolder = (
     ...(action === 'delete' ? { params: { ...data, mode: 'moveEntriesToParent' } } : { data }),
     headers: { 'Idempotency-Key': key },
   })
+
+export interface FolderAssetCounts { total: number; folders: Record<string, number> }
+export const readFolderAssetCounts = (projectId: string, signal?: AbortSignal) =>
+  request<{ code: number; data: FolderAssetCounts }>({ url: `/api/v1/projects/${projectId}/folder-asset-counts`, signal })

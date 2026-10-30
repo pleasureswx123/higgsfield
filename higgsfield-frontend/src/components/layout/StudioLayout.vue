@@ -7,7 +7,6 @@ import {
   IconHome,
   IconSparkles,
   IconBox,
-  IconHeart,
   IconFolder,
   IconMenu2,
   IconLogout,
@@ -26,9 +25,8 @@ const mobileOpen = ref(false),
   leaving = ref(false)
 const links = [
   { path: '/home', label: '首页', icon: IconHome },
-  { path: '/generations', label: '我的生成', icon: IconSparkles },
-  { path: '/elements', label: '我的元素', icon: IconBox },
-  { path: '/favorites', label: '我的收藏', icon: IconHeart },
+  { path: '/generations', label: '我的生成记录', icon: IconSparkles },
+  { path: '/elements', label: '我创建的元素', icon: IconBox },
 ]
 async function signOut() {
   leaving.value = true

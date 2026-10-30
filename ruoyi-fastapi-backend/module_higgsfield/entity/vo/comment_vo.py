@@ -101,7 +101,8 @@ class CommentDelete(WorkspaceInput):
 
 class ThreadPatch(WorkspaceInput):
     revision: BigId
-    action: Literal['resolve', 'reopen', 'delete']
+    action: Literal['resolve', 'reopen', 'delete', 'color']
+    color: Literal['#ffffff', '#fa551e', '#f39c20', '#f4d42a', '#7bd65b', '#4798fa', '#8257ef'] | None = None
 
 class ReactionPatch(WorkspaceInput):
     emoji: str = Field(min_length=1, max_length=32)

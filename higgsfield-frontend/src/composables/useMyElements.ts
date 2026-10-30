@@ -11,7 +11,7 @@ export function useMyElements() {
   const auth = useAuthStore()
   let active = true,
     adjustingPage = false
-  const mineFilter = ref<'all' | 'created' | 'favorites'>('all')
+  const mineFilter = ref<'all' | 'created' | 'favorites'>('created')
   const workStatus = ref<'' | WorkStatus>(''),
     statusGroup = ref<'' | 'active' | 'drafts'>('')
   const rows = ref<ElementRecord[]>([]),
@@ -27,7 +27,7 @@ export function useMyElements() {
       category.value ||
       workStatus.value ||
       statusGroup.value ||
-      mineFilter.value !== 'all',
+      mineFilter.value !== 'created',
     ),
   )
   const filteredResult = ref(false)
@@ -36,7 +36,7 @@ export function useMyElements() {
     category.value = ''
     workStatus.value = ''
     statusGroup.value = ''
-    mineFilter.value = 'all'
+    mineFilter.value = 'created'
     filter()
   }
   let controller: AbortController | undefined

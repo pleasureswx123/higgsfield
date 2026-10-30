@@ -35,6 +35,12 @@ class FolderService:
         }
 
     @classmethod
+    async def asset_counts(cls, db, user, project_id):
+        await WorkspaceService.authorize(db, user, project_id, 'asset:read')
+        space = await FolderDao.space(db, project_id)
+        return await FolderDao.asset_counts(db, space.space_id)
+
+    @classmethod
     async def list(cls, db, user, project_id, query):
         await WorkspaceService.authorize(db, user, project_id, 'asset:read')
         space = await FolderDao.space(db, project_id)

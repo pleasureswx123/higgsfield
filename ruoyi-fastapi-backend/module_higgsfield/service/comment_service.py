@@ -49,7 +49,7 @@ class CommentService:
     def thread_result(row):
         target = ({'assetVersionId': str(row.asset_version_id)} if row.asset_version_id
                   else {'outputId': str(row.output_id)})
-        return {'id': str(row.thread_id), 'target': target, 'resolvedAt': row.resolved_time, 'revision': str(row.revision), 'createTime': row.create_time}
+        return {'id': str(row.thread_id), 'target': target, 'statusColor': row.status_color, 'resolvedAt': row.resolved_time, 'revision': str(row.revision), 'createTime': row.create_time}
 
     @staticmethod
     async def audit(db, user, project_id, kind, identity, action, key, evidence):
@@ -92,8 +92,10 @@ class CommentService:
             if kind != 'video' or file is None or file.state != '1' or file.seconds is None or payload.video_time > file.seconds:
                 cls.fail('COMMENT_TIME_INVALID', '视频时间点超出已归档目标时长或目标不可用')
         if payload.annotations:
-            if kind != 'image' or file is None or file.state != '1':
-                cls.fail('COMMENT_ANNOTATION_INVALID', '只有可用归档图片可以添加定位标注')
+            if kind not in ('image', 'video') or file is None or file.state != '1':
+                cls.fail('COMMENT_ANNOTATION_INVALID', '只有可用归档图片或视频可以添加定位标注')
+            if kind == 'video' and payload.video_time is None:
+                cls.fail('COMMENT_TIME_INVALID', '视频画面标注必须附带时间点')
             if any(item.source_width != file.width or item.source_height != file.height for item in payload.annotations):
                 cls.fail('COMMENT_DIMENSIONS_CHANGED', '标注原图尺寸必须与固定目标文件一致')
 
@@ -205,7 +207,7 @@ class CommentService:
                 row.del_flag = '2'
             else:
                 if 'annotations' in payload.model_fields_set:
-                    cls.validate_media(kind, file, SimpleNamespace(video_time=None, annotations=payload.annotations))
+                    cls.validate_media(kind, file, SimpleNamespace(video_time=row.video_time, annotations=payload.annotations))
                     await Dao.clear_annotations(db, identity)
                     for annotation in payload.annotations:
                         await AssetDao.add(db, HfAnnotation, comment_id=identity,
@@ -259,6 +261,8 @@ class CommentService:
                 WorkspaceService.check_revision(thread, payload.revision)
                 if payload.action == 'delete':
                     thread.del_flag = '2'
+                elif payload.action == 'color':
+                    thread.status_color = payload.color
                 else:
                     thread.resolved_time = TimezoneUtil.utc_now() if payload.action == 'resolve' else None
                 thread.revision += 1

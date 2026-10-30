@@ -39,6 +39,10 @@ class CommentServiceTests(unittest.IsolatedAsyncioTestCase):
         self.migration = importlib.util.module_from_spec(spec)
         spec.loader.exec_module(self.migration)
         await self.migrate('upgrade')
+        spec = importlib.util.spec_from_file_location('comment_status_migration', Path(__file__).resolve().parents[1] / 'alembic/versions/20261030_85_comment_status_color.py')
+        self.migration = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(self.migration)
+        await self.migrate('upgrade')
         await self.ready()
         async with self.sessions() as db:
             for permission in ('comment:create', 'comment:read'):

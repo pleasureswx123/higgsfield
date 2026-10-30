@@ -11,6 +11,7 @@ export interface UploadSession {
 }
 export type AssetWorkStatus = 'none' | 'working' | 'review' | 'approved' | 'rejected'
 export interface Asset {
+  commentCount?: number | null
   workStatus?: AssetWorkStatus
   allowedActions?: string[]
   id: string
@@ -203,3 +204,6 @@ export const readDocumentText = (versionId: string, signal: AbortSignal) =>
 export const setAssetStatus = (asset: Asset, workStatus: AssetWorkStatus, key: string) =>
   request<Result<Asset>>({ url: `/api/v1/assets/${asset.id}/status`, method: 'PATCH',
     data: { revision: asset.revision, workStatus }, headers: keyHeader(key) })
+
+export const readAssetVersion = (id: string, signal: AbortSignal) =>
+  request<Result<Asset>>({ url: `/api/v1/asset-versions/${id}`, signal })

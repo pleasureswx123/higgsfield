@@ -27,18 +27,14 @@ export const router = createRouter({
         {
           path: 'generations',
           component: () => import('@/views/GenerationsView.vue'),
-          meta: { title: '我的生成', description: '在这里回看和管理你的创作结果。' },
+          meta: { title: '我的生成记录', description: '跨项目查看本人发起的 AI 生成任务与结果。' },
         },
         {
           path: 'elements',
           component: () => import('@/views/MyElementsView.vue'),
-          meta: { title: '我的元素', description: '统一管理创作中使用的角色与视觉元素。' },
+          meta: { title: '我创建的元素', description: '跨项目查看本人创建的角色、场景、道具等可复用元素。' },
         },
-        {
-          path: 'favorites',
-          component: () => import('@/views/FavoritesView.vue'),
-          meta: { title: '我的收藏', description: '留住值得再次使用的灵感。' },
-        },
+        { path: 'favorites', redirect: '/home' },
       ],
     },
     { path: '/:pathMatch(.*)*', redirect: '/home' },

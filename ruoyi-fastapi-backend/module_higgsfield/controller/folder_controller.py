@@ -114,3 +114,8 @@ async def trash(
 ):
     service = {'element': ElementService, 'folder': FolderService, 'asset': AssetLifecycleService}[kind]
     return ResponseUtil.success(model_content=await service.trash(db, user, project_id, pageNum, pageSize))
+
+
+@folder_controller.get('/projects/{project_id}/folder-asset-counts', summary='读取未删除素材总数及目录直接素材数')
+async def asset_counts(request: Request, project_id: ProjectId, db: Db, user: User):
+    return ResponseUtil.success(data=await FolderService.asset_counts(db, user, project_id))

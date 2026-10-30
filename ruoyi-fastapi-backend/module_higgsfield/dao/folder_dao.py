@@ -9,6 +9,18 @@ class FolderDao:
     """目录数据库操作，空间锁覆盖整次层级变更。"""
 
     @staticmethod
+    async def asset_counts(db, space_id):
+        from module_higgsfield.entity.do.asset_do import HfAsset, HfFolderEntry
+        rows = (await db.execute(
+            select(HfFolderEntry.folder_id, func.count(HfAsset.asset_id))
+            .join(HfAsset, HfAsset.asset_id == HfFolderEntry.asset_id)
+            .where(HfFolderEntry.space_id == space_id, HfAsset.space_id == space_id, HfAsset.del_flag == '0')
+            .group_by(HfFolderEntry.folder_id)
+        )).all()
+        return {'total': sum(count for _, count in rows),
+                'folders': {str(folder_id): count for folder_id, count in rows if folder_id is not None}}
+
+    @staticmethod
     async def space(db, project_id, lock=False):
         query = select(HfAssetSpace).where(HfAssetSpace.project_id == project_id, HfAssetSpace.kind == 'project')
         return await db.scalar(query.with_for_update() if lock else query)

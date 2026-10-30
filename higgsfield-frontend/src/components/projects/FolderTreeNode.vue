@@ -2,6 +2,7 @@
 import { IconChevronRight, IconFolder, IconPlus, IconDotsVertical } from '@tabler/icons-vue'
 import type { Folder } from '@/api/folders'
 defineProps<{
+  counts?: Record<string, number>
   folder: Folder
   path: Folder[]
   children: Record<string, Folder[]>
@@ -41,6 +42,7 @@ const emit = defineEmits<{
           folder.name
         }}</span>
       </button>
+      <span class="folder-asset-count" title="当前文件夹内的素材数">{{ counts ? (counts[folder.id] ?? 0) : '—' }}</span>
       <button
         v-if="canWrite"
         class="folder-icon-button folder-hover-action"
@@ -67,6 +69,7 @@ const emit = defineEmits<{
         v-for="child in children[folder.id] || []"
         :key="child.id"
         :folder="child"
+        :counts="counts"
         :path="[...path, folder]"
         :children="children"
         :expanded="expanded"

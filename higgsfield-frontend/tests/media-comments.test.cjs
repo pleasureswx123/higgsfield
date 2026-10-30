@@ -811,3 +811,18 @@ test('侧栏校验失败后重发不重复创建讨论', async()=>{
   c.state.form.value={validate:async()=>true};await c.state.sendFromSidebar(true)
   assert.equal(created,1);assert.equal(c.calls.length,1);c.close()
 })
+
+test('首次画布评论恢复草稿后等待表单更新再校验', async () => {
+  const c = await setup({ createCommentThread: async () => ({ data: { id: '88' } }) })
+  c.state.threadId.value = ''
+  let renderedBody = ''
+  const stop = vue.watch(c.state.body, value => { renderedBody = value }, { flush: 'post' })
+  c.state.form.value = { validate: async () => !!renderedBody.trim(), clearValidate() {} }
+  c.state.body.value = '画布标注提交回归'
+  c.state.updateAnnotations([{ shape: 'point', geometry: { x: .5, y: .5 }, color: '#fa551e', sourceWidth: 128, sourceHeight: 64 }])
+  await c.state.sendFromSidebar(true)
+  assert.equal(c.calls.length, 1)
+  assert.equal(c.calls[0][1].body, '画布标注提交回归')
+  assert.equal(c.calls[0][1].annotations.length, 1)
+  stop(); c.close()
+})

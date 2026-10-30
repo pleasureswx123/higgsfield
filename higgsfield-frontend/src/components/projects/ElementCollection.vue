@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import ReferenceThumbnail from './ReferenceThumbnail.vue'
 import { computed } from 'vue'
 import { IconPhoto } from '@tabler/icons-vue'
 import { ElTable, ElTableColumn, ElCheckbox } from 'element-plus'
@@ -11,7 +12,7 @@ const props = defineProps<{
   selected?: string[]
   selectionDisabled?: boolean
 }>()
-const emit = defineEmits<{ open: [element: ElementRecord]; select: [id: string, checked: boolean] }>()
+const emit = defineEmits<{ open: [element: ElementRecord]; select: [id: string, checked: boolean]; preview: [versionId: string] }>()
 const categoryNames = { character: '角色', scene: '场景', prop: '道具', other: '其他' }
 const statusNames = {
   none: '未开始',
@@ -37,10 +38,8 @@ const columns = computed(() =>
     class="element-table"
     empty-text="暂无匹配的元素"
   >
-    <ElTableColumn v-if="selectable" label="选择" width="64">
-      <template #default="{ row }"><ElCheckbox :model-value="selected?.includes(row.id) || false" :aria-label="`选择元素 ${row.name}`" :disabled="selectionDisabled" @change="emit('select', row.id, Boolean($event))" /></template>
-    </ElTableColumn>
-    <ElTableColumn type="index" label="#" width="50" />
+    <ElTableColumn label="#" width="48"><template #default="{ row, $index }"><span class="element-row-index">{{ $index + 1 }}</span><ElCheckbox v-if="selectable" class="element-row-select" :model-value="selected?.includes(row.id) || false" :aria-label="`选择元素 ${row.name}`" :disabled="selectionDisabled" @change="emit('select', row.id, Boolean($event))" /></template></ElTableColumn>
+    <ElTableColumn label="图片" width="280" class-name="element-media-cell"><template #default="{ row }"><div class="element-table-media"><template v-if="row.media?.length"><button v-for="media in row.media.slice(0, 3)" :key="media.assetVersionId" class="element-media-preview" :aria-label="`预览素材 ${row.name}`" @click.stop="emit('preview', media.assetVersionId)"><ReferenceThumbnail :version-id="media.assetVersionId" fill passive allow-original :alt="row.name" /></button></template><button v-else class="element-empty-media" :aria-label="`为 ${row.name} 添加素材`" @click="emit('open', row as ElementRecord)"><span>＋</span>添加元素图片</button></div></template></ElTableColumn>
     <ElTableColumn label="名称" min-width="180"
       ><template #default="{ row }"
         ><button class="folder-text-button" @click="emit('open', row as ElementRecord)">
@@ -60,15 +59,16 @@ const columns = computed(() =>
         categoryNames[row.category as keyof typeof categoryNames]
       }}</template></ElTableColumn
     >
-    <ElTableColumn label="元素别名" min-width="140" show-overflow-tooltip
+    <ElTableColumn label="元素 ID" min-width="140" show-overflow-tooltip
       ><template #default="{ row }">@{{ row.alias }}</template></ElTableColumn
     >
     <ElTableColumn prop="description" label="描述" min-width="220" show-overflow-tooltip />
     <ElTableColumn label="版本" min-width="130"
       ><template #default="{ row }"
-        >{{ row.label || '无标签' }} · #{{ row.revisionNo }}</template
+        >{{ row.label || '—' }}</template
       ></ElTableColumn
     >
+    <ElTableColumn label="负责人" min-width="150"><template #default="{ row }">{{ row.performerName || (row.performerId ? `成员 ${row.performerId}` : '未分配') }}</template></ElTableColumn>
     <ElTableColumn label="状态" width="110"
       ><template #default="{ row }">{{
         statusNames[row.workStatus as keyof typeof statusNames]
@@ -105,7 +105,7 @@ const columns = computed(() =>
           <button class="element-card"
       @click="emit('open', element)"
     >
-      <div class="element-card-image"><IconPhoto :size="40" /><span>查看元素</span></div>
+      <div class="element-card-image"><ReferenceThumbnail v-if="element.media?.length" :version-id="element.media[0]!.assetVersionId" fill passive allow-original :alt="element.name" /><template v-else><IconPhoto :size="40" /><span>查看元素</span></template></div>
       <strong>{{ element.name }}</strong
       ><small class="muted">@{{ element.alias }}</small
       ><small v-if="showProject" class="muted">{{ element.projectName }}</small>

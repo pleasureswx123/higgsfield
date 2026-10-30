@@ -23,6 +23,7 @@ import { IconInfoCircle, IconMessageCircle, IconMinimize, IconX, IconChevronRigh
 import { assetAccept, documentFormats } from '@/utils/assetFormats'
 import type { Asset } from '@/api/assets'
 import Button from '@/components/ui/Button.vue'
+import { useAssetPreviewRoute } from '@/composables/useAssetPreviewRoute'
 import { useAssetLibrary } from '@/composables/useAssetLibrary'
 import { useAssetUploads } from '@/composables/useAssetUploads'
 import { useAssetActions } from '@/composables/useAssetActions'
@@ -33,6 +34,9 @@ import { useAssetBatchRestore } from '@/composables/useAssetBatchRestore'
 import AssetUploadPanel from './AssetUploadPanel.vue'
 import ReferenceThumbnail from './ReferenceThumbnail.vue'
 import MediaComments from './MediaComments.vue'
+import VideoPreviewControls from './VideoPreviewControls.vue'
+import { usePreviewFullscreen } from '@/composables/usePreviewFullscreen'
+import type { MediaComment } from '@/api/comments'
 import LibraryViewPreference from './LibraryViewPreference.vue'
 import AssetPdfPreview from './AssetPdfPreview.vue'
 import DirectoryMoveDialog from './DirectoryMoveDialog.vue'
@@ -44,9 +48,30 @@ const canCopy = computed(() => props.canMove && props.projectActions?.includes('
 import type { LibraryViewSettings, FolderViewSettings } from '@/api/viewPreferences'
 import { groupContentByDate, contentCardWidth } from '@/utils/contentView'
 const commentCanvasHost = ref<HTMLElement>()
+const previewPlayer = ref<HTMLVideoElement>()
+const previewTimecode = ref(false)
+const playbackTime = ref(0), playbackDuration = ref(0), playbackPlaying = ref(false)
+const videoComments = ref<MediaComment[]>([])
+function syncPlayback() {
+  const player = previewPlayer.value
+  playbackTime.value = player?.currentTime || 0
+  playbackDuration.value = Number.isFinite(player?.duration) ? player!.duration : 0
+  playbackPlaying.value = !!player && !player.paused
+}
+function seekPlayback(time: number) {
+  if (!previewPlayer.value) return
+  previewPlayer.value.pause()
+  previewPlayer.value.currentTime = Math.min(playbackDuration.value, Math.max(0, time))
+  syncPlayback()
+}
+function selectVideoComment(id: string) {
+  previewTab.value = 'comments'
+  comments.value?.selectVideoComment(id)
+}
 const comments = ref<InstanceType<typeof MediaComments>>()
 async function closeMediaPreview() {
   if (comments.value && !(await comments.value.confirmLeave())) return
+  await restorePreviewFullscreen()
   closePreview()
 }
 import { formatProjectDate } from '@/utils/projects'
@@ -87,9 +112,13 @@ const {
   mediaError,
   mediaLoading,
   loadedBytes,
-  openMedia,
-  closePreview,
+  openMedia: loadMedia,
+  closePreview: clearPreview,
 } = useAssetLibrary(props.projectId, toRef(props, 'folderId'), () => props.visible !== false)
+const { openPreview: openMedia, closePreview } = useAssetPreviewRoute(
+  props.projectId, () => props.visible !== false, loadMedia, clearPreview,
+  message => { error.value = message }, () => props.folderId,
+)
 const previewDownloadIds = ref<string[]>([])
 const previewDownload = useAssetBatchDownload(() => selected.value ? [selected.value] : [], previewDownloadIds, () => props.visible !== false && props.canDownload && !!selected.value)
 function downloadPreview() {
@@ -101,22 +130,27 @@ async function usePreview(kind: 'image' | 'video') {
   const asset = selected.value
   if (!asset || !props.canGenerate || !props.projectActions?.includes('asset:reference')) return
   if (comments.value && !(await comments.value.confirmLeave())) return
+  if (await closePreview()) return
   emit('reference', asset, kind)
-  closePreview()
 }
 async function deletePreview() {
   if (!selected.value || (comments.value && !(await comments.value.confirmLeave()))) return
   await lifecycle(selected.value, false)
 }
 const previewTab = ref<'info' | 'comments'>('info')
-const previewExpanded = ref(false)
+const { expanded: previewExpanded, toggle: togglePreviewFullscreen, restore: restorePreviewFullscreen } = usePreviewFullscreen(() => commentCanvasHost.value?.closest<HTMLElement>('.asset-preview-dialog'))
+function updateCommentCount(count: number) {
+  const versionId = selected.value?.currentVersionId
+  rows.value = rows.value.map(entry => entry.asset.currentVersionId === versionId
+    ? { ...entry, asset: { ...entry.asset, commentCount: count } } : entry)
+}
 const previewEntry = computed(() => rows.value.find(entry => entry.asset.id === selected.value?.id))
 watch(() => selected.value?.currentVersionId, () => {
   previewTab.value = 'info'
-  previewExpanded.value = false
+  void restorePreviewFullscreen()
 })
 function showPreviewComments() {
-  previewExpanded.value = false
+  void restorePreviewFullscreen()
   previewTab.value = 'comments'
 }
 const layout = ref<'square' | 'masonry'>('square'), cardSize = ref(4), splitByDate = ref(false)
@@ -248,7 +282,7 @@ watch(
       <span class="muted">创建日期（上海时间，包含结束日）</span>
       <ElDatePicker v-model="dates" type="daterange" value-format="YYYY-MM-DD" start-placeholder="创建开始日期" end-placeholder="创建结束日期" aria-label="素材创建日期（上海时间，包含结束日）" @change="filter" />
       <ElSelect v-model="activity" placeholder="全部活动" aria-label="素材活动" @change="filter">
-        <ElOption label="全部活动" value="" /><ElOption label="生成来源" value="generated" /><ElOption label="上传来源" value="uploaded" /><ElOption label="本人收藏" value="liked" /><ElOption label="本人获准下载" value="downloaded" />
+        <ElOption label="全部活动" value="" /><ElOption label="生成来源" value="generated" /><ElOption label="上传来源" value="uploaded" /><ElOption label="本人获准下载" value="downloaded" />
       </ElSelect>
       <ElInput
         v-model="search"
@@ -341,6 +375,7 @@ watch(
           <AssetHoverVideo v-if="entry.asset.mediaType === 'video'" :ref="el => { if (el) videoCards.set(entry.id, el as InstanceType<typeof AssetHoverVideo>); else videoCards.delete(entry.id) }" :version-id="entry.asset.currentVersionId" :name="entry.name" :enabled="visible !== false && !selected && !selection.selected.value.length" />
           <ReferenceThumbnail v-else-if="entry.asset.mediaType === 'image'" :version-id="entry.asset.currentVersionId" :alt="entry.name" :allow-original="entry.asset.mediaType === 'image' && Number(entry.asset.file.byteSize) <= 20 * 1024 * 1024" fill passive />
           <template v-else><IconFileText :size="44" /><span>{{ entry.name.split('.').pop()?.toUpperCase() }}</span></template>
+          <span v-if="entry.asset.commentCount" class="asset-comment-count" :aria-label="`${entry.asset.commentCount} 条评论`" :title="`${entry.asset.commentCount} 条评论`">{{ entry.asset.commentCount }}</span>
           <span v-if="lastViewedId === entry.asset.id && !selected" class="asset-last-viewed"><IconEye :size="14" />最近查看</span>
         </button>
         <span class="asset-hover-status" :class="{ 'has-status': assetStatus(entry.asset.workStatus) }" :title="assetStatus(entry.asset.workStatus)?.label || '无状态'">
@@ -475,8 +510,9 @@ watch(
       :title="selected?.name"
       fullscreen
       class="asset-preview-dialog"
-      :class="{ 'asset-preview-dialog--expanded': previewExpanded }"
+      :class="{ 'asset-preview-dialog--expanded': previewExpanded, 'asset-preview-dialog--video': selected?.mediaType === 'video' }"
       :close-on-click-modal="false"
+      :close-on-press-escape="!previewExpanded"
       :before-close="closeMediaPreview"
     >
       <template #header="{ titleId, titleClass }">
@@ -498,9 +534,10 @@ watch(
       />
       <video
         v-if="mediaUrl && selected?.mediaType === 'video'"
+        ref="previewPlayer" :key="mediaUrl"
+        @timeupdate="syncPlayback" @loadedmetadata="syncPlayback" @play="syncPlayback" @pause="syncPlayback" @ended="syncPlayback"
         class="asset-media"
         :src="mediaUrl"
-        controls
         preload="metadata"
       />
       <AssetPdfPreview v-if="pdfBlob" :source="pdfBlob" />
@@ -512,10 +549,15 @@ watch(
         </article>
       </section>
           </div>
-          <div class="asset-preview-tools">
+          <VideoPreviewControls v-model:timecode="previewTimecode" v-if="selected?.mediaType === 'video'" :player="previewPlayer" :time="playbackTime" :duration="playbackDuration" :playing="playbackPlaying" :comments="videoComments" @seek="seekPlayback" @select="selectVideoComment">
             <span class="asset-preview-status"><IconCircleDotted :size="18" />{{ assetStatus(selected?.workStatus)?.label || '无状态' }}</span>
             <Button variant="ghost" aria-label="查看素材评论" title="查看素材评论" @click="showPreviewComments"><IconMessageCircle :size="20" /></Button>
-            <Button variant="ghost" :aria-label="previewExpanded ? '还原预览布局' : '最大化素材预览'" :title="previewExpanded ? '还原预览布局' : '最大化素材预览'" :aria-pressed="previewExpanded" @click="previewExpanded = !previewExpanded"><IconMinimize v-if="previewExpanded" :size="20" /><IconMaximize v-else :size="20" /></Button>
+            <Button variant="ghost" :aria-label="previewExpanded ? '还原预览布局' : '最大化素材预览'" :title="previewExpanded ? '还原预览布局' : '最大化素材预览'" :aria-pressed="previewExpanded" @click="togglePreviewFullscreen"><IconMinimize v-if="previewExpanded" :size="20" /><IconMaximize v-else :size="20" /></Button>
+          </VideoPreviewControls>
+          <div v-else class="asset-preview-tools">
+            <span class="asset-preview-status"><IconCircleDotted :size="18" />{{ assetStatus(selected?.workStatus)?.label || '无状态' }}</span>
+            <Button variant="ghost" aria-label="查看素材评论" title="查看素材评论" @click="showPreviewComments"><IconMessageCircle :size="20" /></Button>
+            <Button variant="ghost" :aria-label="previewExpanded ? '还原预览布局' : '最大化素材预览'" :title="previewExpanded ? '还原预览布局' : '最大化素材预览'" :aria-pressed="previewExpanded" @click="togglePreviewFullscreen"><IconMinimize v-if="previewExpanded" :size="20" /><IconMaximize v-else :size="20" /></Button>
           </div>
         </section>
         <aside v-show="!previewExpanded" class="asset-preview-sidebar" aria-label="素材详情">
@@ -537,7 +579,7 @@ watch(
             <div class="asset-preview-location"><span>所在位置</span><div><slot name="breadcrumb">当前项目素材</slot></div></div>
           </section>
           <div v-show="previewTab === 'comments'" id="asset-preview-comments" class="asset-preview-comments" role="tabpanel" aria-labelledby="asset-preview-comments-tab">
-      <MediaComments sidebar :project-id="projectId" :canvas-host="previewTab === 'comments' ? commentCanvasHost : undefined" :source-width="selected?.file.width || undefined" :source-height="selected?.file.height || undefined"
+      <MediaComments @count="updateCommentCount" :timecode="previewTimecode" :playback-time="playbackTime" @seek="seekPlayback" @pause="previewPlayer?.pause()" @timeline="videoComments = $event" sidebar :project-id="projectId" :canvas-host="previewTab === 'comments' ? commentCanvasHost : undefined" :source-width="selected?.file.width || undefined" :source-height="selected?.file.height || undefined"
         :visible="visible !== false"
         ref="comments"
         v-if="selected"

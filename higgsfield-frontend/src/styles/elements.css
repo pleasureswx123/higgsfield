@@ -295,3 +295,95 @@
     border-right: 0;
   }
 }
+/* 元素编辑器使用共享布局和主题表面色。 */
+.element-dialog {
+  --editor-bg: #f6f6f3; --editor-stage: #e9eae7; --editor-panel: #f0f1ee; --editor-input: #e3e5e1;
+  height: 90dvh; max-height: none; padding: 0 10px; border-radius: 28px; background: var(--editor-bg);
+}
+.dark .element-dialog { --editor-bg: #1d2022; --editor-stage: #26292b; --editor-panel: #2b2d2e; --editor-input: #363839; }
+.element-dialog > .el-dialog__header { flex: none; margin: 0; padding: 24px 10px; }
+.element-dialog .el-dialog__title { font-size: 20px; font-weight: 600; }
+.element-dialog > .el-dialog__header .el-dialog__headerbtn { top: 18px; right: 18px; width: 40px; height: 40px; border-radius: 50%; background: var(--editor-input); }
+.element-dialog > .el-dialog__body { flex: 1; min-height: 0; display: flex; flex-direction: column; overflow: hidden; }
+.element-dialog > .el-dialog__body > [role='alert'] { flex: none; margin: 4px 12px; }
+.element-dialog > .el-dialog__footer { flex: none; padding: 16px 6px; display: flex; justify-content: flex-end; align-items: center; flex-wrap: wrap; gap: 8px; }
+.element-dialog > .el-dialog__footer .ui-button { min-height: 44px; border-radius: 12px; padding: 10px 20px; }
+.element-dialog > .el-dialog__footer .ui-button:last-child { background: var(--foreground); color: var(--background); }
+.element-dialog .element-editor-layout { flex: 1; height: auto; grid-template-columns: minmax(0, 1fr) clamp(330px, 28%, 440px); overflow: hidden; border-radius: 20px; }
+.element-dialog .element-image-panel { padding: 10px; overflow: hidden; background: var(--editor-stage); border-radius: 0; }
+.element-dialog .element-image-stage { min-height: 0; }
+.element-dialog .element-image-stage img, .element-dialog .element-image-stage video { max-height: 100%; }
+.element-dialog .element-detail-panel { background: var(--editor-panel); border-left: 2px solid var(--editor-bg); }
+.element-dialog .element-fields { padding: 20px; border: 0; }
+.element-fields .el-form-item { margin-bottom: 16px; }
+.element-fields .el-form-item__label { color: var(--foreground); font-size: 14px; font-weight: 600; margin-bottom: 7px; }
+.element-fields .el-input__wrapper, .element-fields .el-select__wrapper { min-height: 48px; border-radius: 16px; background: var(--editor-input); box-shadow: none; padding: 0 16px; }
+.element-fields .el-input__inner, .element-fields .el-select__selected-item { font-size: 16px; }
+.element-fields .el-textarea__inner { background: var(--editor-input); border-radius: 16px; box-shadow: none; padding: 12px 16px; font-size: 16px; resize: vertical; }
+.element-fields .el-input-group__prepend { background: var(--editor-input); border-radius: 16px 0 0 16px; box-shadow: none; padding: 0 14px; }
+.element-fields .el-input-group--prepend .el-input__wrapper { border-radius: 0 16px 16px 0; padding-left: 0; }
+.element-fields .el-input__wrapper.is-focus, .element-fields .el-select__wrapper.is-focused, .element-fields .el-textarea__inner:focus { box-shadow: 0 0 0 1px var(--focus); }
+.element-fields .is-error .el-input__wrapper { box-shadow: 0 0 0 1px var(--el-color-danger); }
+.element-fields small { line-height: 1.5; margin-top: 5px; }
+.element-properties-heading { border-top: 1px solid var(--border); padding-top: 18px; font-size: 13px; color: var(--muted-foreground); font-weight: 500; }
+.element-add-property { color: var(--muted-foreground); }
+.element-preview-toolbar { flex: none; min-height: 78px; display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; gap: 12px; padding: 12px 14px; }
+.element-dialog .element-media-strip { grid-column: 2; flex-wrap: nowrap; align-items: center; overflow-x: auto; max-width: min(45vw, 540px); padding: 3px; margin: 0; }
+.element-dialog .element-media-strip > button { width: 68px; height: 40px; flex: none; padding: 0; border: 2px solid transparent; border-radius: 6px; overflow: hidden; background: var(--editor-input); }
+.element-dialog .element-media-strip > button.active { border-color: var(--focus); outline: 0; }
+.element-dialog .element-media-strip > button.element-add-media { width: 40px; display: grid; place-items: center; }
+.element-dialog .element-media-actions { margin: 0; flex-wrap: nowrap; justify-content: flex-end; gap: 12px; }
+.element-media-actions > button, .element-media-menu > summary { border: 0; padding: 5px; display: grid; place-items: center; background: transparent; color: var(--foreground); cursor: pointer; border-radius: 8px; }
+.element-media-actions button:hover, .element-media-menu > summary:hover { background: var(--editor-input); }
+.element-media-actions button:disabled, .element-media-strip button:disabled { opacity: .4; cursor: not-allowed; }
+.element-media-menu { position: relative; }
+.element-media-menu > summary { list-style: none; }
+.element-media-menu > div { position: absolute; right: 0; bottom: 40px; z-index: 2; width: 160px; padding: 6px; background: var(--editor-panel); border: 1px solid var(--border); border-radius: 12px; box-shadow: 0 8px 24px #0003; }
+.element-media-menu button { display: block; width: 100%; text-align: left; border: 0; background: transparent; color: var(--foreground); padding: 10px; cursor: pointer; }
+.element-preview-expanded .element-editor-layout { grid-template-columns: 1fr; }
+.element-preview-expanded .element-detail-panel { display: none; }
+@media (max-width: 760px) {
+  .element-dialog { width: calc(100vw - 24px); height: calc(100dvh - 24px); margin-top: 12px; }
+  .element-dialog .element-editor-layout { grid-template-columns: 1fr; overflow-y: auto; display: block; }
+  .element-dialog .element-image-panel { height: 45vh; min-height: 260px; }
+  .element-dialog .element-detail-panel { overflow: visible; border-left: 0; }
+  .element-preview-toolbar { grid-template-columns: minmax(0, 1fr) auto; padding: 8px 0; }
+  .element-dialog .element-media-strip { grid-column: 1; max-width: 100%; }
+  .element-preview-expanded .element-image-panel { height: 100%; }
+}
+
+/* 元素库沿用截图的紧凑工具栏、媒体表格与右侧范围导航。 */
+.element-workspace.element-library { border:0; border-radius:0; padding:0; background:transparent; min-height:calc(100dvh - 48px); }
+.element-library-heading,.element-library-navigation { display:flex; align-items:center; justify-content:space-between; gap:16px; padding:10px 0; }
+.element-library-heading strong { font-size:14px; }
+.element-library-actions { display:flex; align-items:center; gap:8px; }
+.element-library-navigation { border-bottom:1px solid var(--border); margin-bottom:12px; }
+.element-category-tabs { display:flex; gap:8px; }
+.element-category-tabs button { border:0; padding:8px 14px; border-radius:24px; background:transparent; color:var(--muted-foreground); cursor:pointer; white-space:nowrap; }
+.element-category-tabs button.active { background:var(--surface-hover); color:var(--foreground); }
+.element-library-search { width:210px; }
+.element-library-options { display:flex; flex-direction:column; gap:12px; }
+.element-library-body { display:grid; grid-template-columns:minmax(0,1fr) 210px; gap:16px; }
+.element-library-content { min-width:0; overflow:auto; }
+.element-library .element-table { border-radius:0; --el-table-bg-color:transparent; --el-table-tr-bg-color:transparent; --el-table-border-color:var(--border); --el-table-header-bg-color:var(--surface-hover); }
+.element-library .element-table .el-table__body-wrapper { max-height:calc(100dvh - 195px); overflow:auto; }
+.element-library .element-table td { vertical-align:top; }
+.element-library .element-table .cell { padding:10px 12px; line-height:1.5; }
+.element-library .element-table th .cell { padding:5px 12px; font-size:12px; font-weight:500; color:var(--muted-foreground); }
+.element-library .element-media-cell .cell { padding:0; }
+.element-table-media { width:100%; height:132px; display:flex; border:0; padding:0; background:var(--surface-hover); cursor:pointer; overflow:hidden; }
+.element-table-media .reference-thumbnail { min-width:0; border-radius:0; }
+.element-empty-media { display:flex; margin:auto; align-items:center; flex-direction:column; gap:10px; font-size:12px; color:var(--muted-foreground); }
+.element-empty-media > span { display:grid; place-items:center; width:40px; height:40px; border-radius:50%; border:1px solid var(--border); background:var(--surface-raised); font-size:26px; }
+.element-row-select { display:none; }
+.element-table tr:hover .element-row-select,.element-row-select:has(.is-checked) { display:inline-flex; }
+.element-table tr:hover .element-row-index,.element-table .cell:has(.is-checked) .element-row-index { display:none; }
+.element-library-sidebar { display:flex; flex-direction:column; gap:6px; padding:0 4px; }
+.element-library-sidebar button { display:flex; align-items:center; gap:8px; border:0; border-radius:10px; padding:10px 12px; color:var(--foreground); background:transparent; text-align:left; cursor:pointer; overflow-wrap:anywhere; }
+.element-library-sidebar button.active,.element-library-sidebar button:hover { background:var(--surface-hover); }
+.element-library-sidebar small { margin:18px 12px 5px; color:var(--muted-foreground); }
+.element-batch-toolbar { padding:8px; background:var(--surface-hover); border-radius:10px; }
+@media(max-width:900px) { .element-library-body { grid-template-columns:minmax(0,1fr) 150px; } .element-library-navigation { align-items:flex-start; flex-wrap:wrap; } }
+.element-media-preview { display:flex; flex:1; min-width:0; height:100%; padding:0; border:0; background:transparent; cursor:pointer; }
+.element-media-preview:focus-visible { outline:2px solid var(--foreground); outline-offset:-2px; }
+button.element-empty-media { border:0; background:transparent; cursor:pointer; }

@@ -7,6 +7,13 @@
   --background: #f5f6f2;
   --surface: #fff;
   --surface-raised: #eeefea;
+  --comment-floating-surface: #f5f4ef;
+  --comment-floating-control: #e4e3de;
+  --comment-sidebar-surface: #f7f8f4;
+  --video-compose-surface: #eeefea;
+  --comment-card-surface: #eceee8;
+  --comment-card-selected: #e1e4da;
+  --comment-card-border: #c7ccc0;
   --surface-hover: #e6e8df;
   --foreground: #20231c;
   --muted-foreground: #73786b;
@@ -32,6 +39,13 @@
   --background: #111213;
   --surface: #171819;
   --surface-raised: #242527;
+  --comment-floating-surface: #393833;
+  --comment-floating-control: #494843;
+  --comment-sidebar-surface: #2c2d2d;
+  --video-compose-surface: #252729;
+  --comment-card-surface: #383a3a;
+  --comment-card-selected: #4a4c4c;
+  --comment-card-border: #707272;
   --surface-hover: #2e3031;
   --foreground: #f0f1ee;
   --muted-foreground: #969995;
@@ -1397,3 +1411,19 @@ p {
 #project-sidebar-tree .folder-sidebar-scroll { flex:1; min-height:0; overflow-y:auto; overflow-x:hidden; }
 #project-sidebar-tree .folder-trash-entry { flex:0 0 auto; margin:8px 0 0; }
 .sidebar-bottom { flex-shrink:0; }
+
+/* 项目按钮导航与全局路由导航共享选中语义。 */
+.project-local-navigation .nav-link.active { background: var(--surface-raised); color: var(--foreground); font-weight: 650; }
+.project-local-navigation .nav-link.active .project-nav-icon { color: var(--focus); }
+.project-local-navigation .nav-link:focus-visible { outline: 2px solid var(--focus); outline-offset: -2px; }
+
+/* 项目管理与简报内容分区，亮暗主题共享语义色。 */
+.project-management { display: flex; align-items: center; justify-content: space-between; gap: 24px; padding: 20px; margin: 20px 0 28px; border: 1px solid var(--border); border-radius: 14px; background: var(--surface); }
+.project-management-summary { min-width: 0; }
+.project-management-label { color: var(--muted-foreground); font-size: 12px; }
+.project-management-title { display: flex; align-items: center; gap: 10px; margin-top: 8px; min-width: 0; }
+.project-management-title strong { font-size: 17px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.project-management-status { flex-shrink: 0; padding: 3px 8px; border: 1px solid var(--border); border-radius: 999px; color: var(--muted-foreground); font-size: 12px; }
+.project-management-summary p { margin: 8px 0 0; font-size: 12px; line-height: 1.6; }
+.project-management-actions { display: flex; flex-wrap: wrap; flex-shrink: 0; gap: 8px; }
+@media (max-width: 1000px) { .project-management { align-items: flex-start; flex-direction: column; gap: 16px; } .project-management-actions { width: 100%; } }

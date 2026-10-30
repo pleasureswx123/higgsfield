@@ -304,6 +304,9 @@ export function useMediaComments(target: () => CommentTarget, mediaKind: () => s
       body.value = text
       videoTime.value = time
       updateAnnotations(marks)
+      // 等待表单消费恢复后的正文，防止首次标注提交被旧空值拦截。
+      await nextTick()
+      if (stamp !== epoch) return
     }
     await mutate('save')
   }

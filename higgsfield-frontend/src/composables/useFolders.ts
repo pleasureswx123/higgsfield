@@ -13,6 +13,8 @@ import { ApiError } from '@/api/client'
 import { useAuthStore } from '@/stores/auth'
 import { ElMessageBox, type FormInstance } from 'element-plus'
 import {
+  readFolderAssetCounts,
+  type FolderAssetCounts,
   actOnFolder,
   createFolder,
   listFolders,
@@ -41,6 +43,8 @@ export function useFolders(projectId: string, visible: () => boolean = () => tru
     crumbs = ref<Folder[]>([])
   const children = reactive<Record<string, Folder[]>>({}),
     expanded = reactive(new Set<string>())
+  const assetCounts = ref<FolderAssetCounts>()
+  const autoExpanded = new Set<string>()
   const currentId = computed(() => crumbs.value.at(-1)?.id ?? null)
   const loading = ref(false),
     pending = ref(false),
@@ -151,6 +155,7 @@ export function useFolders(projectId: string, visible: () => boolean = () => tru
     const controller = new AbortController()
     treeRequests.set(node, controller)
     const pageNum = append ? treeNext[node] || 1 : 1
+    let loaded = false
     try {
       const result = await listFolders(
         projectId,
@@ -162,6 +167,11 @@ export function useFolders(projectId: string, visible: () => boolean = () => tru
         },
         controller.signal,
       )
+      if (!parent && !append) {
+        const counts = await readFolderAssetCounts(projectId, controller.signal)
+        if (!alive || controller.signal.aborted) return
+        assetCounts.value = counts.data
+      }
       if (!alive || controller.signal.aborted) return
       const previous = parent ? (children[parent] ?? []) : roots.value
       const values = [
@@ -171,12 +181,22 @@ export function useFolders(projectId: string, visible: () => boolean = () => tru
       ]
       if (parent) children[parent] = values
       else roots.value = values
+      loaded = true
       treeNext[node] = result.hasNext ? pageNum + 1 : 0
+      // 首次遇到的目录默认展开，手动收起后刷新不强制重新展开。
+      for (const folder of result.rows) {
+        if (!folder.hasChildren || autoExpanded.has(folder.id)) continue
+        autoExpanded.add(folder.id)
+        expanded.add(folder.id)
+        await loadTree(folder.id)
+        if (!alive || controller.signal.aborted) return
+      }
     } catch (cause) {
       if (alive && !controller.signal.aborted) error.value = message(cause)
     } finally {
       if (treeRequests.get(node) === controller) treeRequests.delete(node)
     }
+    if (loaded && !controller.signal.aborted && treeNext[node]) await loadTree(parent, true)
   }
   async function toggle(folder: Folder) {
     if (expanded.has(folder.id)) expanded.delete(folder.id)
@@ -605,6 +625,8 @@ export function useFolders(projectId: string, visible: () => boolean = () => tru
       recycled.value = []
       destinations.value = []
       expanded.clear()
+      autoExpanded.clear()
+      assetCounts.value = undefined
       for (const id of Object.keys(children)) delete children[id]
       for (const id of Object.keys(treeNext)) delete treeNext[id]
       total.value = 0
@@ -720,6 +742,7 @@ export function useFolders(projectId: string, visible: () => boolean = () => tru
     active,
     rows,
     roots,
+    assetCounts,
     crumbs,
     children,
     expanded,
