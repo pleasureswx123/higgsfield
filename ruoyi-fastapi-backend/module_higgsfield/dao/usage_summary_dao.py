@@ -6,11 +6,13 @@ from module_higgsfield.dao.budget_dao import BudgetDao
 
 class UsageSummaryDao:
     member_scope = """EXISTS(SELECT 1 FROM hf_project_member pm
-        JOIN hf_project_role_permission rp ON rp.role_id=pm.role_id
+        JOIN hf_project_role role ON role.role_id=pm.role_id
+        LEFT JOIN hf_project_role_permission rp ON rp.role_id=pm.role_id AND rp.permission_code='project:usage:read'
+        LEFT JOIN hf_project_permission_config cfg ON cfg.project_id=pm.project_id
         JOIN sys_user me ON me.user_id=pm.user_id
         WHERE pm.project_id=p.project_id AND pm.user_id=:me AND pm.status='0'
         AND me.status='0' AND me.del_flag='0'
-        AND rp.permission_code='project:usage:read' AND rp.data_scope IN ('project','own'))"""
+        AND (role.code='owner' OR COALESCE(cfg.overrides->role.code->>'project:usage:read',rp.data_scope) IN ('project','own')))"""
 
     @classmethod
     async def has_personal_access(cls, db, user_id):

@@ -83,3 +83,21 @@ class MemberQuery(WorkspaceInput):
     page_num: int = Field(default=1, ge=1)
     page_size: int = Field(default=20, ge=1, le=100)
     status: Literal['active', 'removed'] = 'active'
+
+
+class ProjectPermissionUpdate(WorkspaceInput):
+    revision: Annotated[str, Field(pattern=r'^(0|[1-9][0-9]{0,18})$'), AfterValidator(valid_bigint)]
+    overrides: dict[str, dict[str, Literal['none', 'own', 'project']]] = Field(max_length=3)
+
+    @field_validator('overrides')
+    @classmethod
+    def bounded_permissions(cls, value):
+        if any(len(permissions) > 40 for permissions in value.values()):
+            raise ValueError('权限数量超出限制')
+        return value
+
+
+class OwnershipTransfer(WorkspaceInput):
+    user_id: BigId
+    revision: BigId
+    target_revision: BigId

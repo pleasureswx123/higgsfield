@@ -4,7 +4,7 @@ from fastapi import Query, Request
 from common.router import APIRouterPro
 from common.aspect.pre_auth import PreAuthDependency
 from module_higgsfield.controller.project_workspace_controller import Db, User, Key, ProjectId, mutation_response
-from module_higgsfield.entity.vo.comment_vo import ThreadCreate, ThreadQuery, CommentCreate, CommentPage, CommentPatch, CommentDelete
+from module_higgsfield.entity.vo.comment_vo import ThreadCreate, ThreadQuery, CommentCreate, CommentPage, CommentPatch, CommentDelete, ThreadPatch, ReactionPatch
 from module_higgsfield.service.comment_service import CommentService as Service
 from utils.response_util import ResponseUtil
 
@@ -40,3 +40,13 @@ async def edit_comment(request: Request, identity: ProjectId, payload: CommentPa
 @comment_controller.delete('/comments/{identity}', summary='作者或治理人员逻辑删除评论并保留回复')
 async def delete_comment(request: Request, identity: ProjectId, query: Annotated[CommentDelete, Query()], key: Key, db: Db, user: User):
     return mutation_response(await Service.mutate(db, user, identity, query, key, delete=True))
+
+
+@comment_controller.patch('/comment-threads/{identity}', summary='解决、重开或逻辑删除讨论')
+async def update_thread(request: Request, identity: ProjectId, payload: ThreadPatch, key: Key, db: Db, user: User):
+    return mutation_response(await Service.collaborate(db, user, identity, payload, key))
+
+
+@comment_controller.patch('/comments/{identity}/reaction', summary='设置当前用户的表情回应')
+async def update_reaction(request: Request, identity: ProjectId, payload: ReactionPatch, key: Key, db: Db, user: User):
+    return mutation_response(await Service.collaborate(db, user, identity, payload, key, reaction=True))

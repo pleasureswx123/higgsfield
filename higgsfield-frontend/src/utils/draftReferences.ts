@@ -77,6 +77,20 @@ export function appendCandidate(
   ].map((item, ordinal) => ({ ...item, ordinal }))
 }
 
+/** 图片追加，视频替换；被提示词提及的视频不可静默替换。 */
+export function selectCandidate(current: DraftReference[], candidate: ReferenceCandidate, role: string,
+  model?: ModelCapability | null, protectedKeys: string[] = []): DraftReference[] {
+  if (role !== 'reference_video') return appendCandidate(current, candidate, role, model)
+  const videos = current.filter(item => item.mediaRole === 'reference_video')
+  if (videos.some(item => protectedKeys.includes(item.referenceKey)))
+    throw new Error('提示词仍提及当前视频，请先编辑提示词再替换')
+  const remaining = current.filter(item => item.mediaRole !== 'reference_video')
+  const result = appendCandidate(remaining, { ...candidate, assetVersionIds: candidate.assetVersionIds.slice(0, 1) }, role, model)
+  const next = current.reduce((max, item) => BigInt(item.referenceKey) > max ? BigInt(item.referenceKey) : max, 0n) + 1n
+  if (next > 9223372036854775807n) throw new Error('引用编号已达到上限，请新建草稿')
+  return result.map(item => item.mediaRole === 'reference_video' ? { ...item, referenceKey: String(next) } : item)
+}
+
 export function moveReference(
   current: DraftReference[],
   index: number,

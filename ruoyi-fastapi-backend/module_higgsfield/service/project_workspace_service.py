@@ -19,18 +19,20 @@ class WorkspaceService:
 
     @classmethod
     async def authorize(cls, db, user, project_id, permission, write=False, owner_id=None):
+        if 'project:read' not in user.permissions and '*:*:*' not in user.permissions:
+            raise PermissionException(message='未获制作平台项目访问授权')
         if write:
             await WorkspaceDao.lock_project(db, project_id)
         row = await ProjectDao.get_project(db, user.user.user_id, project_id)
         if row is None:
             cls.conflict('RESOURCE_NOT_FOUND', '项目不存在或无权访问')
-        scopes = await WorkspaceDao.permission_scopes(db, row[1])
+        scopes = await WorkspaceDao.permission_scopes(db, row[1], project_id)
         permissions = {
             code
             for code, scope in scopes.items()
             if scope == 'project' or (scope == 'own' and owner_id == user.user.user_id)
         }
-        allowed = permissions.intersection(user.permissions) if '*:*:*' not in user.permissions else permissions
+        allowed = permissions if row[1] == 'owner' or '*:*:*' in user.permissions else permissions.intersection(user.permissions)
         if permission not in allowed:
             raise PermissionException(message='没有执行此项目操作的权限')
         if write and row[0].status != '0':
@@ -96,7 +98,7 @@ class WorkspaceService:
 
     @classmethod
     async def roles(cls, db, user, project_id):
-        _, role, allowed = await cls.authorize(db, user, project_id, 'member:read')
+        project, role, allowed = await cls.authorize(db, user, project_id, 'member:read')
         result = []
         for item in await WorkspaceDao.roles(db):
             result.append(
@@ -104,13 +106,14 @@ class WorkspaceService:
                     'id': str(item.role_id),
                     'code': item.code,
                     'name': item.role_name,
-                    'permissions': sorted(await WorkspaceDao.permissions(db, item.code)),
-                    'canGrant': role == 'owner'
+                    'permissions': sorted(code for code, scope in (await WorkspaceDao.permission_scopes(db, item.code, project_id)).items() if scope == 'project'),
+                    'canGrant': role in ('owner', 'admin')
                     and 'member:manage' in allowed
-                    and item.code in ('owner', 'producer', 'viewer'),
+                    and item.code in (('admin', 'producer', 'viewer') if role == 'owner' else ('producer', 'viewer')),
+                    'isCurrentRole': item.code == role,
                 }
             )
-        return {'items': result}
+        return {'items': sorted(result, key=lambda item: ['owner', 'admin', 'producer', 'viewer'].index(item['code'])), 'ownershipRevision': str(project.revision)}
 
     @classmethod
     async def candidate(cls, db, user, project_id, account):
@@ -127,10 +130,10 @@ class WorkspaceService:
     @classmethod
     async def grant_member(cls, db, user, project_id, target_id, role_id, actor_role):
         """调用方须已锁定并授权项目；复用授予规则，不提交事务。"""
-        if actor_role != 'owner':
+        if actor_role not in ('owner', 'admin'):
             raise PermissionException(message='仅项目负责人可以授予成员角色')
         role = next((item for item in await WorkspaceDao.roles(db) if item.role_id == int(role_id)), None)
-        if role is None or role.code not in ('owner', 'producer', 'viewer'):
+        if role is None or role.code not in (('admin', 'producer', 'viewer') if actor_role == 'owner' else ('producer', 'viewer')):
             raise PermissionException(message='不能授予此项目角色')
         target = await WorkspaceDao.user(db, target_id, lock=True)
         if target is None or target['status'] != '0' or target['del_flag'] != '0':
@@ -183,13 +186,13 @@ class WorkspaceService:
                 brief.update_by, brief.update_time = user.user.user_name, now
                 result = cls.brief_result(brief, allowed)
             else:
-                if actor_role != 'owner':
+                if actor_role not in ('owner', 'admin'):
                     raise PermissionException(message='仅项目负责人可以授予或移除成员角色')
                 target_id = int(payload['userId']) if action == 'add' else user_id
                 member = await WorkspaceDao.member(db, project_id, target_id)
                 roles = {item.role_id: item for item in await WorkspaceDao.roles(db)}
                 role = roles.get(int(payload['roleId'])) if action != 'remove' else None
-                if action != 'remove' and (role is None or role.code not in ('owner', 'producer', 'viewer')):
+                if action != 'remove' and (role is None or role.code not in (('admin', 'producer', 'viewer') if actor_role == 'owner' else ('producer', 'viewer'))):
                     raise PermissionException(message='不能授予此项目角色')
                 if action == 'add':
                     member = await cls.grant_member(db, user, project_id, target_id, payload['roleId'], actor_role)
@@ -197,9 +200,10 @@ class WorkspaceService:
                     if member is None or member.status != '0':
                         cls.conflict('RESOURCE_NOT_FOUND', '成员不存在或已移除')
                     cls.check_revision(member, payload['revision'])
-                    if roles[member.role_id].code == 'owner' and (action == 'remove' or role.code != 'owner'):
-                        if await WorkspaceDao.owner_count(db, project_id) <= 1:
-                            cls.conflict('LAST_OWNER', '必须保留至少一位项目负责人')
+                    if roles[member.role_id].code == 'owner':
+                        cls.conflict('OWNER_PROTECTED', 'Owner不能被移除或降级，请先转让项目所有权')
+                    if actor_role == 'admin' and roles[member.role_id].code == 'admin':
+                        raise PermissionException(message='负责人不能修改或移除其他负责人')
                     if action == 'remove':
                         member.status, member.removed_time = '1', now
                     else:

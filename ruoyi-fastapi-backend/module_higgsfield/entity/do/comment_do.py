@@ -16,6 +16,8 @@ class HfCommentThread(ContentRecord):
     asset_version_id = Column(BigInteger, comment='固定素材版本ID')
     output_id = Column(BigInteger, comment='固定作品ID')
     create_user_id = Column(BigInteger, nullable=False, comment='主题发起人ID')
+    revision = Column(BigInteger, nullable=False, server_default='1', comment='讨论并发修订')
+    del_flag = Column(CHAR(1), nullable=False, server_default='0', comment='0存在2删除')
     resolved_time = Column(TIMESTAMP(timezone=True, precision=3), comment='协作处理时间')
 
 
@@ -51,3 +53,14 @@ class HfAnnotation(ContentRecord):
     color = Column(String(16), nullable=False, comment='小写六位十六进制颜色')
     source_width = Column(Integer, nullable=False, comment='标注原图像素宽度')
     source_height = Column(Integer, nullable=False, comment='标注原图像素高度')
+
+
+class HfCommentReaction(ContentRecord):
+    __tablename__ = 'hf_comment_reaction'
+    __table_args__ = (UniqueConstraint('comment_id', 'user_id', 'emoji', name='uq_hf_comment_reaction_actor'),
+        {'comment': '评论表情回应', 'info': {'migration_managed': True}})
+    reaction_id = Column(BigInteger, primary_key=True, autoincrement=True, comment='回应ID')
+    comment_id = Column(BigInteger, nullable=False, comment='评论ID')
+    user_id = Column(BigInteger, nullable=False, comment='回应用户ID')
+    emoji = Column(String(32), nullable=False, comment='表情字符')
+    del_flag = Column(CHAR(1), nullable=False, server_default='0', comment='0存在2取消')

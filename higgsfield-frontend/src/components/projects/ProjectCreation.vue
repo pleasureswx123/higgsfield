@@ -1,6 +1,8 @@
 <script setup lang="ts">
 import { ElForm, ElFormItem, ElInput, ElInputNumber, ElOption, ElPagination, ElSelect, ElSwitch } from 'element-plus'
 
+import type { Asset } from '@/api/assets'
+import { selectCandidate } from '@/utils/draftReferences'
 import CreationComposer from '@/components/creation/CreationComposer.vue'
 import { modelAvailabilityMessage } from '@/utils/modelAvailability'
 import { computed, ref, watch } from 'vue'
@@ -11,6 +13,8 @@ import { useElementGenerationTarget } from '@/composables/useElementGenerationTa
 import { useCreationDraft } from '@/composables/useCreationDraft'
 import type { Scalar } from '@/api/creation'
 import DraftReferences from './DraftReferences.vue'
+import SelectedReference from './SelectedReference.vue'
+import type { DraftReference } from '@/api/creation'
 import PromptEditor from './PromptEditor.vue'
 import GenerationDetail from './GenerationDetail.vue'
 import ProjectBudgetStatus from './ProjectBudgetStatus.vue'
@@ -20,6 +24,7 @@ const emit = defineEmits<{ assetsChanged: [] }>()
 const route = useRoute()
 const advanced = ref(false)
 const referencePicker = ref<InstanceType<typeof DraftReferences>>()
+const pickerOpen = ref(false)
 const {
   body,
   kind,
@@ -65,7 +70,13 @@ const {
   return route.params.id === props.projectId && typeof folder === 'string' && /^[1-9]\d*$/.test(folder)
     ? folder
     : null
-}, { prompt: props.initialPrompt, kind: props.initialKind, autoSave: true })
+}, { prompt: props.initialPrompt, kind: props.initialKind, autoSave: true, pauseAutoSave: () => pickerOpen.value })
+const imageReferences = computed(() => references.value.filter(item => item.mediaRole !== 'reference_video'))
+const videoReference = computed(() => references.value.find(item => item.mediaRole === 'reference_video'))
+function removeSelected(item: DraftReference) {
+  if (draftLocked.value || opening.value || generation.locked.value || protectedReferenceKeys.value.includes(item.referenceKey)) return
+  references.value = references.value.filter(value => value !== item).map((value, ordinal) => ({ ...value, ordinal }))
+}
 const elementTarget = useElementGenerationTarget(props.projectId)
 watch(
   () => [route.params.id, route.query.draft],
@@ -116,7 +127,17 @@ const elementUse = useElementUse(
     references.value = value.references
   },
 )
+function useAsset(asset: Asset, targetKind: 'image' | 'video') {
+  if (draftLocked.value || opening.value || generation.locked.value || asset.mediaType === 'document') return
+  changeKind(targetKind)
+  if (kind.value !== targetKind) return
+  const role = asset.mediaType === 'video' ? 'reference_video' : 'reference_image'
+  try {
+    references.value = selectCandidate(references.value, { kind: 'asset', id: asset.id, projectId: props.projectId, displayName: asset.name, assetVersionIds: [asset.currentVersionId], allowedMediaRoles: [role] }, role, selected.value, protectedReferenceKeys.value)
+  } catch (cause) { error.value = cause instanceof Error ? cause.message : '添加引用失败' }
+}
 defineExpose({
+  useAsset,
   canSwitchProject: computed(() => !dirty.value && !draftLocked.value && !opening.value && !generation.locked.value && !elementUse.pending.value),
   useElements: elementUse.useElements,
   using: elementUse.pending,
@@ -140,7 +161,14 @@ const rules = { prompt: [{ max: 50000, message: '提示词不能超过50000字�
       :prompt-readonly="richPrompt" :loading="loading" :saving="saving" :checking="generation.generating.value || generation.submitting.value"
       :estimate="generation.visibleEstimate.value ? `${generation.visibleEstimate.value.amount} ${generation.visibleEstimate.value.currency}` : undefined"
       @kind="changeKind" @model="choose" @parameter="setParameter" @reference="(source, anchor) => referencePicker?.show(source, anchor)"
-      @generate="checkGeneration" />
+      @generate="checkGeneration">
+      <template v-if="imageReferences.length" #images>
+        <SelectedReference v-for="item in imageReferences" :key="`${item.referenceKey}:${item.assetVersionId}:${item.mediaRole}`" :item="item" :disabled="draftLocked || opening || generation.locked.value" :protected="protectedReferenceKeys.includes(item.referenceKey)" @remove="removeSelected(item)" />
+      </template>
+      <template v-if="videoReference" #video="{ label }">
+        <SelectedReference :item="videoReference" video :label="label" :disabled="draftLocked || opening || generation.locked.value" :protected="protectedReferenceKeys.includes(videoReference.referenceKey)" @remove="removeSelected(videoReference)" @edit="anchor => referencePicker?.show('asset', anchor)" />
+      </template>
+    </CreationComposer>
     <div class="composer-notices">
     <p class="compact-notice" role="status">
       {{ saving ? '正在自动保存…' : autoSaveError ? '自动保存失败，内容仍保留' : dirty ? '等待自动保存…' : draft ? '已自动保存' : '编辑后自动保存草稿' }}
@@ -357,7 +385,7 @@ const rules = { prompt: [{ max: 50000, message: '提示词不能超过50000字�
           />
         </el-form-item>
       </div>
-      <DraftReferences ref="referencePicker" @uploaded="emit('assetsChanged')"
+      <DraftReferences ref="referencePicker" @uploaded="emit('assetsChanged')" @picker-open="pickerOpen = $event"
         :folder-id="body.folderId ?? null"
         v-model="references"
         :project-id="projectId"

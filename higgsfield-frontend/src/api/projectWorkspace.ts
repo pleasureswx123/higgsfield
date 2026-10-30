@@ -38,6 +38,7 @@ export interface ProjectRole {
   name: string
   permissions: string[]
   canGrant: boolean
+  isCurrentRole?: boolean
 }
 export interface Candidate {
   userId: string
@@ -65,7 +66,7 @@ export const readMembers = (id: string, pageNum: number, status: string, signal?
     signal,
   })
 export const readRoles = (id: string, signal?: AbortSignal) =>
-  request<Result<{ items: ProjectRole[] }>>({ url: `${root(id)}/roles`, signal })
+  request<Result<{ items: ProjectRole[]; ownershipRevision: string }>>({ url: `${root(id)}/roles`, signal })
 export const findCandidate = (id: string, account: string) =>
   request<Result<{ items: Candidate[] }>>({
     url: `${root(id)}/member-candidates`,
@@ -92,3 +93,6 @@ export const removeMember = (id: string, member: Member, key: string) =>
     params: { revision: member.revision },
     headers: { 'Idempotency-Key': key },
   })
+
+export const transferOwnership = (id: string, data: { userId: string; revision: string; targetRevision: string }, key: string) =>
+  request<Result<{ projectId: string; ownerUserId: string }>>({ url: `${root(id)}/ownership`, method: 'PUT', data, headers: { 'Idempotency-Key': key } })

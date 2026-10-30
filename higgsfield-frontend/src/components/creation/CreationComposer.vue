@@ -169,6 +169,8 @@ watch(() => [props.kind, props.selected?.versionId, props.disabled], () => { men
       <button type="button" :aria-pressed="kind === 'video'" :class="{ selected: kind === 'video' }" :disabled="disabled" @click="emit('kind', 'video')"><IconVideo :size="17" /><span>视频</span></button>
     </div>
     <div class="composer-main-panel">
+      <div v-if="$slots.images" class="composer-selected-images"><slot name="images" /></div>
+      <div class="composer-entry-surface">
       <div class="composer-input-tools">
         <textarea ref="promptInput" v-model="prompt" rows="1" aria-label="创作描述" :placeholder="kind === 'video' ? '描述你想创作的视频…' : '描述你想创作的画面…'" :disabled="disabled || promptReadonly" maxlength="20000"></textarea>
         <div class="composer-toolbar">
@@ -230,10 +232,11 @@ watch(() => [props.kind, props.selected?.versionId, props.disabled], () => { men
         </div>
         </div>
       </div>
-      <button v-if="kind === 'video'" type="button" class="composer-video-reference" :disabled="disabled" aria-label="添加参考视频" @click="reference('asset', $event)"><IconPlus :size="18" /><span>{{ referenceVideoLabel }}</span></button>
+      <slot name="video" :label="referenceVideoLabel"><button v-if="kind === 'video'" type="button" class="composer-video-reference" :disabled="disabled" aria-label="添加参考视频" @click="reference('asset', $event)"><IconPlus :size="18" /><span>{{ referenceVideoLabel }}</span></button></slot>
       <button type="button" class="composer-generate" :aria-busy="checking" :disabled="disabled || checking || (!projectRequired && !selected)" @click="projectRequired ? emit('project') : emit('generate')">
         <strong>{{ projectRequired ? '选择项目' : '生成' }}<span v-if="checking" class="generate-spinner" aria-hidden="true"></span></strong>
       </button>
+      </div>
     </div>
     <ElDialog :model-value="audioConfirm !== null" title="关闭声音？" width="min(420px, 92vw)" append-to-body align-center :show-close="false" class="composer-audio-dialog" @close="audioConfirm = null">
       <p>本次生成的视频将不包含生成音频。</p>
@@ -247,7 +250,10 @@ watch(() => [props.kind, props.selected?.versionId, props.disabled], () => { men
 .composer-mode-rail { display:flex; flex-direction:column; flex:0 0 70px; align-self:flex-end; height:120px; padding:4px; border-radius:25px; background:var(--surface); box-shadow:0 3px 6px #0002; }
 .composer-mode-rail button { display:grid; justify-items:center; align-content:center; flex:1; gap:5px; min-height:49px; border:0; border-radius:21px; background:transparent; color:var(--muted-foreground); font-size:11px; cursor:pointer; }
 .composer-mode-rail button.selected { background:var(--surface-raised); color:var(--foreground); font-weight:650; }
-.composer-main-panel { display:flex; align-items:flex-end; flex:1; min-width:0; padding:12px; gap:12px; background:var(--surface-raised); border:3px solid var(--surface); border-radius:25px; box-shadow:inset 0 1px 0 var(--border), 0 4px 10px #0002; }
+.composer-main-panel { display:flex; flex-direction:column; flex:1; min-width:0; padding:4px; gap:0; background:var(--surface); border:0; border-radius:25px; box-shadow:0 4px 10px #0002; }
+.composer-entry-surface { display:flex; align-items:flex-end; width:100%; gap:8px; padding:16px 12px 12px; border-radius:21px; background:var(--surface-raised); }
+.composer-selected-images { display:flex; align-items:center; flex:none; gap:8px; width:100%; min-height:68px; overflow-x:auto; overflow-y:hidden; padding:8px; scrollbar-width:none; }
+.composer-selected-images::-webkit-scrollbar { display:none; }
 .composer-input-tools { flex:1; min-width:0; display:flex; flex-direction:column; }
 .composer-input-tools textarea { width:100%; flex:none; min-height:49px; max-height:min(320px, 45dvh); overflow-y:auto; scrollbar-width:thin; scrollbar-color:var(--muted-foreground) transparent; resize:none; border:0; outline:none; background:transparent; color:var(--foreground); font:inherit; font-size:14px; line-height:1.5; }
 .composer-toolbar { display:flex; align-items:center; gap:4px; min-width:0; padding-top:8px; }
@@ -312,6 +318,20 @@ button:focus-visible { outline:2px solid var(--focus); outline-offset:2px; }
 .model-menu-option small { color:var(--muted-foreground); margin-top:4px; }
 .composer-batch { flex-shrink:0; height:34px; display:flex; align-items:center; background:var(--surface-hover); border-radius:8px; font-size:12px; }
 .composer-batch button { border:0; padding:6px 9px; color:var(--foreground); background:transparent; cursor:pointer; }
+</style>
+
+<style scoped>
+/* 引用区与输入区分别成层，尺寸与参考图保持一致。 */
+.composer-mode-rail { height:116px; }
+.composer-tool,.composer-reference-tools,.composer-batch { min-height:28px; height:28px; border-radius:6px; }
+.composer-toolbar { padding-top:4px; }
+.composer-input-tools textarea { min-height:48px; padding:0 4px; }
+.composer-generate { flex-basis:120px; height:80px; min-height:80px; border-radius:12px; }
+.composer-video-reference { flex-basis:80px; height:80px; }
+@media(max-width:650px) { .composer-entry-surface { gap:6px; padding:12px 8px 8px; } .composer-generate { flex-basis:80px; } }
+:global(.dark .composer-main-panel),:global(.dark .composer-mode-rail) { background:#1d1f20; }
+:global(.dark .composer-entry-surface) { background:#262829; }
+:global(.dark .composer-tool),:global(.dark .composer-reference-tools),:global(.dark .composer-batch) { background:#303233; }
 </style>
 
 <style>

@@ -73,7 +73,7 @@ async def project_detail(
 
 
 @project_controller.post('/{project_id}/archive', response_model=DataResponseModel[ProjectModel],
-    summary='归档项目', dependencies=[UserInterfaceAuthDependency('project:archive')])
+    summary='归档项目')
 @Log(title='制作平台归档项目', business_type=BusinessType.UPDATE)
 async def archive_project(
     request: Request,
@@ -88,7 +88,7 @@ async def archive_project(
 
 
 @project_controller.post('/{project_id}/restore', response_model=DataResponseModel[ProjectModel],
-    summary='恢复归档项目', dependencies=[UserInterfaceAuthDependency('project:archive')])
+    summary='恢复归档项目')
 @Log(title='制作平台恢复项目', business_type=BusinessType.UPDATE)
 async def restore_project(
     request: Request,
@@ -102,7 +102,7 @@ async def restore_project(
     return JSONResponse(content=result, headers={'Idempotent-Replayed': 'true'} if replayed else None)
 
 @project_controller.patch('/{project_id}', response_model=DataResponseModel[ProjectModel],
-    summary='编辑项目基本信息', dependencies=[UserInterfaceAuthDependency('project:manage')])
+    summary='编辑项目基本信息')
 @Log(title='制作平台编辑项目', business_type=BusinessType.UPDATE)
 async def update_project(
     request: Request,
@@ -116,7 +116,7 @@ async def update_project(
     return JSONResponse(content=result, headers={'Idempotent-Replayed': 'true'} if replayed else None)
 
 @project_controller.post('/{project_id}/pause', response_model=DataResponseModel[ProjectModel],
-    summary='暂停项目', dependencies=[UserInterfaceAuthDependency('project:manage')])
+    summary='暂停项目')
 @Log(title='制作平台暂停项目', business_type=BusinessType.UPDATE)
 async def pause_project(
     request: Request,
@@ -131,7 +131,7 @@ async def pause_project(
 
 
 @project_controller.post('/{project_id}/resume', response_model=DataResponseModel[ProjectModel],
-    summary='恢复项目运行', dependencies=[UserInterfaceAuthDependency('project:manage')])
+    summary='恢复项目运行')
 @Log(title='制作平台恢复项目运行', business_type=BusinessType.UPDATE)
 async def resume_project(
     request: Request,

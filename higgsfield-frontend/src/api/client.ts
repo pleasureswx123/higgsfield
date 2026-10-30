@@ -16,7 +16,7 @@ interface Envelope {
   success?: boolean
   data?: unknown
 }
-// 凭据由 Store 注入，仅驻留内存，不读取管理端 Cookie。
+// 凭据由制作端 Store 注入，标签页会话独立恢复，不读取管理端 Cookie。
 let readToken: () => string = () => ''
 let onExpired: () => void = () => {}
 export function configureAuth(token: () => string, expired: () => void) {

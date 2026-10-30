@@ -1,3 +1,5 @@
+from module_higgsfield.entity.do.project_permission_do import HfProjectPermissionConfig
+from module_higgsfield.entity.do.project_do import HfProjectRole
 from sqlalchemy import func, select, or_
 from module_higgsfield.dao.project_dao import ProjectDao
 from module_higgsfield.entity.do.folder_do import HfRecycleEntry
@@ -62,8 +64,12 @@ class ElementDao:
         ).all()
 
     @staticmethod
-    async def list_elements(db, user_id, query, status_code):
+    async def list_elements(db, user_id, query, status_code, owner_only=False):
         visible = ProjectDao.visible_query(user_id).with_only_columns(HfProjectMember.project_id).subquery()
+        effective_scope = func.coalesce(
+            HfProjectPermissionConfig.overrides[HfProjectRole.code]['element:read'].astext,
+            HfProjectRolePermission.data_scope,
+        )
         statement = (
             select(HfElement, HfAssetSpace.project_id, HfProject.project_name,
                    HfElementRevision.description, HfElementRevisionLabel.label, HfElementRevision.revision_no)
@@ -72,17 +78,20 @@ class ElementDao:
             .join(HfElementRevision, HfElementRevision.revision_id == HfElement.current_revision_id)
             .outerjoin(HfElementRevisionLabel, HfElementRevisionLabel.element_revision_id == HfElementRevision.revision_id)
             .join(HfProjectMember, HfProjectMember.project_id == HfAssetSpace.project_id)
-            .join(HfProjectRolePermission, HfProjectRolePermission.role_id == HfProjectMember.role_id)
+            .join(HfProjectRole, HfProjectRole.role_id == HfProjectMember.role_id)
+            .outerjoin(HfProjectRolePermission, (HfProjectRolePermission.role_id == HfProjectMember.role_id) & (HfProjectRolePermission.permission_code == 'element:read'))
+            .outerjoin(HfProjectPermissionConfig, HfProjectPermissionConfig.project_id == HfAssetSpace.project_id)
             .where(
                 HfElement.del_flag == '0',
                 HfAssetSpace.kind == 'project',
                 HfAssetSpace.project_id.in_(select(visible.c.project_id)),
                 HfProjectMember.user_id == user_id,
                 HfProjectMember.status == '0',
-                HfProjectRolePermission.permission_code == 'element:read',
-                or_(HfProjectRolePermission.data_scope == 'project', HfElement.create_user_id == user_id),
+                or_(effective_scope == 'project', (effective_scope == 'own') & (HfElement.create_user_id == user_id)),
             )
         )
+        if owner_only:
+            statement = statement.where(HfProjectRole.code == 'owner')
         if query.project_id:
             statement = statement.where(HfAssetSpace.project_id == int(query.project_id))
         if query.scope == 'mine':

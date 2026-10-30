@@ -187,6 +187,7 @@ export function useProjectWorkspace(id: string) {
 }
 
 export function useProjectMembers(id: string) {
+  const ownershipRevision = ref('')
   const members = ref<Member[]>([]),
     roles = ref<ProjectRole[]>([]),
     total = ref(0),
@@ -238,6 +239,7 @@ export function useProjectMembers(id: string) {
       }
       members.value = list.rows
       roles.value = roleList.data.items
+      ownershipRevision.value = roleList.data.ownershipRevision
       total.value = list.total
     } catch (cause) {
       if (alive && ticket === sequence) {
@@ -274,5 +276,5 @@ export function useProjectMembers(id: string) {
     alive = false
     clear()
   })
-  return { members, roles, total, page, status, loading, error, load, changeStatus, changePage }
+  return { ownershipRevision, members, roles, total, page, status, loading, error, load, changeStatus, changePage }
 }

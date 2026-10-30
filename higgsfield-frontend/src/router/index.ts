@@ -9,11 +9,7 @@ export const router = createRouter({
       component: () => import('@/components/layout/StudioLayout.vue'),
       meta: { requiresAuth: true },
       children: [
-        {
-          path: 'usage',
-          component: () => import('@/views/UsageView.vue'),
-          meta: { title: '我的用量' },
-        },
+        { path: 'usage', redirect: '/home' },
         { path: '', redirect: '/home' },
         { path: 'home', component: () => import('@/views/HomeView.vue'), meta: { title: '首页' } },
         {
@@ -48,8 +44,9 @@ export const router = createRouter({
     { path: '/:pathMatch(.*)*', redirect: '/home' },
   ],
 })
-router.beforeEach((to) => {
+router.beforeEach(async (to) => {
   const auth = useAuthStore()
+  await auth.restoreSession()
   if (to.meta.requiresAuth && !auth.isAuthenticated)
     return { path: '/login', query: { redirect: to.fullPath } }
   if (to.path === '/login' && auth.isAuthenticated) return '/home'

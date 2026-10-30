@@ -48,3 +48,18 @@ test('确认期间编辑或切换身份使升级失效，停用隔离晚响应',
  assert.equal(h.refs.value[0].elementRevisionId,'20');h.hooks.stop();await ready(h,1)
  assert.equal(Object.keys(h.state.updates.value).length,0);assert.equal(h.calls[1].args[2].aborted,true);h.close()
 })
+
+test('图片追加多选，视频替换为单选且保留图片',()=>{
+ const image={...candidate,kind:'asset',elementRevisionId:null,assetVersionIds:['30'],allowedMediaRoles:['reference_image']}
+ const video={...image,assetVersionIds:['40'],allowedMediaRoles:['reference_video']}
+ let refs=utils.selectCandidate([],image,'reference_image')
+ refs=utils.selectCandidate(refs,{...image,assetVersionIds:['31']},'reference_image')
+ refs=utils.selectCandidate(refs,video,'reference_video')
+ const before=JSON.stringify(refs),key=refs[2].referenceKey
+ assert.throws(()=>utils.selectCandidate(refs,{...video,assetVersionIds:['41']},'reference_video',null,[key]),/提示词/)
+ const next=utils.selectCandidate(refs,{...video,assetVersionIds:['41']},'reference_video')
+ assert.deepEqual(Array.from(next,x=>x.assetVersionId),['30','31','41'])
+ assert.deepEqual(Array.from(next,x=>x.ordinal),[0,1,2])
+ assert.notEqual(next[2].referenceKey,key)
+ assert.equal(JSON.stringify(refs),before)
+})

@@ -13,6 +13,8 @@ const {
   ready,
   pending,
   error,
+  restoreError,
+  retrySession,
   refreshCaptcha,
   submit,
 } = useLogin()
@@ -38,6 +40,8 @@ const {
         <span class="eyebrow">欢迎回来</span>
         <h2 id="login-title">登录制作平台</h2>
         <p class="muted">使用公司分配的账号继续创作</p>
+        <ElAlert v-if="restoreError" :title="restoreError" type="warning" :closable="false" show-icon />
+        <ElButton v-if="restoreError" :loading="pending" @click="retrySession">重试恢复登录</ElButton>
         <ElAlert
           v-if="error"
           :title="error"

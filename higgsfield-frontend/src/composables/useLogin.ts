@@ -1,4 +1,4 @@
-import { ref, reactive, onMounted } from 'vue'
+import { ref, reactive, computed, onMounted } from 'vue'
 import type { FormInstance, FormRules } from 'element-plus'
 import { useRoute, useRouter } from 'vue-router'
 import { getCaptcha } from '@/api/auth'
@@ -64,6 +64,18 @@ export function useLogin() {
       pending.value = false
     }
   }
+  const restoreError = computed(() => auth.restoreError)
+  async function retrySession() {
+    if (pending.value) return
+    pending.value = true
+    try {
+      await auth.restoreSession()
+      if (auth.isAuthenticated) {
+        const redirect = typeof route.query.redirect === 'string' ? route.query.redirect : '/home'
+        await router.replace(redirect.startsWith('/') && !redirect.startsWith('//') && !redirect.startsWith('/login') ? redirect : '/home')
+      }
+    } finally { pending.value = false }
+  }
   onMounted(refreshCaptcha)
   return {
     form,
@@ -76,6 +88,8 @@ export function useLogin() {
     pending,
     error,
     refreshCaptcha,
+    restoreError,
+    retrySession,
     submit,
   }
 }

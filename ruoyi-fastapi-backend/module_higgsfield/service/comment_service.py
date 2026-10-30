@@ -8,7 +8,7 @@ from module_higgsfield.dao.comment_dao import CommentDao as Dao
 from module_higgsfield.dao.asset_dao import AssetDao
 from module_higgsfield.dao.generation_read_dao import GenerationReadDao
 from module_higgsfield.dao.project_workspace_dao import WorkspaceDao
-from module_higgsfield.entity.do.comment_do import HfCommentThread, HfComment, HfAnnotation
+from module_higgsfield.entity.do.comment_do import HfCommentThread, HfComment, HfAnnotation, HfCommentReaction
 from module_higgsfield.entity.do.audit_do import HfAuditLog
 from module_higgsfield.service.output_read_service import OutputReadService
 from module_higgsfield.service.project_workspace_service import WorkspaceService
@@ -38,9 +38,9 @@ class CommentService:
         return project_id, kind, file
 
     @classmethod
-    async def thread_authorized(cls, db, user, identity, permission, write=False):
+    async def thread_authorized(cls, db, user, identity, permission, write=False, include_deleted=False):
         thread = await Dao.thread(db, identity, lock=write)
-        if thread is None:
+        if thread is None or (thread.del_flag != '0' and not include_deleted):
             cls.fail('RESOURCE_NOT_FOUND', '评论主题不存在或无权访问')
         context = await cls.authorize_target(db, user, thread, permission, write)
         return thread, context
@@ -49,7 +49,7 @@ class CommentService:
     def thread_result(row):
         target = ({'assetVersionId': str(row.asset_version_id)} if row.asset_version_id
                   else {'outputId': str(row.output_id)})
-        return {'id': str(row.thread_id), 'target': target, 'resolvedAt': row.resolved_time, 'createTime': row.create_time}
+        return {'id': str(row.thread_id), 'target': target, 'resolvedAt': row.resolved_time, 'revision': str(row.revision), 'createTime': row.create_time}
 
     @staticmethod
     async def audit(db, user, project_id, kind, identity, action, key, evidence):
@@ -111,6 +111,7 @@ class CommentService:
             annotations=[{'shape': item.shape, 'geometry': item.geometry, 'color': item.color,
                 'sourceWidth': item.source_width, 'sourceHeight': item.source_height}
                 for item in await Dao.annotations(db, row.comment_id)])
+        result['reactions'] = [{'emoji': item.emoji, 'userId': str(item.user_id)} for item in await Dao.reactions(db, row.comment_id)]
         return result
 
     @classmethod
@@ -217,6 +218,55 @@ class CommentService:
             await cls.audit(db, user, project_id, 'comment', identity, 'delete' if delete else 'edit', key,
                 {'before': before, 'after': after, 'moderated': row.author_id != user.user.user_id})
             return await WriteService.finish(db, user, path, key, data, after, 'comment', identity, method=method)
+        except Exception:
+            await db.rollback()
+            raise
+
+    @classmethod
+    async def collaborate(cls, db, user, identity, payload, key, reaction=False):
+        path = f'/comments/{identity}/reaction' if reaction else f'/comment-threads/{identity}'
+        data = payload.model_dump(mode='json', by_alias=True)
+        try:
+            await WriteService.lock(db, user, path, key)
+            initial = await Dao.comment(db, identity) if reaction else None
+            if reaction and (initial is None or initial.del_flag != '0'):
+                cls.fail('COMMENT_REMOVED', '评论不存在或已删除')
+            thread, (project_id, _, _) = await cls.thread_authorized(db, user, initial.thread_id if reaction else identity, 'comment:create' if reaction else 'comment:read', write=True, include_deleted=not reaction and payload.action == 'delete')
+            if not reaction:
+                permission = 'comment:edit:own' if thread.create_user_id == user.user.user_id else 'comment:moderate'
+                try:
+                    await WorkspaceService.authorize(db, user, project_id, permission, owner_id=thread.create_user_id)
+                except PermissionException:
+                    await WorkspaceService.authorize(db, user, project_id, 'comment:moderate')
+            replay = await WriteService.replay(db, user, path, key, data, 'PATCH')
+            if replay:
+                await db.commit()
+                return replay, True
+            if thread.del_flag != '0':
+                cls.fail('COMMENT_REMOVED', '讨论已删除')
+            if reaction:
+                comment = await Dao.comment(db, identity, lock=True)
+                if comment.del_flag != '0':
+                    cls.fail('COMMENT_REMOVED', '评论已删除')
+                item = await Dao.reaction(db, identity, user.user.user_id, payload.emoji)
+                if item is None:
+                    item = await AssetDao.add(db, HfCommentReaction, comment_id=identity, user_id=user.user.user_id, emoji=payload.emoji, **WriteService.audit(user))
+                item.del_flag = '0' if payload.active else '2'
+                item.update_by, item.update_time = user.user.user_name, TimezoneUtil.utc_now()
+                await AssetDao.flush(db)
+                result = await cls.comment_result(db, comment)
+            else:
+                WorkspaceService.check_revision(thread, payload.revision)
+                if payload.action == 'delete':
+                    thread.del_flag = '2'
+                else:
+                    thread.resolved_time = TimezoneUtil.utc_now() if payload.action == 'resolve' else None
+                thread.revision += 1
+                thread.update_by, thread.update_time = user.user.user_name, TimezoneUtil.utc_now()
+                await AssetDao.flush(db)
+                result = cls.thread_result(thread)
+            await cls.audit(db, user, project_id, 'comment' if reaction else 'comment_thread', identity, 'reaction' if reaction else payload.action, key, data)
+            return await WriteService.finish(db, user, path, key, data, result, 'comment' if reaction else 'comment_thread', identity, method='PATCH')
         except Exception:
             await db.rollback()
             raise

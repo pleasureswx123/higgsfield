@@ -12,6 +12,9 @@ from common.router import APIRouterPro
 from module_admin.entity.vo.user_vo import CurrentUserModel
 from module_higgsfield.entity.vo.project_workspace_vo import BriefUpdate, MemberAdd, MemberQuery, MemberUpdate
 from module_higgsfield.service.project_workspace_service import WorkspaceService
+from module_higgsfield.service.project_permission_service import ProjectPermissionService
+from module_higgsfield.entity.vo.project_workspace_vo import ProjectPermissionUpdate, OwnershipTransfer
+from module_higgsfield.service.project_ownership_service import ProjectOwnershipService
 from utils.response_util import ResponseUtil
 
 project_workspace_controller = APIRouterPro(
@@ -103,3 +106,20 @@ async def remove_member(
     return mutation_response(
         await WorkspaceService.mutate(db, user, project_id, 'remove', {'revision': revision}, key, user_id)
     )
+
+
+@project_workspace_controller.get('/{project_id}/role-permissions', summary='读取项目角色权限矩阵')
+async def role_permissions(request: Request, project_id: ProjectId, db: Db, user: User):
+    return ResponseUtil.success(data=await ProjectPermissionService.read(db, user, project_id))
+
+
+@project_workspace_controller.put('/{project_id}/role-permissions', summary='保存当前项目角色权限')
+@Log(title='配置项目角色权限', business_type=BusinessType.UPDATE)
+async def save_role_permissions(request: Request, project_id: ProjectId, payload: ProjectPermissionUpdate, key: Key, db: Db, user: User):
+    return mutation_response(await ProjectPermissionService.save(db, user, project_id, payload, key))
+
+
+@project_workspace_controller.put('/{project_id}/ownership', summary='转让项目所有权')
+@Log(title='转让项目所有权', business_type=BusinessType.UPDATE)
+async def transfer_ownership(request: Request, project_id: ProjectId, payload: OwnershipTransfer, key: Key, db: Db, user: User):
+    return mutation_response(await ProjectOwnershipService.transfer(db, user, project_id, payload, key))

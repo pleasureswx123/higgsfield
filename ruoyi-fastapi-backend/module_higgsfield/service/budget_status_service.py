@@ -15,8 +15,8 @@ class BudgetStatusService:
         )
         rows = await BudgetStatusDao.current(db, project_id, user.user.user_id)
         codes, periods, seen = set(), [], set()
-        visible = 'project:usage:read' in allowed
-        scopes = await WorkspaceDao.permission_scopes(db, role)
+        visible = False  # 制作端仅返回阻断状态，不返回预算金额。
+        scopes = await WorkspaceDao.permission_scopes(db, role, project_id)
         if project.status != '0':
             codes.add('PROJECT_READ_ONLY')
         if 'generation:create' not in allowed:

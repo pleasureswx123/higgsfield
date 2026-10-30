@@ -49,7 +49,7 @@ class GenerationValidationService:
                 estimate=prepared['estimate'],
                 now=prepared['acceptedAt'],
             )
-            visible = 'project:usage:read' in allowed
+            visible = False  # 估价仍参与预占校验，但金额只在后台展示。
             result = {
                 'valid': True,
                 'issues': [],

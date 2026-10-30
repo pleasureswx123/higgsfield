@@ -133,7 +133,9 @@ export function useMediaComments(target: () => CommentTarget, mediaKind: () => s
       if (!current.signal.aborted) loading.value = false
     }
   }
+  let sidebarDraftThread = false
   function resetEditor() {
+    sidebarDraftThread = false
     annotations.value = []
     annotationsChanged.value = false
     videoTime.value = ''
@@ -290,6 +292,20 @@ export function useMediaComments(target: () => CommentTarget, mediaKind: () => s
     } finally {
       if (stamp === epoch) saving.value = false
     }
+  }
+  /** 侧栏首次发送时创建讨论，保留输入并沿用幂等重试流程。 */
+  async function sendFromSidebar(newDiscussion = false) {
+    if (locked.value || !canCreate.value || !body.value.trim()) return
+    if (!threadId.value || (newDiscussion && !sidebarDraftThread && !editing.value && !parent.value)) {
+      const stamp = epoch, text = body.value, time = videoTime.value, marks = [...annotations.value]
+      await mutate('thread')
+      if (stamp !== epoch || !threadId.value || uncertain.value || error.value) return
+      sidebarDraftThread = true
+      body.value = text
+      videoTime.value = time
+      updateAnnotations(marks)
+    }
+    await mutate('save')
   }
   function clear() {
     epoch++
@@ -457,6 +473,7 @@ export function useMediaComments(target: () => CommentTarget, mediaKind: () => s
   onBeforeRouteLeave(confirmLeave)
   onBeforeRouteUpdate((to, from) => to.fullPath === from.fullPath || confirmLeave())
   return {
+    sendFromSidebar,
     canRead,
     canCreate,
     retryBlocked,

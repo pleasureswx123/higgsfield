@@ -4,6 +4,9 @@ export interface ReferenceCandidate {
   id: string
   projectId: string
   displayName: string
+  alias?: string | null
+  category?: string | null
+  byteSize?: string | null
   allowedMediaRoles: string[]
   assetVersionIds: string[]
   elementRevisionId?: string
@@ -24,6 +27,14 @@ export const searchReferences = (
     q: string
     kind?: 'asset' | 'element'
     elementId?: string
+    mediaType?: 'image' | 'video'
+    category?: 'character' | 'scene' | 'prop' | 'other'
+    source?: 'uploaded' | 'generated'
+    recent?: boolean
+    includeEmptyElements?: boolean
+    elementScope?: 'project' | 'mine' | 'folder'
+    folderId?: string
+    sort?: 'newest' | 'oldest' | 'name'
     pageNum: number
     pageSize: number
   },

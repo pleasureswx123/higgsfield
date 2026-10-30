@@ -97,3 +97,19 @@ class CommentPatch(CommentBody):
 
 class CommentDelete(WorkspaceInput):
     revision: BigId
+
+
+class ThreadPatch(WorkspaceInput):
+    revision: BigId
+    action: Literal['resolve', 'reopen', 'delete']
+
+class ReactionPatch(WorkspaceInput):
+    emoji: str = Field(min_length=1, max_length=32)
+    active: bool
+
+    @field_validator('emoji')
+    @classmethod
+    def supported_emoji(cls, value):
+        if value not in '😀 😃 😄 😁 😆 😅 😂 🤣 😊 🙂 🙃 😉 😍 🥰 😘 😋 😎 🤔 😮 😢 😭 😡 👍 👎 ❤️ 🎉 ✅ 👀 🙏 🔥 💯 🚀'.split():
+            raise ValueError('不支持的回应表情')
+        return value

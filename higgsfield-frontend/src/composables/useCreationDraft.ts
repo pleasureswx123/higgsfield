@@ -17,7 +17,7 @@ import {
   type DraftSummary,
 } from '@/api/creation'
 
-export function useCreationDraft(projectId: string, defaultFolder: () => string | null = () => null, initial?: { prompt?: string; kind?: 'image' | 'video'; autoSave?: boolean }) {
+export function useCreationDraft(projectId: string, defaultFolder: () => string | null = () => null, initial?: { prompt?: string; kind?: 'image' | 'video'; autoSave?: boolean; pauseAutoSave?: () => boolean }) {
   const folderId = ref<string | null>(defaultFolder())
   const modelParameters = new Map<string, Record<string, Scalar>>()
   const auth = useAuthStore()
@@ -331,7 +331,7 @@ export function useCreationDraft(projectId: string, defaultFolder: () => string 
   function stopAutoSave() { clearTimeout(autoTimer); autoTimer = undefined }
   function scheduleAutoSave() {
     stopAutoSave()
-    if (!initial?.autoSave || !readable() || !dirty.value || locked.value || opening.value || autoSaveError.value) return
+    if (!initial?.autoSave || initial.pauseAutoSave?.() || !readable() || !dirty.value || locked.value || opening.value || autoSaveError.value) return
     autoTimer = setTimeout(() => { void save(true) }, 900)
   }
   async function save(automatic: boolean | Event = false) {
@@ -515,7 +515,7 @@ export function useCreationDraft(projectId: string, defaultFolder: () => string 
   watch(prompt, () => {
     notice.value = ''
   })
-  watch([signature, () => JSON.stringify(modeStates.value), opening], scheduleAutoSave)
+  watch([signature, () => JSON.stringify(modeStates.value), opening, () => initial?.pauseAutoSave?.()], scheduleAutoSave)
   load()
   loadDrafts()
   scheduleAutoSave()

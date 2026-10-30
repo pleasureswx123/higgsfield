@@ -14,8 +14,8 @@ class ReferenceService:
         project, role, _ = await WorkspaceService.authorize(db, user, project_id, 'generation:create')
         if project.status != '0':
             WorkspaceService.conflict('PROJECT_READ_ONLY', '当前项目不能创建生成引用')
-        scopes = await WorkspaceDao.permission_scopes(db, role)
-        if '*:*:*' not in user.permissions:
+        scopes = await WorkspaceDao.permission_scopes(db, role, project_id)
+        if role != 'owner' and '*:*:*' not in user.permissions:
             scopes = {code: scope for code, scope in scopes.items() if code in user.permissions}
         space = await FolderDao.space(db, project_id)
         rows, total = await ReferenceDao.search(db, space.space_id, user.user.user_id, scopes, query)
@@ -29,6 +29,9 @@ class ReferenceService:
                 'kind': row['kind'],
                 'id': str(row['id']),
                 'displayName': row['name'],
+                'alias': row.get('alias'),
+                'category': row.get('category'),
+                'byteSize': str(row['byte_size']) if row.get('byte_size') is not None else None,
                 'projectId': str(project_id),
                 'allowedMediaRoles': {
                     'image': ['reference_image', 'first_frame'],
@@ -38,7 +41,9 @@ class ReferenceService:
             if row['kind'] == 'asset':
                 item['assetVersionIds'] = [str(row['version_id'])]
             else:
-                selected = grouped[row['version_id']]
+                selected = grouped.get(row['version_id'], [])
+                if not selected:
+                    item['allowedMediaRoles'] = []
                 item['elementRevisionId'] = str(row['version_id'])
                 item['assetVersionIds'] = [str(value.asset_version_id) for value in selected]
                 item['primaryAssetVersionId'] = next(

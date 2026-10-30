@@ -138,3 +138,31 @@ class CommentEditTests(unittest.IsolatedAsyncioTestCase):
             self.assertEqual(row['body'], '框选和路径')
             self.assertEqual(len(row['annotations']), 2)
             self.assertEqual(await db.scalar(text('SELECT count(*) FROM hf_annotation')), 2)
+
+    async def test_reactions_resolve_reopen_and_delete_replay(self):
+        from module_higgsfield.entity.vo.comment_vo import ReactionPatch, ThreadPatch
+        async def act(identity, payload, key=None, reaction=False):
+            async with self.sessions() as db:
+                return await Service.collaborate(db, self.owner, identity, payload, key or str(uuid4()), reaction)
+        key = str(uuid4())
+        first, _ = await act(self.comment_id, ReactionPatch(emoji='😀', active=True), key, True)
+        again, replay = await act(self.comment_id, ReactionPatch(emoji='😀', active=True), key, True)
+        self.assertTrue(replay)
+        self.assertEqual(first, again)
+        self.assertEqual(len(first['data']['reactions']), 1)
+        cancelled, _ = await act(self.comment_id, ReactionPatch(emoji='😀', active=False), reaction=True)
+        self.assertEqual(cancelled['data']['reactions'], [])
+        solved, _ = await act(self.thread_id, ThreadPatch(revision='1', action='resolve'))
+        self.assertIsNotNone(solved['data']['resolvedAt'])
+        with self.assertRaises(ServiceWarning):
+            await act(self.thread_id, ThreadPatch(revision='1', action='reopen'))
+        reopened, _ = await act(self.thread_id, ThreadPatch(revision='2', action='reopen'))
+        self.assertIsNone(reopened['data']['resolvedAt'])
+        key = str(uuid4())
+        deleted, _ = await act(self.thread_id, ThreadPatch(revision='3', action='delete'), key)
+        repeated, replay = await act(self.thread_id, ThreadPatch(revision='3', action='delete'), key)
+        self.assertTrue(replay)
+        self.assertEqual(deleted, repeated)
+        async with self.sessions() as db:
+            with self.assertRaises(ServiceWarning):
+                await Service.comments(db, self.owner, self.thread_id, CommentPage())

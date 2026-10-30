@@ -35,7 +35,7 @@ class ProjectJoinService:
             if row is None:
                 WorkspaceService.conflict('RESOURCE_NOT_FOUND', '申请不存在或无权访问')
             project, actor_role, _ = await WorkspaceService.authorize(db, user, row.project_id, 'member:manage', write=True)
-            if actor_role != 'owner':
+            if actor_role not in ('owner', 'admin'):
                 raise PermissionException(message='仅项目负责人可以审批加入申请')
             row = await ProjectJoinDao.get(db, identity, lock=True)
             replay = await WriteService.replay(db, user, path, key, data, api_prefix=prefix)

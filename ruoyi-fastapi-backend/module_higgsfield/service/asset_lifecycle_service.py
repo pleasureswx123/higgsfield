@@ -21,9 +21,9 @@ class AssetLifecycleService:
     @classmethod
     async def trash(cls, db, user, project_id, page_num, page_size):
         project, role, _ = await WorkspaceService.authorize(db, user, project_id, 'project:read')
-        scopes = await WorkspaceDao.permission_scopes(db, role)
+        scopes = await WorkspaceDao.permission_scopes(db, role, project_id)
         scope = scopes.get('asset:remove')
-        if scope is None or ('*:*:*' not in user.permissions and 'asset:remove' not in user.permissions):
+        if scope is None or (role != 'owner' and '*:*:*' not in user.permissions and 'asset:remove' not in user.permissions):
             raise PermissionException(message='没有查看素材回收站的权限')
         rows, total = await AssetDao.trash(
             db, project_id, user.user.user_id if scope == 'own' else None, page_num, page_size

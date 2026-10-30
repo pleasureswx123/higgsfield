@@ -53,6 +53,11 @@ class ProjectDatabaseTests(unittest.IsolatedAsyncioTestCase):
                 order_num int, path text, menu_type text, visible text, status text,
                 perms text, create_by text, create_time timestamptz)""")
             )
+            await conn.execute(text("CREATE TABLE sys_role (role_id bigint PRIMARY KEY,role_key text,status char(1),del_flag char(1))"))
+            await conn.execute(text("CREATE TABLE sys_user_role(user_id bigint,role_id bigint)"))
+            await conn.execute(text("CREATE TABLE sys_role_menu(role_id bigint,menu_id bigint)"))
+            await conn.execute(text("INSERT INTO sys_role VALUES(5,'hf_studio_user','0','0')"))
+            await conn.execute(text("INSERT INTO sys_user_role VALUES(1,5),(2,5)"))
             migration = Path(__file__).resolve().parents[1] / 'alembic/versions/20261027_01_projects.py'
             spec = importlib.util.spec_from_file_location('project_migration_test', migration)
             module = importlib.util.module_from_spec(spec)
@@ -73,6 +78,35 @@ class ProjectDatabaseTests(unittest.IsolatedAsyncioTestCase):
                     workspace.upgrade()
 
             await conn.run_sync(migrate_workspace)
+            permission_spec = importlib.util.spec_from_file_location(
+                'permission_migration_test', migration.parent / '20261029_82_project_permission_config.py'
+            )
+            permission_migration = importlib.util.module_from_spec(permission_spec)
+            permission_spec.loader.exec_module(permission_migration)
+
+            def migrate_permissions(sync_conn):
+                with Operations.context(MigrationContext.configure(sync_conn)):
+                    permission_migration.upgrade()
+
+            await conn.run_sync(migrate_permissions)
+
+            owner_spec = importlib.util.spec_from_file_location('owner_migration_test', migration.parent / '20261029_83_project_owner.py')
+            owner_migration = importlib.util.module_from_spec(owner_spec)
+            owner_spec.loader.exec_module(owner_migration)
+            def upgrade_owner(connection):
+                with Operations.context(MigrationContext.configure(connection)):
+                    owner_migration.upgrade()
+            await conn.run_sync(upgrade_owner)
+
+            defaults_spec = importlib.util.spec_from_file_location('defaults_migration_test', migration.parent / '20261030_84_role_defaults.py')
+            defaults_migration = importlib.util.module_from_spec(defaults_spec)
+            defaults_spec.loader.exec_module(defaults_migration)
+            def upgrade_defaults(connection):
+                with Operations.context(MigrationContext.configure(connection)):
+                    defaults_migration.upgrade()
+            await conn.run_sync(upgrade_defaults)
+            await conn.execute(text("INSERT INTO sys_role_menu SELECT 5,menu_id FROM sys_menu WHERE perms='project:read'"))
+
             routing_spec = importlib.util.spec_from_file_location(
                 'routing_migration_test', migration.parent / '20261027_21_routing.py'
             )
@@ -263,7 +297,9 @@ class ProjectDatabaseTests(unittest.IsolatedAsyncioTestCase):
             await self.mutate(project_id, 'remove', {'revision': '1'}, user_id=1)
         with self.assertRaises(ServiceWarning):
             await self.mutate(project_id, 'role', {'revision': '1', 'roleId': roles['viewer']}, user_id=1)
-        await self.mutate(project_id, 'add', {'userId': '2', 'roleId': roles['owner']})
+        with self.assertRaises(PermissionException):
+            await self.mutate(project_id, 'add', {'userId': '2', 'roleId': roles['owner']})
+        await self.mutate(project_id, 'add', {'userId': '2', 'roleId': roles['admin']})
         results = await asyncio.gather(
             self.mutate(project_id, 'remove', {'revision': '1'}, user_id=2),
             self.mutate(project_id, 'remove', {'revision': '1'}, user=self.other, user_id=1),
@@ -277,8 +313,7 @@ class ProjectDatabaseTests(unittest.IsolatedAsyncioTestCase):
         project_id, _ = await self.workspace_fixture()
         restricted = SimpleNamespace(permissions=['project:read'], user=self.owner.user)
         async with self.sessions() as db:
-            with self.assertRaises(PermissionException):
-                await WorkspaceService.list_members(db, restricted, project_id, MemberQuery())
+            await WorkspaceService.list_members(db, restricted, project_id, MemberQuery())
             await db.execute(text("UPDATE hf_project SET status='1'"))
             await db.commit()
         async with self.sessions() as db:

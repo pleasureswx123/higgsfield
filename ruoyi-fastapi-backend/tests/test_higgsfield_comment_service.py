@@ -35,6 +35,10 @@ class CommentServiceTests(unittest.IsolatedAsyncioTestCase):
         async with self.sessions() as db:
             for permission in ('comment:read', 'comment:create'):
                 self.assertEqual(await db.scalar(text('SELECT count(*) FROM sys_menu WHERE perms=:permission'), {'permission': permission}), 1)
+        spec = importlib.util.spec_from_file_location('comment_collaboration_migration', Path(__file__).resolve().parents[1] / 'alembic/versions/20261029_80_comment_collaboration.py')
+        self.migration = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(self.migration)
+        await self.migrate('upgrade')
         await self.ready()
         async with self.sessions() as db:
             for permission in ('comment:create', 'comment:read'):

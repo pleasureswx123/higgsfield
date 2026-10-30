@@ -71,7 +71,7 @@ class AssetService:
     @classmethod
     async def library(cls, db, user, project_id, query):
         project, role, _ = await WorkspaceService.authorize(db, user, project_id, 'asset:read')
-        scopes = await WorkspaceDao.permission_scopes(db, role)
+        scopes = await WorkspaceDao.permission_scopes(db, role, project_id)
         space = await FolderDao.space(db, project_id)
         if query.folder_id:
             await FolderService.check_target(db, space.space_id, int(query.folder_id), 'media')
@@ -85,7 +85,7 @@ class AssetService:
                 if project.status == '0'
                 and code in scopes
                 and (scopes[code] == 'project' or asset.create_user_id == user.user.user_id)
-                and ('*:*:*' in user.permissions or code in user.permissions)
+                and (role == 'owner' or '*:*:*' in user.permissions or code in user.permissions)
             )
             items.append(
                 {

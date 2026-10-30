@@ -6,6 +6,7 @@ function setup(){
  const project=vue.ref('3'),disabled=vue.ref(false)
  runInNewContext(ts.transpileModule(readFileSync(join(__dirname,'../src/composables/useReferencePicker.ts'),'utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS}}).outputText,{exports,Error,AbortController,require(id){
   if(id==='vue')return {...vue,onActivated:fn=>hooks.activate=fn,onDeactivated:fn=>hooks.deactivate=fn,onBeforeUnmount:fn=>hooks.close=fn}
+  if(id.includes('api/elements'))return {listElements:(...args)=>new Promise((resolve,reject)=>calls.push({args,resolve,reject})),readElement:async id=>({data:{currentRevision:{id:'20',media:[{assetVersionId:'11',isPrimary:true}]}}})}
   if(id.includes('stores/auth'))return {useAuthStore:()=>auth}
   return {searchReferences:(...args)=>new Promise((resolve,reject)=>calls.push({args,resolve,reject}))}
  }})
@@ -59,3 +60,16 @@ test('素材加号与元素引用入口分别查询对应类型，重新打开�
  assert.equal(h.calls[1].args[0].kind,'element');assert.equal(h.calls[1].args[0].pageNum,1)
  await resolve(h,1,[]);h.close()
 })
+
+test('筛选在服务端分页前传递，元素查询不混入素材来源',async()=>{
+ const h=setup();h.state.mediaType.value='video';h.state.source.value='uploaded';h.state.recent.value=true;h.state.sort.value='oldest'
+ h.state.show('asset');assert.equal(h.calls[0].args[0].mediaType,'video');assert.equal(h.calls[0].args[0].source,'uploaded');assert.equal(h.calls[0].args[0].recent,true);assert.equal(h.calls[0].args[0].sort,'oldest');await resolve(h,0,[])
+ h.state.category.value='character';h.state.show('element');assert.equal(h.calls[1].args[0].category,'character');assert.equal(h.calls[1].args[0].source,undefined);await resolve(h,1,[]);h.close()
+})
+
+ test('我的元素查询本人跨项目内容，仅允许当前查询返回的对象',async()=>{
+ const h=setup();h.state.elementScope.value='mine';h.state.show('element');assert.equal(h.calls[0].args[0],undefined);assert.equal(h.calls[0].args[1].mineFilter,'created');
+ await resolve(h,0,[{id:'1',projectId:'9',name:'外部角色',alias:'hero',category:'character'}]);
+ await resolve(h,1,[{...row('1','9'),allowedMediaRoles:['reference_image']}]);
+ assert.equal(h.state.rows.value[0].projectId,'9');assert.equal(h.state.canSelect(h.state.rows.value[0]),true);assert.equal(h.state.canSelect(row('1','9')),false);h.close()
+ })

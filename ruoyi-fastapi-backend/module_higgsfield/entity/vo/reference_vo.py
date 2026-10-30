@@ -11,6 +11,14 @@ class ReferenceQuery(WorkspaceInput):
     q: str = Field(default='', max_length=200)
     kind: Literal['asset', 'element'] | None = None
     element_id: BigId | None = None
+    media_type: Literal['image', 'video'] | None = None
+    category: Literal['character', 'scene', 'prop', 'other'] | None = None
+    source: Literal['uploaded', 'generated'] | None = None
+    recent: bool = False
+    include_empty_elements: bool = False
+    element_scope: Literal['project', 'mine', 'folder'] = 'project'
+    folder_id: BigId | None = None
+    sort: Literal['newest', 'oldest', 'name'] = 'newest'
     page_num: int = Field(default=1, ge=1)
     page_size: int = Field(default=30, ge=1, le=100)
 

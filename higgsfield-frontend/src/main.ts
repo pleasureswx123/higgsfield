@@ -34,7 +34,9 @@ configureAuth(
   () => auth.token,
   () => {
     auth.clear()
-    void router.replace({ path: '/login', query: { redirect: router.currentRoute.value.fullPath } })
+    // 首次导航由路由守卫保留原始深层地址。
+    if (router.currentRoute.value.matched.length && router.currentRoute.value.path !== '/login')
+      void router.replace({ path: '/login', query: { redirect: router.currentRoute.value.fullPath } })
   },
 )
 app.use(router).mount('#app')

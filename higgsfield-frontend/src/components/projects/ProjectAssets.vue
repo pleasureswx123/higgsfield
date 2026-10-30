@@ -19,7 +19,7 @@ import {
   ElInputNumber,
   ElDatePicker,
 } from 'element-plus'
-import { IconX, IconChevronRight, IconCircleDotted, IconMaximize, IconCheckbox, IconAt, IconPencil, IconFolderSymlink, IconFolderPlus, IconTrash, IconDownload, IconCloud, IconEye, IconPhoto, IconMovie, IconUpload, IconFileText, IconFilter, IconLayoutGrid, IconDots, IconRefresh, IconSearch } from '@tabler/icons-vue'
+import { IconInfoCircle, IconMessageCircle, IconMinimize, IconX, IconChevronRight, IconCircleDotted, IconMaximize, IconCheckbox, IconAt, IconPencil, IconFolderSymlink, IconFolderPlus, IconTrash, IconDownload, IconCloud, IconEye, IconPhoto, IconMovie, IconUpload, IconFileText, IconFilter, IconLayoutGrid, IconDots, IconRefresh, IconSearch } from '@tabler/icons-vue'
 import { assetAccept, documentFormats } from '@/utils/assetFormats'
 import type { Asset } from '@/api/assets'
 import Button from '@/components/ui/Button.vue'
@@ -32,7 +32,6 @@ import { useAssetBatchDelete } from '@/composables/useAssetBatchDelete'
 import { useAssetBatchRestore } from '@/composables/useAssetBatchRestore'
 import AssetUploadPanel from './AssetUploadPanel.vue'
 import ReferenceThumbnail from './ReferenceThumbnail.vue'
-import FavoriteButton from './FavoriteButton.vue'
 import MediaComments from './MediaComments.vue'
 import LibraryViewPreference from './LibraryViewPreference.vue'
 import AssetPdfPreview from './AssetPdfPreview.vue'
@@ -44,6 +43,7 @@ const canCreateElement = computed(() => props.projectActions?.includes('element:
 const canCopy = computed(() => props.canMove && props.projectActions?.includes('asset:create') && props.projectActions?.includes('asset:reference'))
 import type { LibraryViewSettings, FolderViewSettings } from '@/api/viewPreferences'
 import { groupContentByDate, contentCardWidth } from '@/utils/contentView'
+const commentCanvasHost = ref<HTMLElement>()
 const comments = ref<InstanceType<typeof MediaComments>>()
 async function closeMediaPreview() {
   if (comments.value && !(await comments.value.confirmLeave())) return
@@ -64,7 +64,7 @@ const props = defineProps<{
   refreshKey: number
   folderSettings: FolderViewSettings
 }>()
-const emit = defineEmits<{ restoreFolders: [settings: FolderViewSettings]; create: []; selectionChange: [count: number] }>()
+const emit = defineEmits<{ restoreFolders: [settings: FolderViewSettings]; create: []; reference: [asset: Asset, kind: 'image' | 'video']; selectionChange: [count: number] }>()
 const {
   rows,
   total,
@@ -90,6 +90,35 @@ const {
   openMedia,
   closePreview,
 } = useAssetLibrary(props.projectId, toRef(props, 'folderId'), () => props.visible !== false)
+const previewDownloadIds = ref<string[]>([])
+const previewDownload = useAssetBatchDownload(() => selected.value ? [selected.value] : [], previewDownloadIds, () => props.visible !== false && props.canDownload && !!selected.value)
+function downloadPreview() {
+  if (!selected.value) return
+  previewDownloadIds.value = [selected.value.id]
+  void previewDownload.download()
+}
+async function usePreview(kind: 'image' | 'video') {
+  const asset = selected.value
+  if (!asset || !props.canGenerate || !props.projectActions?.includes('asset:reference')) return
+  if (comments.value && !(await comments.value.confirmLeave())) return
+  emit('reference', asset, kind)
+  closePreview()
+}
+async function deletePreview() {
+  if (!selected.value || (comments.value && !(await comments.value.confirmLeave()))) return
+  await lifecycle(selected.value, false)
+}
+const previewTab = ref<'info' | 'comments'>('info')
+const previewExpanded = ref(false)
+const previewEntry = computed(() => rows.value.find(entry => entry.asset.id === selected.value?.id))
+watch(() => selected.value?.currentVersionId, () => {
+  previewTab.value = 'info'
+  previewExpanded.value = false
+})
+function showPreviewComments() {
+  previewExpanded.value = false
+  previewTab.value = 'comments'
+}
 const layout = ref<'square' | 'masonry'>('square'), cardSize = ref(4), splitByDate = ref(false)
 const viewSettings = computed<LibraryViewSettings>(() => ({ ...props.folderSettings, layout: layout.value, cardSize: cardSize.value, splitByDate: splitByDate.value, fileType: fileType.value || null, activity: activity.value || null, dates: dates.value?.length ? [...dates.value] : null, includeDescendants: includeDescendants.value }))
 const dateGroups = computed(() => groupContentByDate(rows.value, splitByDate.value))
@@ -444,12 +473,18 @@ watch(
     <ElDialog
       :model-value="visible !== false && Boolean(selected)"
       :title="selected?.name"
-      width="min(960px, 94vw)"
+      fullscreen
+      class="asset-preview-dialog"
+      :class="{ 'asset-preview-dialog--expanded': previewExpanded }"
+      :close-on-click-modal="false"
       :before-close="closeMediaPreview"
     >
       <template #header="{ titleId, titleClass }">
-        <DialogHeading :title-id="titleId" :title-class="titleClass" :title="selected?.name || '素材预览'" />
+        <DialogHeading :title-id="titleId" :title-class="titleClass" :title="selected?.name || '素材预览'" hide-theme />
       </template>
+      <div class="asset-preview-layout">
+        <section class="asset-preview-main" aria-label="素材预览区">
+          <div ref="commentCanvasHost" class="asset-preview-stage" style="position:relative">
       <p v-if="mediaLoading" role="status">
         正在授权读取 {{ size(loadedBytes) }} /
         {{ size(selected?.file.byteSize || 0) }}，大文件需要等待完整下载。
@@ -476,7 +511,33 @@ watch(
           <pre>{{ section || '此页没有可提取的文本' }}</pre>
         </article>
       </section>
-      <MediaComments
+          </div>
+          <div class="asset-preview-tools">
+            <span class="asset-preview-status"><IconCircleDotted :size="18" />{{ assetStatus(selected?.workStatus)?.label || '无状态' }}</span>
+            <Button variant="ghost" aria-label="查看素材评论" title="查看素材评论" @click="showPreviewComments"><IconMessageCircle :size="20" /></Button>
+            <Button variant="ghost" :aria-label="previewExpanded ? '还原预览布局' : '最大化素材预览'" :title="previewExpanded ? '还原预览布局' : '最大化素材预览'" :aria-pressed="previewExpanded" @click="previewExpanded = !previewExpanded"><IconMinimize v-if="previewExpanded" :size="20" /><IconMaximize v-else :size="20" /></Button>
+          </div>
+        </section>
+        <aside v-show="!previewExpanded" class="asset-preview-sidebar" aria-label="素材详情">
+          <div class="asset-preview-tabs" role="tablist" aria-label="素材详情视图">
+            <button id="asset-preview-info-tab" role="tab" :aria-selected="previewTab === 'info'" aria-controls="asset-preview-info" @click="previewTab = 'info'"><IconInfoCircle :size="16" />信息</button>
+            <button id="asset-preview-comments-tab" role="tab" :aria-selected="previewTab === 'comments'" aria-controls="asset-preview-comments" @click="previewTab = 'comments'"><IconMessageCircle :size="16" />评论</button>
+          </div>
+          <section v-show="previewTab === 'info'" id="asset-preview-info" class="asset-preview-info" role="tabpanel" aria-labelledby="asset-preview-info-tab">
+            <h3>详细信息</h3>
+            <dl v-if="selected">
+              <dt>名称</dt><dd>{{ selected.name }}</dd>
+              <dt>来源</dt><dd>{{ selected.uploaded ? '上传素材' : '项目素材' }}</dd>
+              <dt>类型</dt><dd>{{ selected.file.mimeType }}</dd>
+              <dt>大小</dt><dd>{{ size(selected.file.byteSize) }}</dd>
+              <template v-if="selected.file.width && selected.file.height"><dt>尺寸</dt><dd>{{ selected.file.width }} × {{ selected.file.height }}</dd></template>
+              <template v-if="selected.file.seconds"><dt>时长</dt><dd>{{ selected.file.seconds }} 秒</dd></template>
+              <template v-if="previewEntry?.createTime"><dt>添加时间</dt><dd>{{ formatProjectDate(previewEntry.createTime) }}</dd></template>
+            </dl>
+            <div class="asset-preview-location"><span>所在位置</span><div><slot name="breadcrumb">当前项目素材</slot></div></div>
+          </section>
+          <div v-show="previewTab === 'comments'" id="asset-preview-comments" class="asset-preview-comments" role="tabpanel" aria-labelledby="asset-preview-comments-tab">
+      <MediaComments sidebar :project-id="projectId" :canvas-host="previewTab === 'comments' ? commentCanvasHost : undefined" :source-width="selected?.file.width || undefined" :source-height="selected?.file.height || undefined"
         :visible="visible !== false"
         ref="comments"
         v-if="selected"
@@ -484,6 +545,26 @@ watch(
         :target="{ assetVersionId: selected.currentVersionId }"
         :media-kind="selected.mediaType"
       />
+          </div>
+          <div v-if="selected && previewTab === 'info'" class="asset-preview-actions">
+            <p v-if="previewDownload.message.value" role="status">{{ previewDownload.message.value }}</p>
+            <p v-if="actionError" role="alert">{{ actionError }}</p>
+            <div class="asset-preview-action-row">
+              <Button :disabled="!canGenerate || !projectActions?.includes('asset:reference') || selected.mediaType === 'document'" @click="usePreview('video')"><IconMovie :size="18" />转为视频</Button>
+              <Button variant="outline" :disabled="!canGenerate || !projectActions?.includes('asset:reference') || selected.mediaType !== 'image'" @click="usePreview('image')"><IconPhoto :size="18" />引用</Button>
+            </div>
+            <div class="asset-preview-action-row">
+              <Button variant="outline" :disabled="!canDownload || previewDownload.pending.value" :title="canDownload ? '下载原素材' : '暂无下载权限'" @click="downloadPreview"><IconDownload :size="18" />{{ previewDownload.pending.value ? '下载中…' : '下载' }}</Button>
+              <Button variant="outline" class="asset-preview-delete" :disabled="actionsLocked || !selected.allowedActions?.includes('asset:remove')" :title="selected.allowedActions?.includes('asset:remove') ? '移入回收站' : '暂无删除权限'" @click="deletePreview"><IconTrash :size="16" />删除</Button>
+              <ElPopover trigger="click" placement="top-end" :width="180" popper-class="asset-menu-popper">
+                <template #reference><Button variant="outline" :disabled="!canCreateElement"><IconAt :size="16" />创建元素</Button></template>
+                <button class="asset-menu-item" :disabled="!canCreateElement || selected.mediaType !== 'image'" title="从当前图片创建元素" @click="elementSource = selected"><IconPhoto :size="18" />图片元素</button>
+                <button class="asset-menu-item" :disabled="!canCreateElement || selected.mediaType !== 'video'" title="从当前视频创建元素" @click="elementSource = selected"><IconMovie :size="18" />视频元素</button>
+              </ElPopover>
+            </div>
+          </div>
+        </aside>
+      </div>
     </ElDialog>
   </section>
 </template>

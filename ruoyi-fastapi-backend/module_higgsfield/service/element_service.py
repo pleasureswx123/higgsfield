@@ -132,9 +132,9 @@ class ElementService:
     @classmethod
     async def trash(cls, db, user, project_id, page_num, page_size):
         project, role, _ = await WorkspaceService.authorize(db, user, project_id, 'project:read')
-        scopes = await WorkspaceDao.permission_scopes(db, role)
+        scopes = await WorkspaceDao.permission_scopes(db, role, project_id)
         scope = scopes.get('element:remove')
-        if scope is None or ('*:*:*' not in user.permissions and 'element:remove' not in user.permissions):
+        if scope is None or (role != 'owner' and '*:*:*' not in user.permissions and 'element:remove' not in user.permissions):
             raise PermissionException(message='没有查看元素回收站的权限')
         rows, total = await ElementDao.trash(
             db, project_id, user.user.user_id if scope == 'own' else None, page_num, page_size
@@ -179,15 +179,16 @@ class ElementService:
 
     @classmethod
     async def listing(cls, db, user, query):
-        if '*:*:*' not in user.permissions and 'element:read' not in user.permissions:
-            raise PermissionException(message='没有查看元素的系统权限')
+        if '*:*:*' not in user.permissions and 'project:read' not in user.permissions:
+            raise PermissionException(message='没有制作平台项目访问权限')
+        owner_only = '*:*:*' not in user.permissions and 'element:read' not in user.permissions
         if query.project_id:
             # 列表的本人范围在SQL中按每个对象作者校验，不能用空作者误拒绝 own 读取。
             await WorkspaceService.authorize(db, user, int(query.project_id), 'project:read')
             if query.folder_id:
                 space = await FolderDao.space(db, int(query.project_id))
                 await FolderService.check_target(db, space.space_id, int(query.folder_id), 'element')
-        rows, total = await ElementDao.list_elements(db, user.user.user_id, query, STATUS_CODES)
+        rows, total = await ElementDao.list_elements(db, user.user.user_id, query, STATUS_CODES, owner_only=owner_only)
         return PageModel(
             rows=[{**cls.result(row, project_id), 'projectName': project_name, 'description': description,
                    'label': label or '', 'revisionNo': revision_no}

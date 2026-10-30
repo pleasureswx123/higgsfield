@@ -39,6 +39,7 @@ class HfProject(AuditTimeMixin, Base):
         'status', CHAR(1), nullable=False, comment='状态：0进行中1暂停2归档3待删除', server_default=text("'0'")
     )
     create_user_id = Column('create_user_id', BigInteger, nullable=False, comment='创建用户ID')
+    owner_user_id = Column(BigInteger, nullable=False, comment='当前所有者用户ID，转让不改变创建者')
     revision = Column('revision', BigInteger, nullable=False, comment='并发版本', server_default=text('1'))
     archived_time = Column('archived_time', TIMESTAMP(timezone=True, precision=3), nullable=True, comment='归档时间')
     del_flag = Column('del_flag', CHAR(1), nullable=False, comment='删除标志：0存在2删除', server_default=text("'0'"))

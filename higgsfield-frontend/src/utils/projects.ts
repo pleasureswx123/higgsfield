@@ -6,7 +6,8 @@ export const projectStatusLabels: Record<ProjectStatus, string> = {
   pending_delete: '待删除',
 }
 export const projectRoleLabels: Record<string, string> = {
-  owner: '负责人',
+  owner: 'Owner',
+  admin: '负责人',
   producer: '制作人',
   viewer: '查看者',
 }

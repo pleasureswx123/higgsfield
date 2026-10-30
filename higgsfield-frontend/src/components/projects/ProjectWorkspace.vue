@@ -2,18 +2,18 @@
 import type { ElementRecord } from '@/api/elements'
 import type { Project } from '@/api/projects'
 import { ref, watch } from 'vue'
-import { IconChevronLeft, IconFolder, IconFileText, IconAdjustmentsHorizontal, IconAt, IconPhotoVideo, IconSparkles } from '@tabler/icons-vue'
+import { IconChevronLeft, IconFolder, IconAdjustmentsHorizontal, IconAt, IconPhotoVideo, IconSparkles } from '@tabler/icons-vue'
 import { useRoute } from 'vue-router'
 import { useProjectWorkspace } from '@/composables/useProjectWorkspace'
 import { formatProjectDate } from '@/utils/projects'
 import BriefEditor from './BriefEditor.vue'
 import BriefPreview from './BriefPreview.vue'
 import ProjectMembers from './ProjectMembers.vue'
+import ProjectPermissions from './ProjectPermissions.vue'
 import ProjectFolders from './ProjectFolders.vue'
 import ProjectElements from './ProjectElements.vue'
 import ProjectCreation from './ProjectCreation.vue'
 import GenerationCollection from './GenerationCollection.vue'
-import UsageSummaryPanel from './UsageSummaryPanel.vue'
 import Button from '@/components/ui/Button.vue'
 import ProjectLifecycleDialog from './ProjectLifecycleDialog.vue'
 const props = defineProps<{ projectId: string; project: Project }>()
@@ -38,7 +38,7 @@ function lifecycleChanged(project: Project) {
   void load()
 }
 const tab = ref<
-    'brief' | 'members' | 'folders' | 'elements' | 'creation' | 'generations' | 'usage'
+    'brief' | 'members' | 'permissions' | 'folders' | 'elements' | 'creation' | 'generations'
   >(
     useRoute().query.tab === 'generations'
       ? 'generations'
@@ -52,6 +52,8 @@ const tab = ref<
   ),
   editing = ref(false)
 const creation = ref<InstanceType<typeof ProjectCreation>>()
+const permissionEpoch = ref(0)
+function memberChanged() { permissionEpoch.value++; void load() }
 const selectedAssetCount = ref(0)
 const folderWorkspace = ref<InstanceType<typeof ProjectFolders>>()
 const useError = ref('')
@@ -80,56 +82,21 @@ watch(
     <div v-if="route.params.id === projectId" class="project-local-navigation" aria-label="当前项目导航">
       <RouterLink to="/projects" class="nav-link"><IconChevronLeft :size="16" aria-hidden="true" /><span>返回我的项目</span></RouterLink>
       <strong class="project-nav-name"><span class="project-nav-icon"><IconFolder :size="17" aria-hidden="true" /></span><span>{{ project.name }}</span></strong>
-      <button class="nav-link" @click="tab = 'brief'"><span class="project-nav-icon"><IconFileText :size="17" aria-hidden="true" /></span><span>项目简报</span></button>
-      <button v-if="canReadMembers" class="nav-link" @click="tab = 'members'"><span class="project-nav-icon"><IconAdjustmentsHorizontal :size="17" aria-hidden="true" /></span><span>项目成员与设置</span></button>
-      <button v-if="brief?.allowedActions.includes('element:read')" class="nav-link" @click="tab = 'elements'"><span class="project-nav-icon"><IconAt :size="17" aria-hidden="true" /></span><span>项目元素</span></button>
-      <button v-if="brief?.allowedActions.includes('generation:read')" class="nav-link" @click="tab = 'generations'"><span class="project-nav-icon"><IconPhotoVideo :size="17" aria-hidden="true" /></span><span>项目生成</span></button>
-      <button v-if="brief?.allowedActions.includes('generation:create')" class="nav-link" @click="tab = 'creation'"><span class="project-nav-icon"><IconSparkles :size="17" aria-hidden="true" /></span><span>开始创作</span></button>
+      <button class="nav-link" :class="{ active: tab === 'brief' || tab === 'members' || tab === 'permissions' }" :aria-current="tab === 'brief' || tab === 'members' || tab === 'permissions' ? 'page' : undefined" @click="tab = ['members', 'permissions'].includes(tab) ? tab : 'brief'"><span class="project-nav-icon"><IconAdjustmentsHorizontal :size="17" aria-hidden="true" /></span><span>项目设置<span v-if="dirty"> ·</span></span></button>
+      <button v-if="brief?.allowedActions.includes('element:read')" class="nav-link" :class="{ active: tab === 'elements' }" @click="tab = 'elements'"><span class="project-nav-icon"><IconAt :size="17" aria-hidden="true" /></span><span>项目元素</span></button>
+      <button v-if="brief?.allowedActions.includes('generation:read')" class="nav-link" :class="{ active: tab === 'generations' }" @click="tab = 'generations'"><span class="project-nav-icon"><IconPhotoVideo :size="17" aria-hidden="true" /></span><span>项目生成</span></button>
+      <button v-if="brief?.allowedActions.includes('generation:create')" class="nav-link" :class="{ active: tab === 'creation' }" @click="tab = 'creation'"><span class="project-nav-icon"><IconSparkles :size="17" aria-hidden="true" /></span><span>开始创作</span></button>
     </div>
   </Teleport>
-  <nav v-show="tab !== 'folders' && tab !== 'creation'" class="workspace-tabs" aria-label="项目详情导航">
-    <button
-      v-if="brief?.allowedActions.includes('project:usage:read')"
-      :class="{ active: tab === 'usage' }"
-      @click="tab = 'usage'"
-    >
-      项目用量
-    </button>
-    <button
-      v-if="brief?.allowedActions.includes('generation:read')"
-      :class="{ active: tab === 'generations' }"
-      @click="tab = 'generations'"
-    >
-      项目生成
-    </button>
-    <button
-      v-if="brief?.allowedActions.includes('generation:create')"
-      :class="{ active: tab === 'creation' }"
-      @click="tab = 'creation'"
-    >
-      开始创作
-    </button>
-    <button
-      v-if="brief?.allowedActions.includes('element:read')"
-      :class="{ active: tab === 'elements' }"
-      @click="tab = 'elements'"
-    >
-      项目元素
-    </button>
-    <button
-      v-if="brief?.allowedActions.includes('asset:read')"
-      :class="{ active: tab === 'folders' }"
-      @click="tab = 'folders'"
-    >
-      素材目录
-    </button>
+  <nav v-show="tab === 'brief' || tab === 'members' || tab === 'permissions'" class="workspace-tabs" aria-label="项目设置子导航">
     <button :class="{ active: tab === 'brief' }" @click="tab = 'brief'">
       项目简报 <span v-if="dirty">·</span></button
     ><button v-if="canReadMembers" :class="{ active: tab === 'members' }" @click="tab = 'members'">
       项目成员
     </button>
+    <button v-if="canReadMembers" :class="{ active: tab === 'permissions' }" @click="tab = 'permissions'">角色和权限</button>
   </nav>
-  <div v-show="tab === 'brief' || tab === 'members'" class="brief-actions">
+  <div v-show="tab === 'brief' || tab === 'members' || tab === 'permissions'" class="brief-actions">
     <Button v-if="brief?.allowedActions.includes('project:manage') && project.status === 'active'" variant="ghost" :disabled="saving"
       @click="lifecycle?.start(project, 'rename')">编辑项目名称</Button>
     <Button v-if="brief?.allowedActions.includes('project:manage') && project.status === 'active'" variant="ghost" :disabled="saving"
@@ -142,12 +109,6 @@ watch(
       @click="lifecycle?.start(project, 'restore')">恢复项目</Button>
   </div>
   <ProjectLifecycleDialog ref="lifecycle" @changed="lifecycleChanged" />
-  <UsageSummaryPanel
-    v-if="brief?.allowedActions.includes('project:usage:read')"
-    v-show="tab === 'usage'"
-    :project-id="projectId"
-    :active="tab === 'usage'"
-  />
   <GenerationCollection
     v-if="brief?.allowedActions.includes('generation:read')"
     v-show="tab === 'generations'"
@@ -184,10 +145,12 @@ watch(
       :body="draft"
     />
   </section>
+  <ProjectPermissions v-if="brief && canReadMembers" v-show="tab === 'permissions'" :key="permissionEpoch" :project-id="projectId" @changed="load()" />
   <ProjectMembers
     v-if="brief && canReadMembers"
     v-show="tab === 'members'"
     :project-id="projectId"
+    @changed="memberChanged"
   />
   <ProjectFolders ref="folderWorkspace" @selection-change="selectedAssetCount = $event"
     v-if="brief?.allowedActions.includes('asset:read')"
@@ -202,7 +165,7 @@ watch(
     "
     :can-download="brief.allowedActions.includes('asset:download')"
     :can-generate="brief.allowedActions.includes('generation:create')"
-    @create="tab = 'creation'"
+    @create="tab = 'creation'" @reference="(asset, kind) => creation?.useAsset(asset, kind)"
   />
   <ProjectElements
     :visible="tab === 'elements'"

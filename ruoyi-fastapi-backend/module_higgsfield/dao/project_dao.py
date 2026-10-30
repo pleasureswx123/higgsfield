@@ -113,7 +113,7 @@ class ProjectDao:
         if role_id is None:
             raise RuntimeError('项目角色未初始化，请执行数据库迁移')
         audit = {'create_by': username, 'update_by': username, 'create_time': now, 'update_time': now}
-        project = HfProject(project_name=name, create_user_id=user_id, status='0', revision=1, del_flag='0', **audit)
+        project = HfProject(project_name=name, create_user_id=user_id, owner_user_id=user_id, status='0', revision=1, del_flag='0', **audit)
         db.add(project)
         await db.flush()
         db.add_all(

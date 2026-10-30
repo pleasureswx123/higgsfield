@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import type { Asset } from '@/api/assets'
 import DialogHeading from '@/components/shared/DialogHeading.vue'
 import { computed, ref, watch } from 'vue'
 import { useFolderPresentation } from '@/composables/useFolderPresentation'
@@ -33,7 +34,7 @@ const props = defineProps<{
   canDownload: boolean
   canGenerate?: boolean
 }>()
-const emit = defineEmits<{ create: []; selectionChange: [count: number] }>()
+const emit = defineEmits<{ create: []; reference: [asset: Asset, kind: 'image' | 'video']; selectionChange: [count: number] }>()
 const assetRefreshKey = ref(0)
 const {
   active,
@@ -302,7 +303,7 @@ const rules: FormRules = {
         :folder-settings="personal.settings.value"
         @selection-change="emit('selectionChange', $event)"
         @restore-folders="personal.restore"
-        @create="emit('create')"
+        @create="emit('create')" @reference="(asset, kind) => emit('reference', asset, kind)"
       >
         <template v-if="sidebar" #breadcrumb>
         <nav class="folder-breadcrumb" aria-label="目录路径">

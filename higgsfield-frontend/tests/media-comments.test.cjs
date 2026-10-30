@@ -775,3 +775,39 @@ test('评论页签隐藏保留未发送正文和标注，返回刷新且旧放�
  assert.equal(c.state.annotations.value.length,1);assert.equal(c.state.threadId.value,'12')
  c.close()
 })
+
+test('侧栏首次发送自动创建讨论并保留正文和时间点', async () => {
+  let created = 0
+  const c = await setup({ createCommentThread: async () => { created++; return { data: { id: '88' } } } })
+  c.state.threadId.value = ''
+  c.state.body.value = '第一条评论'; c.state.videoTime.value = '2.5'
+  await c.state.sendFromSidebar()
+  assert.equal(created, 1); assert.equal(c.calls.length, 1)
+  assert.equal(c.calls[0][0], '88'); assert.equal(c.calls[0][1].body, '第一条评论'); assert.equal(c.calls[0][1].videoTime, '2.5')
+  c.close()
+})
+test('侧栏创建讨论期间切换素材，不发送或恢复旧正文', async () => {
+  let resolve
+  const c = await setup({ createCommentThread: () => new Promise(done => { resolve = done }) })
+  c.state.threadId.value = ''; c.state.body.value = '旧素材评论'
+  const sending = c.state.sendFromSidebar(); c.target.value = { outputId: 'new' }; resolve({ data: { id: '88' } }); await sending
+  assert.equal(c.calls.length, 0); assert.equal(c.state.body.value, ''); c.close()
+})
+
+test('侧栏独立评论建立独立讨论，回复继续使用原讨论', async () => {
+  let created=0
+  const c=await setup({createCommentThread:async()=>({data:{id:String(80+ ++created)}})})
+  c.state.body.value='第一处';await c.state.sendFromSidebar(true)
+  c.state.body.value='第二处';await c.state.sendFromSidebar(true)
+  assert.equal(created,2);assert.equal(c.calls[0][0],'81');assert.equal(c.calls[1][0],'82')
+  c.state.reply({id:'22',threadId:'82',annotations:[]});c.state.body.value='回复';await c.state.sendFromSidebar(true)
+  assert.equal(created,2);assert.equal(c.calls[2][1].parentId,'22');c.close()
+})
+test('侧栏校验失败后重发不重复创建讨论', async()=>{
+  let created=0
+  const c=await setup({createCommentThread:async()=>{created++;return {data:{id:'88'}}}})
+  c.state.body.value='测试';c.state.form.value={validate:async()=>false}
+  await c.state.sendFromSidebar(true)
+  c.state.form.value={validate:async()=>true};await c.state.sendFromSidebar(true)
+  assert.equal(created,1);assert.equal(c.calls.length,1);c.close()
+})

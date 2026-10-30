@@ -3,7 +3,7 @@ import { ref } from 'vue'
 import { IconCloudUpload } from '@tabler/icons-vue'
 import Button from '@/components/ui/Button.vue'
 import { useReferenceUploads } from '@/composables/useReferenceUploads'
-const props = defineProps<{ projectId: string; folderId: string | null; disabled: boolean }>()
+const props = defineProps<{ projectId: string; folderId: string | null; disabled: boolean; compact?: boolean }>()
 const emit = defineEmits<{ uploaded: [] }>()
 const input = ref<HTMLInputElement>()
 const { items, running, checking, error, enqueue, pause, retry } = useReferenceUploads(
@@ -18,10 +18,10 @@ const stages = { queued: '等待上传', hashing: '计算校验值', uploading: 
 defineExpose({ pause })
 </script>
 <template>
-  <section class="reference-upload" aria-label="上传参考素材">
+  <section :class="['reference-upload', { 'reference-upload--compact': compact }]" aria-label="上传参考素材">
     <div class="reference-upload-heading">
       <Button class="reference-upload-card" variant="outline" :disabled="disabled || checking" aria-label="从电脑上传图片 / 视频" @click="input?.click()"><IconCloudUpload :size="28" /><span>{{ checking ? '核验权限…' : '上传素材' }}</span></Button>
-      <span class="muted">保存到{{ folderId ? `当前草稿目录 #${folderId}` : '项目根目录' }}</span>
+      <span v-if="!compact" class="muted">保存到{{ folderId ? `当前草稿目录 #${folderId}` : '项目根目录' }}</span>
       <Button v-if="running" variant="ghost" @click="pause">暂停上传</Button>
       <input ref="input" type="file" accept="image/*,video/*" multiple hidden aria-label="上传参考图片或视频" @change="choose" />
     </div>
@@ -43,4 +43,9 @@ defineExpose({ pause })
 .reference-upload-heading .muted { font-size:12px; }
 .reference-upload-list { list-style:none; padding:0; }
 .reference-upload-list li { display:flex; flex-wrap:wrap; align-items:center; gap:10px; margin-top:8px; font-size:12px; }
+.reference-upload--compact { margin: 0; }
+.reference-upload--compact .reference-upload-card { width: 100%; height: auto; aspect-ratio: 1; }
+.reference-upload--compact .reference-upload-card { gap:12px; border-radius:11px; border-color:var(--picker-line,var(--border)); background:var(--picker-tile,var(--surface-raised)); font-size:12px; font-weight:600; }
+.reference-upload--compact .reference-upload-card :deep(svg) { width:42px; height:42px; padding:11px; border:1px solid color-mix(in srgb,var(--foreground) 24%,transparent); border-radius:50%; background:radial-gradient(circle,color-mix(in srgb,var(--foreground) 14%,transparent),transparent); box-shadow:inset 0 0 4px color-mix(in srgb,var(--foreground) 20%,transparent); }
+.reference-upload--compact .reference-upload-heading { display: block; }
 </style>

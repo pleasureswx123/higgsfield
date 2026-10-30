@@ -1,13 +1,13 @@
 <script setup lang="ts">
 import ThemeToggle from './ThemeToggle.vue'
 
-defineProps<{ title: string; titleId: string; titleClass: string }>()
+defineProps<{ title: string; titleId: string; titleClass: string; hideTheme?: boolean }>()
 </script>
 
 <template>
   <div class="dialog-heading">
     <h2 :id="titleId" :class="titleClass">{{ title }}</h2>
-    <ThemeToggle />
+    <ThemeToggle v-if="!hideTheme" />
   </div>
 </template>
 

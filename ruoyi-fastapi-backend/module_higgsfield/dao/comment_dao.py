@@ -1,6 +1,6 @@
 """固定媒体评论的数据访问；不承担业务权限或事务提交。"""
 from sqlalchemy import select, func, delete
-from module_higgsfield.entity.do.comment_do import HfCommentThread, HfComment, HfAnnotation
+from module_higgsfield.entity.do.comment_do import HfCommentThread, HfComment, HfAnnotation, HfCommentReaction
 
 
 class CommentDao:
@@ -22,7 +22,7 @@ class CommentDao:
     async def threads(db, target, page):
         condition = (HfCommentThread.asset_version_id == int(target.asset_version_id)
                      if target.asset_version_id else HfCommentThread.output_id == int(target.output_id))
-        query = select(HfCommentThread).where(condition)
+        query = select(HfCommentThread).where(condition, HfCommentThread.del_flag == '0')
         total = await db.scalar(select(func.count()).select_from(query.subquery()))
         rows = (await db.scalars(query.order_by(HfCommentThread.create_time.desc(), HfCommentThread.thread_id.desc())
                 .offset((page.page_num - 1) * page.page_size).limit(page.page_size))).all()
@@ -40,3 +40,11 @@ class CommentDao:
     async def annotations(db, comment_id):
         return (await db.scalars(select(HfAnnotation).where(HfAnnotation.comment_id == comment_id)
                                 .order_by(HfAnnotation.annotation_id))).all()
+
+    @staticmethod
+    async def reactions(db, comment_id):
+        return (await db.scalars(select(HfCommentReaction).where(HfCommentReaction.comment_id == comment_id, HfCommentReaction.del_flag == '0'))).all()
+
+    @staticmethod
+    async def reaction(db, comment_id, user_id, emoji):
+        return await db.scalar(select(HfCommentReaction).where(HfCommentReaction.comment_id == comment_id, HfCommentReaction.user_id == user_id, HfCommentReaction.emoji == emoji).with_for_update())

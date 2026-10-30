@@ -14,5 +14,7 @@ class GenerationAccessService:
             WorkspaceService.conflict('PROJECT_READ_ONLY', '项目已暂停、归档或不可用，不能创建新的供应商调用')
         if not await GenerationActorDao.project_access(db, job.project_id, job.actor_id):
             WorkspaceService.conflict('GENERATION_ACTOR_UNAVAILABLE', '原执行用户已停用或项目生成授权已撤回，不能创建新的供应商调用')
-        if not await GenerationActorDao.system_access(db, job.actor_id):
+        # Owner只要求平台基础访问；其他成员仍受系统生成功能授权限制。
+        permission = 'project:read' if await GenerationActorDao.is_project_owner(db, job.project_id, job.actor_id) else 'generation:create'
+        if not await GenerationActorDao.system_access(db, job.actor_id, permission):
             WorkspaceService.conflict('GENERATION_FUNCTION_REVOKED', '原执行用户的系统生成功能授权已撤回，不能创建新的供应商调用')

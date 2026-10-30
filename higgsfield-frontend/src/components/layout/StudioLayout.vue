@@ -13,7 +13,6 @@ import {
   IconLogout,
   IconChevronRight,
   IconX,
-  IconChartBar,
 } from '@tabler/icons-vue'
 import { ElMessage } from 'element-plus'
 import { useAuthStore } from '@/stores/auth'
@@ -26,7 +25,6 @@ const { user } = storeToRefs(auth)
 const mobileOpen = ref(false),
   leaving = ref(false)
 const links = [
-  { path: '/usage', label: '我的用量', icon: IconChartBar },
   { path: '/home', label: '首页', icon: IconHome },
   { path: '/generations', label: '我的生成', icon: IconSparkles },
   { path: '/elements', label: '我的元素', icon: IconBox },
