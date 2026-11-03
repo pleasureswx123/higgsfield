@@ -90,16 +90,12 @@ watch(() => props.kind, async () => {
 })
 const catalogModels = computed(() => props.selected && !props.models.some(item => item.versionId === props.selected?.versionId)
   ? [props.selected, ...props.models] : props.models)
-const modelOptions = computed(() => props.kind === 'image'
-  ? catalogModels.value.filter(model => model.displayName === 'mm-imagen2' || model.menuMeta.aliases.includes('mm-imagen2'))
-  : catalogModels.value)
-const pendingImageModel = computed(() => props.kind === 'image' && !modelOptions.value.length && !props.loading)
-const showPendingImageModel = computed(() => pendingImageModel.value && 'mm-imagen2'.includes(modelQuery.value.trim().toLowerCase()))
+const modelOptions = computed(() => catalogModels.value.filter(model => model.kind === props.kind))
 const menu = ref('')
 const modelQuery = ref('')
 const filteredModels = computed(() => modelOptions.value.filter(model =>
   [model.displayName, ...model.menuMeta.aliases, model.menuMeta.family].join(' ').toLowerCase().includes(modelQuery.value.toLowerCase())))
-const valueOf = (name: string) => props.parameters[name] ?? props.selected?.defaultParameters[name] ?? (!props.selected ? (props.kind === 'video' ? { mode: 'references', resolution: '1080p', duration: 12, count: 1, bitrate_mode: 'high', generate_audio: true } as Record<string, Scalar> : { aspect_ratio: 'Auto', quality: 'high', resolution: '2K', count: 1 } as Record<string, Scalar>)[name] : undefined)
+const valueOf = (name: string) => props.parameters[name] ?? props.selected?.defaultParameters[name] ?? (!props.selected ? (props.kind === 'video' ? { mode: 'references', resolution: '1080p', duration: 12, count: 1, bitrate_mode: 'high', generate_audio: true } as Record<string, Scalar> : { aspect_ratio: '1:1', quality: 'high', resolution: '2K', count: 1 } as Record<string, Scalar>)[name] : undefined)
 const isRatio = (name: string) => ['aspect_ratio', 'aspectRatio', 'ratio'].includes(name)
 const isBatch = (name: string, rule: ParameterRule) => ['count', 'n', 'num_images', 'batch_size'].includes(name)
   && rule.type === 'integer' && !rule.enum && (rule.minimum ?? 1) <= 4
@@ -184,23 +180,14 @@ watch(() => [props.kind, props.selected?.versionId, props.disabled], () => { men
           </div>
           <button v-if="projectRequired" type="button" class="composer-tool" @click="emit('project')"><IconSparkles :size="16" />选择项目与模型 ›</button>
           <ElPopover v-else placement="top-start" trigger="click" :width="420" :visible="menu === 'models'" :disabled="disabled" @update:visible="menu = $event ? 'models' : ''" popper-class="creation-control-popover">
-            <template #reference><button type="button" class="composer-tool composer-model" :disabled="disabled" aria-label="创作模型" @click="modelQuery = ''"><IconSparkles :size="16" />{{ kind === 'image' ? 'mm-imagen2' : selected?.displayName || '选择模型' }} <span>›</span></button></template>
+            <template #reference><button type="button" class="composer-tool composer-model" :disabled="disabled" aria-label="创作模型" @click="modelQuery = ''"><IconSparkles :size="16" />{{ selected?.displayName || '选择模型' }} <span>›</span></button></template>
             <ElInput v-model="modelQuery" placeholder="搜索模型名称" aria-label="搜索模型名称" clearable />
             <div class="model-menu-list">
               <p v-if="loading" role="status">正在读取模型…</p>
-              <p v-else-if="!filteredModels.length && !showPendingImageModel" class="parameter-label">暂无匹配的可用模型</p>
-              <p v-if="kind === 'image' && (filteredModels.length || showPendingImageModel)" class="model-menu-heading">图片生成模型</p>
-              <div v-if="showPendingImageModel" class="model-menu-option model-pending" aria-label="mm-imagen2 待接入">
-                <span class="model-menu-icon"><IconPhoto :size="24" /></span><span><strong>mm-imagen2</strong><small>待配置供应商连接与项目授权</small></span><span class="model-status">待接入</span>
-              </div>
+              <p v-else-if="!filteredModels.length" class="parameter-label">暂无匹配的可用模型</p>
               <button v-for="model in filteredModels" :key="model.versionId" type="button" class="model-menu-option" :class="{ active: selected?.versionId === model.versionId }" @click="emit('model', model.versionId); menu = ''">
                 <IconSparkles :size="22" /><span><strong>{{ model.displayName }}</strong><small>{{ [model.menuMeta.family, model.menuMeta.releaseLabel, model.menuMeta.tier].filter(Boolean).join(' · ') }}</small></span><span v-if="selected?.versionId === model.versionId">✓</span>
               </button>
-            </div>
-            <div v-if="kind === 'image'" class="model-pricing-note">
-              <div><span>输入 Token</span><strong>$5.00 / 1M</strong></div>
-              <div><span>输出 Token</span><strong>$30.00 / 1M</strong></div>
-              <p>按上游实际返回的输入、输出 Token 结算，金额单位 USD。</p>
             </div>
           </ElPopover>
         <div class="composer-tool-strip">
@@ -307,13 +294,9 @@ button:focus-visible { outline:2px solid var(--focus); outline-offset:2px; }
 .parameter-options button:hover,.parameter-options button.active,.model-menu-option:hover,.model-menu-option.active { background:var(--surface-hover); }
 .parameter-options small { margin-left:auto; color:var(--muted-foreground); }
 .ratio-icon { display:inline-block; width:16px; height:12px; border:1px solid currentColor; border-radius:2px; flex-shrink:0; }
-.model-menu-heading { margin:8px 10px; color:var(--muted-foreground); font-size:12px; }
 .model-menu-icon { width:44px; height:44px; display:grid; place-items:center; border-radius:12px; background:var(--surface-hover); }
 .model-pending { cursor:default; }
 .model-status { font-size:11px; color:var(--muted-foreground); white-space:nowrap; }
-.model-pricing-note { margin-top:12px; padding:14px 10px 2px; border-top:1px solid var(--border); font-size:12px; }
-.model-pricing-note > div { display:flex; justify-content:space-between; margin-bottom:8px; }
-.model-pricing-note p { margin:12px 0 0; line-height:1.6; color:var(--muted-foreground); }
 .model-menu-list { max-height:360px; overflow:auto; margin-top:10px; }
 .model-menu-option > span:first-of-type { flex:1; }
 .model-pending > .model-menu-icon { flex:0 0 44px; }

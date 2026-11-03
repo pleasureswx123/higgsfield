@@ -19,6 +19,10 @@ export function modelTransition(
   references: DraftReference[],
 ) {
   const next = { ...(model?.defaultParameters || {}) }
+  // 图片创作首次选择模型时默认正方形；下方仍优先保留已有合法参数。
+  if (model?.kind === 'image' && model.parametersSchema.properties.aspect_ratio?.enum?.includes('1:1')) {
+    next.aspect_ratio = '1:1'
+  }
   const incompatible: string[] = []
   for (const [name, value] of Object.entries(parameters)) {
     const rule = model?.parametersSchema.properties[name]

@@ -36,6 +36,19 @@ export function useProjectPermissions(id: string, changed: () => void) {
     }
     notice.value = '已恢复默认值，点击保存后生效。'
   }
+  function changePermission(role: string, code: string, value: PermissionScope) {
+    if (!matrix.value?.canEdit || saving.value) return
+    const roles = ['viewer', 'producer', 'admin'], ranks = { none: 0, own: 1, project: 2 }
+    const index = roles.indexOf(role)
+    if (index < 0) return
+    const inherited = roles.slice(0, index).some(lower => ranks[draft.value[lower]?.[code] ?? 'none'] > ranks[value])
+    if (inherited) { notice.value = '高级角色不能少于低级角色的权限，请先调整低级角色。'; return }
+    draft.value[role]![code] = value
+    for (const higher of roles.slice(index + 1)) {
+      if (ranks[draft.value[higher]?.[code] ?? 'none'] < ranks[value]) draft.value[higher]![code] = value
+    }
+    notice.value = '高级角色已同步继承，点击保存后生效。'
+  }
   async function save() {
     if (!matrix.value?.canEdit || saving.value || !dirty.value) return
     const overrides = Object.fromEntries(matrix.value.roles.filter(role => role.code !== 'owner').map(role => [role.code, Object.fromEntries(matrix.value!.rows.filter(row => row.editable).map(row => [row.code, draft.value[role.code]?.[row.code] ?? 'none']))]))
@@ -61,5 +74,5 @@ export function useProjectPermissions(id: string, changed: () => void) {
   window.addEventListener('beforeunload', unload)
   onBeforeUnmount(() => { alive = false; controller?.abort(); window.removeEventListener('beforeunload', unload) })
   void load()
-  return { matrix, draft, groups, dirty, loading, saving, error, notice, load, reset, save }
+  return { matrix, draft, groups, dirty, loading, saving, error, notice, load, reset, save, changePermission }
 }

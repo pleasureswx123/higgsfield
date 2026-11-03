@@ -263,6 +263,14 @@ export function useCreationDraft(projectId: string, defaultFolder: () => string 
       if (!alive || ticket !== sequence) return
       models.value = response.rows
       total.value = response.total
+      // 仅在尚未选定模型时应用当前类型默认项，草稿和手动选择优先。
+      if (!selectedVersion.value && !q.value && page.value === 1) {
+        const defaultModel = kind.value === 'image' ? 'mm-imagen2' : 'mm-eva-sd-2.5'
+        const preferred = response.rows.find(model => model.kind === kind.value && (
+          model.displayName === defaultModel || model.menuMeta.aliases.includes(defaultModel)
+        ))
+        if (preferred) choose(preferred.versionId)
+      }
     } catch (cause) {
       if (alive && ticket === sequence) {
         models.value = []

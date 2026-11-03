@@ -2,5 +2,5 @@
 OWNER_PERMISSIONS = frozenset("""project:read project:edit project:manage project:archive member:read member:manage
 asset:read asset:upload asset:create asset:edit asset:reference asset:remove asset:download folder:write
  element:read element:create element:edit element:remove element:configure element:import element:copy
-content:review generation:create generation:read generation:cancel output:archive
+content:review generation:create generation:read output:archive
 comment:read comment:create comment:edit:own comment:moderate""".split())

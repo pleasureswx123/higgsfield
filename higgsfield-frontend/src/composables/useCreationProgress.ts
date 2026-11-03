@@ -16,7 +16,7 @@ export function useCreationProgress(project: () => string, folder: () => string 
     const current = new AbortController()
     controller = current
     try {
-      const result = await listGenerations({ scope: 'mine', projectId: project(), folderId: folder() || undefined, rootFolder: !folder(), kind: 'image', pageNum: 1, pageSize: 10 }, current.signal)
+      const result = await listGenerations({ scope: 'mine', projectId: project(), folderId: folder() || undefined, rootFolder: !folder(), pageNum: 1, pageSize: 10 }, current.signal)
       if (current.signal.aborted) return
       rows.value = result.rows
       error.value = ''
@@ -33,10 +33,11 @@ export function useCreationProgress(project: () => string, folder: () => string 
   onActivated(() => { active = true; void reload() })
   onBeforeUnmount(() => { disposed = true; stop() })
   function label(row: GenerationSummary) {
+    const unit = row.kind === 'video' ? '个视频' : '张图片'
     if (row.orchestrationState === 'submission_unknown') return '结果待确认，请勿重复生成'
     if (row.upstreamState === 'failed' || row.orchestrationState === 'blocked') return '生成失败或被阻止，请查看详情'
-    if (row.archiveSummary.failed) return `已保存 ${row.archiveSummary.ready} 张，部分保存失败`
-    if (row.orchestrationState === 'finished') return row.archiveSummary.ready ? `已保存 ${row.archiveSummary.ready} 张` : '正在保存'
+    if (row.archiveSummary.failed) return `已保存 ${row.archiveSummary.ready} ${unit}，部分保存失败`
+    if (row.orchestrationState === 'finished') return row.archiveSummary.ready ? `已保存 ${row.archiveSummary.ready} ${unit}` : '正在保存'
     return ['accepted', 'preparing'].includes(row.orchestrationState) ? '排队中' : '生成中'
   }
   return { rows, error, reload, label }

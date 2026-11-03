@@ -38,27 +38,35 @@ class WorkspaceDao:
 
     @staticmethod
     async def permission_scopes(db, role_code, project_id=None):
-        if role_code == 'owner' and project_id is not None:
-            from module_higgsfield.project_permissions import OWNER_PERMISSIONS
+        from module_higgsfield.project_permissions import OWNER_PERMISSIONS
+        if role_code == 'owner':
             return dict.fromkeys(OWNER_PERMISSIONS, 'project')
-        rows = (
-            await db.execute(
-                select(HfProjectRolePermission.permission_code, HfProjectRolePermission.data_scope)
-                .join(HfProjectRole, HfProjectRole.role_id == HfProjectRolePermission.role_id)
-                .where(HfProjectRole.code == role_code)
-            )
-        ).all()
-        scopes = dict(rows)
+        hierarchy = ['viewer', 'producer', 'admin']
+        if role_code not in hierarchy:
+            return {}
+        roles = hierarchy[:hierarchy.index(role_code) + 1]
+        rows = (await db.execute(
+            select(HfProjectRole.code, HfProjectRolePermission.permission_code,
+                   HfProjectRolePermission.data_scope)
+            .join(HfProjectRole, HfProjectRole.role_id == HfProjectRolePermission.role_id)
+            .where(HfProjectRole.code.in_(roles))
+        )).all()
+        values = {role: {} for role in roles}
+        for role, code, scope in rows:
+            values[role][code] = scope
         if project_id is not None:
             from module_higgsfield.dao.project_permission_dao import ProjectPermissionDao
             config = await ProjectPermissionDao.get(db, project_id)
-            for code, scope in (config.overrides.get(role_code, {}) if config else {}).items():
-                if scope == 'none':
-                    scopes.pop(code, None)
-                else:
+            for role in roles:
+                values[role].update(config.overrides.get(role, {}) if config else {})
+        # 高级角色继承低级角色的有效权限，范围不得缩小；旧自定义配置同样适用。
+        scopes = {}
+        for role in roles:
+            for code, scope in values[role].items():
+                if code not in OWNER_PERMISSIONS or scope == 'none':
+                    continue
+                if scope == 'project' or code not in scopes:
                     scopes[code] = scope
-        # 旧数据库配置不再赋予制作端费用读取权，财务权限由后台独立校验。
-        scopes.pop('project:usage:read', None)
         return scopes
 
     @staticmethod

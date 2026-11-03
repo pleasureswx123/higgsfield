@@ -13,7 +13,6 @@ CATALOG = [
     ('查看', 'element:read', '查看元素', True, False),
     ('查看', 'generation:read', '查看生成记录', False, False),
     ('内容操作', 'generation:create', '生成内容', True, False),
-    ('内容操作', 'generation:cancel', '取消生成任务', True, True),
     ('内容操作', 'asset:upload', '上传素材', True, False),
     ('内容操作', 'asset:create', '创建素材', True, False),
     ('内容操作', 'asset:reference', '引用素材', True, False),

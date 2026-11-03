@@ -32,3 +32,17 @@ test('账号切换后的迟到保存不回填旧矩阵',async()=>{
  c.state.draft.value.producer['asset:edit']='own';const pending=c.state.save();c.auth.token='b'
  resolve({data:c.data});await pending;assert.equal(c.state.matrix.value,undefined);c.close()
 })
+
+test('低级角色授权向上同步，高级角色不能缩小继承范围',async()=>{
+ const c=setup();await tick()
+ c.state.draft.value.viewer={'asset:edit':'none'}
+ c.state.draft.value.admin={'asset:edit':'none'}
+ c.state.changePermission('viewer','asset:edit','own')
+ assert.equal(c.state.draft.value.producer['asset:edit'],'own')
+ assert.equal(c.state.draft.value.admin['asset:edit'],'own')
+ c.state.changePermission('producer','asset:edit','project')
+ assert.equal(c.state.draft.value.admin['asset:edit'],'project')
+ c.state.changePermission('admin','asset:edit','own')
+ assert.equal(c.state.draft.value.admin['asset:edit'],'project')
+ c.close()
+})

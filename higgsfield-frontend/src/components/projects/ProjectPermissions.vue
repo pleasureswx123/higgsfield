@@ -4,7 +4,7 @@ import Button from '@/components/ui/Button.vue'
 import { useProjectPermissions } from '@/composables/useProjectPermissions'
 const props = defineProps<{ projectId: string }>()
 const emit = defineEmits<{ changed: [] }>()
-const { matrix, draft, groups, dirty, loading, saving, error, notice, load, reset, save } = useProjectPermissions(props.projectId, () => emit('changed'))
+const { matrix, draft, groups, dirty, loading, saving, error, notice, load, reset, save, changePermission } = useProjectPermissions(props.projectId, () => emit('changed'))
 </script>
 <template>
   <section class="permission-panel" aria-label="角色和权限">
@@ -15,7 +15,7 @@ const { matrix, draft, groups, dirty, loading, saving, error, notice, load, rese
         <Button :disabled="saving || loading || !dirty" @click="save">{{ saving ? '保存中…' : '保存权限' }}</Button>
       </div>
     </header>
-    <p class="muted">Owner拥有本项目全部业务权限且不可取消，只有Owner可以修改此矩阵。项目访问、成员管理及治理权限固定。灰色选项不可调整；其他权限仍受成员的系统授权限制。选择“本人”仅允许操作本人内容；下载、跨项目复制需单独开启。费用统计与对账统一由后台费用管理员管理。</p>
+    <p class="muted">Owner拥有本项目全部业务权限且不可取消，只有Owner可以修改此矩阵。项目访问、成员管理及治理权限固定。灰色选项不可调整；其他权限仍受成员的系统授权限制。权限依次继承：Owner ≥ 负责人 ≥ 制作人 ≥ 查看者。开启低级角色权限时，高级角色同步开启；“全项目”范围大于“本人”。默认所有角色可下载素材，跨项目复制仍需单独开启。费用统计与对账统一由后台费用管理员管理。</p>
     <p v-if="error" class="project-error" role="alert">{{ error }} <Button variant="ghost" :disabled="saving" @click="load">重新加载</Button></p>
     <p v-if="notice" role="status">{{ notice }}</p>
     <p v-if="loading">正在加载权限…</p>
@@ -27,8 +27,8 @@ const { matrix, draft, groups, dirty, loading, saving, error, notice, load, rese
           <tbody><tr v-for="row in matrix.rows.filter(row => row.group === group)" :key="row.code">
             <th scope="row">{{ row.label }}</th>
             <td v-for="role in matrix.roles" :key="role.code">
-              <ElCheckbox :model-value="!!draft[role.code]?.[row.code] && draft[role.code]?.[row.code] !== 'none'" :disabled="!matrix.canEdit || !row.editable || role.code === 'owner' || saving" :aria-label="`${role.name}：${row.label}`" @change="value => { draft[role.code]![row.code] = value ? (row.scoped ? 'own' : 'project') : 'none' }" />
-              <ElSelect v-if="row.scoped && draft[role.code]?.[row.code] && draft[role.code]?.[row.code] !== 'none'" v-model="draft[role.code]![row.code]" :disabled="!matrix.canEdit || !row.editable || role.code === 'owner' || saving" :aria-label="`${role.name}：${row.label}范围`" size="small" class="permission-scope">
+              <ElCheckbox :model-value="!!draft[role.code]?.[row.code] && draft[role.code]?.[row.code] !== 'none'" :disabled="!matrix.canEdit || !row.editable || role.code === 'owner' || saving" :aria-label="`${role.name}：${row.label}`" @change="value => changePermission(role.code, row.code, value ? (row.scoped ? 'own' : 'project') : 'none')" />
+              <ElSelect v-if="row.scoped && draft[role.code]?.[row.code] && draft[role.code]?.[row.code] !== 'none'" :model-value="draft[role.code]![row.code]" @change="value => changePermission(role.code, row.code, value)" :disabled="!matrix.canEdit || !row.editable || role.code === 'owner' || saving" :aria-label="`${role.name}：${row.label}范围`" size="small" class="permission-scope">
                 <ElOption label="本人" value="own" /><ElOption label="全项目" value="project" />
               </ElSelect>
             </td>

@@ -17,6 +17,36 @@ class ProjectPermissionTests(unittest.IsolatedAsyncioTestCase):
     cleanup_schema = ProjectDatabaseTests.cleanup_schema
     create = ProjectDatabaseTests.create
 
+    async def test_hierarchy_migration_and_custom_scope_inheritance(self):
+        import importlib.util
+        from pathlib import Path
+        from alembic.migration import MigrationContext
+        from alembic.operations import Operations
+        spec = importlib.util.spec_from_file_location('hierarchy87', Path(__file__).resolve().parents[1] / 'alembic/versions/20261103_87_role_hierarchy.py')
+        migration = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(migration)
+        async with self.engine.begin() as connection:
+            def upgrade(sync):
+                with Operations.context(MigrationContext.configure(sync)):
+                    migration.upgrade()
+            await connection.run_sync(upgrade)
+        result, _ = await self.create()
+        pid = int(result['data']['id'])
+        async with self.sessions() as db:
+            await ProjectPermissionService.save(db, self.owner, pid,
+                ProjectPermissionUpdate(revision='0', overrides={'viewer': {'asset:edit': 'project'},
+                    'producer': {'asset:edit': 'none'}, 'admin': {'asset:edit': 'own'}}), str(uuid4()))
+            previous = {}
+            ranks = {'own': 1, 'project': 2}
+            for role in ('viewer', 'producer', 'admin', 'owner'):
+                current = await WorkspaceDao.permission_scopes(db, role, pid)
+                self.assertEqual(current['asset:download'], 'project')
+                self.assertEqual(current['asset:edit'], 'project')
+                self.assertNotIn('generation:cancel', current)
+                for code, scope in previous.items():
+                    self.assertGreaterEqual(ranks[current[code]], ranks[scope])
+                previous = current
+
     async def test_override_isolation_revision_replay_and_defaults(self):
         first, _ = await self.create()
         second, _ = await self.create()

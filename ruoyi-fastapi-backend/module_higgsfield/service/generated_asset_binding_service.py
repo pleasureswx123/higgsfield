@@ -1,4 +1,4 @@
-"""生成图片自动成为提交目录素材；由持有任务及输出锁的归档事务调用。"""
+"""生成图片和视频自动成为提交目录素材；由持有任务及输出锁的归档事务调用。"""
 
 from module_higgsfield.dao.asset_dao import AssetDao
 from module_higgsfield.dao.folder_dao import FolderDao
@@ -8,7 +8,7 @@ from module_higgsfield.entity.do.asset_do import HfAsset, HfAssetVersion, HfFold
 class GeneratedAssetBindingService:
     @staticmethod
     async def bind(db, job, output, file, now, worker):
-        if job.input_snapshot.get('billingMode') != 'actual_usage' or output.kind != 'image':
+        if job.input_snapshot.get('billingMode') != 'actual_usage' or output.kind not in {'image', 'video'}:
             return
         if output.actual_metadata.get('assetId'):
             return
@@ -21,12 +21,16 @@ class GeneratedAssetBindingService:
             output.actual_metadata = {**output.actual_metadata, 'destinationIssue': '原目录不可用，请从任务详情另存素材'}
             return
         audit = dict(create_by=worker, update_by=worker, create_time=now, update_time=now)
-        name = f'生成图片-{job.job_id}-{output.ordinal + 1}.{file.mime_type.split("/")[1]}'
+        label = '图片' if output.kind == 'image' else '视频'
+        name = f'生成{label}-{job.job_id}-{output.ordinal + 1}.{file.mime_type.split("/")[1]}'
+        metadata = {'mimeType': file.mime_type, 'width': file.width, 'height': file.height}
+        if file.seconds is not None:
+            metadata['seconds'] = str(file.seconds)
         asset = await AssetDao.add(db, HfAsset, space_id=space.space_id, asset_name=name,
-            media_type='image', create_user_id=job.actor_id, revision=1, del_flag='0', **audit)
+            media_type=output.kind, create_user_id=job.actor_id, revision=1, del_flag='0', **audit)
         version = await AssetDao.add(db, HfAssetVersion, asset_id=asset.asset_id, version_no=1,
             file_id=file.file_id, source_output_id=output.output_id, create_user_id=job.actor_id,
-            media_metadata={'mimeType': file.mime_type, 'width': file.width, 'height': file.height}, **audit)
+            media_metadata=metadata, **audit)
         asset.current_version_id = version.version_id
         await AssetDao.add(db, HfFolderEntry, space_id=space.space_id, folder_id=folder_id,
             asset_id=asset.asset_id, revision=1, **audit)
