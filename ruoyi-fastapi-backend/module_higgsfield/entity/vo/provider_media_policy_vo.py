@@ -8,7 +8,7 @@ from module_higgsfield.entity.vo.project_workspace_vo import WorkspaceInput
 
 
 class DirectUploadPolicy(WorkspaceInput):
-    roles: list[Literal['first_frame', 'reference_image', 'reference_video']] = Field(min_length=1)
+    roles: list[Literal['first_frame', 'last_frame', 'reference_image', 'reference_person', 'reference_video']] = Field(min_length=1)
     mime_limits: dict[str, StrictInt] = Field(min_length=1)
     required_seconds: StrictInt = Field(ge=1, le=604800)
     evidence_ref: str = Field(min_length=1, max_length=1000)

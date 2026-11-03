@@ -1,4 +1,4 @@
-"""受理和预检共享固定输入、路由、价格及预估，事务由调用方管理。"""
+"""受理和输入检查共享固定输入、路由与实际计价版本，事务由调用方管理。"""
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -6,13 +6,9 @@ from module_admin.entity.vo.user_vo import CurrentUserModel
 from module_higgsfield.dao.job_lease_dao import JobLeaseDao
 from module_higgsfield.entity.vo.generation_input_vo import GenerationInput
 from module_higgsfield.service.estimate_token_service import EstimateTokenService
-from module_higgsfield.service.generation_estimate_service import GenerationEstimateService
 from module_higgsfield.service.generation_input_service import GenerationInputService
-from module_higgsfield.service.generation_policy_service import GenerationPolicyService
 from module_higgsfield.service.generation_price_service import GenerationPriceService
 from module_higgsfield.service.generation_route_service import GenerationRouteService
-from module_higgsfield.service.model_catalog_service import ModelCatalogService
-from module_higgsfield.service.project_workspace_service import WorkspaceService
 
 
 class GenerationPreparationService:
@@ -35,25 +31,6 @@ class GenerationPreparationService:
             currencies=currencies,
             at=now,
         )
-        capabilities = await ModelCatalogService.selected(
-            db, user, int(payload.project_id), int(payload.model_version_id), payload.kind
-        )
-        try:
-            estimate = GenerationEstimateService.calculate(
-                capabilities,
-                model_version_id=payload.model_version_id,
-                input_snapshot=prepared['inputSnapshot'],
-                prices=prices,
-            )
-        except ValueError:
-            WorkspaceService.conflict('GENERATION_ESTIMATE_UNAVAILABLE', '预估策略与当前价格不兼容，请联系管理员核查')
-        if payload.estimate_token:
-            (tokens or GenerationPolicyService.tokens()).verify(
-                payload.estimate_token,
-                actor_id=user.user.user_id,
-                payload=payload,
-                prices=prices,
-                estimate=estimate,
-                now=now,
-            )
+        # 新任务只固定实际计价依据，不预测Token、不预占预算。
+        estimate = {'mode': 'actual_usage', 'estimates': {}}
         return {**prepared, 'route': route, 'prices': prices, 'estimate': estimate, 'acceptedAt': now}

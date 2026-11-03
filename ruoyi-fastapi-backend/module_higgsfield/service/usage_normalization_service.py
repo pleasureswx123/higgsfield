@@ -4,6 +4,7 @@ import hashlib
 import json
 import math
 import re
+from decimal import Decimal, InvalidOperation
 
 from module_higgsfield.entity.vo.usage_fact_vo import UsageFact
 
@@ -13,6 +14,34 @@ NUMERIC_EVIDENCE = re.compile(r'[+-]?[0-9]{1,100}(?:\.[0-9]{1,100})?(?:[eE][+-]?
 
 
 class UsageNormalizationService:
+    @classmethod
+    def h3(cls, raw: object) -> UsageFact:
+        values = raw if isinstance(raw, dict) else {}
+        result, evidence, issues = {}, {}, []
+        for source, target in [('total_seconds', 'output_seconds'), ('image_count', 'image_count')]:
+            value = values.get(source)
+            if source in values:
+                evidence[source] = cls._safe_value(value)
+            try:
+                if type(value) is bool or value is None:
+                    raise ValueError
+                number = Decimal(str(value))
+                if not number.is_finite() or number < 0 or number > Decimal('999999999999.999999'):
+                    raise ValueError
+                if source == 'image_count':
+                    if number != number.to_integral_value() or number > 2147483647:
+                        raise ValueError
+                    result[target] = int(number)
+                elif number.as_tuple().exponent < -6:
+                    raise ValueError
+                else:
+                    result[target] = number
+            except (ValueError, InvalidOperation):
+                issues.append(source.upper() + '_MISSING_OR_INVALID')
+        payload = dict(source_path='task.usage', parser_version='videoplus-h3-usage-v1', raw_usage=evidence,
+                       completeness='available' if len(result) == 2 else 'partial' if result else 'unknown', **result)
+        return UsageFact(**payload, issues=issues, payload_hash=hashlib.sha256(json.dumps(payload, sort_keys=True, default=str).encode()).hexdigest())
+
     @staticmethod
     def _safe_value(value: object) -> object:
         """只保留计数证据；任意字符串、嵌套对象可能含秘密，不进入用量表。"""

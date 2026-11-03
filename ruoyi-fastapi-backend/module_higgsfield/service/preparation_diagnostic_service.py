@@ -6,6 +6,10 @@ from module_higgsfield.dao.job_event_dao import JobEventDao
 
 class PreparationDiagnosticService:
     MESSAGES = {
+        'ASSET_PROCESSING': '虚拟人物素材正在供应商素材库处理中，后台会继续查询，无需再次点击生成。',
+        'ASSET_REGISTRATION_FAILED': '供应商未通过虚拟人物素材注册，请核查或更换参考图；尚未提交视频生成。',
+        'ASSET_REGISTRATION_UNKNOWN': '虚拟人物素材注册结果尚未确认，请联系平台管理员核查；不会自动重复注册或生成。',
+        'PROVIDER_MEDIA_UNSUPPORTED': '参考素材类型或文件大小不符合该模型要求，请更换素材。',
         'PROVIDER_BINDING_INVALID': '原任务的供应商账号与固定凭据绑定不完整，准备暂未完成。',
         'PROVIDER_CREDENTIAL_UNAVAILABLE': '原任务固定凭据或连接当前不可用，不会自动切换凭据。',
         'PROVIDER_ADAPTER_UNSUPPORTED': '固定模型或连接与当前适配器不兼容，准备暂未完成。',

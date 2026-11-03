@@ -14,7 +14,11 @@ class CredentialTestUsageService:
                 or call.request_metadata.get('testId') != str(test.test_id)):
             raise ValueError('测试用量来源与成本中心归属不一致')
         fact = UsageFact.model_validate(fact.model_dump()) if fact is not None else UsageNormalizationService.image(None)
-        if fact.parser_version != 'videoplus-image-usage-v1' or fact.source_path != 'choices[0].message.content.usage':
+        if (fact.parser_version, fact.source_path) not in {
+            ('videoplus-image-usage-v1', 'choices[0].message.content.usage'),
+            ('videoplus-video-usage-v1', 'usage'),
+            ('videoplus-h3-usage-v1', 'task.usage'),
+        }:
             raise ValueError('测试用量解析规则与当前图片探针不一致')
         audit = dict(create_by='credential-test-worker', update_by='credential-test-worker',
                      create_time=now, update_time=now)

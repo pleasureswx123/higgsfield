@@ -220,6 +220,7 @@ const billing = { pending: '待确认', calculated: '已计算', confirmed: '已
       >
       <article v-for="output in detail.outputs" :key="output.id" class="generation-output">
         <strong>输出 {{ output.ordinal + 1 }} · {{ archive[output.archiveState] }}</strong>
+        <p v-if="output.destinationIssue" role="status">{{ output.destinationIssue }}</p>
         <GenerationOutputMetadata :output="output" />
         <Button v-if="output.allowedActions.includes('output:work-status')" variant="ghost" :disabled="actionPending" @click="statusOutput = output.id">修改工作状态</Button>
         <Button

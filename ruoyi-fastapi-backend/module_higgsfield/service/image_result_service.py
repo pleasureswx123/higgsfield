@@ -10,10 +10,11 @@ from module_higgsfield.dao.provider_response_dao import ProviderResponseDao
 from module_higgsfield.entity.do.asset_do import HfStoredFile
 from module_higgsfield.entity.vo.archive_file_vo import ArchiveFileFacts
 from module_higgsfield.entity.vo.image_provider_fact_vo import ImageProviderFact
+from module_higgsfield.service.generated_asset_binding_service import GeneratedAssetBindingService
 from module_higgsfield.service.job_lease_service import JobLeaseService
 from module_higgsfield.service.project_workspace_service import WorkspaceService
-from module_higgsfield.service.usage_record_service import UsageRecordService
 from module_higgsfield.service.usage_normalization_service import UsageNormalizationService
+from module_higgsfield.service.usage_record_service import UsageRecordService
 
 
 class ImageResultService:
@@ -104,6 +105,8 @@ class ImageResultService:
                         **audit,
                     ),
                 )
+                if file is not None:
+                    await GeneratedAssetBindingService.bind(db, job, output, file, now, lease.worker)
                 job.event_sequence += 1
                 await JobEventDao.output(db, job, output, now, lease.worker)
             call.state, call.acceptance = '2', 'accepted'
@@ -112,6 +115,7 @@ class ImageResultService:
                 'mode': 'synchronous_image',
                 'outputCount': len(ordinals),
                 'usage': dict(fact.usage),
+                'gatewayHeaders': dict(fact.gateway_headers),
                 'issues': list(fact.issues),
                 'unarchivedOrdinals': sorted(ordinals - set(files)),
                 'declaredFormat': fact.declared_format,

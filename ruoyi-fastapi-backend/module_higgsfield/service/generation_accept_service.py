@@ -1,4 +1,4 @@
-"""任务、预算预占、事件及幂等回执原子受理；不发送供应商请求。"""
+"""任务、事件及幂等回执原子受理，费用按实际用量记录；不发送供应商请求。"""
 
 import json
 
@@ -8,7 +8,6 @@ from module_admin.entity.vo.user_vo import CurrentUserModel
 from module_higgsfield.dao.generation_accept_dao import GenerationAcceptDao
 from module_higgsfield.dao.job_event_dao import JobEventDao
 from module_higgsfield.entity.vo.generation_input_vo import GenerationInput
-from module_higgsfield.service.budget_reservation_service import BudgetReservationService
 from module_higgsfield.service.generation_preparation_service import GenerationPreparationService
 from module_higgsfield.service.project_workspace_service import WorkspaceService
 from module_higgsfield.service.write_service import WriteService
@@ -38,8 +37,8 @@ class GenerationAcceptService:
         currencies: dict[str, str],
         missing_budget_policy: str,
     ) -> tuple:
-        if not key or missing_budget_policy not in ('allow', 'reject'):
-            raise ValueError('受理必须提供幂等键及明确无预算策略')
+        if not key:
+            raise ValueError('受理必须提供幂等键')
         path = '/generations'
         data = payload.model_dump(by_alias=True)
         digest = WriteService.digest({'prefix': '/api/v1', 'method': 'POST', 'path': path, 'key': key})
@@ -86,21 +85,7 @@ class GenerationAcceptService:
                 prepared['inputSnapshot']['compiled'],
                 audit,
             )
-            estimates = {
-                (purpose, value['currency']): value['total']
-                for purpose, value in prepared['estimate']['estimates'].items()
-            }
-            reservations = await BudgetReservationService.reserve(
-                db,
-                user,
-                job_id=job.job_id,
-                project_id=job.project_id,
-                at=now,
-                estimates=estimates,
-                missing_budget_policy=missing_budget_policy,
-            )
-            # 零额预占不产生零变动账本，但仍须保留固定汇率以供后续真实费用结算。
-            job.input_snapshot = {**snapshot, 'budgetReservations': reservations}
+            job.input_snapshot = {**snapshot, 'billingMode': 'actual_usage', 'budgetReservations': []}
             await JobEventDao.state(db, job, now, user.user.user_name)
             return await WriteService.finish(
                 db, user, path, key, data, cls.receipt(job.job_id), 'generation', job.job_id

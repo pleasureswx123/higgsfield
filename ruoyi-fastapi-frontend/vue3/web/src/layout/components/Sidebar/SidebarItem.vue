@@ -12,7 +12,7 @@
         :to="resolvePath(onlyOneChild.path, onlyOneChild.query)"
       >
         <el-menu-item
-          :index="resolvePath(onlyOneChild.path)"
+          :index="onlyOneChild.meta.menuIndex || resolvePath(onlyOneChild.path)"
           :class="{ 'submenu-title-noDropdown': !isNest }"
         >
           <svg-icon :icon-class="onlyOneChild.meta.icon || (item.meta && item.meta.icon)" />
@@ -60,7 +60,7 @@
 <script setup>
 import { isExternal } from '@/utils/validate'
 import AppLink from './Link'
-import { getNormalPath } from '@/utils/ruoyi'
+import { menuDestination } from '@/utils/studioNavigation'
 
 const props = defineProps({
   // route object
@@ -113,11 +113,7 @@ function resolvePath(routePath, routeQuery) {
   if (isExternal(props.basePath)) {
     return props.basePath
   }
-  if (routeQuery) {
-    let query = JSON.parse(routeQuery)
-    return { path: getNormalPath(props.basePath + '/' + routePath), query: query }
-  }
-  return getNormalPath(props.basePath + '/' + routePath)
+  return menuDestination(props.basePath, routePath, routeQuery)
 }
 
 function hasTitle(title) {

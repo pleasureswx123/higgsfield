@@ -45,16 +45,17 @@ class PricePublishService:
         )
 
     @classmethod
-    async def publish(cls, db, user, identity, payload, key):
+    async def publish(cls, db, user, identity, payload, key, *, batch=False):
         path, prefix = f'/price-versions/{identity}/publish', '/api/admin/v1'
         data = payload.model_dump(by_alias=True, mode='json')
         try:
             await AdminScopeService.global_access(db, user, 'billing:price:publish')
-            await WriteService.lock(db, user, path, key, api_prefix=prefix)
-            replay = await WriteService.replay(db, user, path, key, data, api_prefix=prefix)
-            if replay:
-                await db.commit()
-                return replay, True
+            if not batch:
+                await WriteService.lock(db, user, path, key, api_prefix=prefix)
+                replay = await WriteService.replay(db, user, path, key, data, api_prefix=prefix)
+                if replay:
+                    await db.commit()
+                    return replay, True
             version = await PriceVersionDao.version(db, identity)
             if version is None:
                 cls.fail('PRICE_VERSION_NOT_FOUND', '价格版本不存在')
@@ -117,6 +118,8 @@ class PricePublishService:
             )
             await cls.event(db, user, row, 'publish', payload.reason, None, audit)
             result = {'version': await PriceVersionService.result_for(db, version), 'activation': cls.activation(row)}
+            if batch:
+                return result
             return await WriteService.finish(
                 db, user, path, key, data, result, 'price_activation', row.activation_id, api_prefix=prefix
             )

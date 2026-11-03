@@ -1,12 +1,16 @@
 """任务列表筛选，时间范围采用包含起点、不包含终点。"""
 
 from typing import Literal
+
 from pydantic import AwareDatetime, Field, model_validator
+
 from module_higgsfield.entity.vo.project_workspace_vo import BigId, WorkspaceInput
 
 
 class GenerationQuery(WorkspaceInput):
     project_id: BigId | None = None
+    folder_id: BigId | None = None
+    root_folder: bool = False
     scope: Literal['project', 'mine'] = 'project'
     kind: Literal['image', 'video', 'chat'] | None = None
     state: (

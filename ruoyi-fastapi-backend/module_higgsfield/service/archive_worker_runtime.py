@@ -9,9 +9,12 @@ from module_higgsfield.service.output_source_crypto_service import OutputSourceC
 from module_higgsfield.service.storage_service import StoragePolicy, StorageService
 
 
-def create_archive_worker(sessions, worker, *, batch_size=4, lease_seconds=60):
+def video_download_policy():
     try:
-        config = json.loads(os.environ['HF_OUTPUT_DOWNLOAD_POLICY'])
+        config = json.loads(os.environ.get('HF_OUTPUT_DOWNLOAD_POLICY', json.dumps({
+            'allowed_hosts': ['ark-acg-ap-southeast-1.tos-ap-southeast-1.volces.com',
+                              'ark-acg.tos-cn-beijing.volces.com'],
+            'max_bytes': 1_000_000_000, 'timeout_seconds': 240})))
         if not isinstance(config, dict) or set(config) - {'allowed_hosts', 'max_bytes', 'timeout_seconds'}:
             raise ValueError
         hosts = config['allowed_hosts']
@@ -29,6 +32,11 @@ def create_archive_worker(sessions, worker, *, batch_size=4, lease_seconds=60):
         )
     except (KeyError, TypeError, ValueError):
         raise ValueError('HF_OUTPUT_DOWNLOAD_POLICY必须提供精确主机白名单和正整数字节上限') from None
+    return policy
+
+
+def create_archive_worker(sessions, worker, *, batch_size=4, lease_seconds=60):
+    policy = video_download_policy()
     storage = StorageService(StoragePolicy.from_environment())
     storage.verify_root()
     return OutputArchiveWorker(

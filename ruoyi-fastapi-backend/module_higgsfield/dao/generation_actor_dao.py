@@ -1,5 +1,6 @@
 """发送意图事务内读取并锁定原执行用户的当前项目授权。"""
 from sqlalchemy import text
+
 from module_higgsfield.dao.project_workspace_dao import WorkspaceDao
 
 
@@ -25,7 +26,7 @@ class GenerationActorDao:
         return permission is not None
 
     @staticmethod
-    async def project_access(db, project_id, actor_id):
+    async def project_access(db, project_id, actor_id, permission='generation:create', owner_id=None):
         actor = await WorkspaceDao.user(db, actor_id, lock=True)
         if actor is None or actor['status'] != '0' or actor['del_flag'] != '0':
             return False
@@ -39,7 +40,8 @@ class GenerationActorDao:
         if role is None:
             return False
         scopes = await WorkspaceDao.permission_scopes(db, role, project_id)
-        return scopes.get('project:read') == 'project' and scopes.get('generation:create') == 'project'
+        scope = scopes.get(permission)
+        return scopes.get('project:read') == 'project' and (scope == 'project' or (scope == 'own' and owner_id == actor_id))
 
     @staticmethod
     async def is_project_owner(db, project_id, actor_id):

@@ -1,10 +1,17 @@
 <script setup>
 import { useModelVersionEditor } from '@/composables/studio/useModelVersionEditor'
+import { mmImagen2Capabilities } from '@/utils/mmImagen2'
 import { parseCapabilities } from '@/utils/modelCapabilities'
 const emit = defineEmits(['saved'])
 const { canWrite, open, pending, error, model, editing, formRef, form, start, close, submit } =
   useModelVersionEditor(() => emit('saved'))
 defineExpose({ start })
+function applyImagePreset() {
+  if (pending.value || !canWrite.value) return
+  form.gatewayAlias = 'mm-imagen2'
+  form.underlyingModelId = 'gpt-image-2'
+  form.capabilities = JSON.stringify(mmImagen2Capabilities(), null, 2)
+}
 const rules = {
   gatewayAlias: [
     {
@@ -49,6 +56,7 @@ const rules = {
     @close="close"
     destroy-on-close
   >
+    <el-button v-if="model?.kind === 'image' && model?.code === 'mm-imagen2'" :disabled="pending || !canWrite" @click="applyImagePreset">填入 mm-imagen2 图片预设</el-button>
     <p v-if="model">{{ model.displayName }} · {{ model.code }}</p>
     <p>
       保存仅生成或修改草稿，不代表已验证或发布。已有精确规格必须与更新后的能力维度兼容，服务端会完整校验配置。
@@ -94,8 +102,7 @@ const rules = {
       /></el-form-item>
       <p>
         配置包括计价维度 variantDimensions、参数 parametersSchema、引用 referenceRules、默认参数
-        defaultParameters、展示信息 presentation 和估价策略
-        estimatePolicy。不得填入凭据、脚本或未核实能力；未配置估价策略不表示免费。
+        defaultParameters 和展示信息 presentation。当前按实际用量记录费用，无需配置估价策略或预算。不得填入凭据或脚本。
       </p>
     </el-form>
     <el-alert

@@ -46,7 +46,19 @@ class CredentialTestService:
         row = await CredentialTestDao.get(db, identity)
         if row is None:
             WorkspaceService.conflict('RESOURCE_NOT_FOUND', '测试记录不存在')
-        return (await CredentialTestCostService.attach(db, user, [cls.result(row)]))[0]
+        result = (await CredentialTestCostService.attach(db, user, [cls.result(row)]))[0]
+        if row.state == '0' and row.provider_call_id:
+            from module_higgsfield.dao.provider_call_dao import ProviderCallDao
+            call = await ProviderCallDao.get(db, row.provider_call_id)
+            metadata = (call.request_metadata or {}) if call else {}
+            poll = (metadata.get('videoLatestPoll') or {}).get('response') or {}
+            task = poll.get('task', poll) if isinstance(poll, dict) else None
+            upstream = task.get('status') if isinstance(task, dict) else None
+            if upstream == 'succeeded':
+                result['progress'] = {'stage': 'archiving', 'message': '视频已生成，正在下载并保存；保存完成后即可启用模型。无需重新测试。'}
+                if metadata.get('videoArchiveIssue'):
+                    result['progress'] = {'stage': 'archive_retry', 'message': '视频已生成，但下载保存暂未完成，后台会单独重试归档，不会重新生成或重复收费。'}
+        return result
 
     @classmethod
     async def create(cls, db, user, identity, payload, key):

@@ -1,5 +1,6 @@
 """受理短事务内准备固定输入，不提交事务、不预占或调用供应商。"""
 
+from pydantic import SecretStr
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from module_admin.entity.vo.user_vo import CurrentUserModel
@@ -10,9 +11,14 @@ from module_higgsfield.dao.model_catalog_dao import ModelCatalogDao
 from module_higgsfield.dao.model_dao import ModelDao
 from module_higgsfield.entity.do.model_do import HfModelVariant
 from module_higgsfield.entity.vo.generation_input_vo import GenerationInput
+from module_higgsfield.entity.vo.image_request_vo import ImageRequestParameters
 from module_higgsfield.entity.vo.model_capability_vo import ModelCapabilities, scalar_equal
 from module_higgsfield.service.folder_service import FolderService
 from module_higgsfield.service.generation_target_service import GenerationTargetService
+from module_higgsfield.service.image_reference_policy import validate_image_references
+from module_higgsfield.service.image_request_service import ImageRequestService
+from module_higgsfield.service.videoplus_request_service import VideoPlusRequestService
+from module_higgsfield.service.image_size_service import ImageSizeService
 from module_higgsfield.service.model_capability_service import ModelCapabilityService
 from module_higgsfield.service.model_catalog_service import ModelCatalogService
 from module_higgsfield.service.project_workspace_service import WorkspaceService
@@ -86,7 +92,17 @@ class GenerationInputService:
             WorkspaceService.conflict('MODEL_CAPABILITY_UNAVAILABLE', '模型版本未发布、未授权此项目或类型不匹配')
         capabilities = ModelCatalogService.capability(row[1])
         parameters = ModelCapabilityService.parameters(capabilities, payload.parameters)
-        variant = cls.select_variant(capabilities, parameters, await ModelDao.variants(db, row[1].model_version_id))
+        provider_parameters = None
+        if payload.kind == 'image':
+            try:
+                provider_parameters = ImageRequestParameters.model_validate(ImageSizeService.parameters(parameters)).model_dump()
+            except ValueError:
+                WorkspaceService.conflict('MODEL_PARAMETER_INVALID', '图片参数或尺寸映射不符合供应商接口要求')
+        variant_parameters = dict(parameters)
+        if payload.kind == 'video' and 'has_video_input' in capabilities.variant_dimensions:
+            # 从真实引用角色派生价格维度，客户端不能伪造更便宜的计价档位。
+            variant_parameters['has_video_input'] = any(item.media_role == 'reference_video' for item in payload.references)
+        variant = cls.select_variant(capabilities, variant_parameters, await ModelDao.variants(db, row[1].model_version_id))
         space = await FolderDao.space(db, project_id)
         await FolderService.check_target(
             db, space.space_id, int(payload.folder_id) if payload.folder_id else None, 'media'
@@ -99,6 +115,22 @@ class GenerationInputService:
             {name: rule.media_types for name, rule in capabilities.reference_rules.roles.items()},
         )
         ModelCapabilityService.references(capabilities, compiled)
+        if payload.kind == 'video':
+            try:
+                VideoPlusRequestService.video(row[1].gateway_alias, capabilities,
+                    {'parameters': parameters, 'compiled': compiled},
+                    {index: SecretStr('https://reference.invalid/media') for index in range(len(compiled['media']))})
+            except ValueError as error:
+                WorkspaceService.conflict('VIDEO_INPUT_INVALID', str(error))
+        if payload.kind == 'image':
+            try:
+                validate_image_references(compiled['media'])
+                # 仅校验编译及长度，不读取图片、不调用网络。
+                ImageRequestService.compile(row[1].gateway_alias, capabilities,
+                    {'parameters': parameters, 'compiled': compiled},
+                    {index: SecretStr('https://reference.invalid/image') for index in range(len(compiled['media']))})
+            except ValueError as error:
+                WorkspaceService.conflict('IMAGE_INPUT_INVALID', str(error))
         return {
             'modelVersionId': str(row[1].model_version_id),
             'modelVariantId': str(variant.variant_id),
@@ -106,6 +138,7 @@ class GenerationInputService:
                 **({'targetElementId': payload.target_element_id} if payload.target_element_id else {}),
                 'prompt': payload.prompt.model_dump(by_alias=True),
                 'parameters': parameters,
+                **({'providerParameters': provider_parameters, 'sizeMappingVersion': 1} if provider_parameters else {}),
                 'references': [item.model_dump(by_alias=True) for item in payload.references],
                 'folderId': payload.folder_id,
                 'sourceJobId': payload.source_job_id,

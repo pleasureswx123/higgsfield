@@ -77,7 +77,7 @@ class VideoBillingFlowTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual((await self.worker.run_once())[0]['status'], 'handled')
         async with self.sessions() as db:
             self.assertEqual(await db.scalar(text('SELECT upstream_task_id FROM hf_creation_job')), 'task')
-            self.assertEqual(await db.scalar(text('SELECT reserved_amount FROM hf_budget_period')), Decimal('6'))
+            self.assertEqual(await db.scalar(text('SELECT reserved_amount FROM hf_budget_period')), Decimal('0'))
             await db.execute(text("UPDATE hf_creation_job SET next_action_time=clock_timestamp()-interval '1 second'"))
             await db.commit()
         self.assertEqual((await self.worker.run_once())[0]['status'], 'handled')
@@ -96,7 +96,7 @@ class VideoBillingFlowTests(unittest.IsolatedAsyncioTestCase):
             self.assertEqual([tuple(row) for row in rows], [
                 ('platform', 'CNY', Decimal('0.000246')), ('procurement', 'USD', Decimal('0.000246'))])
             self.assertEqual((await db.execute(text('SELECT reserved_amount,consumed_amount FROM hf_budget_period'))).one(),
-                (Decimal('0'), Decimal('0.000246')))
+                (Decimal('0'), Decimal('0')))
             before = (await db.execute(text('SELECT to_jsonb(e) FROM hf_budget_ledger_entry e ORDER BY entry_id'))).all()
         self.assertEqual(await self.worker.run_once(), [])
         self.assertEqual((await billing.process(identity))['status'], 'skipped')

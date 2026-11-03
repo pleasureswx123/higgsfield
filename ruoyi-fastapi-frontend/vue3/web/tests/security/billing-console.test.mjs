@@ -18,6 +18,7 @@ test('费用列表和明细隔离迟到结果，页面退出清除金额并重�
     '@/api/studio/billing': {
       getBillingSummary: (params, signal) => new Promise(resolve => summaries.push({ params, signal, resolve })),
       listBillingEvents: (params, signal) => new Promise((resolve, reject) => lists.push({ params, signal, resolve, reject })),
+      getBillingSubject: (id, signal) => new Promise(resolve => details.push({ subjectId: id, signal, resolve })),
       getBillingEvent: (id, signal) => new Promise(resolve => details.push({ id, signal, resolve })),
     },
   }
@@ -48,6 +49,12 @@ test('费用列表和明细隔离迟到结果，页面退出清除金额并重�
   details[0].resolve({ data: { id: '2' } })
   await first
   assert.equal(state.detail.value.id, '3')
+  const unpriced = state.select({ id: null, subjectId: '44' })
+  assert.equal(details[2].subjectId, '44')
+  details[2].resolve({ data: { id: null, subjectId: '44', amount: null, state: 'unpriced' } })
+  await unpriced
+  assert.equal(state.detail.value.amount, null)
+  assert.equal(state.detail.value.state, 'unpriced')
   hooks.deactivate()
   assert.equal(state.rows.value.length, 0)
   assert.equal(state.detail.value, undefined)

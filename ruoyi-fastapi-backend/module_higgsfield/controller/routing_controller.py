@@ -14,6 +14,17 @@ routing_controller = APIRouterPro(
 )
 
 
+@routing_controller.get('/platform-provider-configs', summary='读取全平台默认模型配置')
+async def get_platform(request: Request, db: Db, user: User):
+    return ResponseUtil.success(data=await RoutingService.get(db, user, None))
+
+
+@routing_controller.put('/platform-provider-configs', summary='保存全平台默认模型配置')
+@Log(title='配置全平台默认模型', business_type=BusinessType.UPDATE)
+async def save_platform(request: Request, payload: RoutingUpdate, key: Key, db: Db, user: User):
+    return mutation_response(await RoutingService.save(db, user, None, payload, key))
+
+
 @routing_controller.get('/project-provider-configs/{project_id}', summary='读取治理范围内项目的整组模型路由')
 async def get(request: Request, project_id: ProjectId, db: Db, user: User):
     return ResponseUtil.success(data=await RoutingService.get(db, user, project_id))

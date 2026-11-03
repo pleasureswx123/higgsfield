@@ -13,7 +13,7 @@
         <img
           v-if="logo"
           :src="logo"
-          class="sidebar-logo"
+          class="sidebar-logo" alt="Higgsfield 管理平台"
         />
         <h1
           v-else
@@ -31,7 +31,7 @@
         <img
           v-if="logo"
           :src="logo"
-          class="sidebar-logo"
+          class="sidebar-logo" alt="Higgsfield 管理平台"
         />
         <h1 class="sidebar-title">{{ title }}</h1>
       </router-link>
@@ -40,7 +40,7 @@
 </template>
 
 <script setup>
-import logo from '@/assets/logo/logo.png'
+const logo = `${import.meta.env.BASE_URL}brand-mark.svg`
 import useSettingsStore from '@/store/modules/settings'
 import variables from '@/assets/styles/variables.module.scss'
 
@@ -51,7 +51,7 @@ defineProps({
   },
 })
 
-const title = import.meta.env.VITE_APP_TITLE
+const title = 'Higgsfield'
 const settingsStore = useSettingsStore()
 const sideTheme = computed(() => settingsStore.sideTheme)
 

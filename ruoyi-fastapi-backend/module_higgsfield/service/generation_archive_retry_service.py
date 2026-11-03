@@ -1,13 +1,14 @@
 """归档重试仅重新调度已有失败输出，不重提供应商生成任务。"""
 
-from module_higgsfield.dao.generation_read_dao import GenerationReadDao
 from module_higgsfield.dao.generated_output_dao import GeneratedOutputDao
+from module_higgsfield.dao.generation_read_dao import GenerationReadDao
 from module_higgsfield.dao.job_event_dao import JobEventDao
 from module_higgsfield.dao.job_lease_dao import JobLeaseDao
 from module_higgsfield.dao.price_source_dao import PriceSourceDao
+from module_higgsfield.dao.provider_response_dao import ProviderResponseDao
+from module_higgsfield.service.admin_scope_service import AdminScopeService
 from module_higgsfield.service.project_workspace_service import WorkspaceService
 from module_higgsfield.service.write_service import WriteService
-from module_higgsfield.service.admin_scope_service import AdminScopeService
 
 
 class GenerationArchiveRetryService:
@@ -47,9 +48,10 @@ class GenerationArchiveRetryService:
             if not candidates or (selected is not None and len(candidates) != len(selected)):
                 WorkspaceService.conflict('OUTPUT_RETRY_UNAVAILABLE', '没有可重试的失败输出或输出不属于此任务')
             # 任务行锁与归档执行者保持一致；先校验全部输出，再原子调度。
+            evidence = await ProviderResponseDao.for_completed_image(db, identity) if job.kind == 'image' else None
             for row in candidates:
                 if (row.del_flag != '0' or row.archive_state != '3' or row.kind not in {'image', 'video'}
-                        or row.source_url_ciphertext is None
+                        or (row.source_url_ciphertext is None and evidence is None)
                         or (row.source_expires_time is not None and row.source_expires_time <= now)):
                     WorkspaceService.conflict('OUTPUT_RETRY_UNAVAILABLE', '仅能重试源仍有效的失败媒体输出')
             for row in candidates:

@@ -1,4 +1,5 @@
 <script setup>
+import ModelSetupEntry from '@/components/ModelSetupEntry.vue'
 import { computed, ref } from 'vue'
 import useUserStore from '@/store/modules/user'
 import ModelProfileEditor from './ModelProfileEditor.vue'
@@ -41,6 +42,7 @@ const rules = {
 </script>
 <template>
   <div class="app-container">
+    <ModelSetupEntry />
     <ModelVersionEditor
       ref="versionEditor"
       @saved="loadVersions"
@@ -105,6 +107,7 @@ const rules = {
       :data="models.rows"
       empty-text="暂无模型身份"
     >
+      <el-table-column prop="id" label="模型ID" width="100" />
       <el-table-column
         prop="displayName"
         label="模型名称"
@@ -161,6 +164,7 @@ const rules = {
         :data="versions.rows"
         empty-text="暂无能力版本"
       >
+        <el-table-column prop="id" label="模型版本ID" width="110" />
         <el-table-column
           prop="versionNo"
           label="版本号"

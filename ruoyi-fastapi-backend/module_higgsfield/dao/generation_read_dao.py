@@ -1,12 +1,13 @@
 """生成任务身份与固定输入读取。"""
 
-from sqlalchemy import select, func, or_, and_
+from sqlalchemy import and_, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
-from module_higgsfield.entity.do.job_do import HfCreationJob, HfJobReference
-from module_higgsfield.entity.do.provider_call_do import HfProviderCall
-from module_higgsfield.entity.do.project_do import HfProject, HfProjectMember, HfProjectRolePermission
+
 from module_higgsfield.dao.job_event_dao import JobEventDao
+from module_higgsfield.entity.do.job_do import HfCreationJob, HfJobReference
 from module_higgsfield.entity.do.model_do import HfModelProfile, HfModelProfileVersion
+from module_higgsfield.entity.do.project_do import HfProject, HfProjectMember, HfProjectRolePermission
+from module_higgsfield.entity.do.provider_call_do import HfProviderCall
 
 
 class GenerationReadDao:
@@ -63,6 +64,10 @@ class GenerationReadDao:
         )
         if query.project_id:
             statement = statement.where(HfCreationJob.project_id == int(query.project_id))
+        if query.folder_id:
+            statement = statement.where(HfCreationJob.input_snapshot['folderId'].as_string() == query.folder_id)
+        elif query.root_folder:
+            statement = statement.where(HfCreationJob.input_snapshot['folderId'].as_string().is_(None))
         if query.scope == 'mine':
             statement = statement.where(HfCreationJob.actor_id == actor_id)
         if query.kind:

@@ -1,6 +1,9 @@
 import request from '@/utils/request'
 
 const base = '/api/admin/v1'
+export const getCredentialTestDetails = id => request({ url: `${base}/credential-tests/${encodeURIComponent(id)}/details` })
+export const getCredentialTestVideo = id => request({ url: `${base}/credential-tests/${encodeURIComponent(id)}/video`, responseType: 'blob' })
+export const getCredentialTestRuntime = () => request({ url: `${base}/credential-test-runtime` })
 export const listCredentialTestModels = (id, params, signal) =>
   request({ url: `${base}/credential-versions/${encodeURIComponent(id)}/test-models`, params, signal })
 export const listTestCostCenters = (params, signal) => request({ url: `${base}/cost-centers`, params, signal })
@@ -10,6 +13,8 @@ export const createCredentialTest = (id, data, key) => request({
 })
 export const getCredentialTest = (id, signal) =>
   request({ url: `${base}/credential-tests/${encodeURIComponent(id)}`, signal })
+export const getCredentialTestPreview = (id, params) =>
+  request({ url: `${base}/credential-versions/${encodeURIComponent(id)}/test-preview`, params })
 export const listCredentialTests = (id, params, signal) =>
   request({ url: `${base}/credential-versions/${encodeURIComponent(id)}/tests`, params, signal })
 export const changeCredentialState = (id, action, data, key) =>

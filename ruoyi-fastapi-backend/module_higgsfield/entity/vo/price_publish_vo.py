@@ -48,3 +48,14 @@ class PriceActivationEnd(PriceScheduleInput):
 class PriceHistoryQuery(WorkspaceInput):
     page_num: int = Field(default=1, ge=1, le=1000000)
     page_size: int = Field(default=20, ge=1, le=100)
+
+
+class PriceBatchItem(WorkspaceInput):
+    version_id: BigId
+    revision: BigId
+    expected_activation_id: BigId | None = None
+
+
+class PriceBatchPublish(WorkspaceInput):
+    items: list[PriceBatchItem] = Field(min_length=2, max_length=40)
+    reason: str = Field(min_length=1, max_length=4000)

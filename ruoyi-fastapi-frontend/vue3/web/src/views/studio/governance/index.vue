@@ -30,7 +30,7 @@ const form = computed(() => ({ reason: reason.value }))
 <template>
   <div class="app-container">
     <header>
-      <h2>项目治理</h2>
+      <h2>项目状态管理</h2>
       <el-button
         text
         @click="settings.toggleTheme()"

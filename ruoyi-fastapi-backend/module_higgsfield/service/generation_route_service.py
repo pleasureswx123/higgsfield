@@ -21,7 +21,14 @@ class GenerationRouteService:
         if group is None:
             WorkspaceService.conflict('GENERATION_ROUTE_UNAVAILABLE', '项目尚未配置生成路由')
         routes, policies = await RoutingDao.rows(db, project_id)
-        active = [row for row in routes if row.status == '0']
+        platform_group = await RoutingDao.group(db, None, lock=True)
+        platform_routes, platform_policies = await RoutingDao.rows(db, None)
+        # 原有项目专用配置优先，全平台配置补充；新项目无需复制或初始化模型路由。
+        routes = [*routes, *platform_routes]
+        policies = [*policies, *platform_policies]
+        # 全平台显式停用优先于项目专用配置，仅在新任务受理时检查。
+        blocked = {row.model_id for row in platform_routes} - {row.model_id for row in platform_routes if row.status == '0'}
+        active = [row for row in routes if row.status == '0' and row.model_id not in blocked]
         candidates = [row for row in policies if row.enabled == 'Y']
         # 与整组配置更新采用相同锁顺序：路由组→连接→模型→能力版本→账号→凭据→密钥版本。
         definitions = [
@@ -84,7 +91,7 @@ class GenerationRouteService:
                     continue
                 selected = max(eligible, key=lambda item: (item.version_no, item.credential_version_id))
                 return {
-                    'routingRevision': str(group.revision),
+                    'routingRevision': str(platform_group.revision if route.project_id is None else group.revision),
                     'routeId': str(route.config_id),
                     'policyId': str(policy.policy_id),
                     'accountId': str(account.account_id),

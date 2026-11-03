@@ -84,19 +84,10 @@ export function useGenerationSubmit(input: () => GenerationSubmission | undefine
     if (!attempt) {
       const payload = input(),
         value = quote.value
-      if (!payload || !value?.valid || !value.estimateToken || signature.value !== quoteSignature)
+      if (!payload || !value?.valid || signature.value !== quoteSignature)
         return
-      if (
-        !value.expiresAt ||
-        Date.parse(value.expiresAt) <= Date.now() ||
-        !Number.isFinite(Date.parse(value.expiresAt))
-      ) {
-        invalidate()
-        error.value = '估价已过期，请重新预检'
-        return
-      }
       attempt = {
-        data: JSON.parse(JSON.stringify({ ...payload, estimateToken: value.estimateToken })),
+        data: JSON.parse(JSON.stringify(payload)),
         key: crypto.randomUUID(),
       }
       saveGenerationRecovery(token, project, attempt)

@@ -33,6 +33,10 @@ class ImageResponseService:
         if not HTTP_OK <= http_status < HTTP_REDIRECT or not isinstance(body, dict):
             raise ValueError('图片响应未证明成功')
         fact = ImageProviderFact()
+        headers = body.get('_platformGatewayHeaders', {})
+        if isinstance(headers, dict):
+            fact.gateway_headers = {key: value for key, value in headers.items()
+                if key in ('responseCost', 'callId') and isinstance(value, str) and len(value) <= 128}
         try:
             fact.response_id = IDENTIFIER.validate_python(body.get('id'))
         except ValidationError:
@@ -103,10 +107,10 @@ class ImageResponseService:
                 fact.issues.append('USAGE_' + key.upper() + '_MISSING_OR_INVALID')
         if inner.get('output_format') in ('png', 'jpeg', 'webp'):
             fact.declared_format = inner['output_format']
-        elif 'output_format' in inner:
+        elif inner.get('output_format') is not None:
             fact.issues.append('DECLARED_FORMAT_INVALID')
         size = inner.get('size')
         if isinstance(size, str) and (size == 'auto' or re.fullmatch(r'[1-9][0-9]{0,4}x[1-9][0-9]{0,4}', size)):
             fact.declared_size = size
-        elif 'size' in inner:
+        elif size is not None:
             fact.issues.append('DECLARED_SIZE_INVALID')

@@ -55,6 +55,9 @@ class CredentialTestExecutorService:
             return False
         # 取消、进程退出或证据落盘失败均保留已提交意图；禁止重新调用 submit。
         response = await transport.submit(intent.payload)
+        if intent.binding.model_kind == 'video':
+            from module_higgsfield.service.credential_video_test_service import CredentialVideoTestService
+            return await CredentialVideoTestService.submitted(self, test_id, intent, response)
         if response.transport == 'response' and response.body is not None:
             facts = await self.evidence_storage.save(response.body, intent.call_id, test_id)
             async with self.sessions() as db:

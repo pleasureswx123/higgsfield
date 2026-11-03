@@ -17,7 +17,7 @@ import SelectedReference from './SelectedReference.vue'
 import type { DraftReference } from '@/api/creation'
 import PromptEditor from './PromptEditor.vue'
 import GenerationDetail from './GenerationDetail.vue'
-import ProjectBudgetStatus from './ProjectBudgetStatus.vue'
+import { useCreationProgress } from '@/composables/useCreationProgress'
 import { useGenerationSubmit } from '@/composables/useGenerationSubmit'
 const props = defineProps<{ projectId: string; initialPrompt?: string; initialKind?: 'image' | 'video'; dock?: boolean }>()
 const emit = defineEmits<{ assetsChanged: [] }>()
@@ -144,6 +144,10 @@ defineExpose({
   useError: elementUse.error,
 })
 const taskId = ref<string>()
+const progress = useCreationProgress(() => props.projectId, () => {
+  const folder = route.query.folder
+  return typeof folder === 'string' && /^[1-9]\d*$/.test(folder) ? folder : null
+}, () => generation.acceptedId.value, () => emit('assetsChanged'))
 async function checkGeneration() {
   if (draftLocked.value) return
   if (elementTarget.requested.value && (!elementTarget.target.value || kind.value !== 'image'))
@@ -195,7 +199,7 @@ const rules = { prompt: [{ max: 50000, message: '提示词不能超过50000字�
         目标元素：{{ elementTarget.target.value.name }} · @{{ elementTarget.target.value.alias }}
       </p>
       <p class="muted">
-        确认图片模式与提示词后再预检、提交。此入口不会自动生成或覆盖元素；满意作品归档后再加入元素。
+        确认图片模式与提示词后点击生成。此入口不会自动生成或覆盖元素；满意作品归档后再加入元素。
       </p>
       <Button
         v-if="kind !== 'image'"
@@ -217,7 +221,7 @@ const rules = { prompt: [{ max: 50000, message: '提示词不能超过50000字�
         <h2>创作详情</h2>
         <p class="muted">先记录提示词与模型参数，再继续完善创作。</p>
         <p class="muted">保存位置：{{ body.folderId ? `目录 #${body.folderId}` : '项目根目录' }}。已有内容保留发起目录；切换目录后可点击“新建草稿”开始。</p>
-        <p v-if="body.sourceJobId" class="muted">来源任务 #{{ body.sourceJobId }}。提交会创建新任务并可能产生新的费用，请先检查输入与预估费用。</p>
+        <p v-if="body.sourceJobId" class="muted">来源任务 #{{ body.sourceJobId }}。提交会创建新任务并可能产生新的费用，请先检查输入。</p>
       </div>
       <span class="muted">{{ dirty ? '未保存' : draft ? '已保存的草稿' : '新草稿' }}</span>
     </div>
@@ -393,7 +397,7 @@ const rules = { prompt: [{ max: 50000, message: '提示词不能超过50000字�
         :protected-keys="protectedReferenceKeys"
         :model="selected"
       />
-      <ProjectBudgetStatus :project-id="projectId" :refresh-key="generation.acceptedId.value" />
+
       <div class="creation-actions">
         <p class="muted">保存草稿不产生生成费用。</p>
         <Button :disabled="saving || opening || generation.locked.value" @click="save">{{
@@ -402,7 +406,7 @@ const rules = { prompt: [{ max: 50000, message: '提示词不能超过50000字�
       </div>
     </el-form>
     </div>
-    <section v-if="(generation.quote.value && !generation.quote.value.valid) || generation.error.value || generation.uncertain.value || generation.acceptedId.value" class="generation-submit">
+    <section v-if="(generation.quote.value && !generation.quote.value.valid) || generation.error.value || generation.uncertain.value" class="generation-submit">
       <p v-if="generation.error.value" class="project-error" role="alert">
         {{ generation.error.value }}
       </p>
@@ -427,11 +431,22 @@ const rules = { prompt: [{ max: 50000, message: '提示词不能超过50000字�
         >查看任务详情</Button
       >
     </section>
+    <div v-if="progress.rows.value.length || progress.error.value" class="creation-progress" aria-label="当前目录生成任务">
+      <p v-if="progress.error.value" role="alert">{{ progress.error.value }} <button type="button" @click="progress.reload">刷新</button></p>
+      <button v-for="item in progress.rows.value.slice(0, 3)" :key="item.id" type="button" @click="taskId = item.id">
+        任务 #{{ item.id }} · {{ progress.label(item) }} ›
+      </button>
+    </div>
     <GenerationDetail v-model="taskId" />
   </section>
 </template>
 
 <style scoped>
+.creation-progress { display:flex; flex-wrap:wrap; gap:6px; padding:6px; background:var(--background); border:1px solid var(--border); border-radius:10px; }
+.creation-progress button { border:0; background:transparent; color:var(--foreground); cursor:pointer; font-size:12px; }
+.creation-dock .creation-progress { position:absolute; bottom:calc(100% + 8px); left:0; max-width:100%; }
+.creation-dock:has(.generation-submit) .creation-progress { display:none; }
+
 .compact-notice button { border:0; background:transparent; color:var(--muted-foreground); cursor:pointer; margin-left:10px; text-decoration:underline; }
 .compact-notice { margin:6px 12px; font-size:12px; color:var(--muted-foreground); }
 .creation-dock { position:fixed; z-index:20; bottom:50px; left:calc(260px + (100vw - 260px) / 2); transform:translateX(-50%); width:min(920px, calc(100vw - 330px)); margin:0 !important; }

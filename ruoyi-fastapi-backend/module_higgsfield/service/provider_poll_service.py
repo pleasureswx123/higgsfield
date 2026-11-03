@@ -102,14 +102,15 @@ class ProviderPollService:
                 WorkspaceService.conflict('PROVIDER_POLL_STALE', '查询结果不属于当前任务与租约')
             job, now = await JobLeaseService.guard(db, lease)
             fact = (
-                VideoPlusResponseService.polling(http_status, body, expected_task_id=job.upstream_task_id)
+                VideoPlusResponseService.polling(http_status, body, expected_task_id=job.upstream_task_id,
+                    input_image_count=sum(item['mediaType'] == 'image' for item in job.input_snapshot.get('compiled', {}).get('media', [])))
                 if transport == 'response'
                 else VideoProviderFact(upstreamState='unknown', issues=['QUERY_TRANSPORT_UNKNOWN'])
             )
             call.state, call.acceptance = ('2', 'not_applicable') if transport == 'response' else ('3', 'unknown')
             call.http_status, call.finished_time = http_status, now
             call.update_by, call.update_time = lease.worker, now
-            call.response_metadata = fact.model_dump(by_alias=True, exclude={'outputs'}, exclude_none=True) | {
+            call.response_metadata = fact.model_dump(mode='json', by_alias=True, exclude={'outputs'}, exclude_none=True) | {
                 'transport': transport,
                 'outputCount': len(fact.outputs),
             }

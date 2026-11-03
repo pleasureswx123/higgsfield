@@ -34,7 +34,7 @@ class ReferenceService:
                 'byteSize': str(row['byte_size']) if row.get('byte_size') is not None else None,
                 'projectId': str(project_id),
                 'allowedMediaRoles': {
-                    'image': ['reference_image', 'first_frame'],
+                    'image': ['reference_image', 'reference_person', 'first_frame', 'last_frame'],
                     'video': ['reference_video'],
                 }.get(row['media_type'], []),
             }

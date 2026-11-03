@@ -13,11 +13,13 @@ from module_higgsfield.entity.do.provider_do import HfProviderAccount as Account
 class ModelCatalogDao:
     @staticmethod
     def authorized(project_id):
-        return exists(
+        platform = exists(select(Route.config_id).where(Route.project_id.is_(None), Route.model_id == Model.model_id))
+        platform_active = exists(select(Route.config_id).where(Route.project_id.is_(None), Route.model_id == Model.model_id, Route.status == '0'))
+        return (~platform | platform_active) & exists(
             select(Route.config_id)
             .join(Account, Account.account_id == Route.account_id)
             .where(
-                Route.project_id == project_id,
+                or_(Route.project_id == project_id, Route.project_id.is_(None)),
                 Route.model_id == Model.model_id,
                 Route.status == '0',
                 Account.connection_id == Model.connection_id,

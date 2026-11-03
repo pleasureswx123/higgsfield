@@ -1,12 +1,13 @@
 """制作端发布能力投影，不返回供应商账号、别名及凭据内部信息。"""
 
 from pydantic import ValidationError
-from exceptions.exception import ServiceWarning
+
 from common.vo import PageModel
+from exceptions.exception import ServiceWarning
 from module_higgsfield.dao.model_catalog_dao import ModelCatalogDao
 from module_higgsfield.entity.vo.model_capability_vo import ModelCapabilities
-from module_higgsfield.service.project_workspace_service import WorkspaceService
 from module_higgsfield.service.generation_policy_service import GenerationPolicyService
+from module_higgsfield.service.project_workspace_service import WorkspaceService
 
 
 class ModelCatalogService:
@@ -14,20 +15,17 @@ class ModelCatalogService:
     def runtime_ready():
         try:
             GenerationPolicyService.configured()
-            GenerationPolicyService.tokens()
             return True
         except ServiceWarning:
             return False
 
     @staticmethod
     def availability(project, config, runtime_ready):
-        # 目录没有完整输入，不能代替价格、预算、引用和凭据容量预检。
+        # 目录没有完整输入，不能代替价格、引用和凭据容量校验。
         if project.status != '0':
             reason = 'PROJECT_READ_ONLY'
         elif not runtime_ready:
             reason = 'GENERATION_POLICY_UNAVAILABLE'
-        elif config.estimate_policy is None:
-            reason = 'GENERATION_ESTIMATE_UNAVAILABLE'
         else:
             reason = 'GENERATION_PREFLIGHT_REQUIRED'
         return {'available': False, 'reasonCode': reason}

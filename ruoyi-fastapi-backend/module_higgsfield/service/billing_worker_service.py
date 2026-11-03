@@ -37,7 +37,9 @@ class BillingWorker:
                         changed |= updated
                         if purpose == 'platform':
                             platform_states.append(event.state)
-                changed |= await BudgetSettlementService.settle(db, identity, now=now, worker=self.worker)
+                if job.input_snapshot.get('billingMode') != 'actual_usage':
+                    # 仅处理历史预占账目，新任务不访问预算结算。
+                    changed |= await BudgetSettlementService.settle(db, identity, now=now, worker=self.worker)
                 platform_states = [
                     event.state if event is not None else '0'
                     for _, event in await BudgetReservationDao.billing_facts(db, identity, 'platform')

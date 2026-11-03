@@ -27,7 +27,7 @@ class CatalogTests(unittest.IsolatedAsyncioTestCase):
         async with self.sessions() as db:
             await db.execute(
                 text(
-                    "INSERT INTO hf_project_role_permission(role_id,permission_code,data_scope) SELECT role_id,'generation:create','project' FROM hf_project_role WHERE code='owner'"
+                    "INSERT INTO hf_project_role_permission(role_id,permission_code,data_scope) SELECT role_id,'generation:create','project' FROM hf_project_role WHERE code='owner' ON CONFLICT (role_id,permission_code) DO NOTHING"
                 )
             )
             await db.execute(

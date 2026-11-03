@@ -17,7 +17,9 @@ export function compatibleReferenceRoles(
 ): string[] {
   const mediaTypes: Record<string, string> = {
     reference_image: 'image',
+    reference_person: 'image',
     first_frame: 'image',
+    last_frame: 'image',
     reference_video: 'video',
   }
   return candidate.allowedMediaRoles.filter((role) => {
@@ -36,7 +38,7 @@ export function appendCandidate(
   if (!compatibleReferenceRoles(candidate, model).includes(role))
     throw new Error('候选素材或当前模型不支持此引用角色')
   const versions =
-    role === 'first_frame'
+    ['first_frame', 'last_frame'].includes(role)
       ? [candidate.primaryAssetVersionId || candidate.assetVersionIds[0]].filter(
           (id): id is string => !!id,
         )
@@ -114,7 +116,7 @@ export function upgradeReferenceGroup(current: DraftReference[], key: string, ol
   const replacements: DraftReference[] = []
   for (const role of roles) {
     if (!compatibleReferenceRoles(candidate, model).includes(role)) throw new Error('新修订与当前模型引用角色不兼容')
-    const versions = role === 'first_frame' ? [candidate.primaryAssetVersionId || candidate.assetVersionIds[0]] : candidate.assetVersionIds
+    const versions = ['first_frame', 'last_frame'].includes(role) ? [candidate.primaryAssetVersionId || candidate.assetVersionIds[0]] : candidate.assetVersionIds
     if (!versions.length || versions.some(id => !id || !candidate.assetVersionIds.includes(id))) throw new Error('新修订没有可用图片')
     for (const id of new Set(versions)) replacements.push({ referenceKey: key, assetVersionId: id!,
       elementRevisionId: candidate.elementRevisionId, mediaRole: role, ordinal: 0 })

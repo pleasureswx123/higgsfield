@@ -1,8 +1,4 @@
-"""运行时业务策略和估价密钥缺失时明确拒绝生成入口。"""
-
-import os
-
-from pydantic import ValidationError
+"""首版按实际用量以USD记账；历史估价工具保留但不参与新任务。"""
 
 from module_higgsfield.entity.vo.generation_policy_vo import GenerationPolicy
 from module_higgsfield.service.estimate_token_service import EstimateTokenService
@@ -12,11 +8,8 @@ from module_higgsfield.service.project_workspace_service import WorkspaceService
 class GenerationPolicyService:
     @staticmethod
     def configured() -> GenerationPolicy:
-        try:
-            return GenerationPolicy.model_validate_json(os.environ['HF_GENERATION_POLICY'])
-        except (KeyError, ValidationError):
-            WorkspaceService.conflict('GENERATION_POLICY_UNAVAILABLE', '生成业务策略尚未有效配置')
-        raise AssertionError('策略错误必须中止')
+        # 已确认的首版统一美元计价，不再依赖预算或估价环境变量。
+        return GenerationPolicy(platform_currency='USD', procurement_currency='USD', missing_budget_policy='allow')
 
     @staticmethod
     def tokens() -> EstimateTokenService:

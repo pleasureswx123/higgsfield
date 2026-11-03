@@ -149,19 +149,15 @@ test('不明提交保留原请求和键，阻止离开及重复点击，成功�
   h.cleanup()
 })
 
-test('过期估价和明确业务拒绝都要求重新预检', async () => {
+test('无需估价凭据即可提交，明确业务拒绝后重新校验', async () => {
   const h = harness()
-  let check = h.state.check()
-  h.calls[0].resolve({ data: { ...valid(), expiresAt: '2000-01-01T00:00:00Z' } })
-  await check
-  await h.state.submit()
-  assert.equal(h.calls.length, 1)
-  assert.equal(h.state.quote.value, undefined)
-  check = h.state.check()
-  h.calls[1].resolve({ data: valid() })
+  const check = h.state.check()
+  h.calls[0].resolve({ data: { valid: true, issues: [], normalizedParameters: {}, estimateVisibility: 'hidden' } })
   await check
   const submit = h.state.submit()
-  h.calls[2].reject(Object.assign(new Error('价格变化'), { code: 601 }))
+  assert.equal(h.calls[1].type, 'submit')
+  assert.equal(h.calls[1].args[0].estimateToken, undefined)
+  h.calls[1].reject(Object.assign(new Error('模型已停用'), { code: 601 }))
   await submit
   assert.equal(h.state.quote.value, undefined)
   assert.equal(h.state.uncertain.value, false)

@@ -1,18 +1,19 @@
 """生成输入仅从固定业务快照投影，内部执行信息不得直接返回。"""
 
 from pydantic import ValidationError
+
 from common.vo import PageModel
 from exceptions.exception import PermissionException
 from module_higgsfield.dao.generated_output_dao import GeneratedOutputDao
-from module_higgsfield.dao.job_event_dao import JobEventDao
 from module_higgsfield.dao.generation_read_dao import GenerationReadDao
+from module_higgsfield.dao.job_event_dao import JobEventDao
 from module_higgsfield.dao.usage_dao import UsageDao
 from module_higgsfield.entity.vo.reference_vo import ReferenceInput
-from module_higgsfield.service.project_workspace_service import WorkspaceService
-from module_higgsfield.service.output_read_service import OutputReadService
-from module_higgsfield.service.generation_target_service import GenerationTargetService
-from module_higgsfield.service.task_billing_read_service import TaskBillingReadService
 from module_higgsfield.service.generation_diagnostic_service import GenerationDiagnosticService
+from module_higgsfield.service.generation_target_service import GenerationTargetService
+from module_higgsfield.service.output_read_service import OutputReadService
+from module_higgsfield.service.project_workspace_service import WorkspaceService
+from module_higgsfield.service.task_billing_read_service import TaskBillingReadService
 
 
 class GenerationReadService:
@@ -92,14 +93,6 @@ class GenerationReadService:
             'allowedActions': (
                 ['generation:copy-input']
                 if 'generation:create' in allowed and job.kind in {'image', 'video'}
-                else []
-            ) + (
-                ['generation:cancel']
-                if 'generation:cancel' in allowed
-                and job.orchestration_state in {'0', '1'}
-                and job.upstream_state == '0'
-                and not job.upstream_task_id
-                and not job.upstream_response_id
                 else []
             ),
             'eventCursor': f'{job.job_id}:{job.event_sequence}',

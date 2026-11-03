@@ -8,6 +8,10 @@ from module_higgsfield.entity.do.provider_call_do import HfProviderCall
 
 class ProviderCallDao:
     @staticmethod
+    async def get(db: AsyncSession, call_id: int):
+        return await db.scalar(select(HfProviderCall).where(HfProviderCall.call_id == call_id))
+
+    @staticmethod
     async def sending_polls(db: AsyncSession, job_id: int) -> list[HfProviderCall]:
         return list(
             await db.scalars(

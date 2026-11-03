@@ -2,12 +2,13 @@
 from module_higgsfield.dao.credential_dao import CredentialDao
 from module_higgsfield.dao.credential_test_dao import CredentialTestDao
 from module_higgsfield.dao.credential_test_response_dao import CredentialTestResponseDao
-from module_higgsfield.dao.provider_call_dao import ProviderCallDao
 from module_higgsfield.dao.price_source_dao import PriceSourceDao
+from module_higgsfield.dao.provider_call_dao import ProviderCallDao
+from module_higgsfield.dao.provider_dao import ProviderDao
 from module_higgsfield.entity.vo.credential_test_result_vo import CredentialTestResult
 from module_higgsfield.service.admin_scope_service import AdminScopeService
-from module_higgsfield.service.credential_test_binding_service import CredentialTestBindingService
 from module_higgsfield.service.credential_service import CredentialService
+from module_higgsfield.service.credential_test_binding_service import CredentialTestBindingService
 from module_higgsfield.service.project_workspace_service import WorkspaceService
 from module_higgsfield.service.write_service import WriteService
 
@@ -60,6 +61,14 @@ class CredentialActivationService:
             version.revision += 1
             version.update_by, version.update_time = audit['update_by'], audit['update_time']
             credential.status = '1'
+            # 成功测试已绑定当前连接版本；同事务启用连接，避免凭据启用后路由仍永久不可用。
+            connection = await ProviderDao.connection(db, binding.account.connection_id, lock=True)
+            if connection.current_version_id != binding.config.connection_version_id or connection.status == '2':
+                fail('CONNECTION_VERSION_CHANGED', '连接配置已变化，请按当前配置重新测试')
+            if connection.status == '0':
+                connection.status = '1'
+                connection.revision += 1
+                connection.update_by, connection.update_time = audit['update_by'], audit['update_time']
             credential.revision += 1
             credential.update_by, credential.update_time = audit['update_by'], audit['update_time']
             result = CredentialService.version_result(version, 0)

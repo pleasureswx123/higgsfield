@@ -1,10 +1,21 @@
-from sqlalchemy import select
-from module_higgsfield.entity.do.price_do import HfPriceSource
-from module_higgsfield.entity.do.audit_do import HfAuditLog
+from sqlalchemy import func, select
+
 from module_higgsfield.entity.do.asset_do import HfUploadBinding, HfUploadSession
+from module_higgsfield.entity.do.audit_do import HfAuditLog
+from module_higgsfield.entity.do.price_do import HfPriceSource
 
 
 class PriceSourceDao:
+    @staticmethod
+    async def page(db, query):
+        statement = select(HfPriceSource)
+        if query.q.strip():
+            statement = statement.where(HfPriceSource.excerpt.contains(query.q.strip(), autoescape=True))
+        total = await db.scalar(select(func.count()).select_from(statement.subquery()))
+        rows = (await db.scalars(statement.order_by(HfPriceSource.source_id.desc())
+            .offset((query.page_num - 1) * query.page_size).limit(query.page_size))).all()
+        return rows, total
+
     @staticmethod
     async def upload(db, source_id):
         return await db.scalar(select(HfUploadSession).join(HfUploadBinding,

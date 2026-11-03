@@ -2,6 +2,7 @@
 import { computed, ref, watch, nextTick, onMounted, onBeforeUnmount, onActivated } from 'vue'
 import { ElInputNumber, ElSwitch, ElPopover, ElInput, ElDialog } from 'element-plus'
 import { IconPhoto, IconVideo, IconPlus, IconAt, IconSparkles, IconDiamond, IconMaximize, IconClock, IconVolume, IconVolumeOff, IconArrowLeft, IconArrowRight, IconScissors, IconLayoutColumns } from '@tabler/icons-vue'
+import { imageSize } from '@/utils/imageSize'
 import type { ModelCapability, ParameterRule, Scalar } from '@/api/creation'
 
 // 全平台共用的创作栏。只展示和发出操作，不自行请求或持有项目业务状态。
@@ -31,7 +32,7 @@ const emit = defineEmits<{
   generate: []
 }>()
 const labels: Record<string, string> = {
-  aspect_ratio: '比例', aspectRatio: '比例', resolution: '分辨率', quality: '质量',
+  aspect_ratio: '比例', aspectRatio: '比例', ratio: '比例', resolution: '分辨率', quality: '质量',
   duration: '时长', duration_seconds: '时长', size: '尺寸', count: '数量', n: '数量',
   mode: '模式', generation_mode: '模式', bitrate_mode: '码率', num_images: '数量', seed: '种子', audio: '音频', generate_audio: '音频',
 }
@@ -46,10 +47,9 @@ const quickParameters = computed(() => {
       entries.push(['count', { type: 'integer', minimum: 1, maximum: 4 }])
     }
     if (props.kind === 'video') return [
-      ['mode', { type: 'string', enum: ['references', 'sequel', 'prequel', 'edit'] }],
+      ['ratio', { type: 'string', enum: ['16:9', '9:16', '1:1', '21:9'] }],
       ['resolution', { type: 'string', enum: ['480p', '720p', '1080p'] }],
-      ['duration', { type: 'integer', minimum: 4, maximum: 30 }],
-      ['count', { type: 'integer', minimum: 1, maximum: 4 }],
+      ['duration', { type: 'integer', minimum: 4, maximum: 15 }],
       ['bitrate_mode', { type: 'string', enum: ['high', 'standard'] }],
       ['generate_audio', { type: 'boolean' }],
     ] as [string, ParameterRule][]
@@ -112,7 +112,8 @@ function stepBatch(name: string, rule: ParameterRule, offset: number) {
   emit('parameter', name, next)
 }
 const resolutionHint = (name: string, value: Scalar) => name === 'resolution'
-  ? ({ '1K': '1024 px', '2K': '2048 px', '4K': '4096 px' }[String(value).toUpperCase()] ?? '') : ''
+  ? imageSize(String(valueOf('aspect_ratio') ?? 'Auto'), String(value)).replace('x', ' × ') : ''
+const parameterDisabled = (name: string) => props.disabled || (props.kind === 'image' && name === 'resolution' && valueOf('aspect_ratio') === 'Auto')
 const isDuration = (name: string) => ['duration', 'duration_seconds'].includes(name)
 const isMode = (name: string) => ['mode', 'generation_mode'].includes(name)
 const modeIcons: Record<string, typeof IconArrowLeft> = { references: IconLayoutColumns, sequel: IconArrowRight, prequel: IconArrowLeft, edit: IconScissors }
@@ -138,8 +139,10 @@ function setDuration(name: string, rule: ParameterRule, event: Event) {
 }
 const referenceVideoLabel = computed(() => ['sequel', 'prequel'].includes(String(valueOf('mode') ?? valueOf('generation_mode'))) ? '待延长视频' : valueOf('mode') === 'edit' ? '待编辑视频' : '参考视频')
 const displayValue = (name: string, value: Scalar | undefined) => {
+  if (props.kind === 'image' && name === 'resolution' && valueOf('aspect_ratio') === 'Auto') return '自动'
   if (isMode(name) && typeof value === 'string') return ({ references: 'References', sequel: 'Sequel', prequel: 'Prequel', edit: 'Edit video' }[value] ?? value)
-  if (['duration', 'duration_seconds'].includes(name) && typeof value === 'number') return `${value}s`
+  if (['duration', 'duration_seconds'].includes(name) && typeof value === 'number') return value === -1 ? '自动时长' : `${value}s`
+  if (value === 'adaptive') return '自动比例'
   if (['audio', 'generate_audio'].includes(name) && typeof value === 'boolean') return value ? 'On' : 'Off'
   if (['quality', 'bitrate_mode'].includes(name) && typeof value === 'string') return ({ low: 'Low', medium: 'Medium', high: 'High', standard: 'Standard' }[value.toLowerCase()] ?? value)
   return value
@@ -151,6 +154,7 @@ function ratioStyle(value: Scalar) {
   return { width: `${ratio >= 1 ? 17 : 17 * ratio}px`, height: `${ratio >= 1 ? 17 / ratio : 17}px` }
 }
 function changeParameter(name: string, value: Scalar | undefined) {
+  if (parameterDisabled(name)) return
   emit('parameter', name, value)
   menu.value = ''
 }
@@ -209,8 +213,8 @@ watch(() => [props.kind, props.selected?.versionId, props.disabled], () => { men
               <button type="button" aria-label="增加生成数量" :disabled="disabled || batchValue(name, rule) >= batchMax(rule)" @click="stepBatch(name, rule, 1)">＋</button>
             </div>
             <button v-else-if="rule.type === 'boolean' && ['audio', 'generate_audio'].includes(name)" type="button" class="composer-tool" :disabled="disabled" aria-label="生成声音" :aria-pressed="valueOf(name) === true" @click="toggleAudio(name)"><IconVolume v-if="valueOf(name) === true" :size="16" /><IconVolumeOff v-else :size="16" />{{ displayValue(name, valueOf(name)) }}</button>
-            <ElPopover v-else placement="top" trigger="click" :width="isDuration(name) ? 320 : name === 'resolution' && kind === 'image' ? 300 : name === 'bitrate_mode' ? 240 : 210" :show-arrow="false" :visible="menu === name" :disabled="disabled" @update:visible="menu = $event ? name : ''" :popper-class="kind === 'video' ? 'creation-control-popover creation-video-popover' : isRatio(name) ? 'creation-control-popover creation-ratio-popover' : name === 'quality' ? 'creation-control-popover creation-quality-popover' : name === 'resolution' ? 'creation-control-popover creation-resolution-popover' : 'creation-control-popover'">
-              <template #reference><button type="button" class="composer-tool" :disabled="disabled" :aria-label="labels[name] || name"><component :is="modeIcons[String(valueOf(name))] || IconLayoutColumns" v-if="isMode(name)" :size="16" /><IconMaximize v-else-if="isRatio(name)" :size="16" /><IconDiamond v-else-if="['quality', 'bitrate_mode', 'resolution'].includes(name)" :size="16" /><IconClock v-else-if="['duration', 'duration_seconds'].includes(name)" :size="16" />{{ displayValue(name, valueOf(name)) ?? labels[name] ?? name }}</button></template>
+            <ElPopover v-else placement="top" trigger="click" :width="isDuration(name) ? 320 : name === 'resolution' && kind === 'image' ? 300 : name === 'bitrate_mode' ? 240 : 210" :show-arrow="false" :visible="menu === name" :disabled="parameterDisabled(name)" @update:visible="menu = $event ? name : ''" :popper-class="kind === 'video' ? 'creation-control-popover creation-video-popover' : isRatio(name) ? 'creation-control-popover creation-ratio-popover' : name === 'quality' ? 'creation-control-popover creation-quality-popover' : name === 'resolution' ? 'creation-control-popover creation-resolution-popover' : 'creation-control-popover'">
+              <template #reference><button type="button" class="composer-tool" :disabled="parameterDisabled(name)" :title="name === 'resolution' && parameterDisabled(name) ? '尺寸由模型自动决定，切换固定比例可选择分辨率' : undefined" :aria-label="labels[name] || name"><component :is="modeIcons[String(valueOf(name))] || IconLayoutColumns" v-if="isMode(name)" :size="16" /><IconMaximize v-else-if="isRatio(name)" :size="16" /><IconDiamond v-else-if="['quality', 'bitrate_mode', 'resolution'].includes(name)" :size="16" /><IconClock v-else-if="['duration', 'duration_seconds'].includes(name)" :size="16" />{{ displayValue(name, valueOf(name)) ?? labels[name] ?? name }}</button></template>
               <label v-if="!isMode(name)" class="parameter-label">{{ labels[name] || name }}</label>
               <div v-if="isDuration(name) && durationChoices(rule).length" class="duration-control">
                 <output>{{ displayValue(name, valueOf(name)) }}</output>

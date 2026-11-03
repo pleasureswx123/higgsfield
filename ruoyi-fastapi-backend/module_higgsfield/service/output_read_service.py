@@ -1,11 +1,12 @@
 """生成输出的授权投影与持久媒体读取。"""
 
+from module_higgsfield.dao.asset_dao import AssetDao
 from module_higgsfield.dao.generated_output_dao import GeneratedOutputDao
 from module_higgsfield.dao.generation_read_dao import GenerationReadDao
-from module_higgsfield.dao.asset_dao import AssetDao
+from module_higgsfield.dao.provider_response_dao import ProviderResponseDao
+from module_higgsfield.entity.vo.generated_output_vo import OutputMetadata
 from module_higgsfield.service.project_workspace_service import WorkspaceService
 from module_higgsfield.service.stored_media_service import StoredMediaService
-from module_higgsfield.entity.vo.generated_output_vo import OutputMetadata
 from utils.time_util import TimezoneUtil
 
 
@@ -33,6 +34,7 @@ class OutputReadService:
             if key in {'width', 'height', 'durationSeconds', 'format', 'revisedPrompt'}
         }
         metadata = OutputMetadata.model_validate(metadata).model_dump(by_alias=True, exclude_none=True)
+        image_evidence = await ProviderResponseDao.for_completed_image(db, output.job_id) if output.kind == 'image' and output.archive_state == '3' else None
         result = {
             'id': str(output.output_id),
             'jobId': str(output.job_id),
@@ -49,9 +51,10 @@ class OutputReadService:
                 'not_applicable',
             )[int(output.archive_state)],
             'actualMetadata': metadata,
+            'destinationIssue': output.actual_metadata.get('destinationIssue'),
             'allowedActions': ['output:archive'] if (
                 'output:archive' in allowed and output.archive_state == '3'
-                and output.kind in {'image', 'video'} and output.source_url_ciphertext is not None
+                and output.kind in {'image', 'video'} and (output.source_url_ciphertext is not None or image_evidence is not None)
                 and (output.source_expires_time is None or output.source_expires_time > TimezoneUtil.utc_now())
             ) else [],
         }

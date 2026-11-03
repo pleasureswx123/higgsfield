@@ -2,11 +2,35 @@
 
 import json
 import unittest
+from decimal import Decimal
 
 from module_higgsfield.service.videoplus_response_service import VideoPlusResponseService as Parser
 
 
 class VideoPlusResponseTests(unittest.TestCase):
+    def test_h3_seconds_and_images_are_not_video_tokens(self):
+        fact = Parser.polling(200, {'task': {'id': 'h3-task', 'status': 'succeeded',
+            'content': {'url': 'https://example.com/video.mp4'}, 'resolution': '2K',
+            'usage': {'total_seconds': 10.5, 'image_count': 7}}}, expected_task_id='h3-task')
+        self.assertEqual(fact.usage_fact.output_seconds, Decimal('10.5'))
+        self.assertEqual(fact.usage_fact.image_count, 7)
+        self.assertIsNone(fact.usage_fact.video_tokens)
+        self.assertEqual(len(fact.outputs), 1)
+        self.assertEqual(fact.actual_parameters['resolution'], '2K')
+        # JSONB 元数据必须可序列化，不能把 Decimal 直接交给数据库。
+        json.dumps(fact.model_dump(mode='json', exclude={'outputs'}))
+
+    def test_poll_business_error_never_becomes_success(self) -> None:
+        for base in ({'status_code': 1}, {'status_code': False}, {}, None):
+            fact = Parser.polling(200, {
+                'id': 'task', 'status': 'succeeded', 'base_resp': base,
+                'content': {'video_url': 'https://example.com/video.mp4'},
+                'usage': {'completion_tokens': 77260},
+            }, expected_task_id='task')
+            self.assertEqual(fact.upstream_state, 'unknown')
+            self.assertEqual(fact.outputs, [])
+            self.assertEqual(fact.usage, {})
+
     @staticmethod
     def envelope(content: str) -> dict:
         return {'id': 'outer-response', 'choices': [{'message': {'content': content}}]}

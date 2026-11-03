@@ -1,13 +1,15 @@
 """归档阶段短事务；文件下载、校验及NAS落盘在调用方事务外执行。"""
 
 from datetime import timedelta
+
 from module_higgsfield.dao.asset_dao import AssetDao
+from module_higgsfield.dao.generated_output_dao import GeneratedOutputDao
+from module_higgsfield.dao.job_event_dao import JobEventDao
+from module_higgsfield.dao.job_lease_dao import JobLeaseDao
 from module_higgsfield.dao.provider_response_dao import ProviderResponseDao
 from module_higgsfield.entity.do.asset_do import HfStoredFile
 from module_higgsfield.entity.vo.archive_file_vo import ArchiveFileFacts
-from module_higgsfield.dao.generated_output_dao import GeneratedOutputDao
-from module_higgsfield.dao.job_lease_dao import JobLeaseDao
-from module_higgsfield.dao.job_event_dao import JobEventDao
+from module_higgsfield.service.generated_asset_binding_service import GeneratedAssetBindingService
 from module_higgsfield.service.job_lease_service import JobLeaseService
 from module_higgsfield.service.project_workspace_service import WorkspaceService
 
@@ -131,6 +133,7 @@ class OutputArchiveService:
                     if file.seconds is not None:
                         metadata['durationSeconds'] = str(file.seconds)
                     output.actual_metadata = metadata
+                    await GeneratedAssetBindingService.bind(db, job, output, file, now, worker)
                 else:
                     output.archive_state = '3' if action == 'fail' else '4'
                     output.next_retry_time = now + timedelta(seconds=delay_seconds) if action == 'fail' else None

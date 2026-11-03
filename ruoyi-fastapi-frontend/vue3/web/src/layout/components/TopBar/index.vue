@@ -47,6 +47,7 @@ const theme = computed(() => settingsStore.theme)
 const device = computed(() => appStore.device)
 const activeMenu = computed(() => {
   const { meta, path } = route
+  if (path === '/studio/provider-connections' && route.query.mode === 'advanced') return path
   if (meta.activeMenu) {
     return meta.activeMenu
   }

@@ -5,14 +5,14 @@ import os
 from module_higgsfield.service.credential_crypto_service import CredentialCryptoService
 from module_higgsfield.service.generation_worker_service import GenerationWorkerService
 from module_higgsfield.service.image_archive_recovery_worker import ImageArchiveRecoveryWorker
+from module_higgsfield.service.image_reconciliation_handler import ImageReconciliationHandler
+from module_higgsfield.service.image_reference_service import ImageReferenceService
 from module_higgsfield.service.image_storage_service import ImageStorageService
 from module_higgsfield.service.image_submit_handler import ImageSubmitHandler
-from module_higgsfield.service.image_reconciliation_handler import ImageReconciliationHandler
 from module_higgsfield.service.provider_http_service import HARD_RESPONSE_BYTES
 from module_higgsfield.service.provider_response_crypto_service import ProviderResponseCryptoService
 from module_higgsfield.service.provider_response_storage_service import ProviderResponseStorageService
 from module_higgsfield.service.storage_service import StorageService
-from module_higgsfield.service.videoplus_media_resolver import VideoPlusMediaResolver
 
 
 def image_resources(*, storage=None, credential_crypto=None, max_decoded_bytes=None):
@@ -62,7 +62,7 @@ def create_image_worker(
                 evidence_storage=evidence,
                 max_decoded_bytes=maximum,
                 credential_crypto=credentials,
-                media_resolver=VideoPlusMediaResolver(credential_crypto=credentials, storage=storage),
+                media_resolver=ImageReferenceService(storage),
             ),
             'reconcile_submission': ImageReconciliationHandler(
                 evidence, ImageStorageService(storage), max_decoded_bytes=maximum

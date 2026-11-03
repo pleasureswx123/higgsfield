@@ -68,10 +68,20 @@ class VideoPlusResponseService:
         return ProviderSubmissionResult(**facts)
 
     @staticmethod
-    def polling(http_status: int, body: object, *, expected_task_id: str) -> VideoProviderFact:
+    def polling(http_status: int, body: object, *, expected_task_id: str, input_image_count: int | None = None) -> VideoProviderFact:
         IDENTIFIER.validate_python(expected_task_id)
         if not HTTP_SUCCESS_START <= http_status < HTTP_SUCCESS_END or not isinstance(body, dict):
             return VideoProviderFact(upstreamState='unknown', issues=['QUERY_RESPONSE_INVALID'])
+        if 'base_resp' in body:
+            base = body['base_resp']
+            if not isinstance(base, dict) or type(base.get('status_code')) is not int or base['status_code'] != 0:
+                return VideoProviderFact(upstreamState='unknown', issues=['QUERY_RESPONSE_INVALID'])
+        is_h3 = isinstance(body.get('task'), dict)
+        if is_h3:
+            body = body['task']
+            base = body.get('base_resp', {'status_code': 0})
+            if not isinstance(base, dict) or type(base.get('status_code')) is not int or base['status_code'] != 0:
+                return VideoProviderFact(upstreamState='unknown', issues=['QUERY_RESPONSE_INVALID'])
         if body.get('id') != expected_task_id:
             return VideoProviderFact(upstreamState='unknown', issues=['TASK_ID_MISMATCH'])
         states = {
@@ -92,12 +102,17 @@ class VideoPlusResponseService:
         if state == 'failed':
             fact.failure_reason = status
         VideoPlusResponseService._usage(body, fact)
+        if is_h3:
+            usage = dict(body['usage']) if isinstance(body.get('usage'), dict) else {}
+            if 'image_count' not in usage and input_image_count is not None:
+                usage['image_count'] = input_image_count
+            fact.usage_fact = UsageNormalizationService.h3(usage)
         if state == 'succeeded':
-            if 'completionTokens' not in fact.usage:
+            if not is_h3 and 'completionTokens' not in fact.usage:
                 fact.issues.append('USAGE_MISSING')
             content = body.get('content')
             try:
-                url = content.get('video_url') if isinstance(content, dict) else None
+                url = content.get('url' if is_h3 else 'video_url') if isinstance(content, dict) else None
                 output = DiscoveredOutput(ordinal=0, kind='video', sourceUrl=url)
                 if 'duration' in fact.actual_parameters:
                     output.actual_metadata.duration_seconds = str(fact.actual_parameters['duration'])
@@ -108,7 +123,7 @@ class VideoPlusResponseService:
 
     @staticmethod
     def _metadata(body: dict, fact: VideoProviderFact) -> None:
-        for name, pattern in (('resolution', r'[1-9][0-9]{1,4}p'), ('ratio', r'[1-9][0-9]{0,3}:[1-9][0-9]{0,3}')):
+        for name, pattern in (('resolution', r'(?:[1-9][0-9]{1,4}p|2K)'), ('ratio', r'[1-9][0-9]{0,3}:[1-9][0-9]{0,3}')):
             value = body.get(name)
             if isinstance(value, str) and re.fullmatch(pattern, value):
                 fact.actual_parameters[name] = value

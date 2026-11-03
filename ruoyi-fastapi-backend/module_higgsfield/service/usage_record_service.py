@@ -24,7 +24,7 @@ class UsageRecordService:
         ):
             WorkspaceService.conflict('USAGE_SOURCE_INVALID', '用量调用与原生成任务不一致或尚未完成')
         expected_parser = 'videoplus-image-usage-v1' if job.kind == 'image' else 'videoplus-video-usage-v1'
-        if fact.parser_version != expected_parser:
+        if fact.parser_version != expected_parser and not (job.kind == 'video' and fact.parser_version == 'videoplus-h3-usage-v1'):
             WorkspaceService.conflict('USAGE_SOURCE_INVALID', '用量解析版本与任务类型不一致')
         origin = source_call if job.kind == 'image' else await ProviderCallDao.submission(db, job.job_id)
         if (

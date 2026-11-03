@@ -52,7 +52,7 @@ class CredentialTestCompletionService:
             call.state = '2' if result.transport == 'response' else '3'
             call.acceptance = result.acceptance
             call.http_status = result.http_status
-            call.response_metadata = diagnostic
+            call.response_metadata = {**(call.response_metadata or {}), **diagnostic}
             call.finished_time = now
             call.update_time = now
             call.update_by = 'credential-test-worker'

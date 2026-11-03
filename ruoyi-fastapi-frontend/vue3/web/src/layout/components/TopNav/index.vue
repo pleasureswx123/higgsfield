@@ -94,7 +94,7 @@ const childrenMenus = computed(() => {
         if (router.path === '/') {
           router.children[item].path = '/' + router.children[item].path
         } else {
-          if (!isHttp(router.children[item].path)) {
+          if (!isHttp(router.children[item].path) && !router.children[item].path.startsWith('/')) {
             router.children[item].path = router.path + '/' + router.children[item].path
           }
         }

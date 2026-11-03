@@ -3,7 +3,6 @@ import { ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { storeToRefs } from 'pinia'
 import {
-  IconAperture,
   IconHome,
   IconSparkles,
   IconBox,
@@ -50,7 +49,7 @@ async function signOut() {
     ></button>
     <aside class="sidebar" :class="{ 'is-open': mobileOpen }">
       <RouterLink v-if="!route.params.id" to="/home" class="brand"
-        ><IconAperture :size="28" /><span>Higgsfield <small>STUDIO</small></span></RouterLink
+        ><img src="/brand-mark.svg" width="32" height="32" alt="Higgsfield 制作平台" /><span>Higgsfield <small>STUDIO</small></span></RouterLink
       ><Button
         class="mobile-close icon-button"
         variant="ghost"

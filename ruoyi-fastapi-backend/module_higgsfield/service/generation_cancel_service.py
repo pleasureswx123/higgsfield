@@ -1,12 +1,13 @@
 """未提交生成任务的本地取消、预占释放及事件原子提交。"""
 
 from fastapi.encoders import jsonable_encoder
+
 from module_higgsfield.dao.generation_read_dao import GenerationReadDao
-from module_higgsfield.dao.job_lease_dao import JobLeaseDao
 from module_higgsfield.dao.job_event_dao import JobEventDao
+from module_higgsfield.dao.job_lease_dao import JobLeaseDao
 from module_higgsfield.dao.price_source_dao import PriceSourceDao
-from module_higgsfield.service.generation_read_service import GenerationReadService
 from module_higgsfield.service.budget_release_service import BudgetReleaseService
+from module_higgsfield.service.generation_read_service import GenerationReadService
 from module_higgsfield.service.project_workspace_service import WorkspaceService
 from module_higgsfield.service.write_service import WriteService
 
@@ -22,6 +23,8 @@ class GenerationCancelService:
                 WorkspaceService.conflict('RESOURCE_NOT_FOUND', '任务不存在或无权访问')
             await WorkspaceService.authorize(db, user, job.project_id, 'generation:cancel', owner_id=job.actor_id)
             await WorkspaceService.authorize(db, user, job.project_id, 'generation:read', owner_id=job.actor_id)
+            if job.input_snapshot.get('billingMode') == 'actual_usage':
+                WorkspaceService.conflict('GENERATION_CANCEL_UNSUPPORTED', '生成任务不支持取消，请等待结果')
             replay = await WriteService.replay(db, user, path, key, data)
             if replay:
                 # 重放也按当前权限生成快照，不复用历史响应中的输出正文。

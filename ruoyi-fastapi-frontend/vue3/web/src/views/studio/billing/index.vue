@@ -1,11 +1,9 @@
 <script setup>
 import { ref } from 'vue'
-import useSettingsStore from '@/store/modules/settings'
 import { useBillingEvents } from '@/composables/studio/useBillingEvents'
 import BillingAdjustment from './BillingAdjustment.vue'
 import BillingSummary from './BillingSummary.vue'
 import { billingTimeWindow } from '@/utils/billingQuery'
-const settings = useSettingsStore()
 const adjustmentPending = ref(false)
 function adjustmentSaved() {
   adjustmentPending.value = false
@@ -30,7 +28,7 @@ const {
   select,
   closeDetail,
 } = useBillingEvents()
-const states = { pending: '待确认', calculated: '已计算', confirmed: '已确认', disputed: '有争议' }
+const states = { pending: '待确认', calculated: '已计算', confirmed: '已确认', disputed: '有争议', unpriced: '未计价' }
 const usageLabels = {
   inputTokens: '输入 Token',
   outputTokens: '输出 Token',
@@ -62,17 +60,15 @@ const rules = {
   costCenterId: [{ pattern: /^[1-9]\d{0,18}$/, message: '请输入有效的成本中心ID', trigger: 'blur' }],
 }
 // 保留十进制字符串，不经浮点数转换；未知金额不能显示为零。
-const amount = (value) => (value == null ? '待确认' : String(value))
+const amount = (value) => (value == null ? '待核算' : String(value))
 </script>
 
 <template>
   <div class="app-container billing-console">
     <el-alert v-if="!allowed" title="没有费用读取权限或会话已失效" type="warning" :closable="false" />
     <div class="heading">
-      <h2>费用记录</h2>
-      <el-button @click="settings.toggleTheme()">{{
-        settings.isDark ? '切换亮色' : '切换暗色'
-      }}</el-button>
+      <h2>用量与费用</h2>
+
     </div>
     <el-form
       ref="formRef"
@@ -109,7 +105,7 @@ const amount = (value) => (value == null ? '待确认' : String(value))
         <el-select v-model="filters.costCenterGroupBy"><el-option label="成本中心" value="cost_center" /><el-option label="日期" value="day" /></el-select>
       </el-form-item>
       <el-form-item label="费用归属">
-        <el-select v-model="filters.scope"><el-option label="项目任务" value="project" /><el-option label="管理成本中心" value="cost_center" /></el-select>
+        <el-select v-model="filters.scope"><el-option label="项目创作" value="project" /><el-option label="管理员测试等非项目消耗" value="cost_center" /></el-select>
       </el-form-item>
       <el-form-item v-if="filters.scope === 'cost_center'" label="成本中心ID" prop="costCenterId">
         <el-input v-model="filters.costCenterId" placeholder="留空查询全部成本中心" clearable />
@@ -117,9 +113,9 @@ const amount = (value) => (value == null ? '待确认' : String(value))
       <el-form-item label="计价口径"
         ><el-select v-model="filters.purpose"
           ><el-option
-            label="平台费用"
+            label="项目记账金额"
             value="platform" /><el-option
-            label="采购费用"
+            label="供应商成本"
             value="procurement" /></el-select
       ></el-form-item>
       <el-form-item
@@ -188,7 +184,9 @@ const amount = (value) => (value == null ? '待确认' : String(value))
       >
     </el-form>
     <p class="hint">
-      按当前管理权限读取费用；采购费用要求全部管理范围。原始金额保留首次计价结果，有效金额包含后续调整，各币种不混算。
+      {{ filters.scope === 'cost_center' ? '这里查看管理员测试等不属于制作项目的消耗。' : '这里查看成员在制作项目中生成图片、视频的消耗。' }}
+      {{ filters.purpose === 'procurement' ? '供应商成本用于核对供应商账单。' : '项目记账金额用于统计项目内部使用费用。' }}
+      同一次生成的两种金额不能相加，避免重复统计。未计价记录的金额待核算，不计入费用汇总。
     </p>
     <el-alert
       v-if="error"
@@ -206,13 +204,14 @@ const amount = (value) => (value == null ? '待确认' : String(value))
       v-else
       v-loading="loading"
       :data="rows"
+      row-key="rowKey"
       empty-text="当前范围没有费用记录"
     >
       <el-table-column
         prop="id"
         label="费用ID"
         min-width="100"
-      />
+      ><template #default="{ row }">{{ row.id ?? '尚未计价' }}</template></el-table-column>
       <el-table-column
         prop="jobId"
         label="任务ID"
@@ -265,13 +264,14 @@ const amount = (value) => (value == null ? '待确认' : String(value))
       layout="total, prev, pager, next"
       @current-change="load"
     />
-    <el-dialog
+    <el-drawer
       :model-value="detailOpen"
       title="费用明细"
       :show-close="!adjustmentPending"
       :close-on-click-modal="!adjustmentPending"
       :close-on-press-escape="!adjustmentPending"
-      width="min(960px, 95vw)"
+      size="min(960px, 95vw)"
+      append-to-body
       @close="closeDetail"
     >
       <p
@@ -287,16 +287,17 @@ const amount = (value) => (value == null ? '待确认' : String(value))
         :closable="false"
       />
       <template v-if="detail">
+        <el-alert v-if="detail.reason" :title="detail.reason" type="warning" :closable="false" show-icon />
         <p v-if="detail.costCenterId">管理成本中心：{{ detail.costCenterId }}。</p>
         <p>
-          {{ detail.purpose === 'platform' ? '平台费用' : '采购费用' }} · {{ detail.currency }} ·
+          {{ detail.purpose === 'platform' ? '项目记账金额' : '供应商成本' }} · {{ detail.currency }} ·
           {{ states[detail.state] }}
         </p>
         <p>原始金额 {{ amount(detail.amount) }} · 有效金额 {{ amount(detail.effectiveAmount) }}</p>
         <p class="hint">
-          计费对象 {{ detail.subjectId }} · 固定价格版本 {{ detail.priceVersionId }}
+          计费对象 {{ detail.subjectId }} <span v-if="detail.priceVersionId">· 固定价格版本 {{ detail.priceVersionId }}</span>
         </p>
-        <h3>采用用量</h3>
+        <h3>{{ detail.id ? '采用用量' : '实际记录用量' }}</h3>
         <p
           v-if="!Object.keys(detail.usage).length"
           class="hint"
@@ -309,7 +310,7 @@ const amount = (value) => (value == null ? '待确认' : String(value))
             :key="key"
           >
             <dt>{{ label }}</dt>
-            <dd>{{ amount(detail.usage[key]) }}</dd>
+            <dd>{{ detail.usage[key] ?? '未提供' }}</dd>
           </div>
         </dl>
         <h3>计价明细</h3>
@@ -329,6 +330,7 @@ const amount = (value) => (value == null ? '待确认' : String(value))
             label="金额"
         /></el-table>
         <BillingAdjustment
+          v-if="detail.id"
           :key="`${detail.id}:${detail.revision}`"
           :event="detail"
           @saved="adjustmentSaved"
@@ -349,7 +351,8 @@ const amount = (value) => (value == null ? '待确认' : String(value))
             label="调整时间"
         /></el-table>
       </template>
-    </el-dialog>
+      <template #footer><el-button :disabled="adjustmentPending" @click="closeDetail">关闭明细</el-button></template>
+    </el-drawer>
   </div>
 </template>
 

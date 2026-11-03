@@ -1,17 +1,26 @@
 """来源登记保留不可变原文，不自动抓取 URL 或发布价格。"""
 
-from module_higgsfield.dao.price_source_dao import PriceSourceDao
+from common.vo import PageModel
 from module_higgsfield.dao.asset_dao import AssetDao
+from module_higgsfield.dao.price_source_dao import PriceSourceDao
 from module_higgsfield.entity.do.asset_do import HfUploadBinding
-from module_higgsfield.service.document_upload_service import DocumentUploadService
-from module_higgsfield.service.stored_media_service import StoredMediaService
 from module_higgsfield.service.admin_scope_service import AdminScopeService
+from module_higgsfield.service.document_upload_service import DocumentUploadService
 from module_higgsfield.service.project_workspace_service import WorkspaceService
+from module_higgsfield.service.stored_media_service import StoredMediaService
 from module_higgsfield.service.write_service import WriteService
 from utils.time_util import TimezoneUtil
 
 
 class PriceSourceService:
+    @classmethod
+    async def listing(cls, db, user, query):
+        await AdminScopeService.global_access(db, user, 'billing:price:read')
+        rows, total = await PriceSourceDao.page(db, query)
+        return PageModel(rows=[cls.result(row) for row in rows], total=total,
+            pageNum=query.page_num, pageSize=query.page_size,
+            hasNext=query.page_num * query.page_size < total)
+
     @staticmethod
     def result(row):
         return {

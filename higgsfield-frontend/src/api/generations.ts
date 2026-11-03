@@ -79,6 +79,7 @@ export async function subscribeGeneration(
 }
 
 export interface GenerationOutput {
+  destinationIssue?: string | null
   id: string
   jobId: string
   ordinal: number
@@ -205,6 +206,8 @@ export interface GenerationSummary {
 export interface GenerationQuery {
   scope: 'mine' | 'project'
   projectId?: string
+  folderId?: string
+  rootFolder?: boolean
   kind?: GenerationKind
   state?: GenerationState
   from?: string

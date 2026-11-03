@@ -19,7 +19,17 @@ class BillingDao:
             "JOIN sys_user u ON u.user_id=p.create_user_id WHERE p.del_flag='0' AND u.del_flag='0' AND " + scope
         )
         if query.scope == 'cost_center':
-            sql = (' FROM hf_billing_event e JOIN hf_billing_subject s ON s.subject_id=e.subject_id '
+            # 未计价对象以只读投影参与同一次分页，不伪造费用事件或零金额。
+            sql = (''' FROM (
+                SELECT event_id,subject_id,purpose,currency,amount,state,revision,create_time FROM hf_billing_event
+                UNION ALL
+                SELECT NULL,s0.subject_id,'procurement',
+                    coalesce(c.request_metadata->'procurementPricing'->>'currency',
+                             c.request_metadata->'procurementPricing'->'price'->>'currency'),NULL,'4',1,s0.create_time
+                FROM hf_billing_subject s0 JOIN hf_provider_call c ON c.call_id=s0.origin_call_id
+                WHERE s0.job_id IS NULL AND s0.cost_center_id IS NOT NULL
+                AND NOT EXISTS (SELECT 1 FROM hf_billing_event b WHERE b.subject_id=s0.subject_id AND b.purpose='procurement')
+                ) e JOIN hf_billing_subject s ON s.subject_id=e.subject_id '''
                 'WHERE s.job_id IS NULL AND s.cost_center_id IS NOT NULL AND '
                 + ('TRUE' if any(role['data_scope'] == '1' for role in roles) else 'FALSE'))
         params['purpose'] = query.purpose
@@ -45,7 +55,7 @@ class BillingDao:
             params['to_time'] = query.to_time
         if query.state is not None:
             sql += ' AND e.state=:state'
-            params['state'] = str(('pending', 'calculated', 'confirmed', 'disputed').index(query.state))
+            params['state'] = str(('pending', 'calculated', 'confirmed', 'disputed', 'unpriced').index(query.state))
         total = await db.scalar(text('SELECT count(*)' + sql), params)
         params.update(offset=(query.page_num - 1) * query.page_size, limit=query.page_size)
         rows = (
@@ -55,7 +65,7 @@ class BillingDao:
                         'SELECT e.*,s.job_id,s.cost_center_id,'
                         '(SELECT coalesce(sum(a.delta_amount),0) FROM hf_billing_adjustment a WHERE a.event_id=e.event_id) AS adjustment_total'
                         + sql
-                        + ' ORDER BY e.event_id DESC OFFSET :offset LIMIT :limit'
+                        + ' ORDER BY e.create_time DESC,e.subject_id DESC OFFSET :offset LIMIT :limit'
                     ),
                     params,
                 )
@@ -64,6 +74,21 @@ class BillingDao:
             .all()
         )
         return rows, total
+
+    @staticmethod
+    async def unpriced_context(db, identity):
+        from module_higgsfield.entity.do.provider_call_do import HfProviderCall
+        return (await db.execute(
+            select(HfBillingSubject, HfProviderCall.request_metadata)
+            .join(HfProviderCall, HfProviderCall.call_id == HfBillingSubject.origin_call_id)
+            .where(HfBillingSubject.subject_id == identity,
+                   HfBillingSubject.job_id.is_(None), HfBillingSubject.cost_center_id.is_not(None))
+        )).first()
+
+    @staticmethod
+    async def existing_procurement(db, identity):
+        return await db.scalar(select(HfBillingEvent.event_id).where(
+            HfBillingEvent.subject_id == identity, HfBillingEvent.purpose == 'procurement'))
 
     @staticmethod
     async def lines(db, identity):

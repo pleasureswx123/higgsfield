@@ -10,7 +10,7 @@ const acceptance = { accepted: '已受理', rejected: '未受理', unknown: '受
 </script>
 <template>
   <div class="app-container">
-    <header><h2>供应商调用记录</h2><el-button text @click="settings.toggleTheme()">切换主题</el-button></header>
+    <header><h2>调用记录</h2><el-button text @click="settings.toggleTheme()">切换主题</el-button></header>
     <p>调用完成不代表生成成功或费用为零。时间筛选按调用记录创建时间，开始时间包含、结束时间不包含。</p>
     <el-alert v-if="!allowed" title="没有运行治理查询权限" type="warning" :closable="false" />
     <el-form inline @submit.prevent>

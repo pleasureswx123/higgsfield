@@ -1,5 +1,8 @@
 import request from '@/utils/request'
 
+export const listPriceSources = (params, signal) =>
+  request({ url: '/api/admin/v1/price-sources', params, signal })
+
 export const createExchangeRate = (data, key) =>
   request({
     url: '/api/admin/v1/exchange-rate-versions',
@@ -93,3 +96,5 @@ export const getPriceVersion = (id, signal) =>
   request({ url: `/api/admin/v1/price-versions/${encodeURIComponent(id)}`, signal })
 export const listPriceHistory = (id, params, signal) =>
   request({ url: `/api/admin/v1/price-versions/${encodeURIComponent(id)}/history`, params, signal })
+
+export const publishModelPrices = (data, key) => request({ url: '/api/admin/v1/model-prices/publish', method: 'post', data, headers: { 'Idempotency-Key': key, repeatSubmit: false } })

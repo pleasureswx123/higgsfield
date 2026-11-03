@@ -39,3 +39,8 @@ async def detail(request: Request, event_id: ProjectId, db: Db, user: User):
 @Log(title='调整费用', business_type=BusinessType.UPDATE)
 async def adjust(request: Request, event_id: ProjectId, payload: BillingAdjustmentInput, key: Key, db: Db, user: User):
     return mutation_response(await BillingAdminService.adjust(db, user, event_id, payload, key))
+
+
+@billing_controller.get('/billing-subjects/{subject_id}', summary='读取尚未计价的非项目消耗')
+async def unpriced_detail(request: Request, subject_id: ProjectId, db: Db, user: User):
+    return ResponseUtil.success(data=await BillingAdminService.unpriced_detail(db, user, subject_id))

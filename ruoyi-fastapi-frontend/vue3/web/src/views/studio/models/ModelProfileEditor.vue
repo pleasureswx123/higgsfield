@@ -1,5 +1,7 @@
 <script setup>
 import { useModelProfileEditor } from '@/composables/studio/useModelProfileEditor'
+import { videoModels } from '@/utils/videoModels'
+defineProps({ supplierName: { type: String, default: '' } })
 const emit = defineEmits(['saved'])
 const { canWrite, open, pending, error, formRef, form, start, close, submit } =
   useModelProfileEditor(() => emit('saved'))
@@ -43,7 +45,7 @@ const rules = {
 <template>
   <el-dialog
     :model-value="open"
-    title="登记模型身份"
+    title="新增模型"
     width="min(580px, 95vw)"
     :show-close="!pending"
     :close-on-click-modal="!pending"
@@ -52,7 +54,7 @@ const rules = {
     destroy-on-close
   >
     <p>
-      模型身份归属于一个供应商连接。登记后需继续配置能力版本和精确规格，并完成验证、发布、路由和价格配置。
+      模型使用当前供应商的连接与密钥。保存后返回列表继续配置；仅登记不会生成图片、视频或产生供应商费用。
     </p>
     <el-form
       ref="formRef"
@@ -61,13 +63,23 @@ const rules = {
       label-position="top"
       :disabled="pending"
     >
+      <p v-if="supplierName">供应商：{{ supplierName }}。沿用已有密钥，无需重新填写。</p>
+      <el-form-item v-if="supplierName" label="选择模型" prop="code">
+        <el-select :model-value="form.code || undefined" placeholder="选择要添加的图片或视频模型" @change="code => { const model = videoModels.find(item => item.code === code); Object.assign(form, { code, displayName: model?.alias || 'mm-imagen2', kind: model ? 'video' : 'image' }) }">
+          <el-option label="mm-imagen2 · 图片生成与编辑" value="mm-imagen2" />
+          <el-option v-for="model in videoModels" :key="model.alias" :label="`${model.name}（${model.alias}）`" :value="model.code" />
+        </el-select>
+      </el-form-item>
+      <p v-if="supplierName">下一步确认价格、手动测试并启用。保存模型不会自动发起付费生成，已有图片模型保持可用。</p>
       <el-form-item
+        v-if="!supplierName"
         label="供应商连接ID"
         prop="connectionId"
         ><el-input v-model="form.connectionId"
       /></el-form-item>
       <el-form-item
-        label="连接内稳定码"
+        v-if="!supplierName"
+        label="模型标识"
         prop="code"
         ><el-input
           v-model="form.code"
@@ -75,13 +87,14 @@ const rules = {
           placeholder="例如 image-model-a"
       /></el-form-item>
       <el-form-item
-        label="显示名称"
+        label="模型名称"
         prop="displayName"
         ><el-input
           v-model="form.displayName"
           maxlength="200"
       /></el-form-item>
       <el-form-item
+        v-if="!supplierName"
         label="模型类型"
         prop="kind"
         ><el-radio-group v-model="form.kind"
@@ -106,7 +119,7 @@ const rules = {
         :disabled="!canWrite"
         :loading="pending"
         @click="submit"
-        >登记</el-button
+        >保存模型</el-button
       ></template
     >
   </el-dialog>

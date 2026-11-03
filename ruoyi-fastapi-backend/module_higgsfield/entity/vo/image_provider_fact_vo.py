@@ -20,3 +20,4 @@ class ImageProviderFact(BaseModel):
     declared_size: str | None = None
     issues: list[str] = Field(default_factory=list)
     rejected_ordinals: list[int] = Field(default_factory=list)
+    gateway_headers: dict[str, str] = Field(default_factory=dict)

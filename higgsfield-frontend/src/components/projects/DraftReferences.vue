@@ -71,7 +71,9 @@ function toggleMedia(row: ReferenceCandidate, id: string, checked: boolean) {
 }
 const labels: Record<string, string> = {
   reference_image: '参考图',
+  reference_person: '虚拟人物（自动注册素材）',
   first_frame: '首帧',
+  last_frame: '尾帧',
   reference_video: '参考视频',
 }
 const identity = (row: ReferenceCandidate) => `${row.kind}:${row.id}`
@@ -97,7 +99,7 @@ async function add(row: ReferenceCandidate) {
     if (!resolved || !canSelect(row) || contextRevision.value !== revision || JSON.stringify(references.value) !== snapshot) return
     copiedCandidates[mediaIdentity(row)] = resolved
     const media = selectedMedia(row).map(id => resolved.assetVersionIds[row.assetVersionIds.indexOf(id)]).filter((id): id is string => !!id)
-    const candidate = role === 'reference_image' ? selectReferenceMedia(resolved, media) : resolved
+    const candidate = ['reference_image', 'reference_person'].includes(role) ? selectReferenceMedia(resolved, media) : resolved
     references.value = selectCandidate(references.value, candidate, role, props.model, props.protectedKeys)
     error.value = ''
   } catch (cause) {
@@ -189,7 +191,7 @@ defineExpose({ show })
         :key="`${item.referenceKey}:${item.assetVersionId}:${item.mediaRole}`"
       >
         <ReferenceThumbnail
-          v-if="['reference_image', 'first_frame'].includes(item.mediaRole)"
+          v-if="['reference_image', 'reference_person', 'first_frame', 'last_frame'].includes(item.mediaRole)"
           :version-id="item.assetVersionId"
         />
         <span
@@ -287,7 +289,7 @@ defineExpose({ show })
                 <strong>{{ categories.find(item => item.value === row.category)?.label || '元素' }} · {{ row.displayName }}</strong>
           <span v-if="row.kind === 'element'" class="reference-candidate-alias" :title="row.alias || ''">@{{ row.alias }}</span>
                 <ElSelect :model-value="selectedRole(row)" :disabled="!options(row).length" aria-label="引用角色" @update:model-value="(value: string) => (roles[identity(row)] = value)"><ElOption v-for="role in options(row)" :key="role" :label="labels[role] || role" :value="role" /></ElSelect>
-                <div v-if="row.kind === 'element' && selectedRole(row) === 'reference_image'" class="reference-media-options">
+                <div v-if="row.kind === 'element' && ['reference_image', 'reference_person'].includes(selectedRole(row))" class="reference-media-options">
                   <label v-for="id in row.assetVersionIds" :key="id"><input type="checkbox" :checked="selectedMedia(row).includes(id)" :disabled="disabled" :aria-label="`选择素材版本 ${id}`" @change="toggleMedia(row, id, ($event.target as HTMLInputElement).checked)" /><ReferenceThumbnail :version-id="id" /><span>{{ id === row.primaryAssetVersionId ? '主图' : '附图' }}</span></label>
                 </div>
                 <Button :disabled="disabled || !options(row).length" @click="add(row)">加入引用</Button>

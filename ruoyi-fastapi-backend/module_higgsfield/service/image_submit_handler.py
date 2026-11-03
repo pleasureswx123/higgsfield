@@ -56,7 +56,7 @@ class ImageSubmitHandler:
                 or model is None
                 or model.kind != 'image'
                 or model.connection_id != config.connection_id
-                or model_version.status != '2'
+                or model_version.status not in {'2', '3'}
             ):
                 WorkspaceService.conflict('PROVIDER_ADAPTER_UNSUPPORTED', '固定模型或连接不支持当前图片适配器')
             transport = ProviderHttpService.from_versions(
@@ -77,6 +77,11 @@ class ImageSubmitHandler:
             await context.record_submission(
                 call_id, ProviderSubmissionResult(acceptance='unknown', transport=response.transport)
             )
+            return
+        if response.http_status in {400, 401, 403, 422, 429} and isinstance(response.body, dict) and isinstance(response.body.get('error'), (dict, str)):
+            # 明确的接口拒绝可结束任务；不从HTTP错误推断供应商费用为零。
+            await context.record_submission(call_id, ProviderSubmissionResult(
+                acceptance='rejected', transport='response', httpStatus=response.http_status))
             return
         if response.body is not None:
             evidence = await self.evidence_storage.save(response.body, call_id, context.lease.job_id)

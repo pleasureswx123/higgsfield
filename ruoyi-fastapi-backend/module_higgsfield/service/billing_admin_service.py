@@ -30,7 +30,8 @@ class BillingAdminService:
             for row in rows:
                 result.append(
                     {
-                        'id': str(row['event_id']),
+                        'id': str(row['event_id']) if row['event_id'] is not None else None,
+                        'rowKey': f"event:{row['event_id']}" if row['event_id'] is not None else f"subject:{row['subject_id']}",
                         'subjectId': str(row['subject_id']),
                         'jobId': str(row['job_id']) if row['job_id'] is not None else None,
                         'costCenterId': str(row['cost_center_id']) if row['cost_center_id'] is not None else None,
@@ -40,7 +41,7 @@ class BillingAdminService:
                         'effectiveAmount': None
                         if row['amount'] is None
                         else format(row['amount'] + row['adjustment_total'], '.10f'),
-                        'state': ('pending', 'calculated', 'confirmed', 'disputed')[int(row['state'])],
+                        'state': ('pending', 'calculated', 'confirmed', 'disputed', 'unpriced')[int(row['state'])],
                         'revision': str(row['revision']),
                         'createTime': row['create_time'].isoformat(),
                     }
@@ -52,6 +53,37 @@ class BillingAdminService:
             pageSize=query.page_size,
             hasNext=query.page_num * query.page_size < total,
         )
+
+    @classmethod
+    async def unpriced_detail(cls, db, user, identity):
+        await AdminScopeService.global_access(db, user, 'billing:read')
+        context = await BillingDao.unpriced_context(db, identity)
+        if context is None:
+            WorkspaceService.conflict('BILLING_SUBJECT_NOT_FOUND', '消耗记录不存在或不在管理范围内')
+        subject, metadata = context
+        event_id = await BillingDao.existing_procurement(db, identity)
+        if event_id is not None:
+            return await cls.detail(db, user, event_id)
+        records = await BillingDao.evidence(db, identity)
+        usage = records[-1] if records else None
+        pricing = (metadata or {}).get('procurementPricing') or {}
+        quantities = {}
+        if usage is not None:
+            for key, column in (('inputTokens', 'input_tokens'), ('outputTokens', 'output_tokens'),
+                                ('videoTokens', 'video_tokens'), ('imageCount', 'image_count'),
+                                ('outputSeconds', 'output_seconds'), ('referenceSeconds', 'reference_seconds')):
+                value = getattr(usage, column)
+                quantities[key] = None if value is None else str(value)
+        reason = ('测试发送时没有可用的采购价格，已记录实际用量，金额待核算。'
+                  if pricing.get('reason') == 'PROCUREMENT_PRICE_UNAVAILABLE'
+                  else '尚未形成费用记录，以下为最新记录的用量，金额待核算。')
+        return dict(id=None, subjectId=str(identity), jobId=None,
+                    costCenterId=str(subject.cost_center_id), purpose='procurement',
+                    currency=pricing.get('currency') or (pricing.get('price') or {}).get('currency'),
+                    amount=None, effectiveAmount=None, state='unpriced', reason=reason,
+                    revision=None, priceVersionId=None, createTime=subject.create_time.isoformat(),
+                    usageState=usage.completeness if usage else 'unknown', usage=quantities,
+                    lines=[], adjustments=[])
 
     @staticmethod
     async def authorize(db, user, identity, permission):

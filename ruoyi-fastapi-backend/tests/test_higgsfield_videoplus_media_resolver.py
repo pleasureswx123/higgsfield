@@ -131,6 +131,15 @@ class MediaResolverTests(unittest.IsolatedAsyncioTestCase):
                 response = {'id': 'task', 'status': 'succeeded',
                     'content': {'video_url': getattr(self, 'output_url', 'https://example.com/video?signature=secret')},
                     'usage': {'completion_tokens': 123}}
+            elif lines[0] == 'POST /v1/mm/assets HTTP/1.1':
+                payload = json.loads(body)
+                self.assertEqual(payload['ProjectName'], 'eva')
+                self.assertEqual(payload['AssetType'], 'Image')
+                self.assertEqual(payload['URL'], 'https://example.com/reference?signature=secret')
+                response = {'Id': 'asset-20261102155631-test', 'base_resp': {'status_code': 0}}
+            elif lines[0] == 'POST /v1/mm/assets/get HTTP/1.1':
+                self.assertEqual(json.loads(body)['Id'], 'asset-20261102155631-test')
+                response = {'Id': 'asset-20261102155631-test', 'AssetType': 'Image', 'Status': 'Active', 'base_resp': {'status_code': 0}}
             elif '/assets/upload ' in lines[0]:
                 self.assertIn(self.data, body)
                 response = {
@@ -152,7 +161,7 @@ class MediaResolverTests(unittest.IsolatedAsyncioTestCase):
                 payload = json.loads(body)
                 content = payload['messages'][0]['content']
                 self.assertEqual(content[0]['text'], '参考图片 1')
-                self.assertEqual(content[1]['image_url']['url'], 'https://example.com/reference?signature=secret')
+                self.assertEqual(content[1]['image_url']['url'], 'asset://asset-20261102155631-test' if self.mode == 'person' else 'https://example.com/reference?signature=secret')
                 response = {'id': 'outer', 'choices': [{'message': {'content': '{"id":"task"}'}}]}
             encoded = json.dumps(response).encode()
             writer.write(
@@ -177,6 +186,7 @@ class MediaResolverTests(unittest.IsolatedAsyncioTestCase):
                     await db.execute(text(revoke))
                     await db.execute(text("UPDATE hf_creation_job SET next_action_time=clock_timestamp()-interval '1 second'"))
                     await db.commit()
+
                 self.assertEqual((await self.worker.run_once())[0]['status'], 'handler_failed')
                 self.assertEqual(self.requests, [])
                 async with self.sessions() as db:
@@ -185,6 +195,25 @@ class MediaResolverTests(unittest.IsolatedAsyncioTestCase):
                     self.assertEqual(await db.scalar(text('SELECT orchestration_state FROM hf_creation_job')), '1')
                     await db.execute(text(restore))
                     await db.commit()
+
+    async def test_virtual_person_uses_registered_id_after_active(self):
+        self.mode = 'person'
+        async with self.sessions() as db:
+            cap = await db.scalar(text('SELECT capabilities FROM hf_model_profile_version'))
+            cap['referenceRules'] = {'maxTotal': 1, 'roles': {'reference_person': {'mediaTypes': ['image'], 'maxCount': 1}}}
+            snapshot = await db.scalar(text('SELECT input_snapshot FROM hf_creation_job'))
+            snapshot['compiled']['media'][0]['mediaRole'] = 'reference_person'
+            await db.execute(text("UPDATE hf_model_profile_version SET gateway_alias='mm-eva-sd-2.5',capabilities=CAST(:cap AS jsonb)"), {'cap': json.dumps(cap)})
+            await db.execute(text('UPDATE hf_creation_job SET input_snapshot=CAST(:snapshot AS jsonb)'), {'snapshot': json.dumps(snapshot)})
+            await db.commit()
+        policy = ProviderMediaPolicies(modelVersions={str(self.model_version_id): {
+            'roles': ['reference_person'], 'mimeLimits': {'image/png': 100000}, 'requiredSeconds': 60, 'evidenceRef': 'test-only'}})
+        self.worker.handlers['prepare'] = VideoPlusSubmitHandler(credential_crypto=self.crypto,
+            media_resolver=VideoPlusMediaResolver(credential_crypto=self.crypto, policies=policy, storage=self.storage))
+        self.assertEqual((await self.worker.run_once())[0]['status'], 'handled')
+        self.assertEqual(self.errors, [])
+        self.assertEqual([row[0].split(' ')[1] for row in self.requests],
+            ['/v1/assets/upload', '/v1/mm/assets', '/v1/mm/assets/get', '/v1/chat/completions'])
 
     async def test_revocation_during_upload_blocks_generation_and_reuses_saved_upload(self):
         self.mode = 'revoke_after_upload'

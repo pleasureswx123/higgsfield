@@ -24,7 +24,7 @@ class CredentialTestBillingService:
         if scope is None:
             raise ValueError('固定采购价格不存在')
         version, book = scope
-        if (version.status != '1' or book.purpose != 'procurement' or book.account_id != subject.account_id
+        if (version.status not in ({'0', '1'} if frozen.get('testDraft') else {'1'}) or book.purpose != 'procurement' or book.account_id != subject.account_id
                 or str(book.account_id) != frozen['accountId'] or book.currency != frozen['currency']
                 or str(book.model_variant_id) != frozen['modelVariantId']
                 or str(book.price_book_id) != frozen['priceBookId']

@@ -16,7 +16,7 @@ class BillingQuery(WorkspaceInput):
     user_id: BigId | None = None
     from_time: AwareDatetime | None = Field(default=None, alias='from')
     to_time: AwareDatetime | None = Field(default=None, alias='to')
-    state: Literal['pending', 'calculated', 'confirmed', 'disputed'] | None = None
+    state: Literal['pending', 'calculated', 'confirmed', 'disputed', 'unpriced'] | None = None
     page_num: int = Field(default=1, ge=1, le=1000000)
     page_size: int = Field(default=20, ge=1, le=100)
 

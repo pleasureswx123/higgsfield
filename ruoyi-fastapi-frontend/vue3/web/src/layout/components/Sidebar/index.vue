@@ -67,6 +67,7 @@ const getMenuTextColor = computed(() => {
 
 const activeMenu = computed(() => {
   const { meta, path } = route
+  if (path === '/studio/provider-connections' && route.query.mode === 'advanced') return path
   if (meta.activeMenu) {
     return meta.activeMenu
   }

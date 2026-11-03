@@ -1,10 +1,12 @@
 """价格簿输入只接受明确用途与币种，不隐式选择采购账号。"""
 
-from typing import Literal
 from datetime import timezone
+from typing import Literal
 from urllib.parse import urlsplit
-from pydantic import AwareDatetime, Field, model_validator, field_validator
-from module_higgsfield.entity.vo.project_workspace_vo import WorkspaceInput, BigId
+
+from pydantic import AwareDatetime, Field, field_validator, model_validator
+
+from module_higgsfield.entity.vo.project_workspace_vo import BigId, WorkspaceInput
 
 
 class PriceBookCreate(WorkspaceInput):
@@ -79,3 +81,9 @@ class PriceSourceCreate(WorkspaceInput):
         if self.source_type != 'manual_confirmation' and not self.source_url and not self.upload_id:
             raise ValueError('文档或截图来源须提供出处地址或受控附件')
         return self
+
+
+class PriceSourceQuery(WorkspaceInput):
+    q: str = Field(default='', max_length=200)
+    page_num: int = Field(default=1, ge=1, le=1000000)
+    page_size: int = Field(default=20, ge=1, le=100)

@@ -1,27 +1,38 @@
 from typing import Annotated
+
 from fastapi import Query, Request, Response
-from common.aspect.pre_auth import PreAuthDependency
+
 from common.annotation.log_annotation import Log
+from common.aspect.pre_auth import PreAuthDependency
 from common.enums import BusinessType
 from common.router import APIRouterPro
-from module_higgsfield.controller.project_workspace_controller import Db, User, Key, ProjectId, mutation_response
-from module_higgsfield.entity.vo.price_vo import PriceBookCreate, PriceBookQuery
-from module_higgsfield.service.price_service import PriceService
-from utils.response_util import ResponseUtil
-from module_higgsfield.entity.vo.price_vo import PriceSourceCreate
-from module_higgsfield.service.price_source_service import PriceSourceService
-from module_higgsfield.entity.vo.price_version_vo import PriceVersionCreate, PriceVersionPatch, PriceVersionQuery
-from module_higgsfield.service.price_version_service import PriceVersionService
-from module_higgsfield.entity.vo.price_version_vo import PriceSimulation
-from module_higgsfield.entity.vo.price_publish_vo import PricePublish, PriceActivationEnd, PriceHistoryQuery
-from module_higgsfield.service.price_publish_service import PricePublishService
+from module_higgsfield.controller.project_workspace_controller import Db, Key, ProjectId, User, mutation_response
 from module_higgsfield.entity.vo.exchange_rate_vo import ExchangeRateCreate, ExchangeRatePublish, ExchangeRateQuery
+from module_higgsfield.entity.vo.price_publish_vo import PriceActivationEnd, PriceHistoryQuery, PricePublish, PriceBatchPublish
+from module_higgsfield.entity.vo.price_version_vo import (
+    PriceSimulation,
+    PriceVersionCreate,
+    PriceVersionPatch,
+    PriceVersionQuery,
+)
+from module_higgsfield.entity.vo.price_vo import PriceBookCreate, PriceBookQuery, PriceSourceCreate, PriceSourceQuery
 from module_higgsfield.service.exchange_rate_service import ExchangeRateService
-
+from module_higgsfield.service.price_publish_service import PricePublishService
+from module_higgsfield.service.model_price_batch_service import ModelPriceBatchService
+from module_higgsfield.service.price_service import PriceService
+from module_higgsfield.service.price_source_service import PriceSourceService
+from module_higgsfield.service.price_version_service import PriceVersionService
+from utils.response_util import ResponseUtil
 
 price_controller = APIRouterPro(
     prefix='/api/admin/v1', tags=['后台管理-价格'], order_num=91, dependencies=[PreAuthDependency()]
 )
+
+
+@price_controller.post('/model-prices/publish', summary='原子发布模型采购与平台同价')
+@Log(title='同步更新模型价格', business_type=BusinessType.UPDATE)
+async def publish_model_prices(request: Request, payload: PriceBatchPublish, key: Key, db: Db, user: User):
+    return mutation_response(await ModelPriceBatchService.publish(db, user, payload, key))
 
 
 @price_controller.get('/exchange-rate-versions', summary='分页读取汇率版本')
@@ -58,6 +69,11 @@ async def create(request: Request, payload: PriceBookCreate, key: Key, db: Db, u
 @Log(title='登记价格来源', business_type=BusinessType.INSERT)
 async def create_source(request: Request, payload: PriceSourceCreate, key: Key, db: Db, user: User):
     return mutation_response(await PriceSourceService.create(db, user, payload, key))
+
+
+@price_controller.get('/price-sources', summary='分页读取已登记价格来源')
+async def list_sources(request: Request, query: Annotated[PriceSourceQuery, Query()], db: Db, user: User):
+    return ResponseUtil.success(model_content=await PriceSourceService.listing(db, user, query))
 
 
 @price_controller.get('/price-sources/{source_id}', summary='读取价格来源证据')

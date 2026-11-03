@@ -32,16 +32,19 @@ class SubmitIntentTests(unittest.IsolatedAsyncioTestCase):
         spec.loader.exec_module(self.migration)
         await self.migrate('upgrade')
         async with self.sessions() as db:
-            # 基础项目夹具仅建用户和菜单；发送前复核还需真实的框架授权关联表。
-            await db.execute(text("CREATE TABLE sys_role(role_id bigint PRIMARY KEY,status char(1),del_flag char(1))"))
-            await db.execute(text('CREATE TABLE sys_user_role(user_id bigint,role_id bigint,PRIMARY KEY(user_id,role_id))'))
-            await db.execute(text('CREATE TABLE sys_role_menu(role_id bigint,menu_id bigint,PRIMARY KEY(role_id,menu_id))'))
-            await db.execute(text("INSERT INTO sys_role VALUES(2,'0','0')"))
-            await db.execute(text('INSERT INTO sys_user_role VALUES(:actor,2)'), {'actor': self.owner.user.user_id})
+            # 新基础夹具已包含授权表；兼容旧夹具但不能重复创建。
+            await db.execute(text("CREATE TABLE IF NOT EXISTS sys_role(role_id bigint PRIMARY KEY,status char(1),del_flag char(1))"))
+            await db.execute(text('CREATE TABLE IF NOT EXISTS sys_user_role(user_id bigint,role_id bigint,PRIMARY KEY(user_id,role_id))'))
+            await db.execute(text('CREATE TABLE IF NOT EXISTS sys_role_menu(role_id bigint,menu_id bigint,PRIMARY KEY(role_id,menu_id))'))
+            await db.execute(text("INSERT INTO sys_role(role_id,status,del_flag) VALUES(2,'0','0') ON CONFLICT DO NOTHING"))
+            await db.execute(text('INSERT INTO sys_user_role VALUES(:actor,2) ON CONFLICT DO NOTHING'), {'actor': self.owner.user.user_id})
             await db.execute(text("""INSERT INTO sys_menu(menu_name,parent_id,order_num,path,menu_type,visible,status,perms,create_by,create_time)
                 SELECT '生成权限测试',0,0,'','F','1','0','generation:create','test',CURRENT_TIMESTAMP
                 WHERE NOT EXISTS(SELECT 1 FROM sys_menu WHERE perms='generation:create')"""))
-            await db.execute(text("INSERT INTO sys_role_menu SELECT 2,menu_id FROM sys_menu WHERE perms='generation:create'"))
+            await db.execute(text("INSERT INTO sys_role_menu SELECT 2,menu_id FROM sys_menu WHERE perms='generation:create' ON CONFLICT DO NOTHING"))
+            # 本夹具参数和价格一直是视频契约，显式声明视频，避免经过图片尺寸映射。
+            await db.execute(text("UPDATE hf_model_profile SET kind='video'"))
+            self.payload.kind = 'video'
             await db.commit()
             await GenerationAcceptService.accept(
                 db,

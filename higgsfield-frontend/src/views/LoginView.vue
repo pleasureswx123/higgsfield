@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { ElForm, ElFormItem, ElInput, ElButton, ElAlert } from 'element-plus'
-import { IconAperture, IconArrowRight, IconRefresh } from '@tabler/icons-vue'
+import { IconArrowRight, IconRefresh } from '@tabler/icons-vue'
 import ThemeToggle from '@/components/shared/ThemeToggle.vue'
 import { useLogin } from '@/composables/useLogin'
 const {
@@ -23,7 +23,7 @@ const {
   <div class="login-page">
     <header class="login-header">
       <a href="/" class="brand"
-        ><IconAperture :size="30" /><span>Higgsfield <small>STUDIO</small></span></a
+        ><img src="/brand-mark.svg" width="32" height="32" alt="Higgsfield 制作平台" /><span>Higgsfield <small>STUDIO</small></span></a
       ><ThemeToggle />
     </header>
     <main class="login-main">

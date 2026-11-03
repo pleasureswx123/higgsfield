@@ -6,6 +6,7 @@ import ParentView from '@/components/ParentView'
 import InnerLink from '@/layout/components/InnerLink'
 import PluginFrame from '@/components/PluginFrame/index.vue'
 import { resolvePluginViewPath } from '@/utils/pluginViewResolver'
+import { labelStudioRoutes, studioNavigation } from '@/utils/studioNavigation'
 
 // 匹配内置 views 和插件 views 里面所有的 .vue 文件
 const builtinModules = import.meta.glob('./../../views/**/*.vue')
@@ -38,9 +39,9 @@ const usePermissionStore = defineStore('permission', {
       return new Promise((resolve) => {
         // 向后端请求路由数据
         getRouters().then((res) => {
-          const sdata = JSON.parse(JSON.stringify(res.data))
-          const rdata = JSON.parse(JSON.stringify(res.data))
-          const defaultData = JSON.parse(JSON.stringify(res.data))
+          const sdata = labelStudioRoutes(JSON.parse(JSON.stringify(res.data)))
+          const rdata = labelStudioRoutes(JSON.parse(JSON.stringify(res.data)))
+          const defaultData = labelStudioRoutes(JSON.parse(JSON.stringify(res.data)))
           const sidebarRoutes = filterAsyncRouter(sdata)
           const rewriteRoutes = filterAsyncRouter(rdata, false, true)
           const defaultRoutes = filterAsyncRouter(defaultData)
@@ -49,9 +50,9 @@ const usePermissionStore = defineStore('permission', {
             router.addRoute(route)
           })
           this.setRoutes(rewriteRoutes)
-          this.setSidebarRouters(constantRoutes.concat(sidebarRoutes))
-          this.setDefaultRoutes(sidebarRoutes)
-          this.setTopbarRoutes(defaultRoutes)
+          this.setSidebarRouters(constantRoutes.concat(studioNavigation(sidebarRoutes)))
+          this.setDefaultRoutes(studioNavigation(sidebarRoutes))
+          this.setTopbarRoutes(studioNavigation(defaultRoutes))
           resolve(rewriteRoutes)
         })
       })

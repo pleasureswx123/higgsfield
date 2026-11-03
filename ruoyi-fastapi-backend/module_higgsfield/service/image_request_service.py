@@ -4,6 +4,7 @@ from pydantic import SecretStr
 
 from module_higgsfield.entity.vo.image_request_vo import ImageRequestParameters
 from module_higgsfield.entity.vo.model_capability_vo import ModelCapabilities
+from module_higgsfield.service.image_size_service import ImageSizeService
 from module_higgsfield.service.model_capability_service import ModelCapabilityService
 from utils.output_source_util import validate_output_source
 
@@ -19,7 +20,7 @@ class ImageRequestService:
         media_urls: dict[int, SecretStr] | None = None,
     ) -> dict:
         normalized = ModelCapabilityService.parameters(capabilities, snapshot['parameters'])
-        parameters = ImageRequestParameters.model_validate(normalized).model_dump(exclude_unset=True, exclude_none=True)
+        parameters = ImageRequestParameters.model_validate(ImageSizeService.parameters(normalized)).model_dump(exclude_unset=True, exclude_none=True)
         if parameters.get('output_format', 'png') == 'png':
             parameters.pop('output_compression', None)
         compiled = snapshot['compiled']
@@ -34,7 +35,8 @@ class ImageRequestService:
             if item['ordinal'] != ordinal or item['mediaType'] != 'image' or item['mediaRole'] != 'reference_image':
                 raise ValueError('图片接口仅支持按固定序号排列的参考图')
             url = urls[ordinal].get_secret_value()
-            validate_output_source(url)
+            if not url.startswith(('data:image/png;base64,', 'data:image/jpeg;base64,', 'data:image/webp;base64,')):
+                validate_output_source(url)
             labels[ordinal] = f'图片 {ordinal + 1}'
             contents.append({'type': 'image_url', 'image_url': {'url': url}})
         prompt = ImageRequestService._prompt(compiled['promptParagraphs'], labels)

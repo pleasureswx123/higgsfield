@@ -58,10 +58,14 @@ class RoutingService:
 
     @classmethod
     async def save(cls, db, user, project_id, payload, key):
-        path, prefix = f'/project-provider-configs/{project_id}', '/api/admin/v1'
+        path = '/platform-provider-configs' if project_id is None else f'/project-provider-configs/{project_id}'
+        prefix = '/api/admin/v1'
         data = payload.model_dump(by_alias=True)
         try:
-            await AdminScopeService.project(db, user, project_id, 'provider:route', write=True)
+            if project_id is None:
+                await AdminScopeService.global_access(db, user, 'provider:route')
+            else:
+                await AdminScopeService.project(db, user, project_id, 'provider:route', write=True)
             await WriteService.lock(db, user, path, key, api_prefix=prefix)
             group = await RoutingDao.group(db, project_id, lock=True)
             if group is None:
@@ -78,13 +82,14 @@ class RoutingService:
             group.update_by, group.update_time = audit['update_by'], audit['update_time']
             await RoutingDao.replace(db, project_id, payload.routes, group.revision, audit)
             after = await cls.result(db, group)
+            object_type = 'platform_routing_set' if project_id is None else 'project_routing_set'
             await ProviderDao.add(
                 db,
                 HfAuditLog,
                 actor_id=user.user.user_id,
                 actor_kind='user',
                 project_id=project_id,
-                object_type='project_routing_set',
+                object_type=object_type,
                 object_id=str(group.routing_set_id),
                 action='replace',
                 request_id=WriteService.digest({'path': path, 'key': key}),
@@ -92,7 +97,7 @@ class RoutingService:
                 **audit,
             )
             return await WriteService.finish(
-                db, user, path, key, data, after, 'project_routing_set', group.routing_set_id, 'PUT', api_prefix=prefix
+                db, user, path, key, data, after, object_type, group.routing_set_id, 'PUT', api_prefix=prefix
             )
         except Exception:
             await db.rollback()
@@ -111,7 +116,7 @@ class RoutingService:
                 }
             )
         return {
-            'projectId': str(group.project_id),
+            'projectId': str(group.project_id) if group.project_id is not None else None,
             'revision': str(group.revision),
             'routes': [
                 {
@@ -127,7 +132,10 @@ class RoutingService:
 
     @classmethod
     async def get(cls, db, user, project_id):
-        await AdminScopeService.project(db, user, project_id, 'provider:route')
+        if project_id is None:
+            await AdminScopeService.global_access(db, user, 'provider:route')
+        else:
+            await AdminScopeService.project(db, user, project_id, 'provider:route')
         # 读取也锁聚合行，保证多次查询不会混入并发整组替换的不同版本。
         group = await RoutingDao.group(db, project_id, lock=True)
         if group is None:

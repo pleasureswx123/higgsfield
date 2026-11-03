@@ -2,6 +2,7 @@
 
 import asyncio
 import json
+import re
 from collections.abc import AsyncIterator
 from dataclasses import dataclass, field
 from typing import Literal, Self
@@ -15,8 +16,10 @@ from module_higgsfield.entity.do.provider_do import HfProviderConnectionVersion
 from module_higgsfield.entity.vo.provider_submission_vo import SafeIdentifier
 from module_higgsfield.entity.vo.provider_vo import ConnectionFields
 from module_higgsfield.service.credential_crypto_service import CredentialCryptoService
+from module_higgsfield.service.provider_decode_service import ProviderDecodeService
 from module_higgsfield.service.provider_upload_stream import ProviderUploadStream
 from module_higgsfield.service.videoplus_response_service import unique_object
+from utils.output_source_util import validate_output_source
 
 MAX_RESPONSE_BYTES = 8 * 1024 * 1024
 HARD_RESPONSE_BYTES = 256 * 1024 * 1024
@@ -91,6 +94,22 @@ class ProviderHttpService:
         identity = TypeAdapter(SafeIdentifier).validate_python(task_id)
         return await self._request('GET', 'v1/video/tasks/' + quote(identity, safe=''), None)
 
+    async def register_asset(self, url: str, *, project: str, asset_type: str, name: str = '') -> ProviderHttpResult:
+        """注册已上传的素材；不重试注册，也不将临时签名地址写入普通日志。"""
+        validate_output_source(url)
+        if project not in {'eva', 'nova'} or asset_type not in {'Image', 'Video', 'Audio'}:
+            raise ValueError('素材库项目或素材类型无效')
+        payload = {'URL': url, 'AssetType': asset_type, 'ProjectName': project}
+        if name:
+            payload['Name'] = name
+        return await self._request('POST', 'v1/mm/assets', json.dumps(payload, ensure_ascii=False).encode('utf-8'))
+
+    async def get_asset(self, asset_id: str) -> ProviderHttpResult:
+        """查询原素材状态；生成时仍使用 asset:// 引用，不替换为签名下载地址。"""
+        if not isinstance(asset_id, str) or not re.fullmatch(r'asset-[A-Za-z0-9_-]{1,128}', asset_id):
+            raise ValueError('供应商素材编号无效')
+        return await self._request('POST', 'v1/mm/assets/get', json.dumps({'Id': asset_id}).encode('utf-8'))
+
     async def upload(self, upload: ProviderUploadStream) -> ProviderHttpResult:
         try:
             return await self._request(
@@ -134,17 +153,28 @@ class ProviderHttpService:
                 httpx.AsyncClient(timeout=timeout, follow_redirects=False, trust_env=False) as client,
                 client.stream(method, self.connection.base_url + path, headers=headers, content=content) as response,
             ):
-                if response.headers.get('content-encoding', 'identity').lower() != 'identity':
-                    return ProviderHttpResult('response', response.status_code, issue='RESPONSE_ENCODING_UNSUPPORTED')
                 data = bytearray()
-                async for chunk in response.aiter_bytes(chunk_size=STREAM_CHUNK_BYTES):
-                    if len(data) + len(chunk) > self.max_response_bytes:
-                        return ProviderHttpResult('response', response.status_code, issue='RESPONSE_TOO_LARGE')
-                    data.extend(chunk)
+                try:
+                    decoder = ProviderDecodeService(response.headers.get('content-encoding', 'identity'), self.max_response_bytes)
+                    async for chunk in response.aiter_raw(chunk_size=STREAM_CHUNK_BYTES):
+                        data.extend(decoder.feed(chunk))
+                    decoder.finish()
+                except ValueError:
+                    return ProviderHttpResult('response', response.status_code, issue='RESPONSE_ENCODING_INVALID_OR_TOO_LARGE')
                 try:
                     body = json.loads(data, object_pairs_hook=unique_object, parse_constant=invalid_constant)
                 except (ValueError, UnicodeError, RecursionError):
                     return ProviderHttpResult('response', response.status_code, issue='RESPONSE_JSON_INVALID')
+                if isinstance(body, dict):
+                    # 仅保留调用编号和成本证据，不保存密钥额度、余额等其他响应头。
+                    headers_fact = {}
+                    cost = response.headers.get('x-litellm-response-cost', '')
+                    call_id = response.headers.get('x-litellm-call-id', '')
+                    if re.fullmatch(r'[0-9]{1,14}(\.[0-9]{1,20})?', cost):
+                        headers_fact['responseCost'] = cost
+                    if re.fullmatch(r'[A-Za-z0-9_-]{1,128}', call_id):
+                        headers_fact['callId'] = call_id
+                    body['_platformGatewayHeaders'] = headers_fact
                 return ProviderHttpResult('response', response.status_code, body)
         except (TimeoutError, httpx.TimeoutException):
             return ProviderHttpResult('timeout')

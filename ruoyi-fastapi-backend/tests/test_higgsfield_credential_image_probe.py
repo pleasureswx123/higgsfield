@@ -61,6 +61,16 @@ class CredentialImageProbeTests(unittest.TestCase):
             self.assertFalse(self.parse(response).diagnostic.model_verified)
         self.assertFalse(self.parse(self.response(), max_pixels=1).diagnostic.model_verified)
 
+    def test_nullable_gateway_metadata_requires_real_valid_pixels(self):
+        # 实际网关可返回空声明；格式和尺寸仍由原始图片解码验证。
+        result = self.parse(self.response(output_format=None, size=None,
+            usage={'input_tokens': 16, 'output_tokens': 8232}))
+        self.assertTrue(result.diagnostic.model_verified)
+        self.assertEqual(result.image_fact.usage['output_tokens'], '8232')
+        self.assertFalse(self.parse(self.response(b'broken', output_format=None, size=None)).diagnostic.model_verified)
+        self.assertFalse(self.parse(self.response(output_format='', size=None)).diagnostic.model_verified)
+        self.assertFalse(self.parse(self.response(output_format=None, size='')).diagnostic.model_verified)
+
     def test_auth_rejection_and_transport_unknown_are_distinct(self):
         rejected = self.parse(ProviderHttpResult(transport='response', http_status=401, body={'error': 'secret'}))
         self.assertEqual(rejected.diagnostic.issue, 'AUTH_REJECTED')

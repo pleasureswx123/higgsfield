@@ -1,4 +1,5 @@
 <script setup>
+import ModelSetupEntry from '@/components/ModelSetupEntry.vue'
 import { computed, ref, watch, onDeactivated } from 'vue'
 import useUserStore from '@/store/modules/user'
 import PriceBookEditor from './PriceBookEditor.vue'
@@ -52,6 +53,7 @@ onDeactivated(() => {
 </script>
 <template>
   <div class="app-container">
+    <ModelSetupEntry />
     <header>
       <h2>价格管理</h2>
       <el-button

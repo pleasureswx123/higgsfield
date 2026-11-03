@@ -44,6 +44,15 @@ class CredentialTestWorker:
                                     *(handle(identity, False) for identity in pending))
 
     async def serve(self, stop):
+        from module_higgsfield.service.credential_test_runtime_service import CredentialTestRuntimeService
+        heartbeat = asyncio.create_task(CredentialTestRuntimeService.heartbeat(stop))
+        try:
+            await self._serve(stop)
+        finally:
+            heartbeat.cancel()
+            await asyncio.gather(heartbeat, return_exceptions=True)
+
+    async def _serve(self, stop):
         while not stop.is_set():
             await self.run_once()
             try:

@@ -21,6 +21,15 @@ class CredentialImageProbeResult:
 class CredentialTestImageProbeService:
     @staticmethod
     def compile(binding):
+        if binding.model_kind == 'video' and binding.model_version is not None and binding.config.adapter_version == 'videoplus-v1':
+            if not binding.model_version.gateway_alias.startswith(('mm-eva-sd-', 'mm-nova-sd-')) and binding.model_version.gateway_alias != 'mm-h3':
+                raise UnsupportedCredentialProbe('此视频模型没有已核实探针')
+            from module_higgsfield.service.videoplus_request_service import VideoPlusRequestService
+            capabilities = ModelCapabilities.model_validate(binding.model_version.capabilities)
+            return VideoPlusRequestService.video(binding.model_version.gateway_alias, capabilities, {
+                'parameters': {'duration': 5, 'resolution': '2K' if binding.model_version.gateway_alias == 'mm-h3' else '720p', 'ratio': '16:9'},
+                'compiled': {'compilerVersion': 1, 'media': [], 'promptParagraphs': [[{
+                    'type': 'text', 'text': '海浪缓缓拍打沙滩，固定镜头，自然日光。'}]]}})
         if (binding.model_kind != 'image' or binding.model_version is None
                 or binding.config.adapter_version != 'videoplus-v1'):
             raise UnsupportedCredentialProbe('尚无该类型的已核实测试探针')

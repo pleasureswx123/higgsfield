@@ -170,3 +170,4 @@ reference/
 /.local-data/
 # 本地测试临时安装的第三方依赖，不进入源码版本管理。
 /ruoyi-fastapi-backend/output/test-runtime/
+/ruoyi-fastapi-backend/output/image-workers/

@@ -5,6 +5,14 @@ const emit = defineEmits(['saved'])
 const { canWrite, open, pending, error, model, editing, formRef, form, start, close, submit } =
   usePriceVersionEditor(() => emit('saved'))
 defineExpose({ start })
+function applyImagePrice() {
+  if (pending.value || !canWrite.value || model.value?.currency !== 'USD') return
+  form.calculationScale = 10
+  form.items = [['input', '5'], ['output', '30']].map(([itemCode, unitPrice]) => ({
+    itemCode, unit: 'token', unitQuantity: '1000000', unitPrice, quantityFrom: '0',
+    quantityTo: '', formulaTemplate: 'linear', freeReason: '',
+  }))
+}
 </script>
 <template>
   <el-dialog
@@ -23,6 +31,7 @@ defineExpose({ start })
         model?.currency
       }}。保存草稿不会发布价格。允许先保存未完整配置的草稿，发布前须解决服务端校验问题。
     </p>
+    <el-button v-if="model?.currency === 'USD'" :disabled="pending || !canWrite" @click="applyImagePrice">填入 mm-imagen2 价格（输入 $5 / 输出 $30，每百万 Token）</el-button>
     <el-form
       ref="formRef"
       :model="form"

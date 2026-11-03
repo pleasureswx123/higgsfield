@@ -18,6 +18,9 @@ class CredentialTestRecoveryService:
         self.stale_after_seconds = stale_after_seconds
 
     async def recover(self, test_id):
+        from module_higgsfield.service.credential_video_test_service import CredentialVideoTestService
+        if await CredentialVideoTestService.poll(self.executor, test_id):
+            return True
         async with self.executor.sessions() as db:
             test = await CredentialTestDao.locked(db, test_id)
             if test is None or test.state != '0' or test.provider_call_id is None:

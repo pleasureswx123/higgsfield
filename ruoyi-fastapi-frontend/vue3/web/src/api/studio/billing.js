@@ -16,3 +16,6 @@ export const adjustBillingEvent = (id, data, key, signal) =>
     data,
     headers: { 'Idempotency-Key': key, repeatSubmit: false },
   })
+
+export const getBillingSubject = (id, signal) =>
+  request({ url: `/api/admin/v1/billing-subjects/${encodeURIComponent(id)}`, signal })

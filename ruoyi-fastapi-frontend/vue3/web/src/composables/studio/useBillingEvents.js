@@ -1,6 +1,6 @@
 import { computed, onActivated, onBeforeUnmount, onDeactivated, onMounted, reactive, ref, watch } from 'vue'
 import useUserStore from '@/store/modules/user'
-import { listBillingEvents, getBillingEvent, getBillingSummary } from '@/api/studio/billing'
+import { listBillingEvents, getBillingEvent, getBillingSubject, getBillingSummary } from '@/api/studio/billing'
 import { billingTimeWindow } from '@/utils/billingQuery'
 
 export function useBillingEvents() {
@@ -115,7 +115,7 @@ export function useBillingEvents() {
     detailOpen.value = true
     detailLoading.value = true
     try {
-      const result = await getBillingEvent(row.id, controller.signal)
+      const result = await (row.id == null ? getBillingSubject(row.subjectId, controller.signal) : getBillingEvent(row.id, controller.signal))
       if (!controller.signal.aborted) detail.value = result.data
     } catch (cause) {
       if (!controller.signal.aborted)

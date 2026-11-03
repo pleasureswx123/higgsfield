@@ -1,4 +1,5 @@
 <script setup>
+import ModelSetupEntry from '@/components/ModelSetupEntry.vue'
 import { computed, ref } from 'vue'
 import CredentialActivationDialog from './CredentialActivationDialog.vue'
 import CredentialTestDialog from './CredentialTestDialog.vue'
@@ -114,6 +115,7 @@ function filter() {
 
 <template>
   <div class="app-container credential-page">
+    <ModelSetupEntry />
     <div class="heading">
       <h2>供应商凭据</h2>
       <el-button @click="settings.toggleTheme()">{{
@@ -165,6 +167,7 @@ function filter() {
       highlight-current-row
       @row-click="select"
     >
+      <el-table-column prop="id" label="凭据ID" width="100" />
       <el-table-column
         prop="name"
         label="凭据名称"

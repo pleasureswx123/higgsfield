@@ -41,7 +41,9 @@ class CredentialTestIntentService:
                 account_id=binding.account.account_id, credential_version_id=row.credential_version_id,
                 operation='test', request_hash=WriteService.digest(payload),
                 request_metadata={'testId': str(row.test_id), 'configHash': row.config_hash,
-                                  'connectionVersionId': str(row.connection_version_id), 'procurementPricing': pricing},
+                                  'connectionVersionId': str(row.connection_version_id), 'procurementPricing': pricing,
+                                  'requestSnapshot': {'url': binding.config.base_url + 'v1/chat/completions',
+                                      'body': payload}},
                 state='1', acceptance='unknown', actor_id=row.requested_by, started_time=now,
                 create_by=str(row.requested_by), update_by=str(row.requested_by)))
             row.provider_call_id = call.call_id

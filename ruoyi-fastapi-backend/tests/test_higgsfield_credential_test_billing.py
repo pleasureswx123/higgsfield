@@ -28,6 +28,19 @@ class CredentialTestBillingTests(unittest.IsolatedAsyncioTestCase):
     save = executors.CredentialTestExecutorTests.save
     request = executors.CredentialTestExecutorTests.request
 
+    async def test_video_first_test_uses_draft_price_and_archive_retry_does_not_rebill(self):
+        async with self.sessions() as db:
+            await db.execute(text('DELETE FROM hf_price_activation'))
+            await db.execute(text("UPDATE hf_price_version SET status='0'"))
+            await db.execute(text("DELETE FROM hf_price_rule_item WHERE item_code='input'"))
+            await db.execute(text("UPDATE hf_price_rule_item SET item_code='video_tokens',unit_quantity=6690000,unit_price=70"))
+            await db.commit()
+        await executors.CredentialTestExecutorTests.test_video_waits_for_poll_and_archive_without_resubmission(self)
+        async with self.sessions() as db:
+            self.assertEqual(await db.scalar(text('SELECT count(*) FROM hf_billing_event')), 1)
+            self.assertEqual(await db.scalar(text('SELECT amount FROM hf_billing_event')), Decimal('0.808401'))
+            self.assertEqual(await db.scalar(text("SELECT request_metadata->'procurementPricing'->'price'->>'testDraft' FROM hf_provider_call")), 'true')
+
     async def asyncSetUp(self):
         await executors.CredentialTestExecutorTests.asyncSetUp(self)
         async with self.engine.begin() as conn:
@@ -88,6 +101,29 @@ class CredentialTestBillingTests(unittest.IsolatedAsyncioTestCase):
             self.assertEqual(disputed.state, '3')
             self.assertEqual(disputed.amount, Decimal('0.58'))
             await db.commit()
+        self.assertEqual(self.calls, 1)
+
+    async def test_unpriced_usage_is_visible_without_creating_ledger(self):
+        from module_higgsfield.service.billing_admin_service import BillingAdminService
+        from module_higgsfield.entity.vo.billing_query_vo import BillingQuery
+        async with self.sessions() as db:
+            await db.execute(text('DELETE FROM hf_price_activation'))
+            await db.commit()
+        self.response = probes.CredentialImageProbeTests().response(usage={'input_tokens': 16, 'output_tokens': 7024})
+        receipt, _ = await self.request(modelVersionId=str(self.model_version_id))
+        await self.executor.execute(int(receipt['data']['id']))
+        async with self.sessions() as db:
+            result = await BillingAdminService.listing(db, self.owner,
+                BillingQuery(scope='cost_center', purpose='procurement', state='unpriced', currency='USD'))
+            self.assertEqual(result.total, 1)
+            row = result.rows[0]
+            self.assertIsNone(row['id'])
+            self.assertIsNone(row['amount'])
+            detail = await BillingAdminService.unpriced_detail(db, self.owner, int(row['subjectId']))
+            self.assertEqual(Decimal(detail['usage']['inputTokens']), 16)
+            self.assertEqual(Decimal(detail['usage']['outputTokens']), 7024)
+            self.assertIn('没有可用的采购价格', detail['reason'])
+            self.assertEqual(await db.scalar(text('SELECT count(*) FROM hf_billing_event')), 0)
         self.assertEqual(self.calls, 1)
 
     async def test_unknown_usage_keeps_pending_amount_null(self):

@@ -10,6 +10,12 @@ from module_higgsfield.entity.do.price_do import HfPriceActivation, HfPriceBook,
 
 class GenerationPriceDao:
     @staticmethod
+    async def drafts(db, book_id):
+        return list(await db.scalars(select(HfPriceVersion).where(
+            HfPriceVersion.price_book_id == book_id, HfPriceVersion.status == '0')
+            .order_by(HfPriceVersion.version_no.desc()).with_for_update(read=True)))
+
+    @staticmethod
     async def procurement_books(db: AsyncSession, variant_id: int, account_id: int, currency: str) -> list:
         return list(await db.scalars(select(HfPriceBook).where(
             HfPriceBook.model_variant_id == variant_id, HfPriceBook.account_id == account_id,

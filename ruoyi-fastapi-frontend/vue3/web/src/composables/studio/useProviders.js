@@ -15,9 +15,9 @@ const initial = () => ({
   baseUrl: '',
   adapterVersion: '',
   allowedHosts: '',
-  connectTimeoutSeconds: 10,
-  readTimeoutSeconds: 60,
-  operationTimeoutSeconds: 120,
+  connectTimeoutSeconds: 15,
+  readTimeoutSeconds: 180,
+  operationTimeoutSeconds: 240,
   taskTimeoutSeconds: 3600,
 })
 

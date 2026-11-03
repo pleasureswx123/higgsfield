@@ -4,6 +4,9 @@ import importlib.util
 import os
 import tempfile
 import unittest
+import json
+from decimal import Decimal
+from unittest.mock import AsyncMock, patch
 from pathlib import Path
 from sqlalchemy import text
 from alembic.migration import MigrationContext
@@ -27,6 +30,53 @@ class CredentialTestExecutorTests(unittest.IsolatedAsyncioTestCase):
     payload = requests.CredentialTestRequestTests.payload
     save = requests.CredentialTestRequestTests.save
     request = requests.CredentialTestRequestTests.request
+
+    async def test_video_waits_for_poll_and_archive_without_resubmission(self):
+        from module_higgsfield.service.credential_video_test_service import CredentialVideoTestService
+        from module_higgsfield.service.output_download_service import OutputDownloadService
+        cap = {'parametersSchema': {'properties': {
+            'resolution': {'type': 'string', 'enum': ['720p']}, 'duration': {'type': 'integer', 'minimum': 4, 'maximum': 15},
+            'ratio': {'type': 'string', 'enum': ['16:9']}}, 'required': ['resolution', 'duration', 'ratio']},
+            'referenceRules': {'maxTotal': 0}}
+        async with self.sessions() as db:
+            await db.execute(text("UPDATE hf_model_profile SET kind='video'"))
+            await db.execute(text("UPDATE hf_model_profile_version SET gateway_alias='mm-eva-sd-2.5', capabilities=CAST(:cap AS jsonb)"), {'cap': json.dumps(cap)})
+            await db.commit()
+        receipt, _ = await self.request(modelVersionId=str(self.model_version_id))
+        identity = int(receipt['data']['id'])
+        transport = type('Transport', (), {})()
+        transport.submit = AsyncMock(return_value=ProviderHttpResult('response', 200, {
+            'id': 'outer', 'choices': [{'message': {'content': '{"id":"inner-task","base_resp":{"status_code":0}}'}}]}))
+        transport.poll = AsyncMock(return_value=ProviderHttpResult('response', 200, {
+            'id': 'inner-task', 'status': 'succeeded', 'content': {'video_url': 'https://example.com/movie.mp4'},
+            'usage': {'completion_tokens': 77260, 'total_tokens': 77260}}))
+        self.executor.transport_factory = lambda binding: transport
+        await self.executor.execute(identity)
+        self.assertFalse(await self.executor.execute(identity))
+        async with self.sessions() as db:
+            self.assertEqual(await db.scalar(text('SELECT state FROM hf_credential_test')), '0')
+        with patch.object(OutputDownloadService, 'download', AsyncMock(side_effect=OSError('测试下载失败'))):
+            with self.assertRaises(OSError):
+                await CredentialVideoTestService.poll(self.executor, identity)
+        async with self.sessions() as db:
+            self.assertEqual(await db.scalar(text('SELECT state FROM hf_credential_test')), '0')
+            self.assertEqual(await db.scalar(text('SELECT max(video_tokens) FROM hf_usage_record')), 77260)
+        with patch.object(OutputDownloadService, 'download', AsyncMock(return_value={
+            'storage_key': 'media/' + 'a' * 32, 'mime_type': 'video/mp4', 'byte_size': 100, 'seconds': Decimal('5.5')})) as download:
+            self.assertTrue(await CredentialVideoTestService.poll(self.executor, identity))
+            self.assertFalse(await CredentialVideoTestService.poll(self.executor, identity))
+            download.assert_awaited_once()
+        transport.submit.assert_awaited_once()
+        transport.poll.assert_awaited_once_with('inner-task')
+        async with self.sessions() as db:
+            self.assertEqual(await db.scalar(text('SELECT state FROM hf_credential_test')), '1')
+            self.assertEqual(await db.scalar(text('SELECT max(video_tokens) FROM hf_usage_record')), 77260)
+            self.assertEqual(await db.scalar(text('SELECT count(*) FROM hf_billing_subject')), 1)
+            metadata = await db.scalar(text('SELECT request_metadata FROM hf_provider_call'))
+            self.assertEqual(metadata['videoSubmissionHttpStatus'], 200)
+            self.assertEqual(metadata['videoLatestPoll']['response']['status'], 'succeeded')
+            self.assertEqual(metadata['videoLatestPoll']['httpStatus'], 200)
+            self.assertNotIn('https://example.com/movie.mp4', json.dumps(metadata['videoLatestPoll']))
 
     async def asyncSetUp(self):
         await requests.CredentialTestRequestTests.asyncSetUp(self)
