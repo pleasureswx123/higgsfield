@@ -88,6 +88,11 @@ class DraftService:
     @classmethod
     async def validate(cls, db, user, project_id, payload, kind):
         body = payload.body
+        if not any(
+            node.type == 'text' and node.text.strip()
+            for paragraph in body.prompt.content for node in paragraph.content
+        ):
+            cls.fail('PROMPT_REQUIRED', '请先填写提示词，空白提示词不能保存为草稿')
         if body.source_job_id:
             source = await GenerationReadDao.job(db, int(body.source_job_id))
             if source is None or source.project_id != project_id:

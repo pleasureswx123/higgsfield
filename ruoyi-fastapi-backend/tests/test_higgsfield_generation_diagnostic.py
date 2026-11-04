@@ -8,7 +8,7 @@ from module_higgsfield.service.task_event_service import TaskEventService
 
 class GenerationDiagnosticTests(unittest.IsolatedAsyncioTestCase):
     def job(self, **changes):
-        return SimpleNamespace(**(dict(job_id=1, credential_version_id=7, upstream_state='4',
+        return SimpleNamespace(**(dict(job_id=1, credential_version_id=7, upstream_state='4', kind='video', next_action_time=None,
                                       orchestration_state='5', upstream_task_id='original') | changes))
 
     def call(self, **changes):
@@ -45,6 +45,11 @@ class GenerationDiagnosticTests(unittest.IsolatedAsyncioTestCase):
         with patch('module_higgsfield.service.generation_diagnostic_service.GenerationReadDao.latest_execution_call', AsyncMock()) as read:
             self.assertIsNone(await Service.read(None, self.job(upstream_state='3')))
             read.assert_not_awaited()
+
+    async def test_unknown_image_without_schedule_requires_manual_review(self):
+        result = await Service.read(None, self.job(kind='image', orchestration_state='3', upstream_state='6'))
+        self.assertEqual(result['code'], 'IMAGE_MANUAL_REVIEW_REQUIRED')
+        self.assertIn('自动恢复已停止', result['message'])
 
     async def test_changed_poll_diagnostic_refreshes_stream_without_new_job_event(self):
         snapshot = dict(eventCursor='1:7', allowedActions=[], elementDestination=None,

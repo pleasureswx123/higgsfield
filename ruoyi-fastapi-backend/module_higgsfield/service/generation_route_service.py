@@ -14,7 +14,7 @@ from module_higgsfield.service.project_workspace_service import WorkspaceService
 
 class GenerationRouteService:
     @classmethod
-    async def select(cls, db: AsyncSession, user: CurrentUserModel, project_id: int, version_id: int) -> dict:
+    async def select(cls, db: AsyncSession, user: CurrentUserModel, project_id: int, version_id: int, *, allow_queue=False) -> dict:
         """必须在输入准备前调用；调用方在同一事务持锁写入任务后才可提交。"""
         await WorkspaceService.authorize(db, user, project_id, 'generation:create', write=True)
         group = await RoutingDao.group(db, project_id, lock=True)
@@ -56,8 +56,10 @@ class GenerationRouteService:
             WorkspaceService.conflict('GENERATION_ROUTE_UNAVAILABLE', '连接固定配置版本缺失或不属于此连接')
         account_map = {row.account_id: row for row in accounts}
         credential_map = {row.credential_id: row for row in credentials}
-        counts = await CredentialDao.in_flight(db, [row.credential_version_id for row in keys])
+        counts = await CredentialDao.in_flight(db, [row.credential_version_id for row in keys], for_admission=True)
         now = await JobLeaseDao.now(db)
+        capacity_full = False
+        queued_route = None
         for route in active:
             account = account_map.get(route.account_id)
             if (
@@ -76,9 +78,7 @@ class GenerationRouteService:
                 if credential is None or credential.account_id != account.account_id or credential.status != '1':
                     continue
                 identity_keys = [item for item in keys if item.credential_id == credential.credential_id]
-                # 轮换不能重置同一身份的并发占用；排空版本上的未知任务仍计入。
-                if sum(counts.get(item.credential_version_id, 0) for item in identity_keys) >= policy.max_concurrency:
-                    continue
+                # 轮换不能重置同一身份的执行占用；已转人工核查的图片不占本地名额。
                 eligible = [
                     item
                     for item in identity_keys
@@ -89,8 +89,13 @@ class GenerationRouteService:
                 ]
                 if not eligible:
                     continue
+                if sum(counts.get(item.credential_version_id, 0) for item in identity_keys) >= policy.max_concurrency:
+                    capacity_full = True
+                    if not allow_queue:
+                        continue
                 selected = max(eligible, key=lambda item: (item.version_no, item.credential_version_id))
-                return {
+                choice = {
+                    'maxConcurrency': policy.max_concurrency,
                     'routingRevision': str(platform_group.revision if route.project_id is None else group.revision),
                     'routeId': str(route.config_id),
                     'policyId': str(policy.policy_id),
@@ -100,5 +105,13 @@ class GenerationRouteService:
                     'region': account.region,
                     'upstreamProject': account.upstream_project,
                 }
-        WorkspaceService.conflict('GENERATION_ROUTE_UNAVAILABLE', '当前没有有效且有并发容量的候选凭据')
+                if sum(counts.get(item.credential_version_id, 0) for item in identity_keys) < policy.max_concurrency:
+                    return choice
+                if queued_route is None:
+                    queued_route = choice
+        if queued_route is not None:
+            return queued_route
+        WorkspaceService.conflict('GENERATION_ROUTE_UNAVAILABLE',
+            '当前生成名额已占满，请等待正在处理的任务结束；若长期无变化，请管理员核查任务记录。'
+            if capacity_full else '模型连接或凭据当前不可用，请管理员检查启用状态和有效期。')
         return None

@@ -5,6 +5,7 @@ from datetime import timedelta
 import re
 from module_higgsfield.dao.job_lease_dao import JobLeaseDao
 from module_higgsfield.dao.provider_call_dao import ProviderCallDao
+from module_higgsfield.dao.job_event_dao import JobEventDao
 from module_higgsfield.service.project_workspace_service import WorkspaceService
 from module_higgsfield.service.preparation_diagnostic_service import PreparationDiagnosticService
 
@@ -19,6 +20,24 @@ class JobLease:
 
 
 class JobLeaseService:
+    @classmethod
+    async def require_manual_review(cls, db, lease):
+        """同步图片缺少可恢复证据时停止调度，保留未知受理及费用事实。"""
+        try:
+            row, now = await cls.guard(db, lease)
+            if row.kind != 'image' or row.orchestration_state != '3':
+                raise ValueError('仅未知图片提交可进入人工核查')
+            row.next_action_time = None
+            row.lease_owner = row.lease_until = None
+            row.revision += 1
+            row.event_sequence += 1
+            row.update_time, row.update_by = now, lease.worker
+            await JobEventDao.state(db, row, now, lease.worker)
+            await db.commit()
+        except Exception:
+            await db.rollback()
+            raise
+
     @staticmethod
     def validate_worker(worker):
         if not isinstance(worker, str) or not re.fullmatch(r'[A-Za-z0-9][A-Za-z0-9_.:-]{0,63}', worker):
@@ -43,6 +62,9 @@ class JobLeaseService:
             rows = await JobLeaseDao.candidates(db, now, limit, kinds)
             leases = []
             for row in rows:
+                if row.orchestration_state in ('0', '1') and not await JobLeaseDao.has_execution_capacity(db, row, now):
+                    row.next_action_time = now + timedelta(seconds=2)
+                    continue
                 row.lease_owner = worker
                 row.lease_until = now + timedelta(seconds=lease_seconds)
                 row.fencing_token += 1

@@ -23,14 +23,14 @@ class AdminScopeTests(unittest.IsolatedAsyncioTestCase):
         async with self.engine.begin() as db:
             for sql in (
                 'ALTER TABLE sys_user ADD COLUMN dept_id bigint',
-                'CREATE TABLE sys_role (role_id bigint PRIMARY KEY,data_scope char(1),status char(1),del_flag char(1))',
-                'CREATE TABLE sys_user_role (user_id bigint,role_id bigint)',
-                'CREATE TABLE sys_role_menu (role_id bigint,menu_id bigint)',
+                'ALTER TABLE sys_role ADD COLUMN data_scope char(1)',
+
+
                 'CREATE TABLE sys_role_dept (role_id bigint,dept_id bigint)',
                 'CREATE TABLE sys_dept (dept_id bigint PRIMARY KEY,ancestors text,status char(1),del_flag char(1))',
                 "INSERT INTO sys_dept VALUES (10,'0','0','0'),(11,'0,10','0','0'),(110,'0,1','0','0')",
                 'UPDATE sys_user SET dept_id=CASE WHEN user_id=1 THEN 11 ELSE 10 END',
-                "INSERT INTO sys_role VALUES (1,'1','0','0'),(2,'5','0','0')",
+                "INSERT INTO sys_role (role_id,data_scope,status,del_flag) VALUES (1,'1','0','0'),(2,'5','0','0')",
                 'INSERT INTO sys_user_role VALUES (2,1),(2,2)',
                 "INSERT INTO sys_menu (menu_id,status,perms) VALUES (9001,'0','provider:route'),(9002,'0','unrelated:read')",
                 'INSERT INTO sys_role_menu VALUES (1,9002),(2,9001)',

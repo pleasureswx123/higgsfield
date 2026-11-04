@@ -181,7 +181,8 @@ class VideoPlusSubmitHandlerTests(unittest.IsolatedAsyncioTestCase):
                 )
             ).one()
             self.assertEqual(tuple(row), ('4', 'accepted-task', 'outer-response'))
-            self.assertEqual(await db.scalar(text('SELECT reserved_amount FROM hf_budget_period')), 6)
+            # 当前任务按实际用量结算，不再预占估算费用。
+            self.assertEqual(await db.scalar(text('SELECT reserved_amount FROM hf_budget_period')), 0)
 
     async def test_unclear_acceptance_never_resubmits(self) -> None:
         self.mode = 'unknown'
@@ -263,7 +264,8 @@ class VideoPlusSubmitHandlerTests(unittest.IsolatedAsyncioTestCase):
             self.assertEqual(await db.scalar(text('SELECT count(*) FROM hf_provider_call')), 1)
             metadata = await db.scalar(text('SELECT response_metadata FROM hf_provider_call'))
             self.assertTrue(metadata['recoveryEvidenceId'].isdigit())
-            self.assertEqual(await db.scalar(text('SELECT reserved_amount FROM hf_budget_period')), 6)
+            # 当前任务按实际用量结算，不再预占估算费用。
+            self.assertEqual(await db.scalar(text('SELECT reserved_amount FROM hf_budget_period')), 0)
         self.assertEqual(len(self.requests), 1)
         self.assertEqual(self.errors, [])
 

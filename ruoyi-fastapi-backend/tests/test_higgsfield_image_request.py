@@ -75,6 +75,9 @@ class ImageRequestTests(unittest.TestCase):
             {'size': '3841x1024'},
             {'size': '1025x1024'},
             {'size': '3840x1024'},
+            {'size': '1024x576'},
+            {'size': '576x1024'},
+            {'size': '3840x3840'},
             {'quality': 'extreme'},
             {'moderation': 'low'},
             {'output_compression': 101},
@@ -83,7 +86,7 @@ class ImageRequestTests(unittest.TestCase):
             source['parameters'] = parameters
             with self.subTest(parameters=parameters), self.assertRaises(ValidationError):
                 ImageRequestService.compile('mm-imagen2', capability(), source)
-        for size in ('auto', '3840x1280', '1024x1024'):
+        for size in ('auto', '3840x1280', '1024x1024', '1024x640', '2048x1152', '3840x2160'):
             source = snapshot()
             source['parameters'] = {'size': size}
             self.assertEqual(ImageRequestService.compile('mm-imagen2', capability(), source)['size'], size)

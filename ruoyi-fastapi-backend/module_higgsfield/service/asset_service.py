@@ -207,7 +207,51 @@ class AssetService:
         return result
 
     @staticmethod
-    async def result(db, asset, version=None):
+    async def generation_info(db, user, version):
+        """预览仅投影有权读取的生成参数，不暴露供应商执行快照。"""
+        from exceptions.exception import PermissionException
+        from module_higgsfield.dao.generated_output_dao import GeneratedOutputDao
+        from module_higgsfield.dao.generation_read_dao import GenerationReadDao
+
+        seen = set()
+        while version and version.version_id not in seen:
+            seen.add(version.version_id)
+            if version.source_output_id:
+                break
+            if not version.source_asset_version_id:
+                return None
+            version = await AssetDao.version(db, version.source_asset_version_id)
+        if not version or not version.source_output_id:
+            return None
+        output = await GeneratedOutputDao.get(db, version.source_output_id)
+        if output is None:
+            return None
+        job = await GenerationReadDao.job(db, output.job_id)
+        if job is None:
+            return None
+        try:
+            await WorkspaceService.authorize(db, user, job.project_id, 'generation:read', owner_id=job.actor_id)
+        except PermissionException:
+            return None
+        snapshot = job.input_snapshot or {}
+        prompt = snapshot.get('prompt') or {}
+        text = '\n'.join(''.join(
+            node.get('text', '') if node.get('type') == 'text' else '@素材引用'
+            for node in paragraph.get('content', [])
+        ) for paragraph in prompt.get('content', []))
+        parameters = snapshot.get('parameters') or {}
+        model = await GenerationReadDao.model(db, job.model_version_id)
+        return {
+            'prompt': text,
+            'modelName': model.display_name if model else None,
+            'quality': parameters.get('quality'),
+            'resolution': parameters.get('resolution'),
+            'aspectRatio': parameters.get('aspect_ratio'),
+            'createTime': job.create_time,
+        }
+
+    @staticmethod
+    async def result(db, asset, version=None, user=None):
         version = version or await AssetDao.version(db, asset.current_version_id)
         file = await AssetDao.file(db, version.file_id)
         return {
@@ -218,6 +262,7 @@ class AssetService:
             'workStatus': asset.work_status,
             'currentVersionId': str(version.version_id),
             'uploaded': await AssetDao.is_uploaded_version(db, version.version_id),
+            **({'generation': await AssetService.generation_info(db, user, version)} if user else {}),
             'revision': str(asset.revision),
             'createUserId': str(asset.create_user_id),
             'createTime': asset.create_time,
@@ -241,7 +286,7 @@ class AssetService:
         await WorkspaceService.authorize(db, user, project_id, 'asset:read', owner_id=asset.create_user_id)
         if asset.del_flag != '0':
             cls.fail('RESOURCE_NOT_FOUND', '素材不存在或已删除')
-        return await cls.result(db, asset)
+        return await cls.result(db, asset, user=user)
 
     @classmethod
     async def get_version(cls, db, user, version_id):
@@ -251,7 +296,7 @@ class AssetService:
             cls.fail('RESOURCE_NOT_FOUND', '素材版本不存在或无权访问')
         await cls.get(db, user, version.asset_id)
         asset = await AssetDao.asset(db, version.asset_id)
-        return await cls.result(db, asset, version)
+        return await cls.result(db, asset, version, user=user)
 
     @classmethod
     async def bind(cls, db, user, payload, key, asset_id=None):

@@ -38,7 +38,7 @@ class ImageReconciliationHandler:
                     'expected_count': job.input_snapshot.get('parameters', {}).get('n', 1),
                 }
         if saved is None:
-            await context.defer(60)
+            await context.require_manual_review()
             return
         body = await self.evidence_storage.load(saved['files'], saved['call_id'], saved['job_id'])
         try:
@@ -50,7 +50,7 @@ class ImageReconciliationHandler:
             )
         except ValueError:
             # 证据确实存在但不能证明成功时保留未知，不将其当成重新收费生成的依据。
-            await context.defer(60)
+            await context.require_manual_review()
             return
         stored = {}
         for image in fact.images:

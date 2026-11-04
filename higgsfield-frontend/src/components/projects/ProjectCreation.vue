@@ -1,47 +1,46 @@
 <script setup lang="ts">
-import { ElForm, ElFormItem, ElInput, ElInputNumber, ElOption, ElPagination, ElSelect, ElSwitch } from 'element-plus'
+import { IconX } from '@tabler/icons-vue'
+import { ElForm, ElFormItem, ElMessage, ElPagination } from 'element-plus'
 
 import type { Asset } from '@/api/assets'
 import { selectCandidate } from '@/utils/draftReferences'
 import CreationComposer from '@/components/creation/CreationComposer.vue'
-import { modelAvailabilityMessage } from '@/utils/modelAvailability'
 import { computed, ref, watch } from 'vue'
 import { RouterLink, useRoute } from 'vue-router'
 import Button from '@/components/ui/Button.vue'
 import { useElementUse } from '@/composables/useElementUse'
 import { useElementGenerationTarget } from '@/composables/useElementGenerationTarget'
 import { useCreationDraft } from '@/composables/useCreationDraft'
-import type { Scalar } from '@/api/creation'
 import DraftReferences from './DraftReferences.vue'
 import SelectedReference from './SelectedReference.vue'
 import type { DraftReference } from '@/api/creation'
-import PromptEditor from './PromptEditor.vue'
+import ComposerPrompt from '@/components/creation/ComposerPrompt.vue'
+import { removePromptReference } from '@/utils/promptEditorDocument'
 import GenerationDetail from './GenerationDetail.vue'
+import CreationProgress from './CreationProgress.vue'
 import { useCreationProgress } from '@/composables/useCreationProgress'
 import { useGenerationSubmit } from '@/composables/useGenerationSubmit'
-const props = defineProps<{ projectId: string; initialPrompt?: string; initialKind?: 'image' | 'video'; dock?: boolean }>()
+const props = defineProps<{ projectId: string; initialPrompt?: string; initialKind?: 'image' | 'video'; dock?: boolean; activityTarget?: string }>()
 const emit = defineEmits<{ assetsChanged: [] }>()
 const route = useRoute()
-const advanced = ref(false)
+const draftsOpen = ref(false)
 const referencePicker = ref<InstanceType<typeof DraftReferences>>()
 const pickerOpen = ref(false)
+const promptEditor = ref<InstanceType<typeof ComposerPrompt>>()
 const {
   body,
   kind,
   promptDocument,
   prompt,
-  richPrompt,
   models,
   selected,
   parameters,
-  q,
-  page,
-  total,
   loading,
   saving,
   autoSaveError,
   uncertain: draftUncertain,
   locked: draftLocked,
+  editingLocked,
   error,
   notice,
   formRef,
@@ -58,9 +57,6 @@ const {
   references,
   loadDrafts,
   openDraft,
-  newDraft,
-  load,
-  search,
   choose,
   setParameter,
   changeKind,
@@ -71,11 +67,14 @@ const {
     ? folder
     : null
 }, { prompt: props.initialPrompt, kind: props.initialKind, autoSave: true, pauseAutoSave: () => pickerOpen.value })
-const imageReferences = computed(() => references.value.filter(item => item.mediaRole !== 'reference_video'))
+watch(draftsOpen, open => { if (open) void loadDrafts() })
+const imageReferences = computed(() => references.value.filter(item => item.mediaRole !== 'reference_video').sort((a, b) => Number(Boolean(a.elementRevisionId)) - Number(Boolean(b.elementRevisionId))))
 const videoReference = computed(() => references.value.find(item => item.mediaRole === 'reference_video'))
 function removeSelected(item: DraftReference) {
-  if (draftLocked.value || opening.value || generation.locked.value || protectedReferenceKeys.value.includes(item.referenceKey)) return
-  references.value = references.value.filter(value => value !== item).map((value, ordinal) => ({ ...value, ordinal }))
+  if (draftLocked.value || opening.value || generation.locked.value) return
+  const remaining = references.value.filter(value => value.referenceKey !== item.referenceKey).map((value, ordinal) => ({ ...value, ordinal }))
+  promptDocument.value = removePromptReference(promptDocument.value, remaining, item.referenceKey)
+  references.value = remaining
 }
 const elementTarget = useElementGenerationTarget(props.projectId)
 watch(
@@ -134,6 +133,7 @@ function useAsset(asset: Asset, targetKind: 'image' | 'video') {
   const role = asset.mediaType === 'video' ? 'reference_video' : 'reference_image'
   try {
     references.value = selectCandidate(references.value, { kind: 'asset', id: asset.id, projectId: props.projectId, displayName: asset.name, assetVersionIds: [asset.currentVersionId], allowedMediaRoles: [role] }, role, selected.value, protectedReferenceKeys.value)
+    ElMessage.success(asset.mediaType === 'video' ? '已添加参考视频' : '已添加参考图片')
   } catch (cause) { error.value = cause instanceof Error ? cause.message : '添加引用失败' }
 }
 defineExpose({
@@ -148,6 +148,8 @@ const progress = useCreationProgress(() => props.projectId, () => {
   const folder = route.query.folder
   return typeof folder === 'string' && /^[1-9]\d*$/.test(folder) ? folder : null
 }, () => generation.acceptedId.value, () => emit('assetsChanged'))
+// 仅锁定刚受理到状态确认的短暂间隔；已有任务运行时允许主动提交新任务排队。
+const latestSubmitted = computed(() => progress.rows.value.find(row => row.id === generation.acceptedId.value))
 async function checkGeneration() {
   if (draftLocked.value) return
   if (elementTarget.requested.value && (!elementTarget.target.value || kind.value !== 'image'))
@@ -160,12 +162,19 @@ const rules = { prompt: [{ max: 50000, message: '提示词不能超过50000字�
 
 <template>
   <section class="creation-panel" :class="{ 'creation-dock': dock }">
+    <ElForm ref="formRef" :model="form" :rules="rules" class="composer-validation" @submit.prevent>
+    <ElFormItem prop="prompt">
     <CreationComposer v-model:prompt="prompt" :kind="kind" :models="models" :selected="selected"
-      :parameters="parameters" :reference-count="references.length" :disabled="draftLocked || opening || generation.locked.value || generation.generating.value"
-      :prompt-readonly="richPrompt" :loading="loading" :saving="saving" :checking="generation.generating.value || generation.submitting.value"
+      :active-task="generation.sameAsAccepted.value" :parameters="parameters" :reference-count="references.length" :disabled="editingLocked || opening || generation.locked.value || generation.generating.value"
+      :loading="loading" :saving="saving" :checking="generation.generating.value || generation.submitting.value"
       :estimate="generation.visibleEstimate.value ? `${generation.visibleEstimate.value.amount} ${generation.visibleEstimate.value.currency}` : undefined"
       @kind="changeKind" @model="choose" @parameter="setParameter" @reference="(source, anchor) => referencePicker?.show(source, anchor)"
       @generate="checkGeneration">
+      <template #prompt>
+        <ComposerPrompt ref="promptEditor" v-model="promptDocument" :references="references" :project-id="projectId" :model="selected"
+          :context="kind" :disabled="editingLocked || opening || generation.locked.value || generation.generating.value"
+          @apply="value => { promptDocument = value.prompt; references = value.references }" />
+      </template>
       <template v-if="imageReferences.length" #images>
         <SelectedReference v-for="item in imageReferences" :key="`${item.referenceKey}:${item.assetVersionId}:${item.mediaRole}`" :item="item" :disabled="draftLocked || opening || generation.locked.value" :protected="protectedReferenceKeys.includes(item.referenceKey)" @remove="removeSelected(item)" />
       </template>
@@ -173,18 +182,25 @@ const rules = { prompt: [{ max: 50000, message: '提示词不能超过50000字�
         <SelectedReference :item="videoReference" video :label="label" :disabled="draftLocked || opening || generation.locked.value" :protected="protectedReferenceKeys.includes(videoReference.referenceKey)" @remove="removeSelected(videoReference)" @edit="anchor => referencePicker?.show('asset', anchor)" />
       </template>
     </CreationComposer>
+    </ElFormItem>
+    </ElForm>
     <div class="composer-notices">
-    <p class="compact-notice" role="status">
-      {{ saving ? '正在自动保存…' : autoSaveError ? '自动保存失败，内容仍保留' : dirty ? '等待自动保存…' : draft ? '已自动保存' : '编辑后自动保存草稿' }}
-      <button v-if="autoSaveError" type="button" :disabled="saving" @click="save(true)">重试保存</button>
-      <button type="button" @click="advanced = !advanced">{{ advanced ? '收起草稿' : '我的草稿' }}</button>
+    <p v-if="generation.acceptedId.value" class="compact-notice" role="status">
+      {{ latestSubmitted ? progress.label(latestSubmitted) : '任务已受理，可继续创作' }}
+      <button type="button" @click="taskId = generation.acceptedId.value">查看任务</button>
     </p>
-    <p v-if="!loading && !models.length" class="compact-notice">暂无已授权模型，请由管理员配置；仍可编写描述、添加参考素材并保存草稿。</p>
-    <p v-if="richPrompt" class="compact-notice">当前包含元素引用或富文本，请在“我的草稿”中编辑，保留引用关系。</p>
+    <p class="compact-notice" role="status">
+      {{ saving ? '正在自动保存…' : autoSaveError ? '自动保存失败，内容仍保留' : dirty ? '等待自动保存…' : draft ? '已自动保存' : '填写提示词后自动保存' }}
+      <button v-if="autoSaveError" type="button" :disabled="saving" @click="save(true)">重试保存</button>
+      <button type="button" @click="draftsOpen = !draftsOpen">{{ draftsOpen ? '收起参数记录' : '已保存的创作参数' }}</button>
+    </p>
+    <p v-if="!loading && !models.length" class="compact-notice">暂无已授权模型，请由管理员配置；仍可编写描述、添加参考素材并保存创作参数。</p>
 
+    <p v-if="missingModel" class="compact-notice" role="alert">原模型暂不可用，提示词与参数已保留，请重新选择模型。</p>
+    <p v-if="draftUncertain" class="compact-notice" role="alert">创作参数保存结果待确认，请点击重试保存。</p>
     <p v-if="error" class="compact-notice" role="alert">{{ error }}</p>
     </div>
-    <div v-show="advanced" class="creation-expanded">
+    <div v-show="draftsOpen" class="creation-expanded">
 
     <section
       v-if="elementTarget.requested.value"
@@ -216,28 +232,16 @@ const rules = { prompt: [{ max: 50000, message: '提示词不能超过50000字�
       >
       <RouterLink :to="elementTarget.returnTo.value">返回元素列表</RouterLink>
     </section>
-    <div class="workspace-section-heading">
+    <div class="workspace-section-heading creation-drafts-heading">
       <div>
-        <h2>创作详情</h2>
-        <p class="muted">先记录提示词与模型参数，再继续完善创作。</p>
-        <p class="muted">保存位置：{{ body.folderId ? `目录 #${body.folderId}` : '项目根目录' }}。已有内容保留发起目录；切换目录后可点击“新建草稿”开始。</p>
-        <p v-if="body.sourceJobId" class="muted">来源任务 #{{ body.sourceJobId }}。提交会创建新任务并可能产生新的费用，请先检查输入。</p>
+        <h2>已保存的创作参数</h2>
+        <p class="muted">保存提示词、模型、参数和参考素材；选择一条可载入创作栏继续编辑。</p>
       </div>
-      <span class="muted">{{ dirty ? '未保存' : draft ? '已保存的草稿' : '新草稿' }}</span>
+      <Button variant="ghost" class="creation-drafts-close" aria-label="关闭创作参数记录" title="关闭" @click="draftsOpen = false"><IconX :size="16" /></Button>
     </div>
-    <details class="creation-drafts">
-      <summary>我的草稿（{{ draftTotal }}）</summary>
-      <div class="creation-kind">
-        <Button variant="outline" :disabled="draftsLoading" @click="loadDrafts">刷新列表</Button
-        ><Button
-          variant="outline"
-          :disabled="draftLocked || opening || generation.locked.value"
-          @click="newDraft"
-          >新建草稿</Button
-        >
-      </div>
+    <section class="creation-drafts" aria-label="已保存的创作参数列表">
       <p v-if="draftsLoading" role="status">读取中…</p>
-      <p v-else-if="!drafts.length" class="muted">当前项目暂无你的草稿。</p>
+      <p v-else-if="!drafts.length" class="muted">当前项目暂无已保存的创作参数。</p>
       <ul>
         <li v-for="item in drafts" :key="item.id">
           <button
@@ -252,160 +256,23 @@ const rules = { prompt: [{ max: 50000, message: '提示词不能超过50000字�
         </li>
       </ul>
       <el-pagination
-        v-if="draftTotal > 10"
+        v-if="draftTotal > 0"
         v-model:current-page="draftPage"
         :page-size="10"
         :total="draftTotal"
-        layout="prev,pager,next"
+        size="small"
+        layout="total,prev,pager,next"
         @current-change="loadDrafts"
       />
-    </details>
-    <div class="creation-kind">
-      <Button
-        :variant="kind === 'image' ? 'default' : 'ghost'"
-        :disabled="draftLocked || opening || generation.locked.value"
-        @click="changeKind('image')"
-        >图像</Button
-      ><Button
-        :variant="kind === 'video' ? 'default' : 'ghost'"
-        :disabled="draftLocked || opening || generation.locked.value"
-        @click="changeKind('video')"
-        >视频</Button
-      >
-    </div>
-    <p v-if="error" class="project-error" role="alert">{{ error }}</p>
-    <p v-if="draftUncertain" role="alert">
-      草稿保存结果尚未确认，请重试原保存请求，确认结果后再继续编辑。
-    </p>
+    </section>
+    <p v-if="opening" role="status">正在载入创作参数…</p>
     <p v-if="notice" role="status">{{ notice }}</p>
-    <p v-if="opening" role="status">正在打开草稿…</p>
-    <p v-if="missingModel" class="project-error">
-      原模型配置暂不可用，已保留模型版本和参数。可稍后重新打开，或明确选择其他模型。
-    </p>
-    <el-form
-      ref="formRef"
-      :model="form"
-      :rules="rules"
-      :disabled="draftLocked || opening || generation.locked.value"
-      label-position="top"
-      class="creation-composer"
-      @submit.prevent
-    >
-      <el-form-item label="描述你的创意" prop="prompt"
-        ><PromptEditor
-          v-model="promptDocument"
-          :disabled="draftLocked || opening || generation.locked.value"
-          :references="references"
-      /></el-form-item>
-      <div class="creation-model-search">
-        <el-input
-          v-model="q"
-          placeholder="搜索模型名称"
-          clearable
-          :disabled="draftLocked || opening || generation.locked.value"
-          @keyup.enter="search"
-          @clear="search"
-        /><Button
-          variant="outline"
-          :disabled="loading || draftLocked || opening || generation.locked.value"
-          @click="search"
-          >查找</Button
-        >
-      </div>
-      <el-form-item label="项目已授权模型">
-        <el-select
-          :model-value="selected?.versionId || ''"
-          :loading="loading"
-          clearable
-          placeholder="选择模型；也可以仅保存提示词"
-          @update:model-value="choose"
-        >
-          <el-option
-            v-if="selected && !models.some((item) => item.versionId === selected?.versionId)"
-            :label="selected.displayName"
-            :value="selected.versionId"
-          />
-          <el-option
-            v-for="model in models"
-            :key="model.versionId"
-            :value="model.versionId"
-            :label="`${model.displayName} ${model.menuMeta.releaseLabel}`"
-          />
-        </el-select>
-      </el-form-item>
-      <el-pagination
-        v-if="total > 20"
-        v-model:current-page="page"
-        :page-size="20"
-        :total="total"
-        layout="prev,pager,next"
-        :disabled="draftLocked || opening || generation.locked.value"
-        @current-change="load"
-      />
-      <p v-if="!loading && !models.length" class="muted">
-        暂无匹配的已授权发布模型。可先保存提示词，或联系管理员配置项目模型。
-      </p>
-      <div v-if="selected" class="creation-parameters">
-        <p class="muted" role="status">
-          {{ modelAvailabilityMessage(selected.availability?.reasonCode) }}
-        </p>
-        <el-form-item
-          v-for="(rule, name) in selected.parametersSchema.properties"
-          :key="name"
-          :label="`${name}${selected.parametersSchema.required.includes(name) ? '（生成前必填）' : ''}`"
-        >
-          <el-select
-            v-if="rule.enum"
-            :model-value="parameters[name]"
-            clearable
-            placeholder="使用默认值或选择"
-            @update:model-value="(value: Scalar) => setParameter(name, value)"
-            ><el-option
-              v-for="(value, index) in rule.enum"
-              :key="index"
-              :label="String(value)"
-              :value="value"
-          /></el-select>
-          <el-switch
-            v-else-if="rule.type === 'boolean'"
-            :model-value="parameters[name] === true"
-            @update:model-value="(value: Scalar) => setParameter(name, value)"
-          />
-          <el-input-number
-            v-else-if="rule.type === 'number' || rule.type === 'integer'"
-            :model-value="
-              typeof parameters[name] === 'number' ? (parameters[name] as number) : undefined
-            "
-            :min="rule.minimum ?? undefined"
-            :max="rule.maximum ?? undefined"
-            :precision="rule.type === 'integer' ? 0 : undefined"
-            @update:model-value="(value: number | undefined) => setParameter(name, value)"
-          />
-          <el-input
-            v-else
-            :model-value="String(parameters[name] ?? '')"
-            :maxlength="rule.maxLength ?? undefined"
-            @update:model-value="(value: string) => setParameter(name, value)"
-          />
-        </el-form-item>
-      </div>
-      <DraftReferences ref="referencePicker" @uploaded="emit('assetsChanged')" @picker-open="pickerOpen = $event"
-        :folder-id="body.folderId ?? null"
-        v-model="references"
-        :project-id="projectId"
-        :disabled="draftLocked || opening || generation.locked.value"
-        :protected-keys="protectedReferenceKeys"
-        :model="selected"
-      />
-
-      <div class="creation-actions">
-        <p class="muted">保存草稿不产生生成费用。</p>
-        <Button :disabled="saving || opening || generation.locked.value" @click="save">{{
-          saving ? '保存中…' : draftUncertain ? '重试原保存请求' : '保存草稿'
-        }}</Button>
-      </div>
-    </el-form>
     </div>
+    <DraftReferences ref="referencePicker" picker-only link-prompt @element-select="(candidate, role) => promptEditor?.insert(candidate, role)" @uploaded="emit('assetsChanged')" @picker-open="pickerOpen = $event"
+      :folder-id="body.folderId ?? null" v-model="references" :project-id="projectId"
+      :disabled="draftLocked || opening || generation.locked.value" :protected-keys="protectedReferenceKeys" :model="selected" />
+
+
     <section v-if="(generation.quote.value && !generation.quote.value.valid) || generation.error.value || generation.uncertain.value" class="generation-submit">
       <p v-if="generation.error.value" class="project-error" role="alert">
         {{ generation.error.value }}
@@ -431,31 +298,26 @@ const rules = { prompt: [{ max: 50000, message: '提示词不能超过50000字�
         >查看任务详情</Button
       >
     </section>
-    <div v-if="progress.rows.value.length || progress.error.value" class="creation-progress" aria-label="当前目录生成任务">
-      <p v-if="progress.error.value" role="alert">{{ progress.error.value }} <button type="button" @click="progress.reload">刷新</button></p>
-      <button v-for="item in progress.rows.value.slice(0, 3)" :key="item.id" type="button" @click="taskId = item.id">
-        任务 #{{ item.id }} · {{ progress.label(item) }} ›
-      </button>
-    </div>
+    <Teleport :to="activityTarget || 'body'" :disabled="!activityTarget">
+      <CreationProgress :accepted-id="generation.acceptedId.value" :submitting="generation.generating.value || generation.submitting.value" :awaiting="progress.awaitingAccepted.value" :rows="progress.rows.value" :error="progress.error.value" :loading="progress.loading.value"
+        :auto-updating="progress.autoUpdating.value" :last-checked="progress.lastChecked.value" :label="progress.label" @refresh="progress.reload" @detail="taskId = $event" />
+    </Teleport>
     <GenerationDetail v-model="taskId" />
   </section>
 </template>
 
 <style scoped>
-.creation-progress { display:flex; flex-wrap:wrap; gap:6px; padding:6px; background:var(--background); border:1px solid var(--border); border-radius:10px; }
-.creation-progress button { border:0; background:transparent; color:var(--foreground); cursor:pointer; font-size:12px; }
-.creation-dock .creation-progress { position:absolute; bottom:calc(100% + 8px); left:0; max-width:100%; }
-.creation-dock:has(.generation-submit) .creation-progress { display:none; }
 
 .compact-notice button { border:0; background:transparent; color:var(--muted-foreground); cursor:pointer; margin-left:10px; text-decoration:underline; }
 .compact-notice { margin:6px 12px; font-size:12px; color:var(--muted-foreground); }
-.creation-dock { position:fixed; z-index:20; bottom:50px; left:calc(260px + (100vw - 260px) / 2); transform:translateX(-50%); width:min(920px, calc(100vw - 330px)); margin:0 !important; }
+/* 不使用 transform 居中，避免后代固定弹层被限制在创作栏内。 */
+.creation-dock { position:fixed; z-index:20; bottom:50px; left:260px; right:0; width:min(920px, calc(100vw - 330px)); margin:0 auto !important; overflow:visible; }
 /* 提示不参与底部定位计算，避免模型加载或类型切换时整栏上下跳动。 */
-.creation-dock .composer-notices { position:absolute; top:100%; left:0; right:0; max-height:44px; overflow:auto; }
-.creation-expanded { max-height:55vh; overflow:auto; padding:20px; margin-bottom:8px; border:1px solid var(--border); border-radius:16px; background:var(--background); }
+.creation-dock .composer-notices { position:absolute; top:100%; left:0; right:0; overflow:visible; }
+.creation-expanded { max-height:55vh; overflow:auto; padding:12px; margin-bottom:8px; font-size:12px; border:1px solid var(--border); border-radius:16px; background:var(--background); }
 .creation-dock .creation-expanded { position:absolute; bottom:100%; left:0; right:0; box-shadow:0 -12px 40px #0002; }
 .creation-dock .generation-submit { position:absolute; bottom:100%; left:0; right:0; max-height:50vh; overflow:auto; }
-@media(max-width:800px) { .creation-dock { left:50%; width:calc(100vw - 28px); bottom:50px; } }
+@media(max-width:800px) { .creation-dock { left:0; width:calc(100vw - 28px); bottom:50px; } }
 
 .creation-element-target {
   padding: 16px;
@@ -480,10 +342,10 @@ const rules = { prompt: [{ max: 50000, message: '提示词不能超过50000字�
   margin: 24px auto;
 }
 .creation-drafts {
-  margin-bottom: 20px;
-  padding: 14px;
-  border: 1px solid var(--border);
-  border-radius: 12px;
+  margin-bottom: 8px;
+  padding: 0;
+  border: 0;
+  border-radius: 8px;
 }
 .creation-drafts summary {
   cursor: pointer;
@@ -496,9 +358,11 @@ const rules = { prompt: [{ max: 50000, message: '提示词不能超过50000字�
 }
 .creation-drafts li button {
   display: flex;
-  gap: 12px;
+  gap: 8px;
   width: 100%;
-  padding: 12px;
+  padding: 8px;
+  font-size: 12px;
+  line-height: 1.4;
   text-align: left;
   color: var(--foreground);
   background: var(--surface);
@@ -526,48 +390,18 @@ const rules = { prompt: [{ max: 50000, message: '提示词不能超过50000字�
   color: var(--muted-foreground);
   font-size: 12px;
 }
-.creation-kind {
-  display: flex;
-  gap: 8px;
-  margin-bottom: 16px;
-}
-.creation-composer {
-  padding: 20px;
-  border: 1px solid var(--border);
-  border-radius: 20px;
-  background: var(--surface-raised);
-}
-.creation-model-search {
-  display: flex;
-  gap: 8px;
-  margin-bottom: 12px;
-}
-.creation-parameters {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
-  gap: 0 16px;
-  margin-top: 16px;
-}
-.creation-actions {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  gap: 16px;
-}
-.creation-actions p {
-  max-width: 70%;
-}
-:deep(.el-textarea__inner) {
-  background: var(--surface);
-  border-radius: 12px;
-}
-@media (max-width: 600px) {
-  .creation-actions {
-    align-items: flex-start;
-    flex-direction: column;
-  }
-  .creation-actions p {
-    max-width: 100%;
-  }
-}
+/* 只保留校验容器，不呈现第二套表单。 */
+.composer-validation :deep(.el-form-item) { margin:0; }
+.composer-validation :deep(.el-form-item__content) { display:block; line-height:normal; }
+</style>
+
+<style scoped>
+.creation-drafts-heading { display:flex; align-items:flex-start; justify-content:space-between; gap:12px; margin:0 0 10px; position:sticky; top:-12px; padding:8px 0; background:var(--background); z-index:1; }
+.creation-drafts-heading h2 { font-size:14px; line-height:1.4; margin:0 0 4px; }
+.creation-drafts-heading p { font-size:12px; line-height:1.5; margin:0; }
+.creation-drafts-close { flex:0 0 28px; width:28px; height:28px; min-height:28px; padding:5px; border-radius:6px; }
+.creation-drafts > p { margin:6px 0; font-size:12px; }
+.creation-drafts :deep(.el-pagination) { margin-top:8px; --el-pagination-font-size:12px; --el-pagination-button-width:24px; --el-pagination-button-height:24px; }
+.creation-drafts :deep(.el-pagination__total),
+.creation-drafts :deep(.el-pager li) { font-size:12px; }
 </style>

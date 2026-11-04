@@ -20,13 +20,15 @@ import ReferenceUploads from './ReferenceUploads.vue'
 import ReferenceThumbnail from './ReferenceThumbnail.vue'
 import Button from '@/components/ui/Button.vue'
 const props = defineProps<{
+  pickerOnly?: boolean
+  linkPrompt?: boolean
   projectId: string
   folderId?: string | null
   disabled: boolean
   protectedKeys: string[]
   model?: ModelCapability | null
 }>()
-const emit = defineEmits<{ uploaded: []; pickerOpen: [value: boolean] }>()
+const emit = defineEmits<{ uploaded: []; pickerOpen: [value: boolean]; elementSelect: [candidate: ReferenceCandidate, role: string] }>()
 const references = defineModel<DraftReference[]>({ required: true })
 const revisionUpdates = useReferenceUpdates(() => props.projectId, references, () => props.disabled, () => props.model)
 const firstForKey = (index: number) => references.value.findIndex(item => item.referenceKey === references.value[index]?.referenceKey) === index
@@ -100,7 +102,8 @@ async function add(row: ReferenceCandidate) {
     copiedCandidates[mediaIdentity(row)] = resolved
     const media = selectedMedia(row).map(id => resolved.assetVersionIds[row.assetVersionIds.indexOf(id)]).filter((id): id is string => !!id)
     const candidate = ['reference_image', 'reference_person'].includes(role) ? selectReferenceMedia(resolved, media) : resolved
-    references.value = selectCandidate(references.value, candidate, role, props.model, props.protectedKeys)
+    if (props.linkPrompt && candidate.kind === 'element') { emit('elementSelect', candidate, role); close() }
+    else references.value = selectCandidate(references.value, candidate, role, props.model, props.protectedKeys)
     error.value = ''
   } catch (cause) {
     error.value = cause instanceof Error ? cause.message : '添加引用失败'
@@ -150,6 +153,7 @@ function isSelected(row: ReferenceCandidate) {
 }
 function toggleCandidate(row: ReferenceCandidate) {
   if (!canSelect(row) || elementCopy.pending.value) return
+  if (props.linkPrompt && row.kind === 'element') { void add(row); return }
   if (!isSelected(row)) { add(row); return }
   row = copiedCandidates[mediaIdentity(row)] || row
   const matches = references.value.filter(item => item.elementRevisionId === (row.elementRevisionId || null) && row.assetVersionIds.includes(item.assetVersionId))
@@ -170,7 +174,8 @@ defineExpose({ show })
 </script>
 
 <template>
-  <section class="draft-references">
+  <section class="draft-references" :class="{ 'picker-only': pickerOnly }">
+    <template v-if="!pickerOnly">
     <div class="reference-heading">
       <h3>
         参考素材 <span>{{ references.length }}/200</span>
@@ -229,6 +234,7 @@ defineExpose({ show })
         </div>
       </li>
     </ul>
+    </template>
     <ElPopover ref="popover" :visible="open" :virtual-ref="anchor" virtual-triggering placement="top-start" :width="800" :show-arrow="false" popper-class="creation-reference-popover" :popper-options="{ modifiers: [{ name: 'flip', options: { fallbackPlacements: ['bottom-start', 'top-end'] } }] }">
       <section class="reference-picker-panel" role="dialog" aria-label="选择参考素材" @keydown.esc.stop="close">
       <header class="reference-picker-tabs">
@@ -393,6 +399,7 @@ defineExpose({ show })
   border-top: 1px solid var(--border);
   padding-top: 16px;
 }
+.draft-references.picker-only { margin:0; padding:0; border:0; }
 .reference-heading,
 .reference-search {
   display: flex;

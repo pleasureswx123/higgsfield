@@ -35,6 +35,7 @@ class ImageSubmitHandlerTests(unittest.IsolatedAsyncioTestCase):
         await video.VideoPlusSubmitHandlerTests.asyncSetUp(self)
         for name in (
             '20261027_06_assets.py',
+            '20261028_79_asset_status.py',
             '20261027_33_generated_outputs.py',
             '20261027_38_usage_records.py',
         ):
@@ -108,6 +109,13 @@ class ImageSubmitHandlerTests(unittest.IsolatedAsyncioTestCase):
             key = await db.scalar(text('SELECT storage_key FROM hf_stored_file'))
             usage = await db.scalar(text("SELECT response_metadata->'usage' FROM hf_provider_call"))
             self.assertEqual(usage, {'input_tokens': '12', 'output_tokens': '34'})
+            exchanges = await db.scalar(text("SELECT request_metadata->'exchanges' FROM hf_provider_call"))
+            exchange = next(iter(exchanges.values()))
+            self.assertEqual(exchange['request']['body'], self.requests[0])
+            self.assertEqual(exchange['httpStatus'], 200)
+            self.assertEqual(exchange['response']['id'], 'image-http-result')
+            self.assertNotIn(base64.b64encode(self.data).decode(), json.dumps(exchanges))
+
             self.assertEqual(
                 (await db.execute(text('SELECT input_tokens,output_tokens,completeness FROM hf_usage_record'))).one(),
                 (12, 34, 'available'),
@@ -157,6 +165,13 @@ class ImageSubmitHandlerTests(unittest.IsolatedAsyncioTestCase):
             self.assertEqual((metadata['width'], metadata['height'], metadata['format']), (16, 16, 'png'))
             usage = await db.scalar(text("SELECT response_metadata->'usage' FROM hf_provider_call"))
             self.assertEqual(usage, {'input_tokens': '12', 'output_tokens': '34'})
+            exchanges = await db.scalar(text("SELECT request_metadata->'exchanges' FROM hf_provider_call"))
+            exchange = next(iter(exchanges.values()))
+            self.assertEqual(exchange['request']['body'], self.requests[0])
+            self.assertEqual(exchange['httpStatus'], 200)
+            self.assertEqual(exchange['response']['id'], 'image-http-result')
+            self.assertNotIn(base64.b64encode(self.data).decode(), json.dumps(exchanges))
+
 
     async def test_unknown_response_is_not_resubmitted(self):
         self.mode = 'unknown'
@@ -169,6 +184,8 @@ class ImageSubmitHandlerTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(len(self.requests), 1)
         async with self.sessions() as db:
             self.assertEqual(await db.scalar(text('SELECT orchestration_state FROM hf_creation_job')), '3')
+            self.assertIsNone(await db.scalar(text('SELECT next_action_time FROM hf_creation_job')))
+        self.assertEqual(await self.worker.run_once(), [])
 
     async def test_interrupted_completion_recovers_from_evidence_without_resubmit(self):
         with patch.object(ImageResultService, 'record', AsyncMock(side_effect=RuntimeError('模拟完成前中断'))):

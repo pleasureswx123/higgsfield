@@ -17,6 +17,24 @@ from module_higgsfield.service.provider_upload_stream import ProviderUploadStrea
 
 
 class ProviderHttpTests(unittest.IsolatedAsyncioTestCase):
+    async def test_sync_image_timeout_is_bounded_and_does_not_mutate_connection(self):
+        connection = self.connection.model_copy(deep=True)
+        connection.config.operation_timeout_seconds = 240
+        connection.config.read_timeout_seconds = 180
+        connection.config.task_timeout_seconds = 3600
+        transport = ProviderHttpService(connection, SecretStr('test-secret'))
+        transport.configure_sync_image_timeout()
+        self.assertEqual(transport.connection.config.operation_timeout_seconds, 900)
+        self.assertEqual(transport.connection.config.read_timeout_seconds, 300)
+        self.assertEqual(connection.config.operation_timeout_seconds, 240)
+        ordinary = ProviderHttpService(connection, SecretStr('test-secret'))
+        self.assertEqual(ordinary.connection.config.operation_timeout_seconds, 240)
+        connection.config.task_timeout_seconds = 250
+        shorter = ProviderHttpService(connection, SecretStr('test-secret'))
+        shorter.configure_sync_image_timeout()
+        self.assertEqual(shorter.connection.config.operation_timeout_seconds, 250)
+        self.assertEqual(shorter.connection.config.read_timeout_seconds, 250)
+
     async def asyncSetUp(self) -> None:
         self.requests = []
         self.tasks = set()
@@ -54,6 +72,10 @@ class ProviderHttpTests(unittest.IsolatedAsyncioTestCase):
             body = await reader.readexactly(int(headers.get('Content-Length', '0')))
             self.requests.append((lines[0], headers, body))
             status, extra, data = '200 OK', '', b'{"id":"response"}'
+            if self.mode == 'broken_body':
+                writer.write(b'HTTP/1.1 200 OK\r\nContent-Length: 100\r\nConnection: close\r\n\r\n{"partial":')
+                await writer.drain()
+                return
             if self.mode == 'timeout':
                 await asyncio.sleep(3)
             elif self.mode == 'redirect':
@@ -77,7 +99,7 @@ class ProviderHttpTests(unittest.IsolatedAsyncioTestCase):
     async def test_real_http_headers_paths_and_redacted_result(self) -> None:
         result = await self.client.submit({'model': 'test', 'messages': []})
         self.assertEqual((result.transport, result.http_status), ('response', 200))
-        self.assertEqual(result.body, {'id': 'response'})
+        self.assertEqual(result.body, {'id': 'response', '_platformGatewayHeaders': {}})
         self.assertNotIn('response"', repr(result))
         request, headers, body = self.requests[0]
         self.assertEqual(request, 'POST /gateway/v1/chat/completions HTTP/1.1')
@@ -91,7 +113,7 @@ class ProviderHttpTests(unittest.IsolatedAsyncioTestCase):
         for mode, issue in (
             ('redirect', None),
             ('html', 'RESPONSE_JSON_INVALID'),
-            ('large', 'RESPONSE_TOO_LARGE'),
+            ('large', 'RESPONSE_ENCODING_INVALID_OR_TOO_LARGE'),
             ('duplicate', 'RESPONSE_JSON_INVALID'),
         ):
             self.mode = mode
@@ -107,6 +129,18 @@ class ProviderHttpTests(unittest.IsolatedAsyncioTestCase):
         result = await self.client.submit({'model': 'test'})
         self.assertEqual(result.transport, 'timeout')
         self.assertIsNone(result.http_status)
+        self.assertIsNone(result.body)
+        self.assertEqual(len(self.requests), 1)
+
+    async def test_broken_body_preserves_status_and_safe_exception(self):
+        self.mode = 'broken_body'
+        result = await self.client.submit({'model': 'test'})
+        self.assertEqual(result.transport, 'network_error')
+        self.assertEqual(result.http_status, 200)
+        self.assertEqual(result.issue, 'RESPONSE_BODY_INTERRUPTED')
+        self.assertEqual(result.diagnostic['phase'], 'response_body')
+        self.assertEqual(result.diagnostic['exceptionType'], 'RemoteProtocolError')
+        self.assertNotIn('test-secret-value', str(result.diagnostic))
         self.assertIsNone(result.body)
         self.assertEqual(len(self.requests), 1)
 

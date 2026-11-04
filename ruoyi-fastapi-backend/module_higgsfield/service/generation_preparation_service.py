@@ -21,7 +21,7 @@ class GenerationPreparationService:
         currencies: dict[str, str],
         tokens: EstimateTokenService | None = None,
     ) -> dict:
-        route = await GenerationRouteService.select(db, user, int(payload.project_id), int(payload.model_version_id))
+        route = await GenerationRouteService.select(db, user, int(payload.project_id), int(payload.model_version_id), allow_queue=True)
         prepared = await GenerationInputService.prepare(db, user, payload)
         now = await JobLeaseDao.now(db)
         prices = await GenerationPriceService.freeze(

@@ -309,3 +309,9 @@
 .asset-preview-dialog--expanded .video-controls { --foreground:#f0f1ee; --muted-foreground:#969995; --surface:#171819; --surface-raised:#242527; --primary:#dbfa00; --primary-foreground:#182000; --focus:#dbfa00; color:#f0f1ee; }
 .asset-preview-dialog:fullscreen { width:100vw; max-width:none; height:100dvh; margin:0; }
 .asset-preview-dialog::backdrop { background:#000; }
+
+/* 评论数与状态按实际宽度排列，避免悬停展开时互相遮挡。 */
+.asset-media-badges { position:absolute; left:12px; bottom:12px; z-index:2; display:flex; align-items:center; gap:6px; max-width:calc(100% - 24px); pointer-events:none; }
+.asset-media-badges .asset-comment-count { position:static; flex-shrink:0; }
+.asset-media-badges .asset-hover-status { position:static; min-width:0; }
+.asset-media-badges .asset-status-label { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }

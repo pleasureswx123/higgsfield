@@ -9,3 +9,13 @@ export function imageSize(ratio: string, resolution: string): string {
   const short = Math.floor((edge * Math.min(width, height) + 8 * Math.max(width, height)) / (16 * Math.max(width, height))) * 16
   return width >= height ? `${edge}x${short}` : `${short}x${edge}`
 }
+
+/** 与当前图片适配器的供应商总像素限制一致，不改变用户已有选择。 */
+export function imageSizeIssue(size: string): string {
+  const match = /^(\d+)x(\d+)$/.exec(size)
+  if (!match) return ''
+  const pixels = Number(match[1]) * Number(match[2])
+  return pixels < 655360 || pixels > 8294400
+    ? `当前尺寸 ${size.replace('x', ' × ')} 不符合模型总像素要求，请选择 2K 或自动比例。`
+    : ''
+}

@@ -187,6 +187,7 @@ export type GenerationState =
   | 'blocked'
 export type GenerationKind = 'image' | 'video' | 'chat'
 export interface GenerationSummary {
+  promptExcerpt?: string
   id: string
   projectId: string
   projectName?: string

@@ -1,6 +1,6 @@
 """凭据数据库操作；版本列表只选择可公开的元数据列。"""
 
-from sqlalchemy import select, func, or_
+from sqlalchemy import select, func, or_, and_, not_
 from module_higgsfield.entity.do.credential_do import HfProviderCredential as Credential, HfCredentialVersion as Version
 from module_higgsfield.entity.do.provider_do import HfProviderAccount
 from module_higgsfield.entity.do.job_do import HfCreationJob
@@ -20,7 +20,7 @@ class CredentialDao:
         return (await db.scalars(select(Version.state).where(Version.credential_id == credential_id))).all()
 
     @staticmethod
-    async def in_flight(db, version_ids):
+    async def in_flight(db, version_ids, *, for_admission=False):
         if not version_ids:
             return {}
         # 编排未结束，或上游仍排队、运行、未知的任务，仍依赖原始凭据。
@@ -29,6 +29,14 @@ class CredentialDao:
             .where(
                 HfCreationJob.credential_version_id.in_(version_ids),
                 or_(HfCreationJob.orchestration_state != '5', HfCreationJob.upstream_state.in_(('1', '2', '6'))),
+                  # 人工核查图片不再占本地执行名额，但仍禁止删除它依赖的凭据。
+                  not_(and_(
+                      HfCreationJob.kind == 'image',
+                      HfCreationJob.orchestration_state == '3',
+                      HfCreationJob.next_action_time.is_(None),
+                      HfCreationJob.lease_owner.is_(None),
+                      HfCreationJob.lease_until.is_(None),
+                  )) if for_admission else True,
             )
             .group_by(HfCreationJob.credential_version_id)
         )

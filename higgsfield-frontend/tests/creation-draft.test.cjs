@@ -74,6 +74,51 @@ function harness(api = {}, confirm = () => true, autoSave = false) {
   return { state, auth, calls, hooks, folder }
 }
 
+test('自动选择默认模型、空格和图片视频切换不新增空草稿', async () => {
+  const model = {
+    versionId: '1', kind: 'image', displayName: 'mm-imagen2', menuMeta: { aliases: [] },
+    defaultParameters: { seed: 3 }, parametersSchema: { properties: { seed: { type: 'integer' } } },
+    referenceRules: { maxTotal: 2, roles: {} },
+  }
+  const { state, calls, hooks } = harness({ getModelCatalog: async () => ({ rows: [model], total: 1 }) }, () => true, true)
+  await new Promise(resolve => setImmediate(resolve))
+  assert.equal(state.selected.value.versionId, '1')
+  assert.equal(state.dirty.value, false)
+  state.prompt.value = ' \n\t '
+  await state.save(true)
+  await state.save()
+  state.changeKind('video')
+  await state.save(true)
+  state.changeKind('image')
+  await state.save(true)
+  assert.equal(calls.length, 0)
+  assert.equal(state.dirty.value, false)
+  state.setParameter('seed', 0)
+  await state.save(true)
+  assert.equal(calls.length, 0)
+  state.prompt.value = '雨夜街头'
+  await state.save(true)
+  assert.equal(calls.length, 1)
+  assert.equal(calls[0][3].parameters.seed, 0)
+  hooks.unmount()
+})
+
+test('仅参考素材不保存，已有草稿清空正文不覆盖已保存内容', async () => {
+  const { state, calls, hooks } = harness()
+  state.references.value = [{ referenceKey: '1', assetVersionId: '99', elementRevisionId: null, mediaRole: 'reference_image', ordinal: 0 }]
+  await state.save(true)
+  await state.save()
+  assert.equal(calls.length, 0)
+  state.prompt.value = '雨夜街头'
+  await state.save(true)
+  assert.equal(calls.length, 1)
+  state.prompt.value = '  '
+  await state.save(true)
+  await state.save()
+  assert.equal(calls.length, 1)
+  hooks.unmount()
+})
+
 test('保存后重置脏状态，后续编辑更新同一草稿且保留精确参数类型', async () => {
   const { state, calls } = harness()
   assert.equal(state.dirty.value, false)
@@ -778,5 +823,25 @@ test('自动保存失败停止循环，手动重试复用原幂等键', async ()
   await state.save(true)
   assert.equal(attempts[0][4], attempts[1][4])
   assert.equal(state.dirty.value, false)
+  hooks.unmount()
+})
+
+
+test('后台保存期间可继续修改参数，迟到保存不能覆盖新输入', async () => {
+  const write = deferred()
+  const { state, hooks } = harness({ saveCreationDraft: () => write.promise })
+  state.prompt.value = '原提示词'
+  state.setParameter('quality', 'low')
+  const pending = state.save(true)
+  await new Promise(resolve => setImmediate(resolve))
+  assert.equal(state.saving.value, true)
+  assert.equal(state.editingLocked.value, false)
+  state.setParameter('quality', 'high')
+  state.prompt.value = '新的提示词'
+  write.resolve({ data: { id: '88', revision: '1', projectId: '9' } })
+  await pending
+  assert.equal(state.parameters.value.quality, 'high')
+  assert.equal(state.prompt.value, '新的提示词')
+  assert.equal(state.dirty.value, true)
   hooks.unmount()
 })

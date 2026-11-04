@@ -10,6 +10,7 @@ from module_higgsfield.service.image_response_service import ImageResponseServic
 from module_higgsfield.service.image_storage_service import ImageStorageService
 from module_higgsfield.service.job_lease_service import JobLeaseService
 from module_higgsfield.service.project_workspace_service import WorkspaceService
+from module_higgsfield.service.provider_exchange_service import ProviderExchangeService
 from module_higgsfield.service.provider_http_service import HARD_RESPONSE_BYTES, ProviderHttpService
 from module_higgsfield.service.provider_job_binding_service import ProviderJobBindingService
 from module_higgsfield.service.provider_response_service import ProviderResponseService
@@ -65,6 +66,7 @@ class ImageSubmitHandler:
                 crypto=self.credentials,
                 max_response_bytes=self.response_limit,
             )
+            transport.configure_sync_image_timeout()
             capabilities = ModelCapabilities.model_validate(model_version.capabilities)
             alias, snapshot = model_version.gateway_alias, job.input_snapshot
         urls = None
@@ -72,10 +74,11 @@ class ImageSubmitHandler:
             urls = await self.media_resolver(context, snapshot['compiled'])
         payload = ImageRequestService.compile(alias, capabilities, snapshot, urls)
         call_id = await context.begin_submission(WriteService.digest(payload))
+        ProviderExchangeService.bind(transport, context, call_id)
         response = await transport.submit(payload)
         if response.transport != 'response':
             await context.record_submission(
-                call_id, ProviderSubmissionResult(acceptance='unknown', transport=response.transport)
+                call_id, ProviderSubmissionResult(acceptance='unknown', transport=response.transport, httpStatus=response.http_status)
             )
             return
         if response.http_status in {400, 401, 403, 422, 429} and isinstance(response.body, dict) and isinstance(response.body.get('error'), (dict, str)):

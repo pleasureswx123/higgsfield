@@ -286,6 +286,11 @@ test('点击生成自动检查并提交，重复点击不会新增请求', async
   h.calls[1].resolve({ data: { id: '100' } })
   await running
   assert.equal(h.state.acceptedId.value, '100')
+  assert.equal(h.state.sameAsAccepted.value, true)
+  h.input.value = { ...h.input.value, draftId: '12', draftRevision: '2' }
+  assert.equal(h.state.sameAsAccepted.value, true)
+  h.input.value = { ...h.input.value, parameters: { n: 2 } }
+  assert.equal(h.state.sameAsAccepted.value, false)
   assert.equal(h.state.generating.value, false)
   h.cleanup()
 })

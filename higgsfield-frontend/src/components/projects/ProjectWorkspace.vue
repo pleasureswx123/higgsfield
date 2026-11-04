@@ -86,6 +86,7 @@ watch(
       <button v-if="brief?.allowedActions.includes('element:read')" class="nav-link" :class="{ active: tab === 'elements' }" @click="tab = 'elements'"><span class="project-nav-icon"><IconAt :size="17" aria-hidden="true" /></span><span>项目元素库</span></button>
       <button v-if="brief?.allowedActions.includes('generation:read')" class="nav-link" :class="{ active: tab === 'generations' }" @click="tab = 'generations'"><span class="project-nav-icon"><IconPhotoVideo :size="17" aria-hidden="true" /></span><span>项目生成记录</span></button>
       <button v-if="brief?.allowedActions.includes('generation:create')" class="nav-link" :class="{ active: tab === 'creation' }" @click="tab = 'creation'"><span class="project-nav-icon"><IconSparkles :size="17" aria-hidden="true" /></span><span>开始创作</span></button>
+      <div :id="`project-activity-${projectId}`" v-show="tab === 'creation' || tab === 'folders'" class="project-activity-host"></div>
     </div>
   </Teleport>
   <nav v-show="tab === 'brief' || tab === 'members' || tab === 'permissions'" class="workspace-tabs" aria-label="项目设置子导航">
@@ -159,6 +160,7 @@ watch(
     :project-id="projectId"
     @changed="memberChanged"
   />
+
   <ProjectFolders @select="tab = 'folders'" ref="folderWorkspace" @selection-change="selectedAssetCount = $event"
     v-if="brief?.allowedActions.includes('asset:read')"
     v-show="tab === 'folders'"
@@ -185,7 +187,7 @@ watch(
     :use-error="useError"
     @use="useElements"
   />
-  <ProjectCreation ref="creation" dock @assets-changed="folderWorkspace?.refreshAll()"
+  <ProjectCreation ref="creation" :activity-target="`#project-activity-${projectId}`" dock @assets-changed="folderWorkspace?.refreshAll()"
     v-if="brief?.allowedActions.includes('generation:create')"
     v-show="tab === 'creation' || (tab === 'folders' && !selectedAssetCount && route.query.folderView !== 'trash')"
     :project-id="projectId"

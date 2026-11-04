@@ -70,7 +70,8 @@ def create_image_worker(
         },
         concurrency=concurrency,
         lease_seconds=lease_seconds,
-        handler_timeout=handler_timeout,
+        # 覆盖15分钟同步HTTP及后续解码归档，仍由工作器心跳续租。
+        handler_timeout=max(handler_timeout, 1200),
         kinds=('image',),
     )
 

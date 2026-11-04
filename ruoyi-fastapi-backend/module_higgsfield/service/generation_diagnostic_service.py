@@ -51,6 +51,9 @@ class GenerationDiagnosticService:
 
     @classmethod
     async def read(cls, db, job):
+        if job.kind == 'image' and job.orchestration_state == '3' and job.next_action_time is None:
+            return {'code': 'IMAGE_MANUAL_REVIEW_REQUIRED', 'phase': 'submit',
+                    'message': '本次未取得可恢复的完整图片结果，自动恢复已停止。无需继续等待，请管理员核查供应商调用及费用记录；不会自动重新生成。'}
         if job.orchestration_state in {'0', '1'}:
             return await PreparationDiagnosticService.read(db, job)
         if job.upstream_state not in {'4', '6'} and job.orchestration_state != '3':

@@ -32,9 +32,9 @@ class ProviderSubmissionResult(WorkspaceInput):
         if self.transport != 'response':
             if self.acceptance != 'unknown' or any(
                 value is not None
-                for value in (self.http_status, self.business_code, self.response_id, self.upstream_task_id)
+                for value in (self.business_code, self.response_id, self.upstream_task_id)
             ):
-                raise ValueError('未收到响应只能登记提交未知，不能伪造响应事实')
+                raise ValueError('传输未完成只能登记提交未知，已收到的状态码不代表生成成功')
         elif self.http_status is None:
             raise ValueError('响应事实必须包含HTTP状态')
         if self.acceptance == 'accepted' and not self.upstream_task_id:

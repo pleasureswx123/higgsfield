@@ -11,6 +11,7 @@ from module_higgsfield.service.credential_crypto_service import CredentialCrypto
 from module_higgsfield.service.generation_worker_service import JobExecutionContext
 from module_higgsfield.service.job_lease_service import JobLeaseService
 from module_higgsfield.service.project_workspace_service import WorkspaceService
+from module_higgsfield.service.provider_exchange_service import ProviderExchangeService
 from module_higgsfield.service.provider_http_service import ProviderHttpService
 from module_higgsfield.service.provider_job_binding_service import ProviderJobBindingService
 from module_higgsfield.service.provider_response_service import ProviderResponseService
@@ -59,6 +60,7 @@ class VideoPlusSubmitHandler:
             urls = await self.media_resolver(context, snapshot['compiled'])
         payload = VideoPlusRequestService.video(alias, capabilities, snapshot, urls)
         call_id = await context.begin_submission(WriteService.digest(payload))
+        ProviderExchangeService.bind(transport, context, call_id)
         result = await transport.submit(payload)
         if result.transport == 'response':
             if result.body is not None and self.evidence_storage is not None:
@@ -69,5 +71,5 @@ class VideoPlusSubmitHandler:
                     )
             fact = VideoPlusResponseService.submission(result.http_status, result.body)
         else:
-            fact = ProviderSubmissionResult(acceptance='unknown', transport=result.transport)
+            fact = ProviderSubmissionResult(acceptance='unknown', transport=result.transport, httpStatus=result.http_status)
         await context.record_submission(call_id, fact)

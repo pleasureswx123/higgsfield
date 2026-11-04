@@ -160,6 +160,13 @@ class JobExecutionContext:
                     await JobLeaseService.release(db, self.lease, retry_after_seconds=seconds, diagnostic_code=diagnostic_code)
                 self.closed = True
 
+    async def require_manual_review(self) -> None:
+        async with self._lock:
+            if not self.closed:
+                async with self.sessions() as db:
+                    await JobLeaseService.require_manual_review(db, self.lease)
+                self.closed = True
+
 
 Handler = Callable[[JobExecutionContext], Awaitable[None]]
 

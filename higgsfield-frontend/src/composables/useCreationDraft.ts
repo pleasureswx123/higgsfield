@@ -38,7 +38,9 @@ export function useCreationDraft(projectId: string, defaultFolder: () => string 
     error = ref(''),
     notice = ref('')
   const uncertain = ref(false)
+  const backgroundSaving = ref(false)
   const locked = computed(() => saving.value || uncertain.value)
+  const editingLocked = computed(() => uncertain.value || (saving.value && !backgroundSaving.value))
   let intent:
     | {
         draft: CreationDraft | null
@@ -95,7 +97,7 @@ export function useCreationDraft(projectId: string, defaultFolder: () => string 
   const promptDocument = computed<PromptDocument>({
     get: () => body.value.prompt,
     set: (value) => {
-      if (locked.value || opening.value) return
+      if (editingLocked.value || opening.value) return
       preservedBody.value = { ...body.value, prompt: value }
       prompt.value = promptText(value)
       originalPrompt.value = prompt.value
@@ -123,9 +125,21 @@ export function useCreationDraft(projectId: string, defaultFolder: () => string 
     saved: string; signature: string; modelParameters: [string, Record<string, Scalar>][]
   }
   const modeStates = ref<Partial<Record<'image' | 'video', ModeState>>>({})
-  const currentDirty = computed(() => signature.value !== saved.value)
+  // 提示词正文是保存前提，参数或参考素材不能替代正文。
+  function hasContent(value: DraftBody) {
+    return value.prompt.content.some(paragraph => paragraph.content.some(node =>
+      node.type === 'text' && Boolean(node.text.trim()),
+    ))
+  }
+  const currentDirty = computed(() => signature.value !== saved.value &&
+    hasContent(body.value))
+  function modeDirty(state: ModeState) {
+    const snapshot = JSON.parse(state.signature)
+    return state.signature !== state.saved &&
+      hasContent(snapshot.body)
+  }
   const dirty = computed(() => currentDirty.value || Object.entries(modeStates.value)
-    .some(([mode, state]) => mode !== kind.value && state.signature !== state.saved))
+    .some(([mode, state]) => mode !== kind.value && modeDirty(state)))
   function rememberMode() {
     modeStates.value[kind.value] = JSON.parse(JSON.stringify({
       folderId: folderId.value, prompt: prompt.value, originalPrompt: originalPrompt.value,
@@ -158,7 +172,7 @@ export function useCreationDraft(projectId: string, defaultFolder: () => string 
       draftTotal.value = result.total
     } catch (cause) {
       if (alive && ticket === draftSequence)
-        error.value = cause instanceof Error ? cause.message : '读取草稿列表失败'
+        error.value = cause instanceof Error ? cause.message : '读取创作参数列表失败'
     } finally {
       if (alive && ticket === draftSequence) draftsLoading.value = false
     }
@@ -170,7 +184,7 @@ export function useCreationDraft(projectId: string, defaultFolder: () => string 
     if (
       locked.value ||
       opening.value ||
-      (dirty.value && !window.confirm('打开其他草稿将丢弃当前未保存修改，是否继续？'))
+      (dirty.value && !window.confirm('载入其他创作参数将替换当前未保存修改，是否继续？'))
     )
       return
     opening.value = true
@@ -179,7 +193,7 @@ export function useCreationDraft(projectId: string, defaultFolder: () => string 
     try {
       const result = await getCreationDraft(id)
       if (!readable() || session !== epoch || view !== viewEpoch) return
-      if (result.data.projectId !== projectId) throw new Error('该草稿不属于当前项目')
+      if (result.data.projectId !== projectId) throw new Error('该创作参数记录不属于当前项目')
       const loaded = result.data
       let model: ModelCapability | null = null
       let modelWarning = ''
@@ -194,7 +208,7 @@ export function useCreationDraft(projectId: string, defaultFolder: () => string 
           })
           model = catalog.rows.find((item) => item.versionId === loaded.body.modelVersionId) || null
         } catch {
-          modelWarning = '暂时无法读取此草稿的模型配置，原参数仍保留。'
+          modelWarning = '暂时无法读取已保存的模型配置，原参数仍保留。'
         }
       }
       if (!readable() || session !== epoch || view !== viewEpoch) return
@@ -222,7 +236,7 @@ export function useCreationDraft(projectId: string, defaultFolder: () => string 
       await load()
     } catch (cause) {
       if (readable() && session === epoch && view === viewEpoch)
-        error.value = cause instanceof Error ? cause.message : '读取草稿失败'
+        error.value = cause instanceof Error ? cause.message : '读取创作参数失败'
     } finally {
       if (session === epoch && view === viewEpoch) opening.value = false
     }
@@ -282,7 +296,7 @@ export function useCreationDraft(projectId: string, defaultFolder: () => string 
   }
   function choose(versionId: string) {
     if (!readable()) return
-    if (locked.value || opening.value) return
+    if (editingLocked.value || opening.value) return
     const model = models.value.find((item) => item.versionId === versionId) || null
     if (selected.value && selectedVersion.value === (model?.versionId || null)) return
     const transition = modelTransition(model, parameters.value, references.value)
@@ -298,7 +312,7 @@ export function useCreationDraft(projectId: string, defaultFolder: () => string 
   }
   function setParameter(name: string, value: Scalar | undefined | null) {
     if (!readable()) return
-    if (locked.value || opening.value) return
+    if (editingLocked.value || opening.value) return
     const next = { ...parameters.value }
     if (value === undefined || value === null || value === '') delete next[name]
     else next[name] = value
@@ -349,16 +363,21 @@ export function useCreationDraft(projectId: string, defaultFolder: () => string 
       before = signature.value
     if (saving.value || opening.value) return
     if (!intent && automatic === true && !currentDirty.value) {
-      const entry = Object.entries(modeStates.value).find(([mode, state]) => mode !== kind.value && state.signature !== state.saved)
+      const entry = Object.entries(modeStates.value).find(([mode, state]) => mode !== kind.value && modeDirty(state))
       if (entry) {
         const [mode, state] = entry
         const snapshot = JSON.parse(state.signature)
         intent = { draft: state.draft, kind: mode as 'image' | 'video', body: snapshot.body, references: snapshot.references, key: crypto.randomUUID(), signature: state.signature }
       }
+      if (!entry) return
     }
     if (!intent) {
+      if (!hasContent(body.value)) {
+        notice.value = '请先填写提示词，空白提示词不会保存。'
+        return
+      }
       if (!(await formRef.value?.validate().catch(() => false))) {
-        if (automatic === true) autoSaveError.value = '草稿校验未通过，请检查描述后重试'
+        if (automatic === true) autoSaveError.value = '创作参数校验未通过，请检查描述后重试'
         return
       }
       if (
@@ -384,6 +403,7 @@ export function useCreationDraft(projectId: string, defaultFolder: () => string 
     const pending = intent!
     stopAutoSave()
     autoSaveError.value = ''
+    backgroundSaving.value = automatic === true
     saving.value = true
     error.value = ''
     notice.value = ''
@@ -406,7 +426,7 @@ export function useCreationDraft(projectId: string, defaultFolder: () => string 
       }
       intent = undefined
       uncertain.value = false
-      notice.value = '草稿已保存。本次保存不会发起生成或产生调用费用。'
+      notice.value = '创作参数已保存。'
       await loadDrafts()
     } catch (cause) {
       if (alive && session === epoch) {
@@ -418,7 +438,7 @@ export function useCreationDraft(projectId: string, defaultFolder: () => string 
           (code >= 500 && code !== 601) ||
           (cause as { errorCode?: string }).errorCode === 'IDEMPOTENCY_IN_PROGRESS'
         if (!uncertain.value) intent = undefined
-        error.value = cause instanceof Error ? cause.message : '草稿保存失败，请重试'
+        error.value = cause instanceof Error ? cause.message : '创作参数保存失败，请重试'
         autoSaveError.value = error.value
       }
     } finally {
@@ -428,7 +448,7 @@ export function useCreationDraft(projectId: string, defaultFolder: () => string 
   const leave = () =>
     !locked.value &&
     !opening.value &&
-    (!dirty.value || window.confirm('还有未保存的创作草稿，确定离开？'))
+    (!dirty.value || window.confirm('还有未保存的创作参数，确定离开？'))
   const beforeUnload = (event: BeforeUnloadEvent) => {
     if (dirty.value || locked.value) {
       event.preventDefault()
@@ -555,6 +575,7 @@ export function useCreationDraft(projectId: string, defaultFolder: () => string 
     saving,
     uncertain,
     locked,
+    editingLocked,
     error,
     notice,
     draft,

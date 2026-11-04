@@ -11,7 +11,7 @@ export function generationGuidance(task: GenerationSnapshot): GenerationGuidance
   const items: GenerationGuidance[] = []
   if (task.orchestrationState === 'submission_unknown' || task.upstreamState === 'unknown') {
     items.push({ code: 'unknown', title: '提交结果待核查',
-      message: '目前无法确认供应商是否已受理或完成。请保留任务编号并联系管理员核查；刷新只查询当前任务。不要重复生成来试探结果，以免产生另一笔费用。' })
+      message: '目前无法确认供应商是否已受理或完成，无需停留页面等待。请保留任务编号并联系管理员核查；刷新只查询当前任务。不要重复生成来试探结果，以免产生另一笔费用。' })
   } else if (task.upstreamState === 'failed') {
     items.push({ code: 'failed', title: '生成失败',
       message: `${task.diagnostic ? '请结合下方已记录的原因联系管理员核查。' : '已记录上游失败状态，当前详情未提供可核实的具体失败原因。请携任务编号联系管理员查看脱敏证据。'}失败不等于免费；复制输入只保存新草稿，再次提交是独立任务并可能产生新费用。` })

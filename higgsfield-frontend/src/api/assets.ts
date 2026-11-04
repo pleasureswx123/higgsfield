@@ -10,7 +10,16 @@ export interface UploadSession {
   expiresAt: string
 }
 export type AssetWorkStatus = 'none' | 'working' | 'review' | 'approved' | 'rejected'
+export interface AssetGenerationInfo {
+  prompt: string
+  modelName: string | null
+  quality: string | null
+  resolution: string | null
+  aspectRatio: string | null
+  createTime: string
+}
 export interface Asset {
+  generation?: AssetGenerationInfo | null
   commentCount?: number | null
   workStatus?: AssetWorkStatus
   allowedActions?: string[]

@@ -41,3 +41,10 @@ class ProviderCallReadDao:
         sql, params = cls.scoped(actor, roles)
         params['identity'] = identity
         return (await db.execute(text('SELECT c.*' + sql + ' AND c.call_id=:identity'), params)).first()
+
+    @staticmethod
+    async def task(db, job_id):
+        return (await db.execute(text(
+            'SELECT job_id,project_id,actor_id,kind,model_version_id,input_snapshot,'
+            'orchestration_state,upstream_state,create_time FROM hf_creation_job WHERE job_id=:id'
+        ), {'id': job_id})).first()

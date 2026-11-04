@@ -98,12 +98,20 @@ class VideoPlusPollHandlerTests(unittest.IsolatedAsyncioTestCase):
         async with self.sessions() as db:
             self.assertEqual(await db.scalar(text('SELECT orchestration_state FROM hf_creation_job')), '5')
             self.assertEqual(await db.scalar(text('SELECT count(*) FROM hf_generated_output')), 1)
-            self.assertEqual(await db.scalar(text('SELECT reserved_amount FROM hf_budget_period')), 6)
+            # 当前任务按实际用量结算，不再预占估算费用。
+            self.assertEqual(await db.scalar(text('SELECT reserved_amount FROM hf_budget_period')), 0)
             metadata = await db.scalar(
                 text("SELECT response_metadata FROM hf_provider_call WHERE operation='video_poll'")
             )
             self.assertEqual(metadata['usage']['completionTokens'], '123')
             self.assertNotIn('signature', str(metadata))
+            exchanges = await db.scalar(text("SELECT request_metadata->'exchanges' FROM hf_provider_call WHERE operation='video_poll'"))
+            exchange = next(iter(exchanges.values()))
+            self.assertEqual(exchange['request']['method'], 'GET')
+            self.assertTrue(exchange['request']['url'].endswith('/v1/video/tasks/video-task'))
+            self.assertEqual(exchange['response']['status'], 'succeeded')
+            self.assertNotIn('signature=secret', json.dumps(exchanges))
+
 
     async def test_query_error_does_not_create_a_new_generation(self) -> None:
         self.mode = 'failure'

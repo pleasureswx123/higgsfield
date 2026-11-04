@@ -5,6 +5,7 @@ from module_higgsfield.service.generation_worker_service import JobExecutionCont
 from module_higgsfield.service.job_lease_service import JobLeaseService
 from module_higgsfield.service.output_source_crypto_service import OutputSourceCryptoService
 from module_higgsfield.service.project_workspace_service import WorkspaceService
+from module_higgsfield.service.provider_exchange_service import ProviderExchangeService
 from module_higgsfield.service.provider_http_service import ProviderHttpService
 from module_higgsfield.service.provider_job_binding_service import ProviderJobBindingService
 from module_higgsfield.service.write_service import WriteService
@@ -40,6 +41,7 @@ class VideoPlusPollHandler:
             )
             # 会话关闭会释放读取与配置锁；随后另一个短事务持久化查询意图。
         call_id = await context.begin_poll(request_hash)
+        ProviderExchangeService.bind(transport, context, call_id)
         result = await transport.poll(task_id)
         await context.record_poll(
             call_id,

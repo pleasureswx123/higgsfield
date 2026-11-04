@@ -26,6 +26,14 @@ export function useGenerationSubmit(input: () => GenerationSubmission | undefine
   )
   const locked = computed(() => submitting.value || uncertain.value)
   const signature = computed(() => JSON.stringify(input()))
+  const acceptedSignature = ref('')
+  const sameAsAccepted = computed(() => Boolean(acceptedId.value) && acceptedSignature.value === JSON.stringify(inputContent()))
+  function inputContent() {
+    const value = input()
+    if (!value) return undefined
+    const { draftId, draftRevision, ...content } = value
+    return content
+  }
   let quoteSignature = '',
     controller: AbortController | undefined,
     alive = true
@@ -51,7 +59,6 @@ export function useGenerationSubmit(input: () => GenerationSubmission | undefine
     if (!alive || !active || !auth.token || locked.value) return
     invalidate()
     error.value = ''
-    acceptedId.value = undefined
     const payload = input()
     if (!payload) {
       error.value = '请先选择可用模型'
@@ -99,6 +106,8 @@ export function useGenerationSubmit(input: () => GenerationSubmission | undefine
       const result = await submitGeneration(sent.data, sent.key)
       finishGenerationRecovery(token, project, sent.key)
       if (!currentSession(ticket)) return
+      const { draftId, draftRevision, ...content } = sent.data
+      acceptedSignature.value = JSON.stringify(content)
       acceptedId.value = result.data.id
       attempt = undefined
       uncertain.value = false
@@ -169,5 +178,5 @@ export function useGenerationSubmit(input: () => GenerationSubmission | undefine
     invalidate()
     window.removeEventListener('beforeunload', beforeUnload)
   })
-  return { generate, generating, checking, submitting, uncertain, locked, quote, visibleEstimate, error, acceptedId, check, submit }
+  return { sameAsAccepted, generate, generating, checking, submitting, uncertain, locked, quote, visibleEstimate, error, acceptedId, check, submit }
 }

@@ -15,6 +15,7 @@ from module_higgsfield.service.credential_crypto_service import CredentialCrypto
 from module_higgsfield.service.generation_worker_service import JobExecutionContext
 from module_higgsfield.service.job_lease_service import JobLeaseService
 from module_higgsfield.service.project_workspace_service import WorkspaceService
+from module_higgsfield.service.provider_exchange_service import ProviderExchangeService
 from module_higgsfield.service.provider_http_service import ProviderHttpService
 from module_higgsfield.service.provider_job_binding_service import ProviderJobBindingService
 from module_higgsfield.service.provider_upload_crypto_service import ProviderUploadCryptoService
@@ -94,6 +95,7 @@ class VideoPlusMediaResolver:
                         sha256=item['sha256'],
                         max_bytes=policy.mime_limits[item['mimeType']],
                     )
+                    ProviderExchangeService.bind(transport, context, prepared.call_id)
                     result = await transport.upload(upload)
                 async with context.sessions() as db:
                     await ProviderUploadService.record(
@@ -128,6 +130,7 @@ class VideoPlusMediaResolver:
                 registry[project] = {'state': 'registering'}
                 call.response_metadata = {**call.response_metadata, 'assetRegistrations': registry}
             await db.commit()
+        ProviderExchangeService.bind(transport, context, call.call_id)
         if registration is None:
             response = await transport.register_asset(source.get_secret_value(), project=project, asset_type='Image', name='人物参考图')
             identity = VideoPlusAssetResponseService.registration(response.http_status or 0, response.body)

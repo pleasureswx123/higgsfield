@@ -1,5 +1,6 @@
-"""管理调用证据按字段和取值白名单投影，拒绝原始正文及秘密地址。"""
+"""按管理范围读取发送时脱敏快照；历史缺失不重建，秘密地址不返回。"""
 import re
+from module_higgsfield.service.provider_exchange_service import ProviderExchangeService
 from common.vo import PageModel
 from module_higgsfield.dao.provider_call_read_dao import ProviderCallReadDao, STATES
 from module_higgsfield.service.admin_scope_service import AdminScopeService
@@ -55,5 +56,20 @@ class ProviderCallReadService:
         row = await ProviderCallReadDao.detail(db, identity, actor, roles)
         if row is None:
             WorkspaceService.conflict('RESOURCE_NOT_FOUND', '调用记录不存在或不在管理范围内')
-        return cls.summary(row) | {'requestMetadata': cls.metadata(row.request_metadata),
+        exchanges = list((row.request_metadata or {}).get('exchanges', {}).values())
+        exchanges.sort(key=lambda item: item['startedAt'])
+        for item in exchanges:
+            item['curl'] = ProviderExchangeService.curl(item['request'])
+        task = await ProviderCallReadDao.task(db, row.job_id) if row.job_id else None
+        task_view = None
+        if task:
+            snapshot = task.input_snapshot or {}
+            task_view = {'id': str(task.job_id), 'projectId': str(task.project_id),
+                         'actorId': str(task.actor_id), 'kind': task.kind,
+                         'modelVersionId': str(task.model_version_id),
+                         'createdAt': task.create_time.isoformat(),
+                         'orchestrationState': task.orchestration_state, 'upstreamState': task.upstream_state,
+                         'input': ProviderExchangeService.redact({key: snapshot[key] for key in
+                             ('prompt', 'parameters', 'references', 'folderId') if key in snapshot})}
+        return cls.summary(row) | {'task': task_view, 'exchanges': exchanges, 'requestSource': 'saved' if exchanges else 'unavailable', 'requestMetadata': cls.metadata(row.request_metadata),
                                    'responseMetadata': cls.metadata(row.response_metadata)}

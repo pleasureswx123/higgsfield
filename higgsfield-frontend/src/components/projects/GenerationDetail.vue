@@ -134,6 +134,7 @@ const billing = { pending: '待确认', calculated: '已计算', confirmed: '已
 </script>
 <template>
   <ElDialog
+    append-to-body
     :model-value="!!identity"
     title="生成任务详情"
     width="min(900px, 94vw)"

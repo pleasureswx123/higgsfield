@@ -2,7 +2,7 @@
 import { computed, ref, watch, nextTick, onMounted, onBeforeUnmount, onActivated } from 'vue'
 import { ElInputNumber, ElSwitch, ElPopover, ElInput, ElDialog } from 'element-plus'
 import { IconPhoto, IconVideo, IconPlus, IconAt, IconSparkles, IconDiamond, IconMaximize, IconClock, IconVolume, IconVolumeOff, IconArrowLeft, IconArrowRight, IconScissors, IconLayoutColumns } from '@tabler/icons-vue'
-import { imageSize } from '@/utils/imageSize'
+import { imageSize, imageSizeIssue } from '@/utils/imageSize'
 import type { ModelCapability, ParameterRule, Scalar } from '@/api/creation'
 
 // 全平台共用的创作栏。只展示和发出操作，不自行请求或持有项目业务状态。
@@ -17,6 +17,8 @@ const props = withDefaults(defineProps<{
   loading?: boolean
   saving?: boolean
   checking?: boolean
+  jobBusy?: boolean
+  activeTask?: boolean
   referenceCount?: number
   estimate?: string
 }>(), { models: () => [], parameters: () => ({}) })
@@ -109,6 +111,13 @@ function stepBatch(name: string, rule: ParameterRule, offset: number) {
 }
 const resolutionHint = (name: string, value: Scalar) => name === 'resolution'
   ? imageSize(String(valueOf('aspect_ratio') ?? 'Auto'), String(value)).replace('x', ' × ') : ''
+const sizeIssue = computed(() => props.kind === 'image' && props.selected
+  ? imageSizeIssue(imageSize(String(valueOf('aspect_ratio') ?? 'Auto'), String(valueOf('resolution') ?? '2K')))
+  : '')
+function resolutionIssue(name: string, value: Scalar) {
+  return props.kind === 'image' && props.selected && name === 'resolution'
+    ? imageSizeIssue(imageSize(String(valueOf('aspect_ratio') ?? 'Auto'), String(value))) : ''
+}
 const parameterDisabled = (name: string) => props.disabled || (props.kind === 'image' && name === 'resolution' && valueOf('aspect_ratio') === 'Auto')
 const isDuration = (name: string) => ['duration', 'duration_seconds'].includes(name)
 const isMode = (name: string) => ['mode', 'generation_mode'].includes(name)
@@ -150,7 +159,7 @@ function ratioStyle(value: Scalar) {
   return { width: `${ratio >= 1 ? 17 : 17 * ratio}px`, height: `${ratio >= 1 ? 17 / ratio : 17}px` }
 }
 function changeParameter(name: string, value: Scalar | undefined) {
-  if (parameterDisabled(name)) return
+  if (parameterDisabled(name) || (value !== undefined && resolutionIssue(name, value))) return
   emit('parameter', name, value)
   menu.value = ''
 }
@@ -163,16 +172,16 @@ watch(() => [props.kind, props.selected?.versionId, props.disabled], () => { men
 </script>
 
 <template>
-  <div class="creation-composer-bar" :class="{ 'is-video': kind === 'video' }" aria-label="通用创作栏">
+  <div class="creation-composer-bar" :class="{ 'is-video': kind === 'video', 'is-saving': saving }" aria-label="通用创作栏">
     <div class="composer-mode-rail" aria-label="创作类型">
-      <button type="button" :aria-pressed="kind === 'image'" :class="{ selected: kind === 'image' }" :disabled="disabled" @click="emit('kind', 'image')"><IconPhoto :size="17" /><span>图片</span></button>
-      <button type="button" :aria-pressed="kind === 'video'" :class="{ selected: kind === 'video' }" :disabled="disabled" @click="emit('kind', 'video')"><IconVideo :size="17" /><span>视频</span></button>
+      <button type="button" :aria-pressed="kind === 'image'" :class="{ selected: kind === 'image' }" :disabled="disabled || saving" @click="emit('kind', 'image')"><IconPhoto :size="17" /><span>图片</span></button>
+      <button type="button" :aria-pressed="kind === 'video'" :class="{ selected: kind === 'video' }" :disabled="disabled || saving" @click="emit('kind', 'video')"><IconVideo :size="17" /><span>视频</span></button>
     </div>
     <div class="composer-main-panel">
-      <div v-if="$slots.images" class="composer-selected-images"><slot name="images" /></div>
+      <div v-if="$slots.images && referenceCount" class="composer-selected-images"><slot name="images" /></div>
       <div class="composer-entry-surface">
       <div class="composer-input-tools">
-        <textarea ref="promptInput" v-model="prompt" rows="1" aria-label="创作描述" :placeholder="kind === 'video' ? '描述你想创作的视频…' : '描述你想创作的画面…'" :disabled="disabled || promptReadonly" maxlength="20000"></textarea>
+        <slot name="prompt"><textarea ref="promptInput" v-model="prompt" rows="1" aria-label="创作描述" :placeholder="kind === 'video' ? '描述你想创作的视频…' : '描述你想创作的画面…'" :disabled="disabled || promptReadonly" maxlength="20000"></textarea></slot>
         <div class="composer-toolbar">
           <div class="composer-reference-tools">
             <button type="button" aria-label="添加参考素材" :disabled="disabled" @click="reference('asset', $event)"><IconPlus :size="16" /></button>
@@ -208,8 +217,8 @@ watch(() => [props.kind, props.selected?.versionId, props.disabled], () => { men
                 <input type="range" :min="0" :max="durationChoices(rule).length - 1" :step="1" :value="durationIndex(name, rule)" :disabled="disabled" aria-label="视频时长" :aria-valuetext="`${valueOf(name)} 秒`" @input="setDuration(name, rule, $event)" />
               </div>
               <div v-else-if="rule.enum" class="parameter-options" :class="{ 'ratio-options': isRatio(name), 'quality-options': name === 'quality', 'resolution-options': name === 'resolution' }">
-                <button v-for="(value, index) in rule.enum" :key="index" type="button" :aria-pressed="valueOf(name) === value" :class="{ active: valueOf(name) === value }" @click="changeParameter(name, value)">
-                  <component :is="modeIcons[String(value)] || IconLayoutColumns" v-if="isMode(name)" :size="20" /><span v-if="isRatio(name)" class="ratio-icon-slot"><IconMaximize v-if="String(value).toLowerCase() === 'auto'" :size="17" /><span v-else class="ratio-icon" :style="ratioStyle(value)"></span></span><span class="parameter-option-copy">{{ displayValue(name, value) }}<small v-if="name === 'bitrate_mode'">{{ value === 'high' ? '压缩较少 · 文件较大' : value === 'standard' ? '压缩较多 · 文件较小' : '' }}</small></span><small v-if="resolutionHint(name, value)">{{ resolutionHint(name, value) }}</small>
+                <button v-for="(value, index) in rule.enum" :key="index" type="button" :aria-pressed="valueOf(name) === value" :disabled="Boolean(resolutionIssue(name, value))" :title="resolutionIssue(name, value) || undefined" :class="{ active: valueOf(name) === value }" @click="changeParameter(name, value)">
+                  <component :is="modeIcons[String(value)] || IconLayoutColumns" v-if="isMode(name)" :size="20" /><span v-if="isRatio(name)" class="ratio-icon-slot"><IconMaximize v-if="String(value).toLowerCase() === 'auto'" :size="17" /><span v-else class="ratio-icon" :style="ratioStyle(value)"></span></span><span class="parameter-option-copy">{{ displayValue(name, value) }}<small v-if="name === 'bitrate_mode'">{{ value === 'high' ? '压缩较少 · 文件较大' : value === 'standard' ? '压缩较多 · 文件较小' : '' }}</small></span><small v-if="resolutionHint(name, value)">{{ resolutionHint(name, value) }}{{ resolutionIssue(name, value) ? ' · 不支持当前比例' : '' }}</small>
                 </button>
               </div>
               <ElSwitch v-else-if="rule.type === 'boolean'" :model-value="valueOf(name) === true" @update:model-value="changeParameter(name, $event)" />
@@ -224,10 +233,12 @@ watch(() => [props.kind, props.selected?.versionId, props.disabled], () => { men
         </div>
       </div>
       <slot name="video" :label="referenceVideoLabel"><button v-if="kind === 'video'" type="button" class="composer-video-reference" :disabled="disabled" aria-label="添加参考视频" @click="reference('asset', $event)"><IconPlus :size="18" /><span>{{ referenceVideoLabel }}</span></button></slot>
-      <button type="button" class="composer-generate" :aria-busy="checking" :disabled="disabled || checking || (!projectRequired && !selected)" @click="projectRequired ? emit('project') : emit('generate')">
-        <strong>{{ projectRequired ? '选择项目' : '生成' }}<span v-if="checking" class="generate-spinner" aria-hidden="true"></span></strong>
+      <button type="button" class="composer-generate" :title="activeTask ? '相同参数已提交，点击会新增一组生成任务并可能产生费用' : undefined" :aria-busy="checking || jobBusy" :disabled="disabled || saving || checking || jobBusy || (!projectRequired && (!selected || Boolean(sizeIssue)))" @click="projectRequired ? emit('project') : emit('generate')">
+        <strong>{{ projectRequired ? '选择项目' : checking ? '提交中…' : jobBusy ? '生成中…' : activeTask ? '再生成一组' : '生成' }}<span v-if="checking || jobBusy" class="generate-spinner" aria-hidden="true"></span></strong>
+        <span v-if="activeTask && !checking && !jobBusy" class="generate-active-hint">相同参数已提交</span>
       </button>
       </div>
+      <p v-if="sizeIssue" class="composer-size-error" role="alert">{{ sizeIssue }}</p>
     </div>
     <ElDialog :model-value="audioConfirm !== null" title="关闭声音？" width="min(420px, 92vw)" append-to-body align-center :show-close="false" class="composer-audio-dialog" @close="audioConfirm = null">
       <p>本次生成的视频将不包含生成音频。</p>
@@ -237,12 +248,13 @@ watch(() => [props.kind, props.selected?.versionId, props.disabled], () => { men
 </template>
 
 <style scoped>
+.composer-size-error { margin:6px 4px 0; color:var(--el-color-danger); font-size:12px; line-height:1.5; }
 .creation-composer-bar { display:flex; align-items:stretch; gap:7px; width:100%; text-align:left; }
 .composer-mode-rail { display:flex; flex-direction:column; flex:0 0 70px; align-self:flex-end; height:120px; padding:4px; border-radius:25px; background:var(--surface); box-shadow:0 3px 6px #0002; }
 .composer-mode-rail button { display:grid; justify-items:center; align-content:center; flex:1; gap:5px; min-height:49px; border:0; border-radius:21px; background:transparent; color:var(--muted-foreground); font-size:11px; cursor:pointer; }
 .composer-mode-rail button.selected { background:var(--surface-raised); color:var(--foreground); font-weight:650; }
 .composer-main-panel { display:flex; flex-direction:column; flex:1; min-width:0; padding:4px; gap:0; background:var(--surface); border:0; border-radius:25px; box-shadow:0 4px 10px #0002; }
-.composer-entry-surface { display:flex; align-items:flex-end; width:100%; gap:8px; padding:16px 12px 12px; border-radius:21px; background:var(--surface-raised); }
+.composer-entry-surface { position:relative; display:flex; align-items:flex-end; width:100%; gap:8px; padding:12px; border-radius:21px; background:var(--surface-raised); }
 .composer-selected-images { display:flex; align-items:center; flex:none; gap:8px; width:100%; min-height:68px; overflow-x:auto; overflow-y:hidden; padding:8px; scrollbar-width:none; }
 .composer-selected-images::-webkit-scrollbar { display:none; }
 .composer-input-tools { flex:1; min-width:0; display:flex; flex-direction:column; }
@@ -279,6 +291,7 @@ watch(() => [props.kind, props.selected?.versionId, props.disabled], () => { men
 .composer-generate[aria-busy="true"] { cursor:wait; }
 @keyframes generate-spin { to { transform:rotate(360deg); } }
 .composer-generate span { font-size:11px; }
+.is-saving button:disabled { opacity:1; }
 button:disabled { opacity:.45; cursor:not-allowed; }
 button:focus-visible { outline:2px solid var(--focus); outline-offset:2px; }
 .composer-input-tools textarea:focus-visible { outline:none; }
@@ -311,11 +324,11 @@ button:focus-visible { outline:2px solid var(--focus); outline-offset:2px; }
 /* 引用区与输入区分别成层，尺寸与参考图保持一致。 */
 .composer-mode-rail { height:116px; }
 .composer-tool,.composer-reference-tools,.composer-batch { min-height:28px; height:28px; border-radius:6px; }
-.composer-toolbar { padding-top:4px; }
+.composer-toolbar { padding-top:10px; }
 .composer-input-tools textarea { min-height:48px; padding:0 4px; }
 .composer-generate { flex-basis:120px; height:80px; min-height:80px; border-radius:12px; }
 .composer-video-reference { flex-basis:80px; height:80px; }
-@media(max-width:650px) { .composer-entry-surface { gap:6px; padding:12px 8px 8px; } .composer-generate { flex-basis:80px; } }
+@media(max-width:650px) { .composer-entry-surface { gap:6px; padding:10px 8px; } .composer-generate { flex-basis:80px; } }
 :global(.dark .composer-main-panel),:global(.dark .composer-mode-rail) { background:#1d1f20; }
 :global(.dark .composer-entry-surface) { background:#262829; }
 :global(.dark .composer-tool),:global(.dark .composer-reference-tools),:global(.dark .composer-batch) { background:#303233; }
@@ -365,4 +378,8 @@ button:focus-visible { outline:2px solid var(--focus); outline-offset:2px; }
 .composer-audio-dialog button { padding:13px 24px; border:0; border-radius:13px; font-weight:600; cursor:pointer; }
 .audio-cancel { background:var(--surface-hover); color:var(--foreground); }
 .audio-confirm { background:var(--foreground); color:var(--background); }
+</style>
+
+<style scoped>
+.composer-entry-surface:focus-within::after { content:''; position:absolute; pointer-events:none; top:5px; right:5px; width:18px; height:18px; border-top:2px solid var(--muted-foreground); border-right:2px solid var(--muted-foreground); border-top-right-radius:16px; opacity:.45; }
 </style>

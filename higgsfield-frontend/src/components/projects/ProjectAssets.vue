@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import AssetGenerationInfo from './AssetGenerationInfo.vue'
 import { useAssetBatchStatus } from '@/composables/useAssetBatchStatus'
 import { assetStatuses, assetStatus } from '@/utils/assetStatus'
 import AssetHoverVideo from './AssetHoverVideo.vue'
@@ -375,13 +376,15 @@ watch(
           <AssetHoverVideo v-if="entry.asset.mediaType === 'video'" :ref="el => { if (el) videoCards.set(entry.id, el as InstanceType<typeof AssetHoverVideo>); else videoCards.delete(entry.id) }" :version-id="entry.asset.currentVersionId" :name="entry.name" :enabled="visible !== false && !selected && !selection.selected.value.length" />
           <ReferenceThumbnail v-else-if="entry.asset.mediaType === 'image'" :version-id="entry.asset.currentVersionId" :alt="entry.name" :allow-original="entry.asset.mediaType === 'image' && Number(entry.asset.file.byteSize) <= 20 * 1024 * 1024" fill passive />
           <template v-else><IconFileText :size="44" /><span>{{ entry.name.split('.').pop()?.toUpperCase() }}</span></template>
-          <span v-if="entry.asset.commentCount" class="asset-comment-count" :aria-label="`${entry.asset.commentCount} 条评论`" :title="`${entry.asset.commentCount} 条评论`">{{ entry.asset.commentCount }}</span>
-          <span v-if="lastViewedId === entry.asset.id && !selected" class="asset-last-viewed"><IconEye :size="14" />最近查看</span>
-        </button>
+          <span class="asset-media-badges">
+            <span v-if="entry.asset.commentCount" class="asset-comment-count" :aria-label="`${entry.asset.commentCount} 条评论`" :title="`${entry.asset.commentCount} 条评论`">{{ entry.asset.commentCount }}</span>
         <span class="asset-hover-status" :class="{ 'has-status': assetStatus(entry.asset.workStatus) }" :title="assetStatus(entry.asset.workStatus)?.label || '无状态'">
           <span v-if="assetStatus(entry.asset.workStatus)" class="asset-status-dot" :style="{ background: assetStatus(entry.asset.workStatus)?.color }" /><IconCircleDotted v-else :size="13" />
           <span class="asset-status-label">{{ assetStatus(entry.asset.workStatus)?.label || '无状态' }}</span>
         </span>
+          </span>
+          <span v-if="lastViewedId === entry.asset.id && !selected" class="asset-last-viewed"><IconEye :size="14" />最近查看</span>
+        </button>
         <div class="asset-hover-shortcuts">
           <button type="button" class="asset-round-action" aria-label="下载素材" :disabled="!canDownload || mediaLoading" :title="canDownload ? '下载' : '暂无下载权限'" @click="canDownload && openMedia(entry.asset, true)"><IconDownload :size="19" /></button>
         </div>
@@ -566,10 +569,11 @@ watch(
             <button id="asset-preview-comments-tab" role="tab" :aria-selected="previewTab === 'comments'" aria-controls="asset-preview-comments" @click="previewTab = 'comments'"><IconMessageCircle :size="16" />评论</button>
           </div>
           <section v-show="previewTab === 'info'" id="asset-preview-info" class="asset-preview-info" role="tabpanel" aria-labelledby="asset-preview-info-tab">
+            <AssetGenerationInfo v-if="selected?.generation" :key="selected.currentVersionId" :info="selected.generation" :file="selected.file" />
             <h3>详细信息</h3>
             <dl v-if="selected">
               <dt>名称</dt><dd>{{ selected.name }}</dd>
-              <dt>来源</dt><dd>{{ selected.uploaded ? '上传素材' : '项目素材' }}</dd>
+              <dt>来源</dt><dd>{{ selected.generation ? 'AI 生成' : selected.uploaded ? '上传素材' : '项目素材' }}</dd>
               <dt>类型</dt><dd>{{ selected.file.mimeType }}</dd>
               <dt>大小</dt><dd>{{ size(selected.file.byteSize) }}</dd>
               <template v-if="selected.file.width && selected.file.height"><dt>尺寸</dt><dd>{{ selected.file.width }} × {{ selected.file.height }}</dd></template>
@@ -592,8 +596,8 @@ watch(
             <p v-if="previewDownload.message.value" role="status">{{ previewDownload.message.value }}</p>
             <p v-if="actionError" role="alert">{{ actionError }}</p>
             <div class="asset-preview-action-row">
-              <Button :disabled="!canGenerate || !projectActions?.includes('asset:reference') || selected.mediaType === 'document'" @click="usePreview('video')"><IconMovie :size="18" />转为视频</Button>
-              <Button variant="outline" :disabled="!canGenerate || !projectActions?.includes('asset:reference') || selected.mediaType !== 'image'" @click="usePreview('image')"><IconPhoto :size="18" />引用</Button>
+              <Button :disabled="!canGenerate || !projectActions?.includes('asset:reference') || selected.mediaType === 'document'" :title="selected.mediaType === 'video' ? '将此视频添加为视频参考素材' : '将此图片添加为视频参考素材'" @click="usePreview('video')"><IconMovie :size="18" />用于视频创作</Button>
+              <Button variant="outline" :disabled="!canGenerate || !projectActions?.includes('asset:reference') || selected.mediaType !== 'image'" title="将此图片添加为图片参考素材" @click="usePreview('image')"><IconPhoto :size="18" />用于图片创作</Button>
             </div>
             <div class="asset-preview-action-row">
               <Button variant="outline" :disabled="!canDownload || previewDownload.pending.value" :title="canDownload ? '下载原素材' : '暂无下载权限'" @click="downloadPreview"><IconDownload :size="18" />{{ previewDownload.pending.value ? '下载中…' : '下载' }}</Button>

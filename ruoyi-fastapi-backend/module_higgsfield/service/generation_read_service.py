@@ -18,6 +18,13 @@ from module_higgsfield.service.task_billing_read_service import TaskBillingReadS
 
 class GenerationReadService:
     @staticmethod
+    def prompt_excerpt(job):
+        """任务列表使用固定输入摘要帮助辨认，不返回内部执行配置。"""
+        prompt = (job.input_snapshot or {}).get('prompt') or {}
+        return ' '.join(node.get('text', '') for paragraph in prompt.get('content', [])
+                        for node in paragraph.get('content', []) if node.get('type') == 'text')[:100]
+
+    @staticmethod
     async def source_job(db, user, job):
         """仅返回当前仍可读取的同项目来源，历史快照不替代实时授权。"""
         snapshot = job.input_snapshot
@@ -70,6 +77,7 @@ class GenerationReadService:
         return {
             'id': str(job.job_id),
             'projectId': str(job.project_id),
+            'promptExcerpt': cls.prompt_excerpt(job),
             'sourceJobId': await cls.source_job(db, user, job),
             'diagnostic': await GenerationDiagnosticService.read(db, job),
             'elementDestination': await GenerationTargetService.project(db, user, job),
@@ -128,6 +136,7 @@ class GenerationReadService:
                 {
                     'id': str(row.job_id),
                     'projectId': str(row.project_id),
+                    'promptExcerpt': cls.prompt_excerpt(row),
                     'kind': row.kind,
                     'createTime': row.create_time,
                     'revision': str(row.revision),

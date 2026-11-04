@@ -16,6 +16,11 @@ from tests import test_higgsfield_provider_submit_intent as intent
 
 
 class SubmissionResultInputTests(unittest.TestCase):
+    def test_received_headers_do_not_imply_acceptance(self):
+        result = ProviderSubmissionResult(acceptance='unknown', transport='network_error', httpStatus=200)
+        self.assertEqual(result.http_status, 200)
+        self.assertEqual(result.acceptance, 'unknown')
+
     def test_transport_uncertainty_and_safe_metadata(self) -> None:
         for value in (
             {'acceptance': 'accepted', 'transport': 'timeout'},

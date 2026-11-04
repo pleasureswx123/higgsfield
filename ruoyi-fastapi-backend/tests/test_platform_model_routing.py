@@ -2,6 +2,7 @@
 import importlib.util
 import os
 import unittest
+from module_higgsfield.dao.credential_dao import CredentialDao
 from pathlib import Path
 from uuid import uuid4
 
@@ -22,6 +23,61 @@ from tests import test_higgsfield_generation_route as route_tests
 
 @unittest.skipUnless(os.getenv('HF_RUN_DB_TESTS') == '1', '需要显式启用隔离数据库测试')
 class PlatformRoutingTests(unittest.IsolatedAsyncioTestCase):
+    async def test_manual_review_image_releases_capacity_but_keeps_credential_dependency(self):
+        async with self.sessions() as db:
+            row = route_tests.GenerationRouteTests.job(self, project_id=self.project_id, credential_version_id=self.key_id,
+                           orchestration_state='3', upstream_state='6', next_action_time=None)
+            db.add(row)
+            await db.commit()
+            self.assertEqual((await CredentialDao.in_flight(db, [self.key_id]))[self.key_id], 1)
+            self.assertEqual(await CredentialDao.in_flight(db, [self.key_id], for_admission=True), {})
+            selected = await GenerationRouteService.select(db, self.owner, self.project_id, int(self.model_version_id))
+            self.assertEqual(selected['credentialVersionId'], str(self.key_id))
+            await db.rollback()
+            # 仍可自动恢复的图片和结果未知的视频继续占名额。
+            await db.execute(text("UPDATE hf_creation_job SET next_action_time=clock_timestamp()"))
+            await db.commit()
+            self.assertEqual((await CredentialDao.in_flight(db, [self.key_id], for_admission=True))[self.key_id], 1)
+            with self.assertRaises(ServiceWarning):
+                await GenerationRouteService.select(db, self.owner, self.project_id, int(self.model_version_id))
+            await db.rollback()
+            await db.execute(text("UPDATE hf_creation_job SET kind='video', next_action_time=NULL"))
+            await db.commit()
+            self.assertEqual((await CredentialDao.in_flight(db, [self.key_id], for_admission=True))[self.key_id], 1)
+
+    async def test_queue_admission_and_serialized_execution_capacity(self):
+        from module_higgsfield.dao.job_lease_dao import JobLeaseDao
+        from datetime import timedelta
+        async with self.sessions() as db:
+            route = await GenerationRouteService.select(db, self.owner, self.project_id, int(self.model_version_id), allow_queue=True)
+            first = route_tests.GenerationRouteTests.job(self, project_id=self.project_id, credential_version_id=self.key_id,
+                        orchestration_state='0', upstream_state='0', input_snapshot={'route': route})
+            second = route_tests.GenerationRouteTests.job(self, project_id=self.project_id, credential_version_id=self.key_id,
+                        orchestration_state='0', upstream_state='0', input_snapshot={'route': route})
+            first.idempotency_key = str(uuid4())
+            second.idempotency_key = str(uuid4())
+            db.add_all([first, second])
+            await db.commit()
+            selected = await GenerationRouteService.select(db, self.owner, self.project_id, int(self.model_version_id), allow_queue=True)
+            self.assertEqual(selected['credentialVersionId'], str(self.key_id))
+            await db.commit()
+            now = await JobLeaseDao.now(db)
+            self.assertTrue(await JobLeaseDao.has_execution_capacity(db, first, now))
+            # 第二个独立工作器不能同时分配同一凭据。
+            async with self.sessions() as other:
+                self.assertFalse(await JobLeaseDao.has_execution_capacity(other, second, now))
+                await other.rollback()
+            first.lease_owner = 'queue-test'
+            first.lease_until = now + timedelta(seconds=60)
+            await db.commit()
+            self.assertFalse(await JobLeaseDao.has_execution_capacity(db, second, now))
+            first.orchestration_state = '5'
+            first.upstream_state = '3'
+            first.lease_owner = first.lease_until = None
+            await db.commit()
+            self.assertTrue(await JobLeaseDao.has_execution_capacity(db, second, now))
+            await db.rollback()
+
     cleanup_schema = route_tests.GenerationRouteTests.cleanup_schema
 
     async def test_platform_stop_overrides_existing_project_route_and_can_resume(self):

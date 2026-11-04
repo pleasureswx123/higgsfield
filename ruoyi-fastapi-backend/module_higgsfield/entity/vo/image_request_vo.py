@@ -6,6 +6,8 @@ from typing import Literal, Self
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 MAX_EDGE, SIZE_STEP, MAX_RATIO = 3840, 16, 3
+# 2026-11-03 供应商实际拒绝响应确认的总像素范围。
+MIN_PIXELS, MAX_PIXELS = 655360, 8294400
 
 
 class ImageRequestParameters(BaseModel):
@@ -28,4 +30,9 @@ class ImageRequestParameters(BaseModel):
                 raise ValueError('图片尺寸超限或不是16的倍数')
             if max(width, height) > MAX_RATIO * min(width, height):
                 raise ValueError('图片宽高比不能超过3:1')
+            if not MIN_PIXELS <= width * height <= MAX_PIXELS:
+                raise ValueError(
+                    f'当前图片尺寸 {width}×{height} 的总像素不在模型允许范围 '
+                    f'{MIN_PIXELS:,}～{MAX_PIXELS:,} 内，请将分辨率改为2K或选择自动比例'
+                )
         return self

@@ -38,6 +38,8 @@ class ProviderHttpResult:
     http_status: int | None = None
     body: object = field(default=None, repr=False)
     issue: str | None = None
+    diagnostic_body: str | None = field(default=None, repr=False)
+    diagnostic: dict | None = None
 
 
 class ProviderHttpService:
@@ -53,8 +55,19 @@ class ProviderHttpService:
             raise ValueError('供应商密钥格式无效')
         # 复制后重新校验，调用方不能在初始化后修改主机白名单。
         self.connection = ConnectionFields.model_validate(connection.model_dump())
+        self.evidence_writer = None
         self.secret = secret
         self.max_response_bytes = max_response_bytes
+
+    def configure_sync_image_timeout(self) -> None:
+        """同步图片包含模型等待和正文下载，独立限时且不改变持久连接版本。"""
+        config = self.connection.config
+        total = min(900, config.task_timeout_seconds)
+        values = config.model_dump()
+        values.update(operation_timeout_seconds=total,
+                      read_timeout_seconds=min(300, total),
+                      connect_timeout_seconds=min(config.connect_timeout_seconds, total))
+        self.connection.config = type(config).model_validate(values)
 
     @classmethod
     def from_versions(
@@ -131,6 +144,15 @@ class ProviderHttpService:
         content_type: str = 'application/json',
         content_length: int | None = None,
     ) -> ProviderHttpResult:
+        from module_higgsfield.service.provider_exchange_service import ProviderExchangeService
+        return await ProviderExchangeService.capture(
+            self, method, path, content, content_type,
+            lambda: self._send(method, path, content, content_type=content_type, content_length=content_length),
+        )
+
+    async def _send(
+        self, method, path, content, *, content_type='application/json', content_length=None,
+    ) -> ProviderHttpResult:
         config = self.connection.config
         timeout = httpx.Timeout(
             config.read_timeout_seconds,
@@ -147,16 +169,23 @@ class ProviderHttpService:
         }
         if content_length is not None:
             headers['Content-Length'] = str(content_length)
+        http_status = None
+        response = None
+        phase = 'request'
+        received_bytes = 0
         try:
             async with (
                 asyncio.timeout(config.operation_timeout_seconds),
                 httpx.AsyncClient(timeout=timeout, follow_redirects=False, trust_env=False) as client,
                 client.stream(method, self.connection.base_url + path, headers=headers, content=content) as response,
             ):
+                http_status = response.status_code
+                phase = 'response_body'
                 data = bytearray()
                 try:
                     decoder = ProviderDecodeService(response.headers.get('content-encoding', 'identity'), self.max_response_bytes)
                     async for chunk in response.aiter_raw(chunk_size=STREAM_CHUNK_BYTES):
+                        received_bytes += len(chunk)
                         data.extend(decoder.feed(chunk))
                     decoder.finish()
                 except ValueError:
@@ -164,7 +193,11 @@ class ProviderHttpService:
                 try:
                     body = json.loads(data, object_pairs_hook=unique_object, parse_constant=invalid_constant)
                 except (ValueError, UnicodeError, RecursionError):
-                    return ProviderHttpResult('response', response.status_code, issue='RESPONSE_JSON_INVALID')
+                    return ProviderHttpResult(
+                        'response', response.status_code, issue='RESPONSE_JSON_INVALID',
+                        diagnostic_body=bytes(data[:32000]).decode('utf-8', errors='replace')
+                        + ('[超长正文已截断]' if len(data) > 32000 else ''),
+                    )
                 if isinstance(body, dict):
                     # 仅保留调用编号和成本证据，不保存密钥额度、余额等其他响应头。
                     headers_fact = {}
@@ -176,8 +209,21 @@ class ProviderHttpService:
                         headers_fact['callId'] = call_id
                     body['_platformGatewayHeaders'] = headers_fact
                 return ProviderHttpResult('response', response.status_code, body)
-        except (TimeoutError, httpx.TimeoutException):
-            return ProviderHttpResult('timeout')
-        except httpx.RequestError:
-            # 错误对象可能包含URL或请求，禁止写入业务返回或日志。
-            return ProviderHttpResult('network_error')
+        except (TimeoutError, httpx.RequestError) as error:
+            # 仅保存结构化异常类别，异常正文可能携带密钥、签名地址或请求内容。
+            classes = []
+            cause = error
+            while cause is not None and len(classes) < 5:
+                classes.append(type(cause).__name__)
+                cause = cause.__cause__
+            timed_out = isinstance(error, (TimeoutError, httpx.TimeoutException))
+            if response is not None:
+                received_bytes = response.num_bytes_downloaded
+            return ProviderHttpResult(
+                'timeout' if timed_out else 'network_error', http_status,
+                issue='RESPONSE_BODY_INTERRUPTED' if http_status is not None else 'REQUEST_TRANSPORT_FAILED',
+                diagnostic={'phase': phase, 'exceptionType': type(error).__name__,
+                            'causeTypes': classes, 'receivedBytes': received_bytes,
+                            'operationTimeoutSeconds': config.operation_timeout_seconds,
+                            'readTimeoutSeconds': config.read_timeout_seconds},
+            )
