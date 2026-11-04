@@ -1,14 +1,15 @@
 <script setup lang="ts">
+import ProjectSwitcher from './ProjectSwitcher.vue'
 import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator } from '@/components/ui/dropdown-menu'
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs'
 import { SidebarMenu, SidebarMenuItem, SidebarMenuButton } from '@/components/ui/sidebar'
 import type { ElementRecord } from '@/api/elements'
 import type { Project } from '@/api/projects'
 import { computed, ref, watch } from 'vue'
-import { IconDots, IconChevronLeft, IconFolder, IconAdjustmentsHorizontal, IconAt, IconPhotoVideo, IconSparkles } from '@tabler/icons-vue'
+import { IconDotsVertical, IconAdjustmentsHorizontal, IconAt, IconPhotoVideo, IconSparkles } from '@tabler/icons-vue'
 import { useRoute } from 'vue-router'
 import { useProjectWorkspace } from '@/composables/useProjectWorkspace'
-import { formatProjectDate, projectStatusLabels } from '@/utils/projects'
+import { formatProjectDate } from '@/utils/projects'
 import BriefEditor from './BriefEditor.vue'
 import BriefPreview from './BriefPreview.vue'
 import ProjectMembers from './ProjectMembers.vue'
@@ -85,27 +86,11 @@ watch(
 <template>
   <Teleport :key="`project-navigation-${projectId}`" to="#project-sidebar-navigation">
     <div v-if="route.params.id === projectId" class="project-local-navigation" aria-label="当前项目导航">
-      <RouterLink to="/projects" class="nav-link"><IconChevronLeft :size="16" aria-hidden="true" /><span>返回我的项目</span></RouterLink>
-      <strong class="project-nav-name"><span class="project-nav-icon"><IconFolder :size="17" aria-hidden="true" /></span><span class="project-nav-title" :title="project.name">{{ project.name }}</span><span class="project-nav-status">{{ projectStatusLabels[project.status] }}</span></strong>
-      <SidebarMenu class="project-sidebar-menu">
-      <SidebarMenuItem><SidebarMenuButton class="nav-link" :class="{ active: tab === 'brief' || tab === 'members' || tab === 'permissions' }" :aria-current="tab === 'brief' || tab === 'members' || tab === 'permissions' ? 'page' : undefined" @click="tab = ['members', 'permissions'].includes(tab) ? tab : 'brief'"><span class="project-nav-icon"><IconAdjustmentsHorizontal :size="17" aria-hidden="true" /></span><span>项目设置<span v-if="dirty"> ·</span></span></SidebarMenuButton></SidebarMenuItem>
-      <SidebarMenuItem><SidebarMenuButton v-if="brief?.allowedActions.includes('element:read')" class="nav-link" :class="{ active: tab === 'elements' }" @click="tab = 'elements'"><span class="project-nav-icon"><IconAt :size="17" aria-hidden="true" /></span><span>项目元素库</span></SidebarMenuButton></SidebarMenuItem>
-      <SidebarMenuItem><SidebarMenuButton v-if="brief?.allowedActions.includes('generation:read')" class="nav-link" :class="{ active: tab === 'generations' }" @click="tab = 'generations'"><span class="project-nav-icon"><IconPhotoVideo :size="17" aria-hidden="true" /></span><span>项目生成记录</span></SidebarMenuButton></SidebarMenuItem>
-      <SidebarMenuItem><SidebarMenuButton v-if="brief?.allowedActions.includes('generation:create')" class="nav-link" :class="{ active: tab === 'creation' }" @click="tab = 'creation'"><span class="project-nav-icon"><IconSparkles :size="17" aria-hidden="true" /></span><span>开始创作</span></SidebarMenuButton></SidebarMenuItem>
-      </SidebarMenu>
-      <div :id="`project-activity-${projectId}`" v-show="tab === 'creation' || tab === 'folders'" class="project-activity-host"></div>
-    </div>
-  </Teleport>
-  <Tabs :model-value="tab" @update:model-value="value => { if (value === 'brief' || value === 'members' || value === 'permissions') tab = value }">
-    <div v-show="['brief', 'members', 'permissions'].includes(tab)" class="project-settings-toolbar">
-    <TabsList class="workspace-tabs studio-tabs studio-pill-tabs" aria-label="项目设置子导航">
-      <TabsTrigger value="brief">项目简报 <span v-if="dirty">·</span></TabsTrigger>
-      <TabsTrigger v-if="canReadMembers" value="members">项目成员</TabsTrigger>
-      <TabsTrigger v-if="canReadMembers" value="permissions">角色和权限</TabsTrigger>
-    </TabsList>
+      <div class="project-sidebar-heading">
+        <div class="project-sidebar-switcher"><ProjectSwitcher :project="project" /></div>
     <DropdownMenu v-if="canManageProject || canArchiveProject" :modal="false">
-      <DropdownMenuTrigger as-child><Button variant="ghost" class="project-management-trigger" :disabled="saving">项目管理<IconDots :size="16" /></Button></DropdownMenuTrigger>
-      <DropdownMenuContent align="end" class="project-management-menu">
+      <DropdownMenuTrigger as-child><Button variant="ghost" class="project-management-trigger" :disabled="saving" aria-label="项目管理" title="项目管理"><IconDotsVertical :size="17" /></Button></DropdownMenuTrigger>
+      <DropdownMenuContent align="start" side="right" :side-offset="8" class="project-management-menu">
         <DropdownMenuItem v-if="canManageProject && project.status === 'active'" @select="lifecycle?.start(project, 'rename')">修改名称</DropdownMenuItem>
         <DropdownMenuItem v-if="canManageProject && project.status === 'active'" @select="lifecycle?.start(project, 'pause')">暂停项目</DropdownMenuItem>
         <DropdownMenuItem v-if="canManageProject && project.status === 'paused'" @select="lifecycle?.start(project, 'resume')">恢复运行</DropdownMenuItem>
@@ -114,6 +99,26 @@ watch(
         <DropdownMenuItem v-if="canArchiveProject && project.status === 'archived'" @select="lifecycle?.start(project, 'restore')">恢复项目</DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>
+      </div>
+      <SidebarMenu class="project-sidebar-menu">
+      <SidebarMenuItem><SidebarMenuButton v-if="brief?.allowedActions.includes('generation:create')" class="nav-link" :class="{ active: tab === 'creation' }" @click="tab = 'creation'"><span class="project-nav-icon"><IconSparkles :size="17" aria-hidden="true" /></span><span>开始创作</span></SidebarMenuButton></SidebarMenuItem>
+
+      <SidebarMenuItem><SidebarMenuButton v-if="brief?.allowedActions.includes('element:read')" class="nav-link" :class="{ active: tab === 'elements' }" @click="tab = 'elements'"><span class="project-nav-icon"><IconAt :size="17" aria-hidden="true" /></span><span>项目元素库</span></SidebarMenuButton></SidebarMenuItem>
+      <SidebarMenuItem><SidebarMenuButton v-if="brief?.allowedActions.includes('generation:read')" class="nav-link" :class="{ active: tab === 'generations' }" @click="tab = 'generations'"><span class="project-nav-icon"><IconPhotoVideo :size="17" aria-hidden="true" /></span><span>项目生成记录</span></SidebarMenuButton></SidebarMenuItem>
+
+      </SidebarMenu>
+      <div :id="`project-activity-${projectId}`" v-show="tab === 'creation' || tab === 'folders'" class="project-activity-host"></div>
+    </div>
+  </Teleport>
+  <Teleport to="#project-sidebar-management"><div v-if="route.params.id === projectId" class="project-local-navigation"><SidebarMenu class="project-sidebar-menu"><SidebarMenuItem><SidebarMenuButton class="nav-link" :class="{ active: tab === 'brief' || tab === 'members' || tab === 'permissions' }" :aria-current="tab === 'brief' || tab === 'members' || tab === 'permissions' ? 'page' : undefined" @click="tab = ['members', 'permissions'].includes(tab) ? tab : 'brief'"><span class="project-nav-icon"><IconAdjustmentsHorizontal :size="17" aria-hidden="true" /></span><span>项目设置<span v-if="dirty"> ·</span></span></SidebarMenuButton></SidebarMenuItem></SidebarMenu></div></Teleport>
+  <Tabs :model-value="tab" @update:model-value="value => { if (value === 'brief' || value === 'members' || value === 'permissions') tab = value }">
+    <div v-show="['brief', 'members', 'permissions'].includes(tab)" class="project-settings-toolbar">
+    <TabsList class="workspace-tabs studio-tabs studio-pill-tabs" aria-label="项目设置子导航">
+      <TabsTrigger value="brief">项目简报 <span v-if="dirty">·</span></TabsTrigger>
+      <TabsTrigger v-if="canReadMembers" value="members">项目成员</TabsTrigger>
+      <TabsTrigger v-if="canReadMembers" value="permissions">角色和权限</TabsTrigger>
+    </TabsList>
+
     </div>
     <p v-if="['brief', 'members', 'permissions'].includes(tab) && project.status !== 'active'" class="project-state-note" role="status">{{ project.status === 'paused' ? '项目已暂停，暂不接受新的创作与编辑；已受理任务继续处理。' : '项目已归档，内容保留为只读。' }}</p>
   <ProjectLifecycleDialog ref="lifecycle" @changed="lifecycleChanged" />
@@ -200,6 +205,11 @@ watch(
 </template>
 
 <style scoped>
+.project-sidebar-heading { display:flex; align-items:center; gap:0; margin-bottom:8px; padding-right:4px; border:1px solid var(--border); border-radius:10px; background:var(--surface); }
+.project-sidebar-switcher { flex:1; min-width:0; }
+.project-sidebar-switcher :deep(.project-switcher) { margin-bottom:0; border:0; background:transparent; border-radius:9px; }
+.project-sidebar-switcher :deep(.project-switcher:hover) { background:var(--surface-hover); }
+.project-sidebar-heading .project-management-trigger { flex:0 0 28px; width:28px; height:30px; min-height:0; padding:0; border-radius:7px; }
 .project-sidebar-menu { margin:0; padding:0; list-style:none; gap:0; }
 .project-sidebar-menu .nav-link { height:auto; min-height:45px; }
 </style>

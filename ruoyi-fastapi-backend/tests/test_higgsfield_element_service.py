@@ -93,6 +93,26 @@ class ElementServiceTests(unittest.IsolatedAsyncioTestCase):
             self.assertEqual(await db.scalar(text('SELECT count(*) FROM hf_element_revision')), 1)
             self.assertEqual(await db.scalar(text("SELECT count(*) FROM hf_recycle_entry WHERE state='restored'")), 1)
 
+    async def test_batch_restore_counts_and_replay(self):
+        ids = []
+        for index in range(3):
+            created = await self.make_element(name=f'批量元素{index}', alias=f'batch{index}')
+            element_id = int(created['element']['id'])
+            ids.append(element_id)
+            async with self.sessions() as db:
+                await ElementService.lifecycle(db, self.owner, element_id, 'delete', ElementRevisionAction(revision='1'), str(uuid4()))
+        for index, element_id in enumerate(ids, 1):
+            key = str(uuid4())
+            async with self.sessions() as db:
+                result, _ = await ElementService.lifecycle(db, self.owner, element_id, 'restore', ElementRevisionAction(revision='2'), key)
+            async with self.sessions() as db:
+                replay, repeated = await ElementService.lifecycle(db, self.owner, element_id, 'restore', ElementRevisionAction(revision='2'), key)
+                self.assertTrue(repeated)
+                self.assertEqual(result, replay)
+                self.assertEqual((await ElementService.listing(db, self.owner, ElementQuery(projectId=self.project_id))).total, index)
+                self.assertEqual((await ElementService.trash(db, self.owner, int(self.project_id), 1, 30)).total, 3-index)
+                self.assertEqual(await db.scalar(text('SELECT count(*) FROM hf_element_revision')), 3)
+
     async def test_restore_expiry_and_missing_parent(self):
         async with self.sessions() as db:
             folder, _ = await FolderService.mutate(

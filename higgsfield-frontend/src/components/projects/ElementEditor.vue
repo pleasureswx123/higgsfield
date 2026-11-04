@@ -158,7 +158,7 @@ async function removeSelectedImage() {
     "
   >
     <template #header="{ titleId, titleClass }">
-      <DialogHeading :title-id="titleId" :title-class="titleClass" :title="elementId ? '元素详情' : '新建元素'" hide-theme />
+      <DialogHeading :title-id="titleId" :title-class="titleClass" :title="elementId ? '元素详情' : '新建元素'" />
     </template>
     <p v-if="useError" class="project-error" role="alert">{{ useError }}</p>
     <p v-if="uncertain && !saving" role="alert">

@@ -3,7 +3,7 @@ import type { Asset } from '@/api/assets'
 import DialogHeading from '@/components/shared/DialogHeading.vue'
 import { computed, ref, watch } from 'vue'
 import { useFolderPresentation } from '@/composables/useFolderPresentation'
-import { useFolderBatchRestore } from '@/composables/useFolderBatchRestore'
+import ProjectTrash from './ProjectTrash.vue'
 import ProjectAssets from './ProjectAssets.vue'
 import '@/styles/folders.css'
 import {
@@ -15,12 +15,10 @@ import {
   ElSelect,
   ElOption,
   ElPagination,
-  ElCheckbox,
   type FormRules,
 } from 'element-plus'
 import { IconFolder, IconPlus, IconTrash, IconSearch } from '@tabler/icons-vue'
 import { useFolders } from '@/composables/useFolders'
-import { formatProjectDate } from '@/utils/projects'
 import type { FolderColor } from '@/api/folders'
 import FolderTreeNode from './FolderTreeNode.vue'
 import Button from '@/components/ui/Button.vue'
@@ -57,7 +55,6 @@ const {
   page,
   total,
   trash,
-  recycled,
   dialog,
   closeEditor,
   form,
@@ -76,7 +73,6 @@ const {
   startEdit,
   save,
   remove,
-  restore,
   destinationOpen,
   destinationMode,
   destinationCrumbs,
@@ -95,12 +91,11 @@ const {
 } = useFolders(props.projectId, () => props.visible !== false)
 function navigate(path: import('@/api/folders').Folder[]) { emit('select'); navigateFolder(path) }
 function showTrash() { emit('select'); navigateTrash() }
-const batchRestore = useFolderBatchRestore(() => recycled.value, () => props.canWrite && !pending.value, refresh)
 const personal = useFolderPresentation(expanded, loadTree)
 const orderedRoots = computed(() => personal.arrange(roots.value))
 const orderedChildren = computed(() => Object.fromEntries(Object.entries(children).map(([id, values]) => [id, personal.arrange(values)])))
-function refreshAll() {
-  void refresh()
+async function refreshAll() {
+  await refresh()
   assetRefreshKey.value++
 }
 defineExpose({ refreshAll })
@@ -164,7 +159,7 @@ const rules: FormRules = {
           :children="orderedChildren"
           :pinned="personal.pinned.value"
           :expanded="expanded"
-          :current-id="navigationActive === false ? null : currentId"
+          :current-id="navigationActive === false || trash ? null : currentId"
           :can-write="canWrite"
           :pending="pending"
           :tree-next="treeNext"
@@ -184,7 +179,7 @@ const rules: FormRules = {
       </button>
       </div>
       <button
-        v-if="canWrite"
+        v-if="canWrite || projectActions?.includes('asset:remove') || projectActions?.includes('element:remove')"
         class="folder-tree-label folder-root folder-trash-entry"
         :class="{ active: navigationActive !== false && trash }"
         @click="showTrash"
@@ -194,7 +189,7 @@ const rules: FormRules = {
     </aside>
     </Teleport>
     <div class="folder-content">
-      <header v-if="!sidebar || trash" class="folder-toolbar">
+      <header v-if="!sidebar && !trash" class="folder-toolbar">
         <nav class="folder-breadcrumb" aria-label="目录路径">
           <button @click="navigate([])">全部</button>
           <template v-if="!trash"
@@ -236,34 +231,10 @@ const rules: FormRules = {
         </ElSelect>
       </div>
       </details>
-      <p v-if="error" class="project-error" role="alert">{{ error }}</p>
-      <p v-if="loading" class="muted" role="status">正在加载目录…</p>
-      <template v-else-if="trash">
-        <p class="muted">目录可在删除后30天内恢复。恢复不会拉回已经移动到父级的内容。</p>
-        <div v-if="canWrite" class="folder-actions">
-          <ElCheckbox :model-value="batchRestore.allSelected.value" :disabled="pending || batchRestore.pending.value" @change="batchRestore.selectAll(Boolean($event))">选择当前页可恢复目录</ElCheckbox>
-          <Button :disabled="pending || batchRestore.pending.value || !batchRestore.selected.value.length" @click="batchRestore.restore">{{ batchRestore.pending.value ? '正在恢复…' : `恢复所选（${batchRestore.selected.value.length}）` }}</Button>
-        </div>
-        <p v-if="batchRestore.message.value" role="status">{{ batchRestore.message.value }}</p>
-        <div v-for="entry in recycled" :key="entry.id" class="folder-list-row">
-          <ElCheckbox v-if="canWrite" :model-value="batchRestore.selected.value.includes(entry.id)" :aria-label="`选择恢复 ${entry.name}`" :disabled="pending || batchRestore.pending.value || !entry.canRestore" @change="batchRestore.toggle(entry.id, Boolean($event))" />
-          <IconFolder :size="24" />
-          <div class="folder-row-title">
-            <strong>{{ entry.name }}</strong>
-            <small>恢复期限 {{ formatProjectDate(entry.restoreUntil) }}</small>
-          </div>
-          <Button
-            v-if="canWrite"
-            variant="ghost"
-            :disabled="pending || batchRestore.pending.value || !entry.canRestore"
-            @click="restore(entry)"
-          >
-            {{ entry.canRestore ? '恢复' : '已过恢复期限' }}</Button
-          >
-        </div>
-        <p v-if="!recycled.length" class="folder-empty">回收站暂无文件夹</p>
-      </template>
-      <template v-else-if="!sidebar">
+      <ProjectTrash v-if="trash" :project-id="projectId" :actions="projectActions || []" :visible="active && visible !== false && navigationActive !== false" :refresh-related="refreshAll" />
+      <p v-if="error && !trash" class="project-error" role="alert">{{ error }}</p>
+      <p v-if="loading && !trash" class="muted" role="status">正在加载目录…</p>
+      <template v-if="!trash && !sidebar">
         <div v-for="folder in rows" :key="folder.id" class="folder-list-row">
           <IconFolder :size="25" :class="'folder-color-' + folder.color" />
           <button
@@ -286,7 +257,7 @@ const rules: FormRules = {
         </div>
       </template>
       <ElPagination
-        v-if="total > 30 && (!sidebar || trash)"
+        v-if="total > 30 && !sidebar && !trash"
         :current-page="page"
         :page-size="30"
         :total="total"
@@ -306,6 +277,7 @@ const rules: FormRules = {
         :can-move="canWrite && !trash"
         :refresh-key="assetRefreshKey"
         :folder-settings="personal.settings.value"
+        @contents-changed="refresh"
         @selection-change="emit('selectionChange', $event)"
         @restore-folders="personal.restore"
         @create="emit('create')" @reference="(asset, kind) => emit('reference', asset, kind)"

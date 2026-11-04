@@ -9,7 +9,7 @@ const { project, loading, error, load, acceptProject } = useProjectDetail()
 <template>
   <section class="project-detail-page project-studio-page">
     <RouterLink to="/projects" class="project-back"
-      ><IconArrowLeft :size="18" />我的项目</RouterLink
+      ><IconArrowLeft :size="18" />我参与的项目</RouterLink
     >
     <p v-if="loading" class="project-loading" role="status">正在加载项目…</p>
     <div v-else-if="error" class="project-error" role="alert">

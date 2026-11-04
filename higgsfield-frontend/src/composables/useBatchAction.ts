@@ -6,11 +6,12 @@ import { useAuthStore } from '@/stores/auth'
 import { ApiError } from '@/api/client'
 
 /** 批量操作逐项执行，保留失败项及其幂等键，已成功项不重复提交。 */
-export function useBatchAction<T extends BatchItem>(rows: () => T[], allowed: () => boolean, refresh: () => Promise<void>, executeItem: (item: T, key: string) => Promise<unknown>, eligibleItem: (item: T) => boolean, label: string, verb: string, warning: string, selection?: Ref<string[]>, options: { confirm?: boolean; preserveSelection?: boolean } = {}) {
+export function useBatchAction<T extends BatchItem>(rows: () => T[], allowed: () => boolean, refresh: () => Promise<void>, executeItem: (item: T, key: string) => Promise<unknown>, eligibleItem: (item: T) => boolean, label: string, verb: string, warning: string | (() => string), selection?: Ref<string[]>, options: { confirm?: boolean; preserveSelection?: boolean } = {}) {
   const auth = useAuthStore(), selected = selection || ref<string[]>([]), pending = ref(false), message = ref('')
   const eligible = computed(() => rows().filter(eligibleItem))
   const allSelected = computed(() => eligible.value.length > 0 && eligible.value.every(item => selected.value.includes(item.id)))
   const intents = new Map<string, { item: T; key: string }>()
+  const uncertainCount = ref(0)
   let epoch = 0, interaction = 0, active = true
   function toggle(id: string, checked: boolean) {
     if (!active || pending.value || !allowed()) return
@@ -21,14 +22,16 @@ export function useBatchAction<T extends BatchItem>(rows: () => T[], allowed: ()
     if (!active || pending.value || !allowed()) return
     selected.value = checked ? eligible.value.map(item => item.id) : []
   }
-  async function execute() {
+  async function executeItems(retryUncertain = false) {
     if (!active || !auth.token || !allowed() || pending.value) return
     const ticket = epoch, viewTicket = interaction
-    const items = eligible.value.filter(item => selected.value.includes(item.id)).map(item => ({ ...item }))
+    const items = retryUncertain
+      ? [...intents.values()].map(intent => ({ ...intent.item }))
+      : eligible.value.filter(item => selected.value.includes(item.id)).map(item => ({ ...item }))
     if (!items.length) return
     pending.value = true; message.value = ''
     try {
-      try { if (options.confirm !== false) await ElMessageBox.confirm(`${verb}选中的 ${items.length} 个${label}？${warning}`, `批量${verb}${label}`, { confirmButtonText: `${verb}所选`, cancelButtonText: '取消' }) }
+      try { if (options.confirm !== false) await ElMessageBox.confirm(`${verb}选中的 ${items.length} 个${label}？${typeof warning === 'function' ? warning() : warning}`, `批量${verb}${label}`, { confirmButtonText: `${verb}所选`, cancelButtonText: '取消' }) }
       catch { return }
       if (!active || ticket !== epoch || viewTicket !== interaction || !allowed()) return
       let success = 0
@@ -55,10 +58,12 @@ export function useBatchAction<T extends BatchItem>(rows: () => T[], allowed: ()
       try { if (active && allowed()) await refresh() }
       catch { if (ticket === epoch) message.value += '列表刷新失败，请手动刷新。' }
       if (ticket === epoch) selected.value = selected.value.filter(id => rows().some(item => item.id === id && (selection || eligibleItem(item))))
-    } finally { if (ticket === epoch) pending.value = false }
+    } finally { if (ticket === epoch) { pending.value = false; uncertainCount.value = intents.size } }
   }
+  const execute = () => executeItems()
+  const retryUncertain = () => executeItems(true)
   watch(rows, values => { if (!pending.value) selected.value = selected.value.filter(id => values.some(item => item.id === id && (selection || eligibleItem(item)))) })
-  function clear() { epoch++; selected.value = []; intents.clear(); pending.value = false; message.value = '' }
+  function clear() { epoch++; selected.value = []; intents.clear(); uncertainCount.value = 0; pending.value = false; message.value = '' }
   watch(() => auth.token, clear, { flush: 'sync' })
   watch(allowed, value => { if (!value) interaction++ }, { flush: 'sync' })
   onDeactivated(() => { active = false; interaction++ })
@@ -66,6 +71,6 @@ export function useBatchAction<T extends BatchItem>(rows: () => T[], allowed: ()
   onBeforeRouteLeave(() => !pending.value)
   onBeforeRouteUpdate((to, from) => to.fullPath === from.fullPath || !pending.value)
   onBeforeUnmount(clear)
-  return { selected, pending, message, allSelected, toggle, selectAll, execute }
+  return { selected, pending, message, allSelected, toggle, selectAll, execute, uncertainCount, retryUncertain }
 }
 

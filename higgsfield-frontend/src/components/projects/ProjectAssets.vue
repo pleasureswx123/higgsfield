@@ -31,7 +31,6 @@ import { useAssetActions } from '@/composables/useAssetActions'
 import { useContentSelection } from '@/composables/useContentSelection'
 import { useAssetBatchDownload } from '@/composables/useAssetBatchDownload'
 import { useAssetBatchDelete } from '@/composables/useAssetBatchDelete'
-import { useAssetBatchRestore } from '@/composables/useAssetBatchRestore'
 import AssetUploadPanel from './AssetUploadPanel.vue'
 import ReferenceThumbnail from './ReferenceThumbnail.vue'
 import MediaComments from './MediaComments.vue'
@@ -90,7 +89,7 @@ const props = defineProps<{
   refreshKey: number
   folderSettings: FolderViewSettings
 }>()
-const emit = defineEmits<{ restoreFolders: [settings: FolderViewSettings]; create: []; reference: [asset: Asset, kind: 'image' | 'video']; selectionChange: [count: number] }>()
+const emit = defineEmits<{ restoreFolders: [settings: FolderViewSettings]; create: []; reference: [asset: Asset, kind: 'image' | 'video']; selectionChange: [count: number]; contentsChanged: [] }>()
 const {
   rows,
   total,
@@ -189,23 +188,21 @@ const {
   renameUncertain,
   cancelEdit,
   error: actionError,
-  trashOpen,
-  trashLoading,
-  recycled,
-  total: trashTotal,
-  page: trashPage,
   edit,
   save,
   lifecycle,
-  refreshTrash,
 } = useAssetActions(props.projectId, () => {
   closePreview()
-  void refresh()
+  void refreshContents()
 }, () => props.visible !== false)
+async function refreshContents() {
+  await refresh()
+  emit('contentsChanged')
+}
 const deletable = computed(() => rows.value.some(entry => entry.asset.allowedActions?.includes('asset:remove')))
 const selection = useContentSelection(() => rows.value.map(entry => entry.asset), () => actionsLocked.value || loading.value || batchBusy.value)
-const batchDelete = useAssetBatchDelete(() => rows.value.map(entry => entry.asset), () => props.visible !== false && deletable.value && !actionsLocked.value && !loading.value && !trashOpen.value && !editing.value && !selected.value && !batchDownload.pending.value && !mover.value?.locked, refresh, selection.selected)
-const batchDownload = useAssetBatchDownload(() => rows.value.map(entry => entry.asset), selection.selected, () => props.visible !== false && props.canDownload && !actionsLocked.value && !loading.value && !trashOpen.value && !editing.value && !selected.value && !batchDelete.pending.value && !mover.value?.locked)
+const batchDelete = useAssetBatchDelete(() => rows.value.map(entry => entry.asset), () => props.visible !== false && deletable.value && !actionsLocked.value && !loading.value && !editing.value && !selected.value && !batchDownload.pending.value && !mover.value?.locked, refreshContents, selection.selected)
+const batchDownload = useAssetBatchDownload(() => rows.value.map(entry => entry.asset), selection.selected, () => props.visible !== false && props.canDownload && !actionsLocked.value && !loading.value && !editing.value && !selected.value && !batchDelete.pending.value && !mover.value?.locked)
 const videoCards = new Map<string, InstanceType<typeof AssetHoverVideo>>()
 watch(() => selection.selected.value.length, count => emit('selectionChange', count), { immediate: true })
 watch(() => props.folderId, () => { selection.selected.value = [] })
@@ -221,17 +218,13 @@ function moved(ids: string[], summary: string) {
   const assets = new Set(rows.value.filter(entry => ids.includes(entry.id)).map(entry => entry.asset.id))
   selection.selected.value = selection.selected.value.filter(id => !assets.has(id))
   moveMessage.value = summary
-  void refresh()
+  void refreshContents()
 }
 const deleteCount = computed(() => new Set(rows.value.filter(entry => selection.selected.value.includes(entry.asset.id) && entry.asset.allowedActions?.includes('asset:remove')).map(entry => entry.asset.id)).size)
-const batchRestore = useAssetBatchRestore(() => recycled.value, () => props.visible !== false && trashOpen.value && !actionsLocked.value && !trashLoading.value, async () => {
-  await refreshTrash()
-  await refresh()
-})
 const { items, running, enqueue, pause, pauseItem, retry, clearFinished } = useAssetUploads(
   props.projectId,
   () => {
-    void refresh()
+    void refreshContents()
   },
 )
 const input = ref<HTMLInputElement>()
@@ -271,7 +264,7 @@ watch(
 <template>
   <section class="asset-library" :class="{ 'asset-workspace': compact }" aria-label="项目素材">
     <DirectoryMoveDialog ref="mover" :visible="visible !== false" :project-id="projectId" :can-create-folder="canMove" :allowed="canMove && !batchDelete.pending.value && !batchDownload.pending.value" @changed="moved" />
-    <DirectoryMoveDialog ref="copier" operation="copy" :visible="visible !== false" :project-id="projectId" :can-create-folder="canMove" :allowed="Boolean(canCopy) && !batchDelete.pending.value && !batchDownload.pending.value && !mover?.locked" @changed="(_, summary) => { moveMessage = summary; refresh() }" />
+    <DirectoryMoveDialog ref="copier" operation="copy" :visible="visible !== false" :project-id="projectId" :can-create-folder="canMove" :allowed="Boolean(canCopy) && !batchDelete.pending.value && !batchDownload.pending.value && !mover?.locked" @changed="(_, summary) => { moveMessage = summary; refreshContents() }" />
     <ElementEditor v-if="elementSource" :initial-asset="elementSource" :element-id="null" :project-id="projectId" :actions="projectActions || []" :visible="visible !== false" @close="elementSource = null" @saved="elementSource = null; moveMessage = '元素已创建，可在项目元素中查看'" />
     <header class="asset-toolbar asset-workspace-toolbar" :inert="batchBusy">
       <div class="asset-workspace-path"><slot name="breadcrumb"><h3>素材 <small class="muted">{{ total }}</small></h3></slot></div>
@@ -319,7 +312,7 @@ watch(
       </ElPopover>
       <ElPopover placement="bottom-end" trigger="click" :width="180" popper-class="asset-controls-popover">
         <template #reference><Button variant="outline" aria-label="素材更多操作"><IconDots :size="16" /></Button></template>
-        <div class="asset-more-controls"><Button variant="ghost" :disabled="loading" @click="refresh"><IconRefresh :size="16" />刷新素材</Button><Button variant="ghost" @click="trashOpen = true">素材回收站</Button><Button variant="ghost" @click="selection.selectAll(true)">选择当前页素材</Button></div>
+        <div class="asset-more-controls"><Button variant="ghost" :disabled="loading" @click="refresh"><IconRefresh :size="16" />刷新素材</Button><Button variant="ghost" @click="selection.selectAll(true)">选择当前页素材</Button></div>
       </ElPopover>
       <button v-if="items.length" type="button" class="folder-text-button" @click="uploadsOpen = !uploadsOpen">上传记录（{{ items.length }}）</button>
       <Button v-if="canUpload" variant="outline" @click="input?.click()"><IconUpload :size="16" />上传素材</Button>
@@ -432,8 +425,8 @@ watch(
       title="重命名素材"
       width="min(460px, 94vw)"
       :close-on-click-modal="false"
-      :show-close="!actionsLocked && !batchRestore.pending.value"
-      :close-on-press-escape="!actionsLocked && !batchRestore.pending.value"
+      :show-close="!actionsLocked"
+      :close-on-press-escape="!actionsLocked"
       :before-close="cancelEdit"
     >
       <template #header="{ titleId, titleClass }">
@@ -456,50 +449,7 @@ watch(
         ><Button :disabled="pending || lifecycleUncertain" @click="save">{{ renameUncertain ? '重试确认原请求' : '保存' }}</Button></template
       >
     </ElDialog>
-    <ElDialog
-      :model-value="actionsActive && trashOpen"
-      @update:model-value="actionsActive && (trashOpen = $event)"
-      title="素材回收站"
-      width="min(760px, 94vw)"
-      :close-on-click-modal="false"
-      :show-close="!actionsLocked && !batchRestore.pending.value"
-      :close-on-press-escape="!actionsLocked && !batchRestore.pending.value"
-    >
-      <template #header="{ titleId, titleClass }">
-        <DialogHeading :title-id="titleId" :title-class="titleClass" title="素材回收站" />
-      </template>
-      <p v-if="actionError" class="project-error" role="alert">{{ actionError }}</p>
-    <div v-if="lifecycleUncertain" role="status">{{ lifecycleLabel }}结果尚未确认。<Button :disabled="pending" @click="retryLifecycle">重试确认原请求</Button></div>
-      <p v-if="trashLoading" role="status">正在加载…</p>
-      <div class="asset-toolbar">
-        <ElCheckbox :model-value="batchRestore.allSelected.value" :disabled="actionsLocked || trashLoading || batchRestore.pending.value" @change="batchRestore.selectAll(Boolean($event))">选择当前页可恢复素材</ElCheckbox>
-        <Button :disabled="actionsLocked || trashLoading || batchRestore.pending.value || !batchRestore.selected.value.length" @click="batchRestore.restore">{{ batchRestore.pending.value ? '正在恢复…' : `恢复所选（${batchRestore.selected.value.length}）` }}</Button>
-      </div>
-      <p v-if="batchRestore.message.value" role="status">{{ batchRestore.message.value }}</p>
-      <template v-if="!trashLoading"
-        ><div v-for="item in recycled" :key="item.id" class="asset-toolbar">
-          <ElCheckbox :model-value="batchRestore.selected.value.includes(item.id)" :aria-label="`选择恢复 ${item.name}`" :disabled="actionsLocked || batchRestore.pending.value || !item.canRestore" @change="batchRestore.toggle(item.id, Boolean($event))" />
-          <span>{{ item.name }} · 恢复期限 {{ formatProjectDate(item.restoreUntil) }}</span
-          ><Button
-            variant="ghost"
-            :disabled="actionsLocked || batchRestore.pending.value || !item.canRestore"
-            @click="lifecycle(item, true)"
-            >恢复</Button
-          >
-        </div>
-        <p v-if="!recycled.length && !actionError" class="muted">
-          没有可查看的回收素材。
-        </p></template
-      >
-      <ElPagination
-        v-if="trashTotal > 30"
-        v-model:current-page="trashPage"
-        :disabled="batchRestore.pending.value"
-        :page-size="30"
-        :total="trashTotal"
-        layout="prev, pager, next"
-      />
-    </ElDialog>
+
     <ElPagination
       v-if="total > 30"
       v-model:current-page="page"
@@ -519,7 +469,7 @@ watch(
       :before-close="closeMediaPreview"
     >
       <template #header="{ titleId, titleClass }">
-        <DialogHeading :title-id="titleId" :title-class="titleClass" :title="selected?.name || '素材预览'" hide-theme />
+        <DialogHeading :title-id="titleId" :title-class="titleClass" :title="selected?.name || '素材预览'" />
       </template>
       <div class="asset-preview-layout">
         <section class="asset-preview-main" aria-label="素材预览区">

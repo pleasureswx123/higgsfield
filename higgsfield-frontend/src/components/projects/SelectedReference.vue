@@ -24,7 +24,7 @@ function edit(event: MouseEvent) {
     <button class="reference-remove" type="button" :disabled="disabled" :aria-label="`移除${video ? '视频' : '图片'}引用 ${item.assetVersionId}`" title="移除引用及提示词中的对应标签" @click="$emit('remove')"><IconX :size="12" /></button>
   </div>
   <ElDialog :model-value="Boolean(preview.candidate.value)" width="min(1000px, 94vw)" append-to-body :before-close="preview.close" :close-on-click-modal="false">
-    <template #header="{ titleId, titleClass }"><DialogHeading hide-theme :title-id="titleId" :title-class="titleClass" :title="video ? '参考视频预览' : '参考图片预览'" /></template>
+    <template #header="{ titleId, titleClass }"><DialogHeading :title-id="titleId" :title-class="titleClass" :title="video ? '参考视频预览' : '参考图片预览'" /></template>
     <p v-if="preview.loading.value" role="status">正在读取预览…</p>
     <p v-if="preview.error.value" role="alert">{{ preview.error.value }}</p>
     <video v-if="preview.url.value && video" :src="preview.url.value" controls playsinline preload="metadata" aria-label="参考视频预览" class="selected-reference-preview" />

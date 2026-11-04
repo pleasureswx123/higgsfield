@@ -7,22 +7,13 @@ import { useProjects } from '@/composables/useProjects'
 import { projectStatusLabels } from '@/utils/projects'
 import ProjectCard from '@/components/projects/ProjectCard.vue'
 import CreateProjectDialog from '@/components/projects/CreateProjectDialog.vue'
-import ProjectPreferenceDialog from '@/components/projects/ProjectPreferenceDialog.vue'
-import ProjectCollections from '@/components/projects/ProjectCollections.vue'
-import ProjectViewPreference from '@/components/projects/ProjectViewPreference.vue'
-import type { ProjectViewSettings } from '@/api/viewPreferences'
+import SidebarProjectActions from '@/components/projects/SidebarProjectActions.vue'
 import Button from '@/components/ui/Button.vue'
-const { rows, loading, error, total, page, search, status, sort, hidden, pinned, collectionId, load, applyFilters, canCreate } =
+const { rows, loading, error, total, page, search, status, hidden, pinned, collectionId, load, applyFilters, canCreate } =
   useProjects()
 const open = ref(false),
   router = useRouter()
-const preferenceDialog = ref<InstanceType<typeof ProjectPreferenceDialog>>()
 const hasFilters = computed(() => Boolean(search.value || status.value || hidden.value || pinned.value || collectionId.value))
-const viewSettings = computed<ProjectViewSettings>(() => ({ sort: sort.value, status: status.value || null, hidden: hidden.value, pinned: pinned.value, collectionId: collectionId.value || null }))
-function restoreView(value: ProjectViewSettings) {
-  sort.value = value.sort; status.value = value.status || ''; hidden.value = value.hidden
-  pinned.value = value.pinned; collectionId.value = value.collectionId || ''; applyFilters()
-}
 function created(id: string) {
   void router.push(`/projects/${id}`)
 }
@@ -31,13 +22,12 @@ function created(id: string) {
   <section class="projects-page">
     <div class="project-page-heading">
       <div>
-        <h1>我的项目</h1>
+        <h1>我参与的项目</h1>
         <p class="muted">组织你的故事、素材与团队。</p>
       </div>
       <Button v-if="canCreate" @click="open = true"><IconFolderPlus :size="18" />新建项目</Button>
     </div>
     <div class="project-toolbar">
-      <ProjectCollections v-model="collectionId" @filter="applyFilters()" @changed="load" />
       <ElCheckbox v-model="hidden" @change="applyFilters()">查看已隐藏</ElCheckbox>
       <ElCheckbox v-model="pinned" @change="applyFilters()">仅置顶</ElCheckbox>
       <div class="project-filter">
@@ -66,13 +56,7 @@ function created(id: string) {
           ><template #prefix><IconSearch :size="16" /></template></ElInput
         ><Button variant="ghost" @click="applyFilters()">搜索</Button>
       </div>
-      <ElSelect v-model="sort" aria-label="项目排序" class="project-sort" @change="applyFilters()"
-        ><ElOption label="最新创建" value="created_desc" /><ElOption
-          label="最早创建"
-          value="created_asc" /><ElOption label="名称排序" value="name_asc"
-      /></ElSelect>
     </div>
-    <ProjectViewPreference :settings="viewSettings" @restore="restoreView" />
     <div v-if="error" class="project-error" role="alert">
       <p>{{ error }}</p>
       <Button variant="outline" @click="load">重新加载</Button>
@@ -84,18 +68,18 @@ function created(id: string) {
           <span><IconFolderPlus :size="32" /></span><strong>新建项目</strong></button
         ><div v-for="project in rows" :key="project.id" class="project-with-preferences">
           <ProjectCard :project="project" />
-          <Button variant="ghost" @click="preferenceDialog?.start(project)">{{ project.preference?.isPinned ? '已置顶 · ' : '' }}个人偏好</Button>
+          <SidebarProjectActions v-if="hidden" :project="project" restore-only />
         </div>
       </div>
       <div v-if="!rows.length" class="project-empty-note">
-        <h2>{{ hasFilters ? '没有匹配的项目' : '你的故事，从第一个项目开始' }}</h2>
+        <h2>{{ hasFilters ? '没有匹配的项目' : '暂无可显示的项目' }}</h2>
         <p>
           {{
             hasFilters
               ? '试试其他关键词、状态或个人导航筛选。'
               : canCreate
-                ? '点击新建项目，创建专属的制作空间。'
-                : '当前没有可见项目，请联系负责人添加成员权限。'
+                ? '新建一个项目，或勾选“查看已隐藏”找回隐藏的项目。'
+                : '可勾选“查看已隐藏”找回项目，或联系负责人添加成员权限。'
           }}
         </p>
       </div>
@@ -107,10 +91,9 @@ function created(id: string) {
         layout="prev, pager, next, total"
         @current-change="applyFilters" /></template
     ><CreateProjectDialog v-model="open" @created="created" />
-    <ProjectPreferenceDialog ref="preferenceDialog" @changed="load" />
   </section>
 </template>
 <style scoped>
-.project-with-preferences { min-width: 0; display: flex; flex-direction: column; gap: 8px; }
+.project-with-preferences { position:relative; min-width: 0; display: flex; flex-direction: column; gap: 8px; }
 .project-with-preferences > .project-card { flex: 1; }
 </style>

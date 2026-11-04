@@ -8,6 +8,49 @@ from module_higgsfield.service.write_service import WriteService
 
 
 class PreferenceService:
+    @classmethod
+    async def reorder(cls, db, user, payload, key):
+        """同一事务保存整组顺序；任一权限或修订冲突时全部回滚。"""
+        path = '/project-preferences/order'
+        uid = user.user.user_id
+        try:
+            await WriteService.lock(db, user, path, key)
+            # 固定项目锁顺序，与单项目偏好和成员撤权保持一致。
+            identities = sorted(int(item['projectId']) for item in payload['items'])
+            for identity in identities:
+                await WorkspaceDao.lock_project(db, identity)
+                await WorkspaceService.authorize(db, user, identity, 'project:read')
+            await PreferenceDao.lock_user(db, uid)
+            replay = await WriteService.replay(db, user, path, key, payload, 'PUT')
+            if replay:
+                await db.commit()
+                return replay, True
+            rows = {}
+            for item in payload['items']:
+                identity = int(item['projectId'])
+                row = await PreferenceDao.preference(db, uid, identity, True)
+                if item['revision'] != (str(row.revision) if row else '0'):
+                    WorkspaceService.conflict('REVISION_CONFLICT', '项目偏好已变化，请刷新后重新排序')
+                rows[identity] = row
+            audit = WriteService.audit(user)
+            result = []
+            for index, item in enumerate(payload['items']):
+                identity = int(item['projectId'])
+                row = rows[identity]
+                if row is None:
+                    row = await PreferenceDao.insert(db, HfUserProjectPreference,
+                        user_id=uid, project_id=identity, order_num=index, **audit)
+                else:
+                    row.order_num = index
+                    row.revision += 1
+                    row.update_by = audit['update_by']; row.update_time = audit['update_time']
+                result.append(cls.preference_result(identity, row))
+            return await WriteService.finish(db, user, path, key, payload, result,
+                'project_preference_order', uid, 'PUT')
+        except Exception:
+            await db.rollback()
+            raise
+
     @staticmethod
     def collection_result(row):
         return dict(id=str(row.collection_id), name=row.collection_name, description=row.description,

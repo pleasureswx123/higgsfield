@@ -18,7 +18,6 @@ import {
   actOnFolder,
   createFolder,
   listFolders,
-  listFolderTrash,
   updateFolder,
   readFolder,
   type Folder,
@@ -121,10 +120,8 @@ export function useFolders(projectId: string, visible: () => boolean = () => tru
     error.value = ''
     try {
       if (trash.value) {
-        const result = await listFolderTrash(projectId, page.value)
-        if (!alive || ticket !== sequence) return
-        recycled.value = result.rows
-        total.value = result.total
+        recycled.value = []
+        total.value = 0
       } else {
         const result = await listFolders(projectId, {
           parentId: currentId.value,
@@ -222,7 +219,7 @@ export function useFolders(projectId: string, visible: () => boolean = () => tru
     })
   }
   function showTrash() {
-    void router.push({ query: { ...route.query, tab: 'folders', folderView: 'trash' } })
+    void router.push({ query: { ...route.query, tab: 'folders', folder: undefined, folderView: 'trash' } })
   }
   let navigationSequence = 0
   const locationKey = () =>

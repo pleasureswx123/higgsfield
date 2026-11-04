@@ -10,7 +10,7 @@ import StudioPagination from '@/components/ui/StudioPagination.vue'
 import { ref, watch, computed, useId } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ElCheckbox, ElMessageBox } from 'element-plus'
-import { IconRefresh, IconAdjustmentsHorizontal, IconTrash, IconPlus, IconSearch, IconFilter, IconLayoutGrid, IconUpload, IconFolder, IconAt } from '@tabler/icons-vue'
+import { IconRefresh, IconAdjustmentsHorizontal, IconPlus, IconSearch, IconFilter, IconLayoutGrid, IconUpload, IconFolder, IconAt } from '@tabler/icons-vue'
 import DirectoryMoveDialog from './DirectoryMoveDialog.vue'
 import ElementBatchCopyDialog from './ElementBatchCopyDialog.vue'
 import type { ElementRecord } from '@/api/elements'
@@ -26,8 +26,6 @@ import PropertyDefinitionsDialog from './PropertyDefinitionsDialog.vue'
 import { useElementLibrary } from '@/composables/useElementLibrary'
 import { useElements } from '@/composables/useElements'
 import { useElementBatchDelete } from '@/composables/useElementBatchDelete'
-import { useElementBatchRestore } from '@/composables/useElementBatchRestore'
-import { formatProjectDate } from '@/utils/projects'
 import '@/styles/elements.css'
 const props = defineProps<{
   projectId: string
@@ -53,7 +51,6 @@ function previewAsset(versionId: string) {
 }
 const {
   rows,
-  recycled,
   total,
   page,
   search,
@@ -70,7 +67,6 @@ const {
   refresh,
   filter,
   open,
-  restore,
 } = useElements(props.projectId, () => props.visible !== false)
 const categoryPanelId = useId()
 const toolbarMenu = ref('')
@@ -88,11 +84,6 @@ async function addFolder() {
     await library.addFolder(value.trim())
   } catch { /* 取消时保留当前列表 */ }
 }
-const batchRestore = useElementBatchRestore(
-  () => recycled.value,
-  () => props.visible !== false && trash.value && props.actions.includes('element:remove') && !pending.value && !loading.value,
-  refresh,
-)
 const selection = useContentSelection(
   () => rows.value,
   () => pending.value || loading.value || batchBusy.value,
@@ -247,7 +238,6 @@ function saved() {
               <Button variant="ghost" @click="refresh"><IconRefresh :size="16" /><span>刷新列表</span></Button>
               <Button v-if="actions.includes('element:configure')" variant="ghost" @click="toolbarMenu = ''; propertiesOpen = true"><IconAdjustmentsHorizontal :size="16" /><span>属性配置</span></Button>
               <Separator v-if="actions.includes('element:remove')" />
-              <Button v-if="actions.includes('element:remove')" variant="ghost" @click="toolbarMenu = ''; trash = true"><IconTrash :size="16" /><span>回收站</span></Button>
             </div>
           </div>
         </StudioPopover>
@@ -256,52 +246,6 @@ function saved() {
     <p v-if="library.error.value" class="project-error" role="alert">{{ library.error.value }}</p>
     <p v-if="error" class="project-error" role="alert">{{ error }}</p>
     <p v-if="loading" role="status">正在加载元素…</p>
-    <template v-else-if="trash">
-      <div v-if="actions.includes('element:remove')" class="element-toolbar">
-        <ElCheckbox
-          :model-value="batchRestore.allSelected.value"
-          :disabled="pending || batchRestore.pending.value"
-          @change="batchRestore.selectAll(Boolean($event))"
-          >选择当前页可恢复元素</ElCheckbox
-        >
-        <Button
-          :disabled="pending || batchRestore.pending.value || !batchRestore.selected.value.length"
-          @click="batchRestore.restore"
-          >{{
-            batchRestore.pending.value
-              ? '正在恢复…'
-              : `恢复所选（${batchRestore.selected.value.length}）`
-          }}</Button
-        >
-      </div>
-      <p v-if="batchRestore.message.value" role="status">{{ batchRestore.message.value }}</p>
-      <div v-for="item in recycled" :key="item.id" class="element-picker-row">
-        <ElCheckbox
-          v-if="actions.includes('element:remove')"
-          :model-value="batchRestore.selected.value.includes(item.id)"
-          :aria-label="`选择恢复 ${item.name}`"
-          :disabled="pending || batchRestore.pending.value || !item.canRestore"
-          @change="batchRestore.toggle(item.id, Boolean($event))"
-        />
-        <span
-          >{{ item.name
-          }}<small class="muted">
-            · 恢复期限 {{ formatProjectDate(item.restoreUntil) }}</small
-          ></span
-        ><Button
-          variant="ghost"
-          :disabled="
-            pending ||
-            batchRestore.pending.value ||
-            !item.canRestore ||
-            !actions.includes('element:remove')
-          "
-          @click="restore(item)"
-          >{{ item.canRestore ? '恢复' : '不可恢复' }}</Button
-        >
-      </div>
-      <p v-if="!recycled.length" class="muted">没有可查看的回收元素。</p></template
-    >
     <template v-else>
       <div v-if="selection.selected.value.length" class="element-toolbar element-batch-toolbar">
         <ElCheckbox
@@ -416,7 +360,7 @@ function saved() {
     <StudioPagination
       v-if="total > 30"
       v-model:current-page="page"
-      :disabled="pending || batchRestore.pending.value || batchBusy"
+      :disabled="pending || batchBusy"
       :page-size="30"
       :total="total"
       layout="prev, pager, next"

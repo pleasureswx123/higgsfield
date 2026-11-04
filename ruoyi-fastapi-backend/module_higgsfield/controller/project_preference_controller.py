@@ -4,13 +4,18 @@ from fastapi import Query, Request
 from common.aspect.pre_auth import PreAuthDependency
 from common.router import APIRouterPro
 from module_higgsfield.controller.project_workspace_controller import Db, User, Key, ProjectId, mutation_response
-from module_higgsfield.entity.vo.project_preference_vo import CollectionCreate, CollectionUpdate, CollectionQuery, PreferenceUpdate
+from module_higgsfield.entity.vo.project_preference_vo import CollectionCreate, CollectionUpdate, CollectionQuery, PreferenceUpdate, ProjectOrderUpdate
 from module_higgsfield.entity.vo.project_workspace_vo import BigId
 from module_higgsfield.service.project_preference_service import PreferenceService
 from utils.response_util import ResponseUtil
 
 project_preference_controller = APIRouterPro(prefix='/api/v1', tags=['制作平台-个人项目导航'],
     order_num=88, dependencies=[PreAuthDependency()])
+
+
+@project_preference_controller.put('/project-preferences/order', summary='保存本人项目拖动顺序')
+async def reorder(request: Request, payload: ProjectOrderUpdate, key: Key, db: Db, user: User):
+    return mutation_response(await PreferenceService.reorder(db, user, payload.model_dump(by_alias=True), key))
 
 
 @project_preference_controller.get('/project-collections', summary='本人项目集合')

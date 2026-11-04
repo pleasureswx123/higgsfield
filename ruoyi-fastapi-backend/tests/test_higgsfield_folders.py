@@ -93,10 +93,28 @@ class FolderDatabaseTests(unittest.IsolatedAsyncioTestCase):
         async with self.sessions() as db:
             listing = await FolderService.list(db, self.owner, self.project_id, FolderQuery())
             self.assertIn(child['id'], [row['id'] for row in listing.rows])
-            await db.execute(text("DELETE FROM hf_project_role_permission WHERE permission_code='folder:write'"))
+            # Owner 权限固定；撤销平台访问授权验证回放鉴权。
+            self.owner.permissions = []
             await db.commit()
         with self.assertRaises(PermissionException):
             await self.action(deleted['data'], 'restore', key=restore_key)
+
+    async def test_batch_restore_counts_and_replay(self):
+        removed = []
+        for index in range(3):
+            folder = await self.folder(f'批量目录{index}')
+            result, _ = await self.action(folder, 'delete')
+            removed.append(result['data'])
+        for index, folder in enumerate(removed, 1):
+            key = str(uuid4())
+            restored, _ = await self.action(folder, 'restore', key=key)
+            replay, repeated = await self.action(folder, 'restore', key=key)
+            self.assertTrue(repeated)
+            self.assertEqual(restored, replay)
+            async with self.sessions() as db:
+                self.assertEqual((await FolderService.list(db, self.owner, self.project_id, FolderQuery())).total, index)
+                self.assertEqual((await FolderService.trash(db, self.owner, self.project_id, 1, 30)).total, 3-index)
+                self.assertEqual(await db.scalar(text("SELECT count(*) FROM hf_recycle_entry WHERE state='restored'")), index)
 
     async def test_concurrent_moves_cannot_create_cycle(self):
         left, right = await self.folder('左'), await self.folder('右')

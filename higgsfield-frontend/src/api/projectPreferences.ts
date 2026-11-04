@@ -16,6 +16,9 @@ export interface ProjectCollection {
   orderNum: number
   revision: string
 }
+export const putProjectOrder = (items: { projectId: string; revision: string }[], key: string, signal?: AbortSignal) =>
+  request<{ code: number; data: ProjectPreference[] }>({ url: '/api/v1/project-preferences/order', method: 'PUT', data: { items },
+    headers: { 'Idempotency-Key': key }, signal })
 export interface CollectionPage {
   code: number
   rows: ProjectCollection[]

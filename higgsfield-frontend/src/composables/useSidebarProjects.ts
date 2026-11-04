@@ -2,15 +2,16 @@ import { onBeforeUnmount, ref, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 import { getProjects, type Project } from '@/api/projects'
+import { useProjectUpdatesStore } from '@/stores/projectUpdates'
 
-// 侧栏独立于主列表筛选，只展示当前账号可见且未隐藏的项目。
+// 侧栏独立于主列表筛选，展示当前账号可见且未隐藏的全部项目。
 export function useSidebarProjects() {
   const auth = useAuthStore()
+  const updates = useProjectUpdatesStore()
   const route = useRoute()
   const projects = ref<Project[]>([])
   const loading = ref(false)
   const error = ref('')
-  const hasMore = ref(false)
   let controller: AbortController | undefined
   async function load() {
     controller?.abort()
@@ -20,10 +21,16 @@ export function useSidebarProjects() {
     loading.value = true
     error.value = ''
     try {
-      const result = await getProjects({ pageNum: 1, pageSize: 100, hidden: false, sort: 'name_asc' }, current.signal)
-      if (current.signal.aborted) return
-      projects.value = result.rows
-      hasMore.value = result.hasNext
+      const collected = new Map<string, Project>()
+      let pageNum = 1
+      while (true) {
+        const result = await getProjects({ pageNum, pageSize: 100, hidden: false, sort: 'name_asc' }, current.signal)
+        if (current.signal.aborted) return
+        for (const project of result.rows) collected.set(project.id, project)
+        if (!result.hasNext || !result.rows.length) break
+        pageNum++
+      }
+      projects.value = [...collected.values()]
     } catch (cause) {
       if (!current.signal.aborted) {
         projects.value = []
@@ -35,10 +42,10 @@ export function useSidebarProjects() {
   }
   watch(() => [auth.token, auth.user?.permissions.join('|')], () => {
     projects.value = []
-    hasMore.value = false
     void load()
   }, { immediate: true, flush: 'sync' })
   watch(() => route.path, () => { void load() })
+  watch(() => updates.revision, () => { void load() })
   onBeforeUnmount(() => controller?.abort())
-  return { projects, loading, error, hasMore, load }
+  return { projects, loading, error, load }
 }

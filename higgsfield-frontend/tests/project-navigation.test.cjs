@@ -12,6 +12,7 @@ function setup(getProjects) {
   runInNewContext(ts.transpileModule(readFileSync(join(__dirname, '../src/composables/useProjects.ts'), 'utf8'), { compilerOptions: { module: ts.ModuleKind.CommonJS } }).outputText, {
     exports, AbortController, require(id) {
       if (id === 'vue') return { ...vue, onActivated: fn => { hooks.activate = fn }, onDeactivated: fn => { hooks.deactivate = fn }, onBeforeUnmount: fn => { hooks.unmount = fn } }
+      if (id === '@/stores/projectUpdates') return { useProjectUpdatesStore: () => vue.reactive({ revision: 0 }) }
       if (id === '@/stores/auth') return { useAuthStore: () => auth }
       if (id === 'vue-router') return { useRoute: () => route, useRouter: () => ({ replace: async value => { replaced = value } }) }
       return { getProjects }
@@ -20,15 +21,15 @@ function setup(getProjects) {
   const scope = vue.effectScope(), state = scope.run(() => exports.useProjects())
   return { state, hooks, auth, route, replaced: () => replaced, close: () => { hooks.unmount(); scope.stop() } }
 }
-test('导航筛选恢复路由并以字符串集合ID请求后端，切换筛选重置页码', async () => {
+test('导航筛选恢复路由并忽略已停用的集合筛选，切换筛选重置页码', async () => {
   let query
   const c = setup(async value => { query = value; return { rows: [], total: 0 } })
   c.hooks.activate(); await tick()
   assert.equal(query.hidden, true); assert.equal(query.pinned, true)
-  assert.equal(query.collectionId, '9007199254740993'); assert.equal(query.pageNum, 2)
+  assert.equal(query.collectionId, undefined); assert.equal(query.pageNum, 2)
   c.state.hidden.value = false; c.state.pinned.value = false; c.state.applyFilters()
   assert.equal(c.replaced().query.page, '1'); assert.equal(c.replaced().query.hidden, undefined)
-  assert.equal(c.replaced().query.collectionId, '9007199254740993')
+  assert.equal(c.replaced().query.collectionId, undefined)
   c.close()
 })
 test('退出与卸载使旧项目列表请求失效', async () => {
@@ -50,7 +51,7 @@ test('隐藏最后一项导致页码越界时保留筛选并回到最后有效�
   assert.equal(c.replaced().query.page, '1')
   assert.equal(c.replaced().query.hidden, 'true')
   assert.equal(c.replaced().query.pinned, 'true')
-  assert.equal(c.replaced().query.collectionId, '9007199254740993')
+  assert.equal(c.replaced().query.collectionId, undefined)
   assert.equal(c.state.total.value, 20)
   assert.equal(c.state.rows.value.length, 0)
   c.close()

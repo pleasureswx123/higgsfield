@@ -2,6 +2,7 @@ import { ref, computed, onActivated, onDeactivated, onBeforeUnmount, watch } fro
 import { useRoute, useRouter } from 'vue-router'
 import { getProjects, getProject, type Project, type ProjectStatus } from '@/api/projects'
 import { useAuthStore } from '@/stores/auth'
+import { useProjectUpdatesStore } from '@/stores/projectUpdates'
 export function useProjectPermissions() {
   const auth = useAuthStore()
   const canCreate = computed(
@@ -11,6 +12,8 @@ export function useProjectPermissions() {
 }
 export function useProjects(recent = false) {
   const auth = useAuthStore()
+  const updates = useProjectUpdatesStore()
+  watch(() => updates.revision, () => { void load() })
   const route = useRoute(),
     router = useRouter()
   const rows = ref<Project[]>([]),
@@ -19,8 +22,7 @@ export function useProjects(recent = false) {
     total = ref(0),
     page = ref(1)
   const search = ref(''),
-    status = ref<ProjectStatus | ''>(''),
-    sort = ref<'created_desc' | 'created_asc' | 'name_asc'>('created_desc')
+    status = ref<ProjectStatus | ''>('')
   const hidden = ref(false), pinned = ref(false), collectionId = ref('')
   let controller: AbortController | undefined,
     sequence = 0,
@@ -37,14 +39,11 @@ export function useProjects(recent = false) {
       )
         ? (route.query.status as ProjectStatus)
         : ''
-      sort.value = ['created_desc', 'created_asc', 'name_asc'].includes(String(route.query.sort))
-        ? (route.query.sort as typeof sort.value)
-        : 'created_desc'
       page.value = Math.max(1, Math.floor(Number(route.query.page) || 1))
       hidden.value = route.query.hidden === 'true'
       pinned.value = route.query.pinned === 'true'
-      collectionId.value = typeof route.query.collectionId === 'string' && /^[1-9][0-9]{0,18}$/.test(route.query.collectionId)
-        ? route.query.collectionId : ''
+      // 集合分组暂不开放，旧链接中的集合条件不再限制可见列表。
+      collectionId.value = ''
     }
     loading.value = true
     error.value = ''
@@ -55,7 +54,8 @@ export function useProjects(recent = false) {
           pageSize: recent ? 4 : 20,
           q: search.value || undefined,
           status: status.value || undefined,
-          sort: sort.value,
+          // 后端优先采用个人拖动顺序，同序时与侧栏统一按名称排列。
+          sort: 'name_asc',
           hidden: hidden.value,
           pinned: pinned.value ? true : undefined,
           collectionId: collectionId.value || undefined,
@@ -86,7 +86,6 @@ export function useProjects(recent = false) {
     const query = {
       q: search.value.trim() || undefined,
       status: status.value || undefined,
-      sort: sort.value,
       page: String(nextPage),
       hidden: hidden.value ? 'true' : undefined,
       pinned: pinned.value ? 'true' : undefined,
@@ -124,7 +123,6 @@ export function useProjects(recent = false) {
     page,
     search,
     status,
-    sort,
     hidden,
     pinned,
     collectionId,

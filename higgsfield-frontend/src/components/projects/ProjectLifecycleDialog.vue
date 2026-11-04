@@ -9,7 +9,7 @@ const emit = defineEmits<{ changed: [project: Project] }>()
 const { open, target, action, form, fields, rules, loading, saving, uncertain, ready, locked, error, start, close, load, save } =
   useProjectLifecycle(project => emit('changed', project))
 const presentation = computed(() => ({
-  rename: { title: '编辑项目名称', label: '', submit: '保存名称', help: '修改名称不改变项目身份、素材归属或历史费用。' },
+  rename: { title: '编辑项目名称', label: '', submit: '保存名称', help: '' },
   archive: { title: '归档项目', label: '归档原因', submit: '确认归档', help: '归档后项目只读，已有供应商任务及历史费用保留。未保存简报仍保留在当前页面。' },
   restore: { title: '恢复项目', label: '恢复原因（可选）', submit: '确认恢复', help: '恢复后可按当前权限继续工作。旧任务不会重新提交，新生成仍需通过配置和预算校验。' },
   pause: { title: '暂停项目', label: '暂停原因', submit: '确认暂停', help: '暂停后停止新创作与普通编辑，已受理任务继续维护，历史费用保留。未保存简报仍保留在当前页面。' },
@@ -23,8 +23,8 @@ defineExpose({ start })
     <template #header="{ titleId, titleClass }">
       <DialogHeading :title-id="titleId" :title-class="titleClass" :title="presentation.title" />
     </template>
-    <p>{{ target?.name }}</p>
-    <p class="muted">{{ presentation.help }}</p>
+    <p v-if="action !== 'rename'">{{ target?.name }}</p>
+    <p v-if="presentation.help" class="muted">{{ presentation.help }}</p>
     <ElAlert v-if="error" :title="error" type="error" :closable="false" />
     <ElAlert v-if="uncertain && !saving" title="操作结果尚未确认。请重试同一请求，确认前不能更改内容或离开。" type="warning" :closable="false" />
     <p v-if="loading" role="status">正在核对项目状态与权限…</p>

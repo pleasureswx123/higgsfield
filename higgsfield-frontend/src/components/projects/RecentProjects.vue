@@ -16,7 +16,7 @@ function created(id: string) {
 <template>
   <section class="projects-section">
     <div class="section-heading">
-      <h2>我的项目</h2>
+      <h2>我参与的项目</h2>
       <RouterLink to="/projects">查看全部<IconChevronRight :size="16" /></RouterLink>
     </div>
     <p v-if="error" class="project-error" role="alert">

@@ -16,7 +16,7 @@ export const router = createRouter({
           path: 'projects',
           name: 'projects',
           component: () => import('@/views/ProjectsView.vue'),
-          meta: { title: '我的项目', description: '将你的创意、素材与团队汇聚在一个项目中。' },
+          meta: { title: '我参与的项目', description: '将你的创意、素材与团队汇聚在一个项目中。' },
         },
         {
           path: 'projects/:id',

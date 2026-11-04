@@ -72,3 +72,18 @@ class PreferenceUpdate(WorkspaceInput):
             if field in self.model_fields_set and getattr(self, field) is None:
                 raise ValueError('置顶、隐藏和排序不能清空')
         return self
+
+
+class ProjectOrderItem(WorkspaceInput):
+    project_id: BigId
+    revision: InitialRevision
+
+
+class ProjectOrderUpdate(WorkspaceInput):
+    items: list[ProjectOrderItem] = Field(min_length=1, max_length=10000)
+
+    @model_validator(mode='after')
+    def unique_projects(self):
+        if len({item.project_id for item in self.items}) != len(self.items):
+            raise ValueError('项目不能重复排序')
+        return self

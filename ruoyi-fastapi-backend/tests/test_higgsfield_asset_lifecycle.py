@@ -38,17 +38,19 @@ class AssetLifecycleTests(unittest.IsolatedAsyncioTestCase):
                     migration.upgrade()
 
             await conn.run_sync(migrate)
-            self.assertEqual(
-                await conn.scalar(
-                    text("SELECT count(*) FROM hf_project_role_permission WHERE permission_code='asset:remove'")
-                ),
-                0,
+            spec = importlib.util.spec_from_file_location(
+                'asset_status_migration',
+                Path(__file__).resolve().parents[1] / 'alembic/versions/20261028_79_asset_status.py',
             )
-            await conn.execute(
-                text(
-                    "INSERT INTO hf_project_role_permission(role_id,permission_code,data_scope) SELECT role_id,'asset:remove','own' FROM hf_project_role WHERE code='owner'"
-                )
-            )
+            migration = importlib.util.module_from_spec(spec)
+            spec.loader.exec_module(migration)
+            await conn.run_sync(migrate)
+            for filename in ('20261028_68_comments.py', '20261029_80_comment_collaboration.py'):
+                spec = importlib.util.spec_from_file_location('asset_comments_migration', Path(__file__).resolve().parents[1] / 'alembic/versions' / filename)
+                migration = importlib.util.module_from_spec(spec)
+                spec.loader.exec_module(migration)
+                await conn.run_sync(migrate)
+            # 角色层级迁移已初始化素材权限，Owner 使用固定完整权限。
         upload = await self.ready_upload()
         async with self.sessions() as db:
             result, _ = await AssetService.bind(
@@ -97,11 +99,37 @@ class AssetLifecycleTests(unittest.IsolatedAsyncioTestCase):
                 await db.scalar(text("SELECT state FROM hf_recycle_entry WHERE target_kind='asset'")), 'restored'
             )
             self.assertEqual(await db.scalar(text('SELECT revision FROM hf_asset')), 4)
-            await db.execute(text("DELETE FROM hf_project_role_permission WHERE permission_code='asset:remove'"))
+            # 撤销平台访问授权，验证回放仍重新鉴权。
+            self.owner.permissions = []
             await db.commit()
         # 已成功的幂等回放仍须重新鉴权，不因持有旧键绕过撤权。
         with self.assertRaises(PermissionException):
             await self.mutate('restore', '3', restore_key)
+
+    async def test_batch_restore_counts_and_replay(self):
+        from module_higgsfield.service.folder_service import FolderService
+
+        assets = [self.asset]
+        for index in range(2):
+            upload = await self.ready_upload()
+            async with self.sessions() as db:
+                result, _ = await AssetService.bind(db, self.owner, AssetCreate(projectId=self.project_id, uploadId=str(upload), name=f'批量素材{index}'), str(uuid4()))
+                assets.append(result['data'])
+        for asset in assets:
+            self.asset = asset
+            await self.mutate('delete', '1')
+        for index, asset in enumerate(assets, 1):
+            self.asset = asset
+            key = str(uuid4())
+            result, _ = await self.mutate('restore', '2', key)
+            replay, repeated = await self.mutate('restore', '2', key)
+            self.assertTrue(repeated)
+            self.assertEqual(result, replay)
+            async with self.sessions() as db:
+                self.assertEqual((await AssetService.library(db, self.owner, int(self.project_id), LibraryQuery())).total, index)
+                self.assertEqual((await AssetLifecycleService.trash(db, self.owner, int(self.project_id), 1, 30)).total, 3-index)
+                self.assertEqual((await FolderService.asset_counts(db, self.owner, int(self.project_id)))['total'], index)
+                self.assertEqual(await db.scalar(text('SELECT count(*) FROM hf_asset_version')), 3)
 
     async def test_expiry_and_own_scope(self):
         await self.mutate('delete', '1')
@@ -116,6 +144,8 @@ class AssetLifecycleTests(unittest.IsolatedAsyncioTestCase):
             await self.mutate('restore', '2')
         async with self.sessions() as db:
             await db.execute(text('UPDATE hf_asset SET create_user_id=9999'))
+            await db.execute(text("UPDATE hf_project_member SET role_id=(SELECT role_id FROM hf_project_role WHERE code='producer') WHERE user_id=1"))
+            await db.execute(text("UPDATE hf_project_role_permission SET data_scope='own' WHERE permission_code='asset:remove'"))
             await db.commit()
         async with self.sessions() as db:
             self.assertEqual((await AssetLifecycleService.trash(db, self.owner, int(self.project_id), 1, 1)).total, 0)

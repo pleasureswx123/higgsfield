@@ -7,7 +7,6 @@ import { Label } from '@/components/ui/label'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import Button from '@/components/ui/Button.vue'
 import { IconArrowRight, IconRefresh, IconEye, IconEyeOff, IconLoader2, IconAlertCircle } from '@tabler/icons-vue'
-import ThemeToggle from '@/components/shared/ThemeToggle.vue'
 import '@/styles/login.css'
 import { useLogin } from '@/composables/useLogin'
 const {
@@ -51,7 +50,6 @@ function trackValidation(field: string | string[], valid: boolean, message: stri
       <section class="login-panel">
         <header class="login-header">
           <a href="/" class="brand"><img src="/brand-mark.svg" width="32" height="32" alt="Higgsfield 制作平台" /><span>Higgsfield <small>STUDIO</small></span></a>
-          <ThemeToggle />
         </header>
       <Card class="login-card" aria-labelledby="login-title">
         <CardHeader class="login-card-header">
