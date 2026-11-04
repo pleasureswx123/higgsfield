@@ -325,6 +325,7 @@ const rules: FormRules = {
       </ProjectAssets>
     </div>
     <ElDialog
+      append-to-body
       :model-value="active && dialog"
       :before-close="closeEditor"
       :title="editing ? '编辑文件夹' : createInDestination ? '新建目标文件夹' : '新建文件夹'"
@@ -376,6 +377,7 @@ const rules: FormRules = {
       >
     </ElDialog>
     <ElDialog
+      append-to-body
       :model-value="active && destinationOpen" @update:model-value="active && (destinationOpen = $event)"
       :title="destinationMode === 'move' ? '移动到' : '复制到'"
       width="500px"

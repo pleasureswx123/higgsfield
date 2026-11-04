@@ -1,5 +1,6 @@
 <script setup lang="ts">
-import { ElCheckbox, ElSelect, ElOption } from 'element-plus'
+import StudioSelect from '@/components/ui/StudioSelect.vue'
+import { Checkbox } from '@/components/ui/checkbox'
 import Button from '@/components/ui/Button.vue'
 import { useProjectPermissions } from '@/composables/useProjectPermissions'
 const props = defineProps<{ projectId: string }>()
@@ -27,10 +28,8 @@ const { matrix, draft, groups, dirty, loading, saving, error, notice, load, rese
           <tbody><tr v-for="row in matrix.rows.filter(row => row.group === group)" :key="row.code">
             <th scope="row">{{ row.label }}</th>
             <td v-for="role in matrix.roles" :key="role.code">
-              <ElCheckbox :model-value="!!draft[role.code]?.[row.code] && draft[role.code]?.[row.code] !== 'none'" :disabled="!matrix.canEdit || !row.editable || role.code === 'owner' || saving" :aria-label="`${role.name}：${row.label}`" @change="value => changePermission(role.code, row.code, value ? (row.scoped ? 'own' : 'project') : 'none')" />
-              <ElSelect v-if="row.scoped && draft[role.code]?.[row.code] && draft[role.code]?.[row.code] !== 'none'" :model-value="draft[role.code]![row.code]" @change="value => changePermission(role.code, row.code, value)" :disabled="!matrix.canEdit || !row.editable || role.code === 'owner' || saving" :aria-label="`${role.name}：${row.label}范围`" size="small" class="permission-scope">
-                <ElOption label="本人" value="own" /><ElOption label="全项目" value="project" />
-              </ElSelect>
+              <Checkbox :model-value="!!draft[role.code]?.[row.code] && draft[role.code]?.[row.code] !== 'none'" :disabled="!matrix.canEdit || !row.editable || role.code === 'owner' || saving" :aria-label="`${role.name}：${row.label}`" @update:model-value="value => changePermission(role.code, row.code, value === true ? (row.scoped ? 'own' : 'project') : 'none')" />
+              <StudioSelect v-if="row.scoped && draft[role.code]?.[row.code] && draft[role.code]?.[row.code] !== 'none'" :model-value="draft[role.code]![row.code]" @change="value => { if (value === 'own' || value === 'project') changePermission(role.code, row.code, value) }" :disabled="!matrix.canEdit || !row.editable || role.code === 'owner' || saving" :aria-label="`${role.name}：${row.label}范围`" class="permission-scope" :options="[{ label: '本人', value: 'own' }, { label: '全项目', value: 'project' }]" />
             </td>
           </tr></tbody>
         </table></div>

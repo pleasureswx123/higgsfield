@@ -1,6 +1,10 @@
 <script setup lang="ts">
+import { Switch } from '@/components/ui/switch'
+import { Input } from '@/components/ui/input'
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog'
+import StudioPopover from '@/components/ui/StudioPopover.vue'
 import { computed, ref, watch, nextTick, onMounted, onBeforeUnmount, onActivated } from 'vue'
-import { ElInputNumber, ElSwitch, ElPopover, ElInput, ElDialog } from 'element-plus'
+import { ElInputNumber } from 'element-plus'
 import { IconPhoto, IconVideo, IconPlus, IconAt, IconSparkles, IconDiamond, IconMaximize, IconClock, IconVolume, IconVolumeOff, IconArrowLeft, IconArrowRight, IconScissors, IconLayoutColumns } from '@tabler/icons-vue'
 import { imageSize, imageSizeIssue } from '@/utils/imageSize'
 import type { ModelCapability, ParameterRule, Scalar } from '@/api/creation'
@@ -188,9 +192,9 @@ watch(() => [props.kind, props.selected?.versionId, props.disabled], () => { men
             <button type="button" aria-label="引用元素" :disabled="disabled" @click="reference('element', $event)"><IconAt :size="16" /></button>
           </div>
           <button v-if="projectRequired" type="button" class="composer-tool" @click="emit('project')"><IconSparkles :size="16" />选择项目与模型 ›</button>
-          <ElPopover v-else placement="top-start" trigger="click" :width="420" :visible="menu === 'models'" :disabled="disabled" @update:visible="menu = $event ? 'models' : ''" popper-class="creation-control-popover">
+          <StudioPopover v-else placement="top-start" trigger="click" :width="420" :visible="menu === 'models'" :disabled="disabled" @update:visible="menu = $event ? 'models' : ''" popper-class="creation-control-popover">
             <template #reference><button type="button" class="composer-tool composer-model" :disabled="disabled" aria-label="创作模型" @click="modelQuery = ''"><IconSparkles :size="16" />{{ selected?.displayName || '选择模型' }} <span>›</span></button></template>
-            <ElInput v-model="modelQuery" placeholder="搜索模型名称" aria-label="搜索模型名称" clearable />
+            <Input v-model="modelQuery" placeholder="搜索模型名称" aria-label="搜索模型名称" />
             <div class="model-menu-list">
               <p v-if="loading" role="status">正在读取模型…</p>
               <p v-else-if="!filteredModels.length" class="parameter-label">暂无匹配的可用模型</p>
@@ -198,7 +202,7 @@ watch(() => [props.kind, props.selected?.versionId, props.disabled], () => { men
                 <IconSparkles :size="22" /><span><strong>{{ model.displayName }}</strong><small>{{ [model.menuMeta.family, model.menuMeta.releaseLabel, model.menuMeta.tier].filter(Boolean).join(' · ') }}</small></span><span v-if="selected?.versionId === model.versionId">✓</span>
               </button>
             </div>
-          </ElPopover>
+          </StudioPopover>
         <div class="composer-tool-strip">
           <div ref="toolRow" class="composer-tool-row">
           <div class="composer-tool-content">
@@ -209,7 +213,7 @@ watch(() => [props.kind, props.selected?.versionId, props.disabled], () => { men
               <button type="button" aria-label="增加生成数量" :disabled="disabled || batchValue(name, rule) >= batchMax(rule)" @click="stepBatch(name, rule, 1)">＋</button>
             </div>
             <button v-else-if="rule.type === 'boolean' && ['audio', 'generate_audio'].includes(name)" type="button" class="composer-tool" :disabled="disabled" aria-label="生成声音" :aria-pressed="valueOf(name) === true" @click="toggleAudio(name)"><IconVolume v-if="valueOf(name) === true" :size="16" /><IconVolumeOff v-else :size="16" />{{ displayValue(name, valueOf(name)) }}</button>
-            <ElPopover v-else placement="top" trigger="click" :width="isDuration(name) ? 320 : name === 'resolution' && kind === 'image' ? 300 : name === 'bitrate_mode' ? 240 : 210" :show-arrow="false" :visible="menu === name" :disabled="parameterDisabled(name)" @update:visible="menu = $event ? name : ''" :popper-class="kind === 'video' ? 'creation-control-popover creation-video-popover' : isRatio(name) ? 'creation-control-popover creation-ratio-popover' : name === 'quality' ? 'creation-control-popover creation-quality-popover' : name === 'resolution' ? 'creation-control-popover creation-resolution-popover' : 'creation-control-popover'">
+            <StudioPopover v-else placement="top" trigger="click" :width="isDuration(name) ? 320 : name === 'resolution' && kind === 'image' ? 300 : name === 'bitrate_mode' ? 240 : 210" :show-arrow="false" :visible="menu === name" :disabled="parameterDisabled(name)" @update:visible="menu = $event ? name : ''" :popper-class="kind === 'video' ? 'creation-control-popover creation-video-popover' : isRatio(name) ? 'creation-control-popover creation-ratio-popover' : name === 'quality' ? 'creation-control-popover creation-quality-popover' : name === 'resolution' ? 'creation-control-popover creation-resolution-popover' : 'creation-control-popover'">
               <template #reference><button type="button" class="composer-tool" :disabled="parameterDisabled(name)" :title="name === 'resolution' && parameterDisabled(name) ? '尺寸由模型自动决定，切换固定比例可选择分辨率' : undefined" :aria-label="labels[name] || name"><component :is="modeIcons[String(valueOf(name))] || IconLayoutColumns" v-if="isMode(name)" :size="16" /><IconMaximize v-else-if="isRatio(name)" :size="16" /><IconDiamond v-else-if="['quality', 'bitrate_mode', 'resolution'].includes(name)" :size="16" /><IconClock v-else-if="['duration', 'duration_seconds'].includes(name)" :size="16" />{{ displayValue(name, valueOf(name)) ?? labels[name] ?? name }}</button></template>
               <label v-if="!isMode(name)" class="parameter-label">{{ labels[name] || name }}</label>
               <div v-if="isDuration(name) && durationChoices(rule).length" class="duration-control">
@@ -221,10 +225,10 @@ watch(() => [props.kind, props.selected?.versionId, props.disabled], () => { men
                   <component :is="modeIcons[String(value)] || IconLayoutColumns" v-if="isMode(name)" :size="20" /><span v-if="isRatio(name)" class="ratio-icon-slot"><IconMaximize v-if="String(value).toLowerCase() === 'auto'" :size="17" /><span v-else class="ratio-icon" :style="ratioStyle(value)"></span></span><span class="parameter-option-copy">{{ displayValue(name, value) }}<small v-if="name === 'bitrate_mode'">{{ value === 'high' ? '压缩较少 · 文件较大' : value === 'standard' ? '压缩较多 · 文件较小' : '' }}</small></span><small v-if="resolutionHint(name, value)">{{ resolutionHint(name, value) }}{{ resolutionIssue(name, value) ? ' · 不支持当前比例' : '' }}</small>
                 </button>
               </div>
-              <ElSwitch v-else-if="rule.type === 'boolean'" :model-value="valueOf(name) === true" @update:model-value="changeParameter(name, $event)" />
+              <Switch v-else-if="rule.type === 'boolean'" :model-value="valueOf(name) === true" @update:model-value="changeParameter(name, $event)" />
               <ElInputNumber v-else-if="rule.type === 'integer' || rule.type === 'number'" :model-value="typeof valueOf(name) === 'number' ? valueOf(name) as number : undefined" :min="rule.minimum ?? undefined" :max="rule.maximum ?? undefined" :precision="rule.type === 'integer' ? 0 : undefined" @update:model-value="emit('parameter', name, $event)" />
-              <ElInput v-else :model-value="String(valueOf(name) ?? '')" :maxlength="rule.maxLength ?? undefined" @update:model-value="emit('parameter', name, $event)" />
-            </ElPopover>
+              <Input v-else :model-value="String(valueOf(name) ?? '')" :maxlength="rule.maxLength ?? undefined" @update:model-value="emit('parameter', name, $event)" />
+            </StudioPopover>
           </template>
           </div>
           </div>
@@ -240,10 +244,12 @@ watch(() => [props.kind, props.selected?.versionId, props.disabled], () => { men
       </div>
       <p v-if="sizeIssue" class="composer-size-error" role="alert">{{ sizeIssue }}</p>
     </div>
-    <ElDialog :model-value="audioConfirm !== null" title="关闭声音？" width="min(420px, 92vw)" append-to-body align-center :show-close="false" class="composer-audio-dialog" @close="audioConfirm = null">
-      <p>本次生成的视频将不包含生成音频。</p>
-      <template #footer><button type="button" class="audio-cancel" @click="audioConfirm = null">取消</button><button type="button" class="audio-confirm" :disabled="disabled" @click="confirmAudioOff">关闭声音</button></template>
-    </ElDialog>
+    <Dialog :open="audioConfirm !== null" @update:open="value => { if (!value) audioConfirm = null }">
+      <DialogContent class="composer-audio-dialog studio-dialog">
+        <DialogHeader><DialogTitle>关闭声音？</DialogTitle><DialogDescription>本次生成的视频将不包含生成音频。</DialogDescription></DialogHeader>
+        <DialogFooter><button type="button" class="audio-cancel" @click="audioConfirm = null">取消</button><button type="button" class="audio-confirm" :disabled="disabled" @click="confirmAudioOff">关闭声音</button></DialogFooter>
+      </DialogContent>
+    </Dialog>
   </div>
 </template>
 
@@ -335,7 +341,7 @@ button:focus-visible { outline:2px solid var(--focus); outline-offset:2px; }
 </style>
 
 <style>
-.creation-control-popover.el-popover { background:var(--surface-raised); color:var(--foreground); border:1px solid var(--border); border-radius:14px; max-width:calc(100vw - 24px); box-shadow:0 12px 36px #0004; }
+.creation-control-popover.studio-popover { background:var(--surface-raised); color:var(--foreground); border:1px solid var(--border); border-radius:14px; max-width:calc(100vw - 24px); box-shadow:0 12px 36px #0004; }
 </style>
 
 <style>
@@ -372,10 +378,10 @@ button:focus-visible { outline:2px solid var(--focus); outline-offset:2px; }
 .duration-control input::-moz-range-thumb { width:4px; height:32px; border:0; border-radius:2px; background:var(--foreground); }
 .duration-control input:focus-visible { outline:2px solid var(--focus); outline-offset:3px; }
 .composer-video-reference span { font-size:11px; }
-.composer-audio-dialog.el-dialog { border-radius:24px; padding:24px; background:var(--surface); color:var(--foreground); }
+.composer-audio-dialog.studio-dialog { border-radius:24px; padding:24px; background:var(--surface); color:var(--foreground); }
 .composer-audio-dialog p { color:var(--muted-foreground); line-height:1.7; }
 .composer-audio-dialog .el-dialog__footer { padding-top:20px; display:flex; justify-content:flex-end; gap:8px; }
-.composer-audio-dialog button { padding:13px 24px; border:0; border-radius:13px; font-weight:600; cursor:pointer; }
+.composer-audio-dialog .audio-cancel, .composer-audio-dialog .audio-confirm { padding:13px 24px; border:0; border-radius:13px; font-weight:600; cursor:pointer; }
 .audio-cancel { background:var(--surface-hover); color:var(--foreground); }
 .audio-confirm { background:var(--foreground); color:var(--background); }
 </style>

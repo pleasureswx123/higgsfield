@@ -1,11 +1,13 @@
 <script setup lang="ts">
+import StudioSelect from '@/components/ui/StudioSelect.vue'
+import StudioPagination from '@/components/ui/StudioPagination.vue'
 import { onDeactivated, ref, watch } from 'vue'
 import GenerationDetail from './GenerationDetail.vue'
 import GenerationCardBilling from './GenerationCardBilling.vue'
 import GenerationCardMedia from './GenerationCardMedia.vue'
 import ProjectFilter from './ProjectFilter.vue'
 import type { Project } from '@/api/projects'
-import { ElSelect, ElOption, ElPagination, ElForm, ElFormItem, ElDatePicker, type FormRules } from 'element-plus'
+import { ElForm, ElFormItem, ElDatePicker, type FormRules } from 'element-plus'
 import { libraryWindow } from '@/utils/libraryWindow'
 import Button from '@/components/ui/Button.vue'
 import { useGenerations } from '@/composables/useGenerations'
@@ -60,20 +62,10 @@ const dateRules: FormRules = { dates: [{ trigger: 'change', validator: (_rule, v
     <div v-if="projectId" class="project-page-heading"><div><h2>项目生成记录</h2><p class="muted">查看当前项目团队的 AI 生成任务与结果，显示范围由项目权限决定。</p></div></div>
     <div class="generation-toolbar">
       <ProjectFilter v-if="!projectId" v-model="filteredProject" :active="active" />
-      <ElSelect v-model="kind" aria-label="生成类型" placeholder="全部类型"
-        ><ElOption label="全部类型" value="" /><ElOption
-          v-for="(label, value) in kinds"
-          :key="value"
-          :label="label"
-          :value="value"
-      /></ElSelect>
-      <ElSelect v-model="state" aria-label="任务阶段" placeholder="全部阶段"
-        ><ElOption label="全部阶段" value="" /><ElOption
-          v-for="(label, value) in states"
-          :key="value"
-          :label="label"
-          :value="value"
-      /></ElSelect>
+      <StudioSelect v-model="kind" aria-label="生成类型" placeholder="全部类型"
+         :options="[{ label: '全部类型', value: '' }, ...Object.entries(kinds).map(([value, label]) => ({ value, label }))]" />
+      <StudioSelect v-model="state" aria-label="任务阶段" placeholder="全部阶段"
+         :options="[{ label: '全部阶段', value: '' }, ...Object.entries(states).map(([value, label]) => ({ value, label }))]" />
       <Button variant="ghost" :disabled="loading" @click="refresh">刷新</Button>
     </div>
     <ElForm :model="{ dates }" :rules="dateRules" label-position="top" @submit.prevent>
@@ -127,7 +119,7 @@ const dateRules: FormRules = { dates: [{ trigger: 'change', validator: (_rule, v
         >
       </article>
     </div>
-    <ElPagination
+    <StudioPagination
       v-if="total > 20"
       v-model:current-page="page"
       :page-size="20"
@@ -144,7 +136,7 @@ const dateRules: FormRules = { dates: [{ trigger: 'change', validator: (_rule, v
   gap: 12px;
   margin-bottom: 20px;
 }
-.generation-toolbar .el-select {
+.generation-toolbar :deep(.studio-select) {
   width: 190px;
 }
 .generation-grid {
@@ -193,7 +185,7 @@ const dateRules: FormRules = { dates: [{ trigger: 'change', validator: (_rule, v
   border: 1px dashed var(--border);
   border-radius: 16px;
 }
-.el-pagination {
+.studio-pagination {
   margin-top: 24px;
 }
 </style>

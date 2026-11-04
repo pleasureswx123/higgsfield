@@ -1,8 +1,16 @@
 <script setup lang="ts">
-import { ref, watch, computed } from 'vue'
+import { Input } from '@/components/ui/input'
+import { Switch } from '@/components/ui/switch'
+import { Slider } from '@/components/ui/slider'
+import { Separator } from '@/components/ui/separator'
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import StudioSelect from '@/components/ui/StudioSelect.vue'
+import StudioPopover from '@/components/ui/StudioPopover.vue'
+import StudioPagination from '@/components/ui/StudioPagination.vue'
+import { ref, watch, computed, useId } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { ElInput, ElSelect, ElOption, ElPagination, ElCheckbox, ElInputNumber, ElPopover, ElMessageBox } from 'element-plus'
-import { IconPlus, IconSearch, IconFilter, IconLayoutGrid, IconUpload, IconFolder, IconAt } from '@tabler/icons-vue'
+import { ElCheckbox, ElMessageBox } from 'element-plus'
+import { IconRefresh, IconAdjustmentsHorizontal, IconTrash, IconPlus, IconSearch, IconFilter, IconLayoutGrid, IconUpload, IconFolder, IconAt } from '@tabler/icons-vue'
 import DirectoryMoveDialog from './DirectoryMoveDialog.vue'
 import ElementBatchCopyDialog from './ElementBatchCopyDialog.vue'
 import type { ElementRecord } from '@/api/elements'
@@ -64,7 +72,14 @@ const {
   open,
   restore,
 } = useElements(props.projectId, () => props.visible !== false)
-const searchOpen = ref(false)
+const categoryPanelId = useId()
+const toolbarMenu = ref('')
+const searchInputId = useId()
+const statusInputId = useId()
+const dateSwitchId = useId()
+function applySearch() { filter(); toolbarMenu.value = '' }
+function clearSearch() { search.value = ''; filter() }
+watch(() => props.visible, value => { if (value === false) toolbarMenu.value = '' })
 const library = useElementLibrary(props.projectId, rows, () => props.visible !== false && !trash.value, () => ({ q: search.value, category: category.value || undefined, statusGroup: group.value || undefined, workStatus: workStatus.value || undefined, folderId: folderId.value || undefined }))
 function chooseGroup(value: '' | 'active' | 'drafts') { group.value = value; folderId.value = ''; filter() }
 async function addFolder() {
@@ -200,29 +215,42 @@ function saved() {
       </div>
     </header>
     <div v-if="!trash" class="element-library-navigation" :inert="batchBusy">
-      <nav class="element-category-tabs" aria-label="元素分类">
-        <button :class="{ active: !category }" @click="category = ''; filter()">全部</button>
-        <button v-for="(label, value) in categoryNames" :key="value" :class="{ active: category === value }" @click="category = value; filter()">{{ label }}</button>
-      </nav>
+      <Tabs :model-value="category || 'all'" @update:model-value="value => { category = value === 'all' ? '' : value as typeof category; filter() }">
+        <TabsList class="element-category-tabs studio-tabs studio-pill-tabs" aria-label="元素分类">
+          <TabsTrigger :aria-controls="categoryPanelId" value="all">全部</TabsTrigger>
+          <TabsTrigger :aria-controls="categoryPanelId" v-for="(label, value) in categoryNames" :key="value" :value="value">{{ label }}</TabsTrigger>
+        </TabsList>
+      </Tabs>
       <div class="element-library-actions">
-        <ElInput v-if="searchOpen" v-model="search" class="element-library-search" placeholder="搜索名称或别名" clearable @keyup.enter="filter" @clear="filter" />
-        <Button variant="ghost" @click="searchOpen = !searchOpen"><IconSearch :size="16" />搜索</Button>
-        <ElPopover trigger="click" :width="260">
-          <template #reference><Button variant="ghost"><IconFilter :size="16" />筛选</Button></template>
-          <div class="element-library-options"><label>制作状态</label><ElSelect v-model="workStatus" @change="filter"><ElOption label="全部" value="" /><ElOption label="未开始" value="none" /><ElOption label="制作中" value="working" /><ElOption label="待审核" value="review" /><ElOption label="已通过" value="approved" /><ElOption label="已驳回" value="rejected" /></ElSelect></div>
-        </ElPopover>
-        <ElPopover trigger="click" :width="280">
-          <template #reference><Button variant="ghost"><IconLayoutGrid :size="16" />视图</Button></template>
+        <StudioPopover :disabled="visible === false" :visible="toolbarMenu === 'search'" placement="bottom-end" :width="300" popper-class="element-toolbar-popover" @update:visible="toolbarMenu = $event ? 'search' : ''">
+          <template #reference><Button variant="ghost" class="element-toolbar-button" :class="{ 'has-value': search }"><IconSearch :size="16" />搜索<span v-if="search" class="toolbar-value-dot" aria-label="已设置搜索条件"></span></Button></template>
+          <form class="element-library-options" @submit.prevent="applySearch">
+            <label :for="searchInputId">搜索元素</label>
+            <Input :id="searchInputId" v-model="search" placeholder="输入名称或别名" aria-label="搜索名称或别名" />
+            <div class="element-search-actions"><Button type="button" variant="ghost" :disabled="!search" @click="clearSearch">清除</Button><Button type="submit">搜索</Button></div>
+          </form>
+        </StudioPopover>
+        <StudioPopover :disabled="visible === false" :visible="toolbarMenu === 'filter'" placement="bottom-end" :width="260" popper-class="element-toolbar-popover" @update:visible="toolbarMenu = $event ? 'filter' : ''">
+          <template #reference><Button variant="ghost" class="element-toolbar-button" :class="{ 'has-value': workStatus }"><IconFilter :size="16" />筛选<span v-if="workStatus" class="toolbar-value-dot" aria-label="已设置筛选条件"></span></Button></template>
+          <div class="element-library-options"><label :for="statusInputId">制作状态</label><StudioSelect :id="statusInputId" v-model="workStatus" aria-label="制作状态" :options="[{ label: '全部', value: '' }, { label: '未开始', value: 'none' }, { label: '制作中', value: 'working' }, { label: '待审核', value: 'review' }, { label: '已通过', value: 'approved' }, { label: '已驳回', value: 'rejected' }]" @change="filter" /><Button variant="ghost" :disabled="!workStatus" @click="workStatus = ''; filter()">重置筛选</Button></div>
+        </StudioPopover>
+        <StudioPopover :disabled="visible === false" :visible="toolbarMenu === 'view'" placement="bottom-end" :width="280" popper-class="element-toolbar-popover" @update:visible="toolbarMenu = $event ? 'view' : ''">
+          <template #reference><Button variant="ghost" class="element-toolbar-button"><IconLayoutGrid :size="16" />视图</Button></template>
           <div class="element-library-options">
-            <ElSelect v-model="layout" aria-label="元素布局"><ElOption label="表格" value="table" /><ElOption label="网格" value="grid" /><ElOption label="看板" value="board" /></ElSelect>
-            <ElCheckbox v-model="splitByDate">按日期分组</ElCheckbox>
-            <ElInputNumber v-model="cardSize" :min="1" :max="8" :precision="0" :disabled="layout === 'table'" aria-label="卡片尺寸" />
-            <ElementViewPreference :project-id="projectId" :settings="viewSettings" @restore="restoreView" />
-            <Button variant="ghost" @click="refresh">刷新</Button>
-            <Button v-if="actions.includes('element:configure')" variant="ghost" @click="propertiesOpen = true">属性配置</Button>
-            <Button v-if="actions.includes('element:remove')" variant="ghost" @click="trash = true">回收站</Button>
+            <span class="toolbar-field-label">显示方式</span>
+            <StudioSelect v-model="layout" aria-label="元素布局" :options="[{ label: '表格', value: 'table' }, { label: '网格', value: 'grid' }, { label: '看板', value: 'board' }]" />
+            <div class="element-view-switch"><label :for="dateSwitchId">按日期分组</label><Switch :id="dateSwitchId" v-model="splitByDate" /></div>
+            <div class="element-card-size" :class="{ 'is-disabled': layout === 'table' }"><div><span>卡片尺寸</span><span>{{ cardSize }} / 8</span></div><Slider :model-value="[cardSize]" :min="1" :max="8" :step="1" :disabled="layout === 'table'" aria-label="卡片尺寸" @update:model-value="value => { if (value?.[0] !== undefined) cardSize = value[0] }" /><small v-if="layout === 'table'">切换为网格或看板后可调整</small></div>
+            <Separator />
+            <ElementViewPreference compact :project-id="projectId" :settings="viewSettings" @restore="restoreView" />
+            <div class="element-view-menu">
+              <Button variant="ghost" @click="refresh"><IconRefresh :size="16" /><span>刷新列表</span></Button>
+              <Button v-if="actions.includes('element:configure')" variant="ghost" @click="toolbarMenu = ''; propertiesOpen = true"><IconAdjustmentsHorizontal :size="16" /><span>属性配置</span></Button>
+              <Separator v-if="actions.includes('element:remove')" />
+              <Button v-if="actions.includes('element:remove')" variant="ghost" @click="toolbarMenu = ''; trash = true"><IconTrash :size="16" /><span>回收站</span></Button>
+            </div>
           </div>
-        </ElPopover>
+        </StudioPopover>
       </div>
     </div>
     <p v-if="library.error.value" class="project-error" role="alert">{{ library.error.value }}</p>
@@ -334,7 +362,7 @@ function saved() {
       </p>
       <p v-if="downloader.message.value" role="status">{{ downloader.message.value }}</p>
       <p v-if="moveMessage" role="status">{{ moveMessage }}</p>
-      <div class="element-library-body"><div class="element-library-content"><ElementViewCollection
+      <div class="element-library-body"><div :id="categoryPanelId" class="element-library-content" role="tabpanel" aria-label="元素分类结果"><ElementViewCollection
         selectable
         :selected="selection.selected.value"
         :selection-disabled="batchBusy"
@@ -385,7 +413,7 @@ function saved() {
       "
       @changed="moved"
     />
-    <ElPagination
+    <StudioPagination
       v-if="total > 30"
       v-model:current-page="page"
       :disabled="pending || batchRestore.pending.value || batchBusy"

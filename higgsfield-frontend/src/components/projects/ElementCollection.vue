@@ -2,7 +2,10 @@
 import ReferenceThumbnail from './ReferenceThumbnail.vue'
 import { computed } from 'vue'
 import { IconPhoto } from '@tabler/icons-vue'
-import { ElTable, ElTableColumn, ElCheckbox } from 'element-plus'
+import { ElCheckbox } from 'element-plus'
+import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '@/components/ui/table'
+import { Checkbox } from '@/components/ui/checkbox'
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
 import type { ElementRecord } from '@/api/elements'
 const props = defineProps<{
   rows: ElementRecord[]
@@ -28,53 +31,65 @@ const columns = computed(() =>
     rows: props.rows.filter((row) => row.workStatus === status),
   })),
 )
+const textColumns = computed(() => [
+  { key: 'name', title: '名称', width: 180, value: (row: ElementRecord) => row.name },
+  ...(props.showProject ? [{ key: 'project', title: '项目', width: 140, value: (row: ElementRecord) => row.projectName || '' }] : []),
+  { key: 'category', title: '分类', width: 100, value: (row: ElementRecord) => categoryNames[row.category] },
+  { key: 'alias', title: '元素 ID', width: 140, value: (row: ElementRecord) => `@${row.alias}` },
+  { key: 'description', title: '描述', width: 220, value: (row: ElementRecord) => row.description || '' },
+  { key: 'label', title: '版本', width: 130, value: (row: ElementRecord) => row.label || '—' },
+  { key: 'performer', title: '负责人', width: 150, value: (row: ElementRecord) => row.performerName || (row.performerId ? `成员 ${row.performerId}` : '未分配') },
+  { key: 'status', title: '状态', width: 110, value: (row: ElementRecord) => statusNames[row.workStatus] },
+])
+const tableWidth = computed(() => 328 + textColumns.value.reduce((sum, column) => sum + column.width, 0))
 </script>
 <template>
-  <ElTable
-    v-if="layout === 'table'"
-    :data="rows"
-    row-key="id"
-    border
-    class="element-table"
-    empty-text="暂无匹配的元素"
-  >
-    <ElTableColumn label="#" width="48"><template #default="{ row, $index }"><span class="element-row-index">{{ $index + 1 }}</span><ElCheckbox v-if="selectable" class="element-row-select" :model-value="selected?.includes(row.id) || false" :aria-label="`选择元素 ${row.name}`" :disabled="selectionDisabled" @change="emit('select', row.id, Boolean($event))" /></template></ElTableColumn>
-    <ElTableColumn label="图片" width="280" class-name="element-media-cell"><template #default="{ row }"><div class="element-table-media"><template v-if="row.media?.length"><button v-for="media in row.media.slice(0, 3)" :key="media.assetVersionId" class="element-media-preview" :aria-label="`预览素材 ${row.name}`" @click.stop="emit('preview', media.assetVersionId)"><ReferenceThumbnail :version-id="media.assetVersionId" fill passive allow-original :alt="row.name" /></button></template><button v-else class="element-empty-media" :aria-label="`为 ${row.name} 添加素材`" @click="emit('open', row as ElementRecord)"><span>＋</span>添加元素图片</button></div></template></ElTableColumn>
-    <ElTableColumn label="名称" min-width="180"
-      ><template #default="{ row }"
-        ><button class="folder-text-button" @click="emit('open', row as ElementRecord)">
-          {{ row.name }}
-        </button></template
-      ></ElTableColumn
-    >
-    <ElTableColumn
-      v-if="showProject"
-      prop="projectName"
-      label="项目"
-      min-width="140"
-      show-overflow-tooltip
-    />
-    <ElTableColumn label="分类" width="100"
-      ><template #default="{ row }">{{
-        categoryNames[row.category as keyof typeof categoryNames]
-      }}</template></ElTableColumn
-    >
-    <ElTableColumn label="元素 ID" min-width="140" show-overflow-tooltip
-      ><template #default="{ row }">@{{ row.alias }}</template></ElTableColumn
-    >
-    <ElTableColumn prop="description" label="描述" min-width="220" show-overflow-tooltip />
-    <ElTableColumn label="版本" min-width="130"
-      ><template #default="{ row }"
-        >{{ row.label || '—' }}</template
-      ></ElTableColumn
-    >
-    <ElTableColumn label="负责人" min-width="150"><template #default="{ row }">{{ row.performerName || (row.performerId ? `成员 ${row.performerId}` : '未分配') }}</template></ElTableColumn>
-    <ElTableColumn label="状态" width="110"
-      ><template #default="{ row }">{{
-        statusNames[row.workStatus as keyof typeof statusNames]
-      }}</template></ElTableColumn
-    >
-  </ElTable>
+  <div v-if="layout === 'table'" class="element-table-scroll">
+    <TooltipProvider :delay-duration="300">
+      <Table class="element-table" :style="{ minWidth: `${tableWidth}px` }" aria-label="元素列表">
+        <colgroup>
+          <col style="width: 48px" />
+          <col style="width: 280px" />
+          <col v-for="column in textColumns" :key="column.key" :style="{ width: `${column.width}px` }" />
+        </colgroup>
+        <TableHeader>
+          <TableRow>
+            <TableHead scope="col">#</TableHead>
+            <TableHead scope="col">图片</TableHead>
+            <TableHead v-for="column in textColumns" :key="column.key" scope="col">{{ column.title }}</TableHead>
+          </TableRow>
+        </TableHeader>
+        <TableBody>
+          <TableRow v-for="(row, index) in rows" :key="row.id" :data-state="selected?.includes(row.id) ? 'selected' : undefined">
+            <TableCell class="element-index-cell">
+              <span class="element-row-index">{{ index + 1 }}</span>
+              <Checkbox v-if="selectable" class="element-row-select" :model-value="selected?.includes(row.id) || false" :aria-label="`选择元素 ${row.name}`" :disabled="selectionDisabled" @update:model-value="emit('select', row.id, $event === true)" />
+            </TableCell>
+            <TableCell class="element-media-cell">
+              <div class="element-table-media">
+                <template v-if="row.media?.length">
+                  <button v-for="media in row.media.slice(0, 3)" :key="media.assetVersionId" type="button" class="element-media-preview" :aria-label="`预览素材 ${row.name}`" @click.stop="emit('preview', media.assetVersionId)">
+                    <ReferenceThumbnail :version-id="media.assetVersionId" fill passive allow-original :alt="row.name" />
+                  </button>
+                </template>
+                <button v-else type="button" class="element-empty-media" :aria-label="`为 ${row.name} 添加素材`" @click="emit('open', row)"><span>＋</span>添加元素图片</button>
+              </div>
+            </TableCell>
+            <TableCell v-for="column in textColumns" :key="column.key">
+              <Tooltip v-if="column.value(row)">
+                <TooltipTrigger as-child>
+                  <button v-if="column.key === 'name'" type="button" class="folder-text-button element-cell-text" @click="emit('open', row)">{{ column.value(row) }}</button>
+                  <span v-else class="element-cell-text" tabindex="0">{{ column.value(row) }}</span>
+                </TooltipTrigger>
+                <TooltipContent class="element-cell-tooltip">{{ column.value(row) }}</TooltipContent>
+              </Tooltip>
+            </TableCell>
+          </TableRow>
+          <TableRow v-if="!rows.length"><TableCell :colspan="textColumns.length + 2" class="element-table-empty">暂无匹配的元素</TableCell></TableRow>
+        </TableBody>
+      </Table>
+    </TooltipProvider>
+  </div>
   <template v-else-if="layout === 'board'"
     ><p class="muted">按状态分组展示当前页元素，列内数量为当前页数量。</p>
     <div class="element-board">

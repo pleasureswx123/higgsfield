@@ -365,19 +365,32 @@
 .element-library-options { display:flex; flex-direction:column; gap:12px; }
 .element-library-body { display:grid; grid-template-columns:minmax(0,1fr) 210px; gap:16px; }
 .element-library-content { min-width:0; overflow:auto; }
-.element-library .element-table { border-radius:0; --el-table-bg-color:transparent; --el-table-tr-bg-color:transparent; --el-table-border-color:var(--border); --el-table-header-bg-color:var(--surface-hover); }
-.element-library .element-table .el-table__body-wrapper { max-height:calc(100dvh - 195px); overflow:auto; }
-.element-library .element-table td { vertical-align:top; }
-.element-library .element-table .cell { padding:10px 12px; line-height:1.5; }
-.element-library .element-table th .cell { padding:5px 12px; font-size:12px; font-weight:500; color:var(--muted-foreground); }
-.element-library .element-media-cell .cell { padding:0; }
+.element-table-scroll { min-width: 0; border: 1px solid var(--border); }
+.element-table-scroll > div { max-height: calc(100dvh - 195px); }
+.element-table { table-layout: fixed; border-collapse: collapse; border-radius: 0; color: var(--foreground); font-size: 12px; }
+.element-table thead { position: sticky; top: 0; z-index: 1; background: var(--surface-hover); }
+.element-table tr { border-bottom: 1px solid var(--border); background: transparent; }
+.element-table tbody tr:last-child { border-bottom: 0; }
+.element-table tbody tr:hover, .element-table tbody tr[data-state="selected"] { background: var(--surface-hover); }
+.element-table th, .element-table td { padding: 10px 12px; border-right: 1px solid var(--border); text-align: left; vertical-align: top; line-height: 1.5; }
+.element-table th { height: 38px; padding: 9px 12px; font-size: 12px; font-weight: 500; color: var(--muted-foreground); }
+.element-table th:last-child, .element-table td:last-child { border-right: 0; }
+.element-table td.element-media-cell { padding: 0; }
+.element-cell-text { display: block; width: 100%; text-align: left; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.element-cell-text:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
+.element-cell-tooltip { max-width: 360px; overflow-wrap: anywhere; white-space: pre-wrap; }
+.element-table td.element-table-empty { height: 100px; text-align: center; vertical-align: middle; color: var(--muted-foreground); }
+.element-index-cell { position: relative; }
 .element-table-media { width:100%; height:132px; display:flex; border:0; padding:0; background:var(--surface-hover); cursor:pointer; overflow:hidden; }
 .element-table-media .reference-thumbnail { min-width:0; border-radius:0; }
 .element-empty-media { display:flex; margin:auto; align-items:center; flex-direction:column; gap:10px; font-size:12px; color:var(--muted-foreground); }
 .element-empty-media > span { display:grid; place-items:center; width:40px; height:40px; border-radius:50%; border:1px solid var(--border); background:var(--surface-raised); font-size:26px; }
-.element-row-select { display:none; }
-.element-table tr:hover .element-row-select,.element-row-select:has(.is-checked) { display:inline-flex; }
-.element-table tr:hover .element-row-index,.element-table .cell:has(.is-checked) .element-row-index { display:none; }
+.element-row-select { position: absolute; top: 12px; left: 12px; opacity: 0; border: 1px solid var(--muted-foreground); background: var(--surface); padding: 0; }
+.element-row-select[data-state="checked"] { background: var(--primary); color: var(--primary-foreground); border-color: var(--primary); }
+.element-table tr:hover .element-row-select, .element-table tr:focus-within .element-row-select, .element-row-select[data-state="checked"] { opacity: 1; }
+.element-table tr:hover .element-index-cell:has(.element-row-select) .element-row-index,
+.element-table tr:focus-within .element-index-cell:has(.element-row-select) .element-row-index,
+.element-index-cell:has([data-state="checked"]) .element-row-index { visibility: hidden; }
 .element-library-sidebar { display:flex; flex-direction:column; gap:6px; padding:0 4px; }
 .element-library-sidebar button { display:flex; align-items:center; gap:8px; border:0; border-radius:10px; padding:10px 12px; color:var(--foreground); background:transparent; text-align:left; cursor:pointer; overflow-wrap:anywhere; }
 .element-library-sidebar button.active,.element-library-sidebar button:hover { background:var(--surface-hover); }
@@ -387,3 +400,32 @@
 .element-media-preview { display:flex; flex:1; min-width:0; height:100%; padding:0; border:0; background:transparent; cursor:pointer; }
 .element-media-preview:focus-visible { outline:2px solid var(--foreground); outline-offset:-2px; }
 button.element-empty-media { border:0; background:transparent; cursor:pointer; }
+
+/* 元素工具栏使用 shadcn 弹层与表单控件，统一紧凑密度。 */
+.element-toolbar-button { min-height:32px; padding:6px 10px; font-size:12px; border-radius:8px; }
+.element-toolbar-button[data-state="open"], .element-toolbar-button.has-value { background:var(--surface-hover); color:var(--foreground); }
+.toolbar-value-dot { width:5px; height:5px; border-radius:50%; background:var(--focus); }
+.element-toolbar-popover { padding:16px; font-size:13px; }
+.element-toolbar-popover input { background:var(--background); border-radius:8px; font-size:13px; }
+.element-search-actions { display:flex; justify-content:flex-end; gap:8px; }
+.element-view-switch, .element-card-size > div:first-child { display:flex; justify-content:space-between; align-items:center; gap:12px; }
+.element-view-switch label { cursor:pointer; }
+.element-view-switch button { padding:0; border-style:solid; }
+.element-card-size { display:grid; gap:12px; padding:4px 0; }
+.element-card-size.is-disabled { opacity:.5; }
+.element-card-size [role="slider"] { border-style:solid; }
+.element-card-size small { color:var(--muted-foreground); font-size:12px; }
+
+.element-toolbar-popover .element-library-options { gap:12px; }
+.element-toolbar-popover .element-library-options > .ui-button { min-height:30px; height:30px; padding:5px 8px; justify-content:flex-start; font-size:12px; }
+.element-toolbar-popover .element-view-controls { gap:4px; }
+.element-toolbar-popover .element-view-controls .ui-button { min-height:30px; height:30px; padding:5px 8px; font-size:12px; }
+
+.element-toolbar-popover .element-view-controls.is-compact { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:8px; }
+.element-toolbar-popover .element-view-controls.is-compact .ui-button { justify-content:center; gap:6px; min-height:32px; height:auto; font-weight:500; border:1px solid var(--border); border-radius:7px; background:var(--surface-raised); }
+.element-toolbar-popover .element-view-controls.is-compact .ui-button:hover { background:var(--surface-hover); }
+.element-view-controls.is-compact [role="alert"], .element-view-controls.is-compact [role="status"] { grid-column:1 / -1; font-size:12px; line-height:1.5; }
+.element-view-menu { display:flex; flex-direction:column; gap:2px; margin:0 -6px -6px; }
+.element-view-menu .ui-button { width:100%; min-height:32px; height:32px; padding:6px 10px; justify-content:flex-start; gap:10px; border-radius:7px; font-size:12px; font-weight:400; }
+.element-view-menu .ui-button svg { color:var(--muted-foreground); flex-shrink:0; }
+.element-view-menu [data-orientation="horizontal"] { margin:5px 6px; width:calc(100% - 12px); }

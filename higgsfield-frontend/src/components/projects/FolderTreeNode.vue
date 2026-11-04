@@ -1,5 +1,8 @@
 <script setup lang="ts">
-import { IconChevronRight, IconFolder, IconPlus, IconDotsVertical } from '@tabler/icons-vue'
+import { IconChevronRight, IconPlus, IconDotsVertical } from '@tabler/icons-vue'
+import { Collapsible, CollapsibleTrigger, CollapsibleContent } from '@/components/ui/collapsible'
+import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem } from '@/components/ui/dropdown-menu'
+import FolderIcon from './FolderIcon.vue'
 import type { Folder } from '@/api/folders'
 defineProps<{
   counts?: Record<string, number>
@@ -27,20 +30,21 @@ const emit = defineEmits<{
 }>()
 </script>
 <template>
-  <li>
-    <div class="folder-tree-row" :class="{ active: currentId === folder.id }">
-      <button
-        class="folder-icon-button"
-        :aria-label="expanded.has(folder.id) ? '收起目录' : '展开目录'"
-        :aria-expanded="expanded.has(folder.id)"
-        @click="emit('toggle', folder)"
-      >
-        <IconChevronRight :size="14" :class="{ rotated: expanded.has(folder.id) }" />
-      </button>
+  <Collapsible as="li" :open="expanded.has(folder.id)" @update:open="emit('toggle', folder)">
+    <div class="folder-tree-row" :class="{ active: currentId === folder.id }" :style="{ '--folder-depth': path.length }">
+      <span class="folder-leading-icon" :class="{ 'can-expand': folder.hasChildren || children[folder.id]?.length }">
+        <FolderIcon class="folder-default-icon" :size="24" :class="'folder-color-' + folder.color" />
+        <CollapsibleTrigger v-if="folder.hasChildren || children[folder.id]?.length" as-child>
+          <button
+            class="folder-icon-button folder-expand-button"
+            :aria-label="expanded.has(folder.id) ? '收起目录' : '展开目录'"
+            :aria-expanded="expanded.has(folder.id)">
+            <IconChevronRight :size="15" :class="{ rotated: expanded.has(folder.id) }" />
+          </button>
+        </CollapsibleTrigger>
+      </span>
       <button class="folder-tree-label" @click="emit('navigate', [...path, folder])">
-        <IconFolder class="colored-folder-icon" :size="19" :class="'folder-color-' + folder.color" /><span>{{
-          folder.name
-        }}</span>
+        <span>{{ folder.name }}</span>
       </button>
       <span class="folder-asset-count" title="当前文件夹内的素材数">{{ counts ? (counts[folder.id] ?? 0) : '—' }}</span>
       <button
@@ -52,19 +56,19 @@ const emit = defineEmits<{
       >
         <IconPlus :size="15" />
       </button>
-      <details class="folder-node-menu">
-        <summary aria-label="文件夹操作"><IconDotsVertical :size="16" /></summary>
-        <div class="folder-node-actions">
-          <button v-if="canWrite" :disabled="pending" @click="emit('edit', folder)">编辑名称与颜色</button>
-          <button v-if="canWrite" :disabled="pending" @click="emit('move', folder)">移动到…</button>
-          <button v-if="canWrite" :disabled="pending" @click="emit('copy', folder)">复制到…</button>
-          <button @click="emit('pin', folder.id)">{{ pinned.includes(folder.id) ? '取消置顶' : '置顶' }}</button>
-          <button @click="emit('moveUp', { id: folder.id, parentId: path.at(-1)?.id || null })">上移</button>
-          <button v-if="canWrite" :disabled="pending" @click="emit('remove', folder)">移至回收站</button>
-        </div>
-      </details>
+      <DropdownMenu>
+        <DropdownMenuTrigger as-child><button class="folder-icon-button folder-hover-action" aria-label="文件夹操作"><IconDotsVertical :size="16" /></button></DropdownMenuTrigger>
+        <DropdownMenuContent side="right" align="start" class="folder-dropdown-menu">
+          <DropdownMenuItem v-if="canWrite" :disabled="pending" @select="emit('edit', folder)">编辑名称与颜色</DropdownMenuItem>
+          <DropdownMenuItem v-if="canWrite" :disabled="pending" @select="emit('move', folder)">移动到…</DropdownMenuItem>
+          <DropdownMenuItem v-if="canWrite" :disabled="pending" @select="emit('copy', folder)">复制到…</DropdownMenuItem>
+          <DropdownMenuItem @select="emit('pin', folder.id)">{{ pinned.includes(folder.id) ? '取消置顶' : '置顶' }}</DropdownMenuItem>
+          <DropdownMenuItem @select="emit('moveUp', { id: folder.id, parentId: path.at(-1)?.id || null })">上移</DropdownMenuItem>
+          <DropdownMenuItem v-if="canWrite" :disabled="pending" @select="emit('remove', folder)">移至回收站</DropdownMenuItem>
+        </DropdownMenuContent>
+      </DropdownMenu>
     </div>
-    <ul v-if="expanded.has(folder.id)" class="folder-tree-children">
+    <CollapsibleContent as="ul" class="folder-tree-children">
       <FolderTreeNode
         v-for="child in children[folder.id] || []"
         :key="child.id"
@@ -90,6 +94,16 @@ const emit = defineEmits<{
       <li v-if="treeNext[folder.id]">
         <button class="folder-text-button" @click="emit('more', folder.id)">加载更多</button>
       </li>
-    </ul>
-  </li>
+    </CollapsibleContent>
+  </Collapsible>
 </template>
+
+<style scoped>
+/* 图标与展开按钮共用位置，切换交互状态时名称不跳动。 */
+.folder-leading-icon { position:relative; display:grid; place-items:center; flex:0 0 28px; width:28px; height:28px; }
+.folder-expand-button { position:absolute; inset:0; width:28px; height:28px; border-radius:9px; opacity:0; color:var(--muted-foreground); }
+.folder-tree-row:is(:hover, :focus-within, :has(> .folder-hover-action[data-state="open"])) > .can-expand .folder-default-icon { opacity:0; }
+.folder-tree-row:is(:hover, :focus-within, :has(> .folder-hover-action[data-state="open"])) > .can-expand .folder-expand-button { opacity:1; background:var(--surface-hover); }
+.folder-tree-row:is(:hover, :focus-within, :has(> .folder-hover-action[data-state="open"])) > .folder-asset-count { display:none; }
+.folder-expand-button:focus-visible { outline:2px solid var(--focus); outline-offset:-2px; }
+</style>

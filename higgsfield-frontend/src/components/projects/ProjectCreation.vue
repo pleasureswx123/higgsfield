@@ -1,6 +1,7 @@
 <script setup lang="ts">
+import StudioPagination from '@/components/ui/StudioPagination.vue'
 import { IconX } from '@tabler/icons-vue'
-import { ElForm, ElFormItem, ElMessage, ElPagination } from 'element-plus'
+import { ElForm, ElFormItem, ElMessage, } from 'element-plus'
 
 import type { Asset } from '@/api/assets'
 import { selectCandidate } from '@/utils/draftReferences'
@@ -255,7 +256,7 @@ const rules = { prompt: [{ max: 50000, message: '提示词不能超过50000字�
           </button>
         </li>
       </ul>
-      <el-pagination
+      <StudioPagination
         v-if="draftTotal > 0"
         v-model:current-page="draftPage"
         :page-size="10"

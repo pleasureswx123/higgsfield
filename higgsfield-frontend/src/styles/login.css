@@ -1,0 +1,31 @@
+/* 登录页参考：沉浸式作品区与独立登录区，媒体原色不随主题改变。 */
+.login-page.login-showcase { position:relative; isolation:isolate; min-height:100dvh; padding:64px 5vw; justify-content:center; background:var(--background); overflow:hidden; }
+.login-backdrop { position:absolute; z-index:-1; inset:0 auto 0 0; width:70%; height:100%; object-fit:cover; object-position:center; clip-path:polygon(0 0,100% 0,90% 100%,0 100%); }
+.login-showcase .login-main { flex:none; display:grid; grid-template-columns:54% minmax(0,1fr); align-items:stretch; gap:0; width:min(1180px,100%); min-height:760px; margin:auto; padding:12px; border:1px solid var(--border); border-radius:48px; background:var(--surface); box-shadow:0 24px 90px #0003; overflow:hidden; }
+.login-showcase .login-intro { display:flex; position:relative; flex-direction:column; justify-content:space-between; min-width:0; padding:40px; overflow:hidden; border-radius:37px; color:#fff; background:#080c19; clip-path:polygon(0 0,100% 0,94% 100%,0 100%); }
+.login-scene { position:absolute; inset:0; height:100%; width:100%; object-fit:cover; z-index:0; }
+.login-art-heading,.login-art-copy { position:relative; z-index:1; text-shadow:0 2px 18px #0009; }
+.login-art-heading { display:flex; justify-content:space-between; align-items:center; gap:16px; font-weight:600; font-size:16px; }
+.login-art-caption { font-size:9px; letter-spacing:2px; opacity:.8; }
+.login-art-copy { padding-bottom:10px; }
+.login-showcase .login-intro h1 { font-size:48px; line-height:1.2; letter-spacing:-1px; margin:16px 0; color:#fff; }
+.login-showcase .login-intro .eyebrow,.login-showcase .login-intro p,.login-showcase .intro-foot { color:#eee; }
+.login-showcase .login-intro p { font-size:13px; line-height:1.8; }
+.login-showcase .intro-foot { margin-top:26px; gap:16px; font-size:11px; }
+.login-panel { display:flex; flex-direction:column; min-width:0; padding:28px 34px 20px; }
+.login-showcase .login-header { gap:16px; }
+.login-showcase .brand { font-size:20px; }
+.login-showcase .login-card { width:100%; max-width:360px; padding:0; margin:auto; border:0; border-radius:0; box-shadow:none; background:transparent; }
+.login-showcase .login-card-header { text-align:center; }
+.login-showcase .login-card-header .eyebrow { font-size:11px; letter-spacing:1px; }
+.login-showcase .login-card h2 { font-size:38px; font-weight:650; margin:14px 0; letter-spacing:-1px; }
+.login-showcase .login-card .el-form { margin-top:34px; }
+.login-showcase .login-label { font-size:12px; }
+.login-showcase .login-card input { height:48px; background:var(--surface); }
+.login-showcase .login-password-toggle.ui-button { top:6px; }
+.login-showcase .login-submit.ui-button { border-radius:999px; margin-top:12px; }
+.login-showcase .login-help { font-size:11px; margin-top:24px; }
+.login-showcase .login-footer { justify-content:center; font-size:10px; letter-spacing:2px; color:var(--muted-foreground); padding-top:24px; }
+@media(min-width:761px) and (max-height:850px) { .login-page.login-showcase { padding-block:32px; } .login-showcase .login-main { min-height:680px; } }
+@media(max-width:1050px) { .login-page.login-showcase { padding:32px; } .login-showcase .login-main { grid-template-columns:48% minmax(0,1fr); } .login-showcase .login-intro { padding:28px; } .login-art-caption { display:none; } .login-panel { padding:24px; } .login-showcase .login-intro h1 { font-size:40px; } }
+@media(max-width:760px) { .login-page.login-showcase { padding:24px 16px; } .login-backdrop { width:100%; clip-path:none; } .login-showcase .login-main { display:block; min-height:0; max-width:440px; padding:8px; border-radius:28px; } .login-showcase .login-intro { display:none; } .login-panel { min-height:640px; padding:20px 18px; } .login-showcase .login-card { margin:64px auto 40px; } .login-showcase .login-card h2 { font-size:32px; } .login-showcase .login-footer { margin-top:auto; } }

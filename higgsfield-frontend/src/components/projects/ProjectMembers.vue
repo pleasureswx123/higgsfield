@@ -1,5 +1,7 @@
 <script setup lang="ts">
-import { ElPagination, ElDialog, ElForm, ElFormItem, ElInput, ElSelect, ElOption } from 'element-plus'
+import StudioSelect from '@/components/ui/StudioSelect.vue'
+import StudioPagination from '@/components/ui/StudioPagination.vue'
+import { ElDialog, ElForm, ElFormItem, ElInput } from 'element-plus'
 import { useMemberManagement } from '@/composables/useMemberManagement'
 import { formatProjectDate } from '@/utils/projects'
 import Button from '@/components/ui/Button.vue'
@@ -56,9 +58,7 @@ const rules = {
               </div>
             </td>
             <td>
-              <ElSelect v-if="canEditMember(member) && status === 'active'" :model-value="member.roleId" :disabled="pending" aria-label="项目角色" style="width: 130px" @change="(value: string) => modify(member, value)">
-                <ElOption v-for="role in grantable" :key="role.id" :label="role.name" :value="role.id" />
-              </ElSelect>
+              <StudioSelect v-if="canEditMember(member) && status === 'active'" :model-value="member.roleId" :disabled="pending" aria-label="项目角色" style="width: 130px" @change="value => modify(member, value)" :options="[...grantable.map(role => ({ value: role.id, label: role.name }))]" />
               <span v-else class="role-pill">{{
                 roles.find((r) => r.id === member.roleId)?.name || '未知角色'
               }}</span>
@@ -72,7 +72,7 @@ const rules = {
         </tbody>
       </table>
     </div>
-    <ElPagination
+    <StudioPagination
       v-if="total > 20"
       :current-page="page"
       :page-size="20"
@@ -89,9 +89,7 @@ const rules = {
         </ElFormItem>
         <p v-if="candidate">已找到：{{ candidate.displayName }}（用户编号 {{ candidate.userId }}）</p>
         <ElFormItem label="项目角色" prop="roleId">
-          <ElSelect v-model="roleId" placeholder="选择项目角色" style="width: 100%">
-            <ElOption v-for="role in grantable" :key="role.id" :label="role.name" :value="role.id" />
-          </ElSelect>
+          <StudioSelect v-model="roleId" placeholder="选择项目角色" style="width: 100%" :options="[...grantable.map(role => ({ value: role.id, label: role.name }))]" />
         </ElFormItem>
         <p class="muted">负责人管理成员和项目；制作成员参与制作；只读成员浏览项目。已移除的成员可在此重新添加。</p>
         <p v-if="dialogError" class="project-error" role="alert">{{ dialogError }}</p>

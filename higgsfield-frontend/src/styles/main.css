@@ -256,46 +256,27 @@ p {
   font-size: 26px;
   margin: 12px 0;
 }
-.login-card > .muted {
-  font-size: 13px;
-  margin-bottom: 28px;
-}
-.login-card .el-form {
-  margin-top: 25px;
-}
-.login-card .el-form-item {
-  margin-bottom: 24px;
-}
-.login-card .el-form-item__label {
-  font-size: 13px;
-}
-.login-card .el-input__wrapper {
-  padding: 4px 14px;
-  min-height: 46px;
-  background: var(--background);
-}
-.login-card .el-button--primary {
-  --el-button-text-color: var(--primary-foreground);
-  --el-button-hover-text-color: var(--primary-foreground);
-  --el-button-disabled-text-color: var(--primary-foreground);
-}
-.login-submit {
-  width: 100%;
-  height: 48px !important;
-  margin-top: 6px;
-  font-weight: 650;
-}
-.login-submit span {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-}
+.login-card-header, .login-card-content { padding: 0; }
+.login-card-header { gap: 0; }
+.login-card-header h2 { line-height: 1.3; letter-spacing: normal; }
+.login-card-header p { font-size: 13px; margin: 0; color: var(--muted-foreground); }
+.login-card .el-form { margin-top: 28px; }
+.login-card .el-form-item { margin-bottom: 24px; }
+.login-label { display: block; margin-bottom: 9px; font-size: 13px; font-weight: 500; color: var(--foreground); }
+.login-card input { width: 100%; height: 46px; padding: 10px 14px; border: 1px solid var(--border); border-radius: 9px; background: var(--background); color: var(--foreground); font-size: 14px; box-shadow: none; }
+.login-card input:focus-visible { border-color: var(--focus); outline: 2px solid var(--focus); outline-offset: 2px; }
+.login-card input[aria-invalid="true"] { border-color: var(--destructive); }
+.login-password { position: relative; width: 100%; }
+.login-password input { padding-right: 46px; }
+.login-password-toggle.ui-button { position: absolute; top: 5px; right: 5px; width: 36px; height: 36px; min-height: 36px; padding: 0; color: var(--muted-foreground); }
+.login-alert { margin-top: 16px; border: 1px solid var(--border); border-radius: 9px; font-size: 13px; }
+.login-submit.ui-button { width: 100%; height: 48px; margin-top: 6px; font-weight: 650; gap: 12px; border-radius: 9px; }
 .captcha-row {
   display: flex;
   width: 100%;
   gap: 12px;
 }
-.captcha-row .el-input {
+.captcha-row input {
   flex: 1;
   min-width: 0;
 }
@@ -1372,10 +1353,10 @@ p {
 .project-nav-icon svg { flex:none; }
 .sidebar-projects.in-project { margin-top:28px; flex:1; min-height:0; }
 #project-sidebar-tree { max-height:none; height:100%; overflow:auto; }
-#project-sidebar-tree .folder-tree-row { min-width:0; gap:3px; padding:2px 5px; border-radius:12px; min-height:37px; }
+#project-sidebar-tree .folder-tree-row { min-width:0; gap:3px; padding:2px 5px; padding-left:calc(5px + var(--folder-depth, 0) * 20px); margin-bottom:3px; border-radius:12px; min-height:40px; }
 #project-sidebar-tree .folder-tree-label { min-width:0; gap:8px; font-size:13px; }
 #project-sidebar-tree .folder-tree-label span { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
-#project-sidebar-tree .folder-tree-children { padding-left:16px; }
+#project-sidebar-tree .folder-tree-children { padding-left:0; }
 .folder-hover-action, .folder-node-menu { opacity:0; }
 .folder-tree-row:hover .folder-hover-action, .folder-tree-row:focus-within .folder-hover-action, .folder-tree-row.active .folder-hover-action,
 .folder-tree-row:hover .folder-node-menu, .folder-tree-row:focus-within .folder-node-menu, .folder-tree-row.active .folder-node-menu { opacity:1; }
@@ -1418,12 +1399,97 @@ p {
 .project-local-navigation .nav-link:focus-visible { outline: 2px solid var(--focus); outline-offset: -2px; }
 
 /* 项目管理与简报内容分区，亮暗主题共享语义色。 */
-.project-management { display: flex; align-items: center; justify-content: space-between; gap: 24px; padding: 20px; margin: 20px 0 28px; border: 1px solid var(--border); border-radius: 14px; background: var(--surface); }
-.project-management-summary { min-width: 0; }
-.project-management-label { color: var(--muted-foreground); font-size: 12px; }
-.project-management-title { display: flex; align-items: center; gap: 10px; margin-top: 8px; min-width: 0; }
-.project-management-title strong { font-size: 17px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.project-management-status { flex-shrink: 0; padding: 3px 8px; border: 1px solid var(--border); border-radius: 999px; color: var(--muted-foreground); font-size: 12px; }
-.project-management-summary p { margin: 8px 0 0; font-size: 12px; line-height: 1.6; }
-.project-management-actions { display: flex; flex-wrap: wrap; flex-shrink: 0; gap: 8px; }
-@media (max-width: 1000px) { .project-management { align-items: flex-start; flex-direction: column; gap: 16px; } .project-management-actions { width: 100%; } }
+/* 管理操作收纳在设置标签栏，正文区域只展示当前任务。 */
+.project-settings-toolbar { display:flex; align-items:center; gap:12px; border-bottom:1px solid var(--border); }
+.project-settings-toolbar .workspace-tabs { flex:1; min-width:0; margin:0; border:0; flex-wrap:wrap; }
+.project-management-trigger { flex-shrink:0; font-size:12px; }
+.project-management-menu { min-width:160px; border:1px solid var(--border); color:var(--foreground); background:var(--surface); border-radius:12px; z-index:2100; }
+.project-management-menu [role="menuitem"] { cursor:pointer; font-size:13px; }
+.project-management-menu .project-archive-action { color:var(--destructive); }
+.project-nav-title { flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.project-nav-status { flex-shrink:0; border:1px solid var(--border); border-radius:999px; padding:2px 6px; font-size:11px; font-weight:400; color:var(--muted-foreground); }
+.project-state-note { color:var(--muted-foreground); font-size:12px; margin:14px 0 0; }
+@media (max-width:520px) { .project-settings-toolbar { flex-wrap:wrap; gap:4px; padding-bottom:8px; } .project-settings-toolbar .workspace-tabs { flex-basis:100%; } .project-management-trigger { margin-left:auto; } }
+
+
+/* shadcn-vue 侧栏与弹层沿用平台亮暗主题语义色。 */
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-destructive: var(--destructive);
+  --color-sidebar: var(--background);
+  --color-sidebar-foreground: var(--foreground);
+  --color-sidebar-accent: var(--surface-raised);
+  --color-sidebar-accent-foreground: var(--foreground);
+  --color-sidebar-border: var(--border);
+  --color-sidebar-ring: var(--focus);
+}
+.folder-dropdown-menu { min-width:160px; padding:5px; border:1px solid var(--border); border-radius:10px; background:var(--popover); color:var(--popover-foreground); box-shadow:0 8px 24px #0003; z-index:2100; }
+.folder-dropdown-menu [role="menuitem"] { padding:8px 10px; font-size:12px; border-radius:5px; cursor:pointer; }
+.folder-dropdown-menu [data-highlighted] { background:var(--surface-hover); }
+.folder-hover-action[data-state="open"] { opacity:1; }
+.studio-sidebar-host > .sidebar { height:auto; }
+.studio-mobile-sheet { width:min(280px, 88vw); padding:0; background:var(--background); color:var(--foreground); border-right:1px solid var(--border); }
+.studio-mobile-sidebar-host { height:100%; min-height:0; }
+.studio-mobile-sidebar-host > .sidebar { position:static; inset:auto; transform:none; width:100%; height:100%; border:0; border-radius:0; padding-top:42px; }
+@media(max-width:760px) { .studio-main > .workspace-header { display:flex !important; } }
+
+
+.studio-sidebar-host { display:contents; }
+.studio-mobile-sheet > button { display:grid; place-items:center; width:28px; height:28px; border:0; background:transparent; color:var(--muted-foreground); cursor:pointer; }
+
+/* 默认让数量靠右；悬停或键盘聚焦时才显示紧凑的行内操作。 */
+#project-sidebar-tree .folder-tree-row > .folder-asset-count { min-width:20px; padding:0 4px; text-align:right; }
+#project-sidebar-tree .folder-tree-row > .folder-hover-action { display:none; flex:0 0 20px; width:20px; height:24px; padding:2px; }
+#project-sidebar-tree .folder-tree-row:hover > .folder-hover-action,
+#project-sidebar-tree .folder-tree-row:focus-within > .folder-hover-action,
+#project-sidebar-tree .folder-tree-row:has(> .folder-hover-action[data-state="open"]) > .folder-hover-action { display:inline-flex; opacity:1; }
+
+/* 可操作导航保持正文对比度，弱化色只用于说明和禁用状态。 */
+.sidebar .nav-link:not(:disabled):not([aria-disabled="true"]) { color:var(--foreground); cursor:pointer; }
+.sidebar .nav-link:not(:disabled):not([aria-disabled="true"]):hover { background:var(--surface-hover); }
+.sidebar .nav-link:disabled,
+.sidebar .nav-link[aria-disabled="true"] { color:var(--muted-foreground); opacity:.45; cursor:not-allowed; }
+
+/* shadcn 页面控件共用项目语义色，不引入全局 preflight 重置。 */
+.studio-select { border:1px solid var(--border); background:var(--surface); color:var(--foreground); border-radius:8px; min-height:32px; font-size:13px; cursor:pointer; }
+.studio-select-content, .studio-popover { border:1px solid var(--border); background:var(--surface); color:var(--foreground); border-radius:12px; z-index:2100; }
+.studio-select-content [role="option"] { cursor:pointer; }
+.studio-pagination { display:flex; justify-content:flex-start; align-items:center; gap:12px; margin-top:12px; font-size:12px; }
+.studio-pagination button { border:0; background:transparent; color:var(--foreground); font-size:12px; cursor:pointer; }
+.studio-pagination button[aria-current="page"] { color:var(--focus); background:var(--surface-hover); font-weight:600; }
+.studio-pagination button:disabled { opacity:.4; cursor:not-allowed; }
+.studio-tabs { background:transparent; height:auto; padding:0; justify-content:flex-start; }
+.studio-tabs button { cursor:pointer; box-shadow:none; }
+.studio-dialog { max-width:min(480px, calc(100vw - 32px)); border:1px solid var(--border); border-radius:18px; background:var(--surface); color:var(--foreground); z-index:2201; }
+[data-studio-dialog-overlay] { z-index:2200; }
+.studio-dialog > button { border:0; background:transparent; color:var(--muted-foreground); padding:4px; cursor:pointer; }
+.permission-table button[role="checkbox"] { margin:0 auto; padding:0; width:18px; height:18px; border:1px solid var(--border); border-radius:5px; background:var(--surface); color:var(--primary-foreground); }
+.permission-table button[role="checkbox"][data-state="checked"] { background:var(--primary); border-color:var(--primary); }
+.studio-popover input { border:1px solid var(--border); color:var(--foreground); }
+.studio-popover button[role="switch"] { padding:0; border-style:solid; }
+
+.creation-drafts .studio-pagination button { width:24px; height:24px; padding:0; }
+
+/* 页面标签共用紧凑胶囊样式，由 Tabs 选中状态驱动。 */
+.project-settings-toolbar { padding-bottom:8px; }
+.studio-pill-tabs { gap:8px; border-radius:0; background:transparent; }
+.studio-pill-tabs [role="tab"] { min-height:34px; padding:7px 16px; border:0; border-radius:999px; background:transparent; color:var(--foreground); font-size:13px; font-weight:500; line-height:20px; box-shadow:none; transition:background-color .15s, color .15s; }
+.studio-pill-tabs [role="tab"][data-state="inactive"] { color:var(--muted-foreground); }
+.studio-pill-tabs [role="tab"][data-state="inactive"]:hover { color:var(--foreground); background:transparent; }
+.studio-pill-tabs [role="tab"][data-state="active"] { background:var(--surface-hover); color:var(--foreground); box-shadow:none; }
+.studio-pill-tabs [role="tab"]:focus-visible { outline:2px solid var(--focus); outline-offset:2px; box-shadow:none; }
+@media (max-width:520px) { .studio-pill-tabs { gap:4px; } .studio-pill-tabs [role="tab"] { padding-inline:12px; } }

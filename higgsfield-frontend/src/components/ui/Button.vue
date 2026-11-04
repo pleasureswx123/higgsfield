@@ -1,5 +1,6 @@
 <script setup lang="ts">
-import { Primitive, type PrimitiveProps } from 'reka-ui'
+import type { PrimitiveProps } from 'reka-ui'
+import { Button as ShadcnButton } from '@/components/ui/button'
 import { cva } from 'class-variance-authority'
 import { cn } from '@/utils/cn'
 import type { HTMLAttributes } from 'vue'
@@ -20,7 +21,7 @@ const variants = cva('ui-button', {
 })
 </script>
 <template>
-  <Primitive :as="as" :as-child="asChild" :class="cn(variants({ variant }), props.class)"
+  <ShadcnButton :variant="variant" :as="as" :as-child="asChild" :class="cn(variants({ variant }), props.class)"
     ><slot
-  /></Primitive>
+  /></ShadcnButton>
 </template>
