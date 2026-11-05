@@ -81,7 +81,8 @@ class ProviderPollTests(unittest.IsolatedAsyncioTestCase):
             self.assertEqual(await db.scalar(text('SELECT video_tokens FROM hf_usage_record')), 368100)
             self.assertEqual(await db.scalar(text('SELECT count(*) FROM hf_billing_subject')), 1)
             self.assertNotIn('secret', str(metadata))
-            self.assertEqual(await db.scalar(text('SELECT reserved_amount FROM hf_budget_period')), 6)
+            # 当前任务按实际用量结算，不预占估算费用。
+            self.assertEqual(await db.scalar(text('SELECT reserved_amount FROM hf_budget_period')), 0)
 
     async def test_missing_output_then_timeout_preserves_success(self) -> None:
         async with self.sessions() as db:

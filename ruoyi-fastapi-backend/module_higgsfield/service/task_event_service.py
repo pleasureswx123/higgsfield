@@ -40,6 +40,8 @@ class TaskEventService:
             'destination': snapshot['elementDestination'],
             'sourceJobId': snapshot.get('sourceJobId'),
             'diagnostic': snapshot.get('diagnostic'),
+            # 请求/响应证据可在状态迁移前到达，详情也必须及时刷新。
+            'execution': jsonable_encoder(snapshot.get('execution')),
             'outputs': [
                 {
                     'id': row['id'],

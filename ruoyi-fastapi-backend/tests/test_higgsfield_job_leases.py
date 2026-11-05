@@ -5,6 +5,7 @@ import importlib.util
 from pathlib import Path
 import os
 import unittest
+from unittest.mock import AsyncMock, patch
 from sqlalchemy import text
 from exceptions.exception import ServiceWarning
 from module_higgsfield.service.job_lease_service import JobLeaseService
@@ -19,6 +20,10 @@ class JobLeaseTests(unittest.IsolatedAsyncioTestCase):
 
     async def asyncSetUp(self):
         await storage.JobStorageTests.asyncSetUp(self)
+        # 本组仅验证租约并发；执行容量由完整生成链路测试覆盖。
+        capacity = patch("module_higgsfield.dao.job_lease_dao.JobLeaseDao.has_execution_capacity", new=AsyncMock(return_value=True))
+        capacity.start()
+        self.addCleanup(capacity.stop)
         spec = importlib.util.spec_from_file_location(
             'lease_calls', Path(__file__).resolve().parents[1] / 'alembic/versions/20261027_35_provider_calls.py'
         )
@@ -56,8 +61,9 @@ class JobLeaseTests(unittest.IsolatedAsyncioTestCase):
         async with self.sessions() as db:
             await JobLeaseService.renew(db, lease)
             row = (await db.execute(text('SELECT revision,event_sequence,fencing_token FROM hf_creation_job'))).one()
-            self.assertEqual(row, (1, 0, 1))
-            self.assertEqual(await db.scalar(text('SELECT count(*) FROM hf_task_event')), 0)
+            self.assertEqual(row, (1, 1, 1))
+            self.assertEqual(await db.scalar(text('SELECT count(*) FROM hf_task_event')), 1)
+            self.assertEqual(await db.scalar(text("SELECT payload->>'stage' FROM hf_task_event")), 'worker_claimed')
             await JobLeaseService.release(db, lease, retry_after_seconds=0)
         newer = (await self.claim('worker-c'))[0]
         self.assertEqual(newer.fencing_token, 2)

@@ -70,12 +70,16 @@ class ImageSubmitHandler:
             capabilities = ModelCapabilities.model_validate(model_version.capabilities)
             alias, snapshot = model_version.gateway_alias, job.input_snapshot
         urls = None
+        await context.trace('references_preparing')
         if snapshot['compiled']['media'] and self.media_resolver:
             urls = await self.media_resolver(context, snapshot['compiled'])
         payload = ImageRequestService.compile(alias, capabilities, snapshot, urls)
+        await context.trace('references_ready')
         call_id = await context.begin_submission(WriteService.digest(payload))
         ProviderExchangeService.bind(transport, context, call_id)
         response = await transport.submit(payload)
+        if response.transport == 'response':
+            await context.trace('response_received')
         if response.transport != 'response':
             await context.record_submission(
                 call_id, ProviderSubmissionResult(acceptance='unknown', transport=response.transport, httpStatus=response.http_status)
@@ -113,6 +117,7 @@ class ImageSubmitHandler:
                 ),
             )
             return
+        await context.trace('results_saving')
         stored = {}
         for image in fact.images:
             try:

@@ -10,10 +10,10 @@ const { open, target, action, form, fields, rules, loading, saving, uncertain, r
   useProjectLifecycle(project => emit('changed', project))
 const presentation = computed(() => ({
   rename: { title: '编辑项目名称', label: '', submit: '保存名称', help: '' },
-  archive: { title: '归档项目', label: '归档原因', submit: '确认归档', help: '归档后项目只读，已有供应商任务及历史费用保留。未保存简报仍保留在当前页面。' },
-  restore: { title: '恢复项目', label: '恢复原因（可选）', submit: '确认恢复', help: '恢复后可按当前权限继续工作。旧任务不会重新提交，新生成仍需通过配置和预算校验。' },
-  pause: { title: '暂停项目', label: '暂停原因', submit: '确认暂停', help: '暂停后停止新创作与普通编辑，已受理任务继续维护，历史费用保留。未保存简报仍保留在当前页面。' },
-  resume: { title: '恢复项目运行', label: '恢复原因（可选）', submit: '确认恢复运行', help: '恢复后按当前权限继续工作。旧任务不会重新提交，新任务仍需通过配置和预算校验。' },
+  archive: { title: '归档项目', label: '归档原因', submit: '确认归档', help: '适用于已结束的项目。归档后所有成员仅可查看，素材和历史记录保留，已受理的生成任务不会取消。之后可恢复项目。' },
+  restore: { title: '恢复项目', label: '恢复原因（可选）', submit: '确认恢复', help: '项目将恢复为进行中，成员可按权限继续创作和编辑，不会重新提交旧任务。' },
+  pause: { title: '暂停创作', label: '暂停原因', submit: '确认暂停创作', help: '所有成员将暂时无法新建生成任务或进行普通编辑，仍可查看。已受理的生成任务不会取消，之后可恢复创作。' },
+  resume: { title: '恢复创作', label: '恢复原因（可选）', submit: '确认恢复创作', help: '成员可按权限继续创作和编辑，不会重新提交旧任务。' },
 })[action.value])
 defineExpose({ start })
 </script>

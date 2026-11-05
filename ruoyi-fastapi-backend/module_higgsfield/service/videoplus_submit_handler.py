@@ -55,14 +55,17 @@ class VideoPlusSubmitHandler:
             transport = ProviderHttpService.from_versions(config, version, crypto=self.credential_crypto)
             capabilities = ModelCapabilities.model_validate(model_version.capabilities)
             alias, snapshot = model_version.gateway_alias, job.input_snapshot
+        await context.trace('references_preparing')
         urls = None
         if snapshot['compiled']['media'] and self.media_resolver:
             urls = await self.media_resolver(context, snapshot['compiled'])
         payload = VideoPlusRequestService.video(alias, capabilities, snapshot, urls)
+        await context.trace('references_ready')
         call_id = await context.begin_submission(WriteService.digest(payload))
         ProviderExchangeService.bind(transport, context, call_id)
         result = await transport.submit(payload)
         if result.transport == 'response':
+            await context.trace('response_received')
             if result.body is not None and self.evidence_storage is not None:
                 evidence = await self.evidence_storage.save(result.body, call_id, context.lease.job_id)
                 async with context.sessions() as db:

@@ -127,9 +127,11 @@ class VideoPlusSubmitHandlerTests(unittest.IsolatedAsyncioTestCase):
             payload = None if is_poll else json.loads(await reader.readexactly(int(headers['Content-Length'])))
             self.requests.append((lines[0], payload))
             async with self.sessions() as db:
+                # 网络里程碑允许短事务写证据，但不能持锁等待本响应。
+                await db.execute(text("SET LOCAL lock_timeout = '500ms'"))
                 row = (
                     await db.execute(
-                        text("SELECT orchestration_state FROM hf_creation_job WHERE kind='video' FOR UPDATE NOWAIT")
+                        text("SELECT orchestration_state FROM hf_creation_job WHERE kind='video' FOR UPDATE")
                     )
                 ).scalar_one()
                 count = await db.scalar(

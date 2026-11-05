@@ -1,6 +1,8 @@
 """有界并发调度与短会话续租，阶段处理器负责供应商协议。"""
 
 import asyncio
+from dataclasses import replace
+from module_higgsfield.dao.job_event_dao import JobEventDao
 from collections.abc import Awaitable, Callable
 
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
@@ -45,6 +47,23 @@ class JobExecutionContext:
             async with self.sessions() as db:
                 self.lease, call_id = await ProviderSubmitIntentService.begin(db, self.lease, request_hash)
             return call_id
+
+    async def trace(self, stage: str) -> None:
+        """持久化执行节点，并同步租约修订，避免心跳与阶段写入竞争。"""
+        if stage not in {'references_preparing', 'references_ready', 'response_received', 'results_saving'}:
+            raise ValueError('不支持的执行节点')
+        async with self._lock:
+            if self.closed:
+                raise RuntimeError('执行上下文已结束')
+            async with self.sessions() as db:
+                job, now = await JobLeaseService.guard(db, self.lease)
+                job.revision += 1
+                job.event_sequence += 1
+                job.update_time, job.update_by = now, self.lease.worker
+                await JobEventDao.state(db, job, now, self.lease.worker, stage=stage)
+                updated = replace(self.lease, revision=job.revision)
+                await db.commit()
+                self.lease = updated
 
     async def record_submission(
         self, call_id: int, result: ProviderSubmissionResult, *, recovery_evidence_id: int | None = None
@@ -257,9 +276,13 @@ class GenerationWorkerService:
             return list(await asyncio.gather(*(self._execute(lease) for lease in leases)))
 
     async def serve(self, stop: asyncio.Event) -> None:
-        while not stop.is_set():
-            await self.run_once()
-            try:
-                await asyncio.wait_for(stop.wait(), timeout=1)
-            except TimeoutError:
-                pass
+        from module_higgsfield.service.bounded_dispatch_service import serve_bounded
+        from module_higgsfield.service.provider_connection_pool import provider_pool_scope
+
+        async def claim(limit):
+            async with self.sessions() as db:
+                return await JobLeaseService.claim(db, self.worker, limit=limit,
+                    lease_seconds=self.lease_seconds, kinds=self.kinds)
+
+        async with self._batch_lock, provider_pool_scope(self.concurrency):
+            await serve_bounded(stop, self.concurrency, claim, self._execute)

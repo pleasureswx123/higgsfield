@@ -1,9 +1,11 @@
 import { onActivated, onBeforeUnmount, onDeactivated, ref, watch, computed } from 'vue'
 import { getGeneration, listGenerations, type GenerationSummary } from '@/api/generations'
+import { ElNotification } from 'element-plus'
+import { generationFeedback, generationSubmissionFeedback } from '@/utils/generationFeedback'
 import { useAuthStore } from '@/stores/auth'
 
 /** 从后端恢复目录生成状态；只查询任务，不重发供应商请求。 */
-export function useCreationProgress(project: () => string, folder: () => string | null, accepted: () => string | undefined, changed: () => void) {
+export function useCreationProgress(project: () => string, folder: () => string | null, accepted: () => string | undefined, changed: () => void, showResult: (id: string) => void = () => {}) {
   const auth = useAuthStore()
   const awaitingAccepted = ref(false)
   const rows = ref<GenerationSummary[]>([]), error = ref(''), loading = ref(false), lastChecked = ref<number>()
@@ -14,12 +16,28 @@ export function useCreationProgress(project: () => string, folder: () => string 
   const autoUpdating = ref(false)
   let failures = 0
   let missingAccepted = 0
-  let files = ''
+  const readyCounts = new Map<string, number>()
+  const observed = new Map<string, GenerationSummary>()
+  const notified = new Set<string>()
+  const submitted = new Set<string>()
+  function notifyResults(nextRows: GenerationSummary[]) {
+    for (const row of nextRows) {
+      const previous = observed.get(row.id)
+      const feedback = generationFeedback(row)
+      const ended = ['finished', 'blocked', 'submission_unknown'].includes(row.orchestrationState) || ['failed', 'cancelled'].includes(row.upstreamState) || row.archiveSummary.failed > 0
+      const wasPending = previous && (!['finished', 'blocked', 'submission_unknown'].includes(previous.orchestrationState) || previous.archiveSummary.pending > 0)
+      if (ended && !row.archiveSummary.pending && !notified.has(row.id) && (wasPending || submitted.has(row.id))) {
+        notified.add(row.id)
+        ElNotification({ title: feedback.label, message: `${row.promptExcerpt?.slice(0, 40) || (row.kind === 'video' ? '视频生成' : '图片生成')}：${feedback.description}`, type: feedback.tone === 'success' ? 'success' : feedback.tone === 'danger' ? 'error' : 'warning', onClick: () => showResult(row.id), duration: feedback.tone === 'success' ? 6000 : 0 })
+      }
+      observed.set(row.id, row)
+    }
+  }
   function stop() { controller?.abort(); if (timer) clearTimeout(timer); autoUpdating.value = false }
   function schedule() {
     if (!active || disposed) return
     autoUpdating.value = true
-    timer = setTimeout(() => { void fetchState() }, 5000)
+    timer = setTimeout(() => { void fetchState() }, rows.value.some(row => generationSubmissionFeedback(row).busy) ? 1000 : 5000)
   }
   function failed(message: string) {
     error.value = message
@@ -40,17 +58,17 @@ export function useCreationProgress(project: () => string, folder: () => string 
       failed('状态查询超时')
     }, 15000)
     try {
-      const result = await listGenerations({ scope: 'mine', projectId: project(), pageNum: 1, pageSize: 50 }, current.signal)
+      const result = await listGenerations({ scope: 'mine', category: 'active', projectId: project(), pageNum: 1, pageSize: 50 }, current.signal)
       if (current.signal.aborted) return
       let page = 1
       let more = result.hasNext
       while (more) {
-        const older = await listGenerations({ scope: 'mine', projectId: project(), pageNum: ++page, pageSize: 50 }, current.signal)
+        const older = await listGenerations({ scope: 'mine', category: 'active', projectId: project(), pageNum: ++page, pageSize: 50 }, current.signal)
         if (current.signal.aborted) return
-        result.rows.push(...older.rows.filter(row => !['finished', 'blocked', 'submission_unknown'].includes(row.orchestrationState)))
+        result.rows.push(...older.rows)
         more = older.hasNext
       }
-      for (const previous of rows.value.filter(row => !['finished', 'blocked', 'submission_unknown'].includes(row.orchestrationState))) {
+      for (const previous of rows.value.filter(row => !['finished', 'blocked', 'submission_unknown'].includes(row.orchestrationState) || row.archiveSummary.pending > 0)) {
         if (!result.rows.some(row => row.id === previous.id)) {
           const detail = await getGeneration(previous.id, current.signal)
           if (current.signal.aborted) return
@@ -60,10 +78,13 @@ export function useCreationProgress(project: () => string, folder: () => string 
       // 刚受理任务可能沿用参数记录的其他目录，必须按编号跟踪。
       const acceptedId = accepted()
       if (acceptedId && !result.rows.some(row => row.id === acceptedId)) {
-        const detail = await getGeneration(acceptedId, current.signal)
+        const cached = observed.get(acceptedId)
+        const settled = cached && ['finished', 'blocked', 'submission_unknown'].includes(cached.orchestrationState) && !cached.archiveSummary.pending
+        const detail = settled ? { data: cached } : await getGeneration(acceptedId, current.signal)
         if (current.signal.aborted) return
         if (detail.data.projectId === project()) result.rows.unshift(detail.data)
       }
+      notifyResults(result.rows)
       rows.value = result.rows
       awaitingAccepted.value = Boolean(accepted() && !result.rows.some(row => row.id === accepted()))
       if (awaitingAccepted.value) missingAccepted++
@@ -71,8 +92,14 @@ export function useCreationProgress(project: () => string, folder: () => string 
       error.value = awaitingAccepted.value && missingAccepted >= 3 ? '任务已受理，暂未查到最新状态，请手动刷新' : ''
       failures = 0
       lastChecked.value = Date.now()
-      const next = result.rows.filter(row => row.archiveSummary.ready > 0).map(row => `${row.id}:${row.archiveSummary.ready}`).join('|')
-      if (next !== files) { files = next; changed() }
+      let filesChanged = false
+      for (const row of result.rows) {
+        if (row.archiveSummary.ready > 0 && readyCounts.get(row.id) !== row.archiveSummary.ready) {
+          readyCounts.set(row.id, row.archiveSummary.ready)
+          filesChanged = true
+        }
+      }
+      if (filesChanged) changed()
       // 人工核查和已结束的任务不再轮询；仍在处理或归档时才自动更新。
       if ((awaitingAccepted.value && missingAccepted < 3) || running.value || result.rows.some(row => row.orchestrationState !== 'submission_unknown' && row.archiveSummary.pending > 0)) schedule()
     } catch (cause) {
@@ -82,8 +109,8 @@ export function useCreationProgress(project: () => string, folder: () => string 
       if (controller === current) loading.value = false
     }
   }
-  watch(() => [project(), folder(), auth.token], () => { rows.value = []; files = ''; awaitingAccepted.value = false; lastChecked.value = undefined; void reload() }, { immediate: true })
-  watch(accepted, value => { missingAccepted = 0; awaitingAccepted.value = Boolean(value); void reload() }, { flush: 'sync' })
+  watch(() => [project(), folder(), auth.token], () => { rows.value = []; readyCounts.clear(); observed.clear(); notified.clear(); submitted.clear(); awaitingAccepted.value = false; lastChecked.value = undefined; void reload() }, { immediate: true })
+  watch(accepted, value => { if (value) submitted.add(value); missingAccepted = 0; awaitingAccepted.value = Boolean(value); void reload() }, { flush: 'sync' })
   onDeactivated(() => { active = false; stop() })
   onActivated(() => { active = true; void reload() })
   onBeforeUnmount(() => { disposed = true; stop() })

@@ -56,6 +56,7 @@ class ProviderHttpService:
         # 复制后重新校验，调用方不能在初始化后修改主机白名单。
         self.connection = ConnectionFields.model_validate(connection.model_dump())
         self.evidence_writer = None
+        self.network_trace = None
         self.secret = secret
         self.max_response_bytes = max_response_bytes
 
@@ -153,6 +154,7 @@ class ProviderHttpService:
     async def _send(
         self, method, path, content, *, content_type='application/json', content_length=None,
     ) -> ProviderHttpResult:
+        from module_higgsfield.service.provider_connection_pool import request_transport
         config = self.connection.config
         timeout = httpx.Timeout(
             config.read_timeout_seconds,
@@ -176,8 +178,9 @@ class ProviderHttpService:
         try:
             async with (
                 asyncio.timeout(config.operation_timeout_seconds),
-                httpx.AsyncClient(timeout=timeout, follow_redirects=False, trust_env=False) as client,
-                client.stream(method, self.connection.base_url + path, headers=headers, content=content) as response,
+                httpx.AsyncClient(timeout=timeout, follow_redirects=False, trust_env=False, transport=request_transport()) as client,
+                client.stream(method, self.connection.base_url + path, headers=headers, content=content,
+                    extensions={"trace": self.network_trace} if self.network_trace else {}) as response,
             ):
                 http_status = response.status_code
                 phase = 'response_body'

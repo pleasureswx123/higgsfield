@@ -106,6 +106,9 @@ class ImageSubmitHandlerTests(unittest.IsolatedAsyncioTestCase):
         async with self.sessions() as db:
             self.assertEqual(await db.scalar(text('SELECT orchestration_state FROM hf_creation_job')), '5')
             self.assertEqual(await db.scalar(text('SELECT archive_state FROM hf_generated_output')), '2')
+            stages = list(await db.scalars(text("SELECT payload->>'stage' FROM hf_task_event WHERE payload ? 'stage' ORDER BY sequence")))
+            # 初始化夹具已领取并释放过一次，实际执行再次领取也应留下记录。
+            self.assertEqual(stages, ['worker_claimed', 'worker_claimed', 'references_preparing', 'references_ready', 'response_received', 'results_saving'])
             key = await db.scalar(text('SELECT storage_key FROM hf_stored_file'))
             usage = await db.scalar(text("SELECT response_metadata->'usage' FROM hf_provider_call"))
             self.assertEqual(usage, {'input_tokens': '12', 'output_tokens': '34'})

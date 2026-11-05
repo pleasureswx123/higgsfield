@@ -1,13 +1,15 @@
 ﻿param(
     [ValidateSet('start', 'status', 'stop')]
-    [string]$Action = 'status'
+    [string]$Action = 'status',
+    [ValidateSet('image', 'image-recovery', 'video', 'archive', 'billing', 'image-thumbnail', 'credential-test')]
+    [string[]]$Modes = @('image', 'image-recovery', 'video', 'archive', 'billing', 'image-thumbnail', 'credential-test')
 )
 $ErrorActionPreference = 'Stop'
 $backend = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot '../ruoyi-fastapi-backend'))
 $python = Join-Path $backend '.venv/Scripts/python.exe'
 $logs = Join-Path $backend 'output/image-workers'
 $statePath = Join-Path $logs 'processes.json'
-$modes = @('image', 'image-recovery', 'video', 'archive', 'billing', 'image-thumbnail', 'credential-test')
+$modes = $Modes
 
 function Get-OwnedWorker($entry) {
     $candidate = Get-CimInstance Win32_Process -Filter "ProcessId = $([int]$entry.id)" -ErrorAction SilentlyContinue
@@ -32,6 +34,7 @@ if ($Action -eq 'status') {
 }
 if ($Action -eq 'stop') {
     foreach ($entry in $saved) {
+        if ($entry.mode -notin $modes) { continue }
         if (Get-OwnedWorker $entry) {
             # 虚拟环境启动器另有实际 Python 子进程，必须一并停止，避免旧代码继续消费任务。
             $children = Get-CimInstance Win32_Process -Filter "ParentProcessId = $([int]$entry.id)" -ErrorAction SilentlyContinue
@@ -50,7 +53,7 @@ if ($Action -eq 'stop') {
 }
 if (!(Test-Path -LiteralPath $python)) { throw '未找到后端虚拟环境。' }
 New-Item -ItemType Directory -Path $logs -Force | Out-Null
-$current = @()
+$current = @($saved | Where-Object { $_.mode -notin $modes })
 foreach ($mode in $modes) {
     $entry = $saved | Where-Object { $_.mode -eq $mode } | Select-Object -First 1
     if ($entry -and (Get-OwnedWorker $entry)) { $current += $entry; continue }
@@ -62,5 +65,8 @@ foreach ($mode in $modes) {
     $current += [PSCustomObject]@{ mode = $mode; id = $workerProcess.Id }
     ConvertTo-Json -InputObject @($current) | Set-Content -LiteralPath $statePath -Encoding utf8
 }
-Write-Output '已发起工作器启动。image、video 和 credential-test 会消费已提交的任务并可能产生供应商费用。'
-Write-Output '请稍后执行 status 确认进程仍在运行；启动退出原因查看日志。'
+Start-Sleep -Seconds 2
+$failed = @($current | Where-Object { $_.mode -in $modes -and !(Get-OwnedWorker $_) })
+if ($failed.Count) { throw "工作器启动失败：$($failed.mode -join ', ')。错误日志：$logs" }
+Write-Output "工作器已启动并通过进程检查：$($modes -join ', ')。"
+Write-Output 'image、video 和 credential-test 会消费已提交的任务；调用事实可在平台调用记录中查看。'

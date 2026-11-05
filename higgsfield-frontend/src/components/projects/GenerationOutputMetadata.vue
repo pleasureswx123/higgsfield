@@ -1,13 +1,13 @@
 <script setup lang="ts">
 import type { GenerationOutput } from '@/api/generations'
 
-defineProps<{ output: GenerationOutput }>()
+defineProps<{ output: GenerationOutput; hideWorkStatus?: boolean }>()
 const workStates = { none: '未设置', working: '制作中', review: '待审核', approved: '已通过', rejected: '已拒绝' }
 </script>
 
 <template>
-  <section class="output-metadata" aria-label="作品工作状态与实际规格">
-    <p>作品工作状态：{{ workStates[output.workStatus] || '状态未知' }}</p>
+  <section class="output-metadata" :aria-label="hideWorkStatus ? '产出规格' : '作品工作状态与实际规格'">
+    <p v-if="!hideWorkStatus">作品工作状态：{{ workStates[output.workStatus] || '状态未知' }}</p>
     <dl v-if="output.kind !== 'text'">
       <div><dt>实际宽度</dt><dd>{{ output.actualMetadata?.width != null ? `${output.actualMetadata.width} px` : '未记录' }}</dd></div>
       <div><dt>实际高度</dt><dd>{{ output.actualMetadata?.height != null ? `${output.actualMetadata.height} px` : '未记录' }}</dd></div>

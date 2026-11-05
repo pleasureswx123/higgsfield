@@ -13,6 +13,29 @@ from module_higgsfield.service.provider_http_service import ProviderHttpResult
 
 
 class ExchangeTests(unittest.IsolatedAsyncioTestCase):
+    async def test_milestone_write_failure_does_not_interrupt_or_resend(self):
+        records = []
+
+        async def save(identity, evidence):
+            if evidence.get('requestSentAt') and not evidence.get('finishedAt'):
+                raise RuntimeError('模拟节点存储短暂故障')
+            records.append(evidence)
+
+        transport = self.transport(save)
+
+        async def send():
+            await transport.network_trace('http11.send_request_body.started', {})
+            await transport.network_trace('http11.send_request_body.complete', {})
+            return ProviderHttpResult('response', 200, {'ok': True})
+
+        action = AsyncMock(side_effect=send)
+        result = await Evidence.capture(transport, 'POST', 'v1/chat/completions', b'{}', 'application/json', action)
+        action.assert_awaited_once()
+        self.assertEqual(result.http_status, 200)
+        self.assertTrue(records[-1]['requestSentAt'])
+        self.assertTrue(records[-1]['timingWriteDelayed'])
+        self.assertIsNone(transport.network_trace)
+
     async def test_interrupted_response_records_status_and_diagnostic(self):
         writer = AsyncMock()
         result = ProviderHttpResult('network_error', 200, issue='RESPONSE_BODY_INTERRUPTED',

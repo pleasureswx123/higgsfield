@@ -1,6 +1,7 @@
 """生成输入仅从固定业务快照投影，内部执行信息不得直接返回。"""
 
 from pydantic import ValidationError
+from module_higgsfield.dao.generation_trace_dao import GenerationTraceDao
 
 from common.vo import PageModel
 from exceptions.exception import PermissionException
@@ -14,6 +15,7 @@ from module_higgsfield.service.generation_target_service import GenerationTarget
 from module_higgsfield.service.output_read_service import OutputReadService
 from module_higgsfield.service.project_workspace_service import WorkspaceService
 from module_higgsfield.service.task_billing_read_service import TaskBillingReadService
+from module_higgsfield.service.generation_trace_service import GenerationTraceService
 
 
 class GenerationReadService:
@@ -80,6 +82,9 @@ class GenerationReadService:
             'promptExcerpt': cls.prompt_excerpt(job),
             'sourceJobId': await cls.source_job(db, user, job),
             'diagnostic': await GenerationDiagnosticService.read(db, job),
+            'execution': await GenerationTraceService.read(db, job, include_body=visible),
+            'executionStage': await GenerationTraceDao.latest_stage(db, job.job_id),
+            'requestState': GenerationTraceService.request_state(await GenerationReadDao.latest_execution_call(db, job.job_id)),
             'elementDestination': await GenerationTargetService.project(db, user, job),
             'kind': job.kind,
             'createTime': job.create_time,
@@ -115,6 +120,8 @@ class GenerationReadService:
         )
         billing = await TaskBillingReadService.read(db, job, allowed)
         result = {'projectName': project.project_name, 'billingVisibility': billing['billingVisibility']}
+        result['executionStage'] = await GenerationTraceDao.latest_stage(db, job.job_id)
+        result['requestState'] = GenerationTraceService.request_state(await GenerationReadDao.latest_execution_call(db, job.job_id))
         if preview and 'asset:read' in allowed:
             result['cardPreview'] = preview
         if billing['billingVisibility'] == 'visible':

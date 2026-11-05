@@ -5,6 +5,7 @@ import re
 import shlex
 from datetime import datetime, timezone
 from uuid import uuid4
+from time import perf_counter
 
 from module_higgsfield.dao.provider_call_dao import ProviderCallDao
 from module_higgsfield.service.job_lease_service import JobLeaseService
@@ -112,11 +113,44 @@ class ProviderExchangeService:
         await writer(
             identity, {'id': identity, 'request': request, 'startedAt': datetime.now(timezone.utc).isoformat()}
         )
-        result = await action()
+        clock = perf_counter()
+        timings = {}
+        starts = {}
+        milestones = {}
+
+        async def trace(name, info):
+            # 不保存底层info，里面可能带请求头或连接秘密。
+            phase, _, outcome = name.rpartition('.')
+            if outcome == 'started':
+                starts[phase] = perf_counter()
+            elif outcome in {'complete', 'failed'} and phase in starts:
+                timings[phase] = round((perf_counter() - starts.pop(phase)) * 1000, 3)
+            milestone = None
+            if name in {'http11.send_request_body.complete', 'http2.send_request_body.complete'}:
+                milestone = 'requestSentAt'
+            elif name in {'http11.receive_response_headers.complete', 'http2.receive_response_headers.complete'}:
+                milestone = 'responseHeadersAt'
+            elif name in {'http11.receive_response_body.complete', 'http2.receive_response_body.complete'}:
+                milestone = 'responseBodyAt'
+            if milestone:
+                milestones[milestone] = datetime.now(timezone.utc).isoformat()
+                try:
+                    await writer(identity, {**milestones, 'timingsMs': dict(timings)})
+                except Exception:
+                    # 请求已在传输中，监测存储故障不能打断响应或诱发再次付费调用。
+                    milestones['timingWriteDelayed'] = True
+
+        transport.network_trace = trace
+        try:
+            result = await action()
+        finally:
+            transport.network_trace = None
+        timings['total'] = round((perf_counter() - clock) * 1000, 3)
         await writer(
             identity,
             {
                 'finishedAt': datetime.now(timezone.utc).isoformat(),
+                **milestones, 'timingsMs': timings,
                 'transport': result.transport,
                 'httpStatus': result.http_status,
                 'issue': result.issue,

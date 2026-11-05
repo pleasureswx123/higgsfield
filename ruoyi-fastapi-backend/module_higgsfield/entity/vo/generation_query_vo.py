@@ -13,6 +13,7 @@ class GenerationQuery(WorkspaceInput):
     root_folder: bool = False
     scope: Literal['project', 'mine'] = 'project'
     kind: Literal['image', 'video', 'chat'] | None = None
+    category: Literal['active', 'attention', 'done'] | None = None
     state: (
         Literal['accepted', 'preparing', 'submitting', 'submission_unknown', 'running', 'finished', 'blocked'] | None
     ) = None

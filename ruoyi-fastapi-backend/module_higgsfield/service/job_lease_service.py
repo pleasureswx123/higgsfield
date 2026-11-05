@@ -69,6 +69,11 @@ class JobLeaseService:
                 row.lease_until = now + timedelta(seconds=lease_seconds)
                 row.fencing_token += 1
                 row.attempt_count += 1
+                if row.orchestration_state in {'0', '1'}:
+                    # 领取是执行证据；栅栏令牌已防止旧工作器写入，不改变业务版本。
+                    row.event_sequence += 1
+                    row.update_time, row.update_by = now, worker
+                    await JobEventDao.state(db, row, now, worker, stage='worker_claimed')
                 if row.orchestration_state == '2':
                     # 提交阶段失去租约不能证明上游没有受理，必须进入核查。
                     calls = await ProviderCallDao.sending_submissions(db, row.job_id)

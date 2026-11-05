@@ -76,7 +76,7 @@ class JobEventDao:
         await db.flush()
 
     @classmethod
-    async def state(cls, db: AsyncSession, row: HfCreationJob, now: datetime, worker: str) -> None:
+    async def state(cls, db: AsyncSession, row: HfCreationJob, now: datetime, worker: str, *, stage=None) -> None:
         audit = {'create_by': worker, 'update_by': worker, 'create_time': now, 'update_time': now}
         db.add(
             HfTaskEvent(
@@ -86,6 +86,7 @@ class JobEventDao:
                 schema_version=1,
                 payload={
                     'revision': str(row.revision),
+                    **({'stage': stage} if stage else {}),
                     'orchestrationState': cls.ORCHESTRATION[int(row.orchestration_state)],
                     'upstreamState': cls.UPSTREAM[int(row.upstream_state)],
                     'cancelState': ('none', 'requested', 'confirmed', 'rejected', 'unsupported')[int(row.cancel_state)],

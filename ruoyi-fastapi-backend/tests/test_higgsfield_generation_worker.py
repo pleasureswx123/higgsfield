@@ -72,7 +72,7 @@ class GenerationWorkerTests(unittest.IsolatedAsyncioTestCase):
             row = (
                 await db.execute(text('SELECT orchestration_state,lease_owner,event_sequence FROM hf_creation_job'))
             ).one()
-            self.assertEqual(tuple(row), ('0', None, 0))
+            self.assertEqual(tuple(row), ('0', None, 1))
 
     async def test_diagnostic_failure_rolls_back_release_and_revision(self):
         identity = await self.seed(orchestration_state='1')
@@ -89,7 +89,7 @@ class GenerationWorkerTests(unittest.IsolatedAsyncioTestCase):
             row = await GenerationReadDao.job(db, identity)
             self.assertEqual(row.revision, lease.revision)
             self.assertEqual(row.lease_owner, 'test-worker')
-            self.assertEqual(row.event_sequence, 0)
+            self.assertEqual(row.event_sequence, 1)
             self.assertEqual(await db.scalar(text('SELECT count(*) FROM hf_audit_log')), 0)
 
     async def test_failed_submit_recovers_only_into_reconciliation(self) -> None:

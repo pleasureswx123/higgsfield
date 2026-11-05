@@ -1,4 +1,7 @@
 <script setup lang="ts">
+import { useTimestamp, useIntervalFn } from '@vueuse/core'
+import { generationFeedback, generationSubmissionFeedback } from '@/utils/generationFeedback'
+import { IconLoader2, IconAlertCircle, IconCircleCheck } from '@tabler/icons-vue'
 import StudioPagination from '@/components/ui/StudioPagination.vue'
 import { IconX } from '@tabler/icons-vue'
 import { ElForm, ElFormItem, ElMessage, } from 'element-plus'
@@ -18,11 +21,10 @@ import type { DraftReference } from '@/api/creation'
 import ComposerPrompt from '@/components/creation/ComposerPrompt.vue'
 import { removePromptReference } from '@/utils/promptEditorDocument'
 import GenerationDetail from './GenerationDetail.vue'
-import CreationProgress from './CreationProgress.vue'
 import { useCreationProgress } from '@/composables/useCreationProgress'
 import { useGenerationSubmit } from '@/composables/useGenerationSubmit'
-const props = defineProps<{ projectId: string; initialPrompt?: string; initialKind?: 'image' | 'video'; dock?: boolean; activityTarget?: string }>()
-const emit = defineEmits<{ assetsChanged: [] }>()
+const props = defineProps<{ projectId: string; initialPrompt?: string; initialKind?: 'image' | 'video'; dock?: boolean }>()
+const emit = defineEmits<{ assetsChanged: []; taskAccepted: [] }>()
 const route = useRoute()
 const draftsOpen = ref(false)
 const referencePicker = ref<InstanceType<typeof DraftReferences>>()
@@ -144,15 +146,24 @@ defineExpose({
   using: elementUse.pending,
   useError: elementUse.error,
 })
+watch(() => generation.acceptedId.value, value => { if (value) emit('taskAccepted') })
 const taskId = ref<string>()
 const progress = useCreationProgress(() => props.projectId, () => {
   const folder = route.query.folder
   return typeof folder === 'string' && /^[1-9]\d*$/.test(folder) ? folder : null
-}, () => generation.acceptedId.value, () => emit('assetsChanged'))
-// 仅锁定刚受理到状态确认的短暂间隔；已有任务运行时允许主动提交新任务排队。
-const latestSubmitted = computed(() => progress.rows.value.find(row => row.id === generation.acceptedId.value))
+}, () => generation.acceptedId.value, () => emit('assetsChanged'), id => { taskId.value = id })
+// 发送前阻止重复点击；请求发出后允许新的独立生成。
+const feedbackNow = useTimestamp({ scheduler: callback => useIntervalFn(callback, 1000) })
+const trackedTaskId = ref<string>()
+watch(() => props.projectId, () => { trackedTaskId.value = undefined })
+watch(() => progress.running.value?.id, id => { if (id) trackedTaskId.value = id }, { immediate: true })
+const latestSubmitted = computed(() => progress.rows.value.find(row => row.id === (generation.acceptedId.value || trackedTaskId.value)) || progress.running.value)
+const taskFeedback = computed(() => latestSubmitted.value ? generationFeedback(latestSubmitted.value, feedbackNow.value) : undefined)
+const submissionFeedback = computed(() => latestSubmitted.value ? generationSubmissionFeedback(latestSubmitted.value) : undefined)
+const generationBusy = computed(() => Boolean(submissionFeedback.value?.busy || progress.awaitingAccepted.value))
+const buttonLabel = computed(() => generation.submitting.value ? '保存任务…' : generation.checking.value || generation.generating.value ? '检查参数…' : progress.awaitingAccepted.value ? '任务已保存…' : submissionFeedback.value?.label)
 async function checkGeneration() {
-  if (draftLocked.value) return
+  if (draftLocked.value || generationBusy.value) return
   if (elementTarget.requested.value && (!elementTarget.target.value || kind.value !== 'image'))
     return
   if (!(await formRef.value?.validate().catch(() => false)) || draftLocked.value) return
@@ -163,10 +174,18 @@ const rules = { prompt: [{ max: 50000, message: '提示词不能超过50000字�
 
 <template>
   <section class="creation-panel" :class="{ 'creation-dock': dock }">
+    <div v-if="latestSubmitted || progress.awaitingAccepted.value" class="generation-feedback" :data-tone="taskFeedback?.tone" role="status" aria-live="polite">
+      <IconLoader2 v-if="taskFeedback?.spinning || progress.awaitingAccepted.value" class="feedback-spinner" :size="16" />
+      <IconCircleCheck v-else-if="taskFeedback?.tone === 'success'" :size="16" />
+      <IconAlertCircle v-else :size="16" />
+      <div><strong>{{ taskFeedback?.label || '正在查询任务状态' }}</strong><p>{{ progress.error.value || taskFeedback?.description || '任务已保存，正在读取执行状态。' }}</p></div>
+      <Button variant="ghost" size="sm" :disabled="progress.loading.value" @click="progress.reload()">刷新状态</Button>
+      <Button v-if="latestSubmitted" variant="ghost" size="sm" @click="taskId = latestSubmitted.id">{{ taskFeedback?.tone === 'success' ? '查看结果' : '查看详情' }}</Button>
+    </div>
     <ElForm ref="formRef" :model="form" :rules="rules" class="composer-validation" @submit.prevent>
     <ElFormItem prop="prompt">
     <CreationComposer v-model:prompt="prompt" :kind="kind" :models="models" :selected="selected"
-      :active-task="generation.sameAsAccepted.value" :parameters="parameters" :reference-count="references.length" :disabled="editingLocked || opening || generation.locked.value || generation.generating.value"
+      :job-busy="generationBusy" :job-label="buttonLabel" :job-spinning="submissionFeedback?.spinning" :active-task="generation.sameAsAccepted.value && !generationBusy" :parameters="parameters" :reference-count="references.length" :disabled="editingLocked || opening || generation.locked.value || generation.generating.value"
       :loading="loading" :saving="saving" :checking="generation.generating.value || generation.submitting.value"
       :estimate="generation.visibleEstimate.value ? `${generation.visibleEstimate.value.amount} ${generation.visibleEstimate.value.currency}` : undefined"
       @kind="changeKind" @model="choose" @parameter="setParameter" @reference="(source, anchor) => referencePicker?.show(source, anchor)"
@@ -186,10 +205,6 @@ const rules = { prompt: [{ max: 50000, message: '提示词不能超过50000字�
     </ElFormItem>
     </ElForm>
     <div class="composer-notices">
-    <p v-if="generation.acceptedId.value" class="compact-notice" role="status">
-      {{ latestSubmitted ? progress.label(latestSubmitted) : '任务已受理，可继续创作' }}
-      <button type="button" @click="taskId = generation.acceptedId.value">查看任务</button>
-    </p>
     <p class="compact-notice" role="status">
       {{ saving ? '正在自动保存…' : autoSaveError ? '自动保存失败，内容仍保留' : dirty ? '等待自动保存…' : draft ? '已自动保存' : '填写提示词后自动保存' }}
       <button v-if="autoSaveError" type="button" :disabled="saving" @click="save(true)">重试保存</button>
@@ -299,15 +314,20 @@ const rules = { prompt: [{ max: 50000, message: '提示词不能超过50000字�
         >查看任务详情</Button
       >
     </section>
-    <Teleport :to="activityTarget || 'body'" :disabled="!activityTarget">
-      <CreationProgress :accepted-id="generation.acceptedId.value" :submitting="generation.generating.value || generation.submitting.value" :awaiting="progress.awaitingAccepted.value" :rows="progress.rows.value" :error="progress.error.value" :loading="progress.loading.value"
-        :auto-updating="progress.autoUpdating.value" :last-checked="progress.lastChecked.value" :label="progress.label" @refresh="progress.reload" @detail="taskId = $event" />
-    </Teleport>
+
     <GenerationDetail v-model="taskId" />
   </section>
 </template>
 
 <style scoped>
+.generation-feedback { display:flex; align-items:center; gap:10px; padding:12px; margin-bottom:8px; border:1px solid var(--border); border-radius:10px; background:var(--surface); font-size:12px; }
+.generation-feedback > div { flex:1; min-width:0; }
+.generation-feedback p { margin:4px 0 0; color:var(--muted-foreground); line-height:1.5; }
+.generation-feedback[data-tone="warning"] > svg { color:var(--el-color-warning); }
+.generation-feedback[data-tone="success"] > svg { color:var(--el-color-success); }
+.feedback-spinner { animation:feedback-spin 1s linear infinite; }
+@keyframes feedback-spin { to { transform:rotate(360deg); } }
+
 
 .compact-notice button { border:0; background:transparent; color:var(--muted-foreground); cursor:pointer; margin-left:10px; text-decoration:underline; }
 .compact-notice { margin:6px 12px; font-size:12px; color:var(--muted-foreground); }
@@ -397,6 +417,14 @@ const rules = { prompt: [{ max: 50000, message: '提示词不能超过50000字�
 </style>
 
 <style scoped>
+.generation-feedback { display:flex; align-items:center; gap:10px; padding:12px; margin-bottom:8px; border:1px solid var(--border); border-radius:10px; background:var(--surface); font-size:12px; }
+.generation-feedback > div { flex:1; min-width:0; }
+.generation-feedback p { margin:4px 0 0; color:var(--muted-foreground); line-height:1.5; }
+.generation-feedback[data-tone="warning"] > svg { color:var(--el-color-warning); }
+.generation-feedback[data-tone="success"] > svg { color:var(--el-color-success); }
+.feedback-spinner { animation:feedback-spin 1s linear infinite; }
+@keyframes feedback-spin { to { transform:rotate(360deg); } }
+
 .creation-drafts-heading { display:flex; align-items:flex-start; justify-content:space-between; gap:12px; margin:0 0 10px; position:sticky; top:-12px; padding:8px 0; background:var(--background); z-index:1; }
 .creation-drafts-heading h2 { font-size:14px; line-height:1.4; margin:0 0 4px; }
 .creation-drafts-heading p { font-size:12px; line-height:1.5; margin:0; }

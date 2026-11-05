@@ -47,9 +47,19 @@ class GenerationDiagnosticTests(unittest.IsolatedAsyncioTestCase):
             read.assert_not_awaited()
 
     async def test_unknown_image_without_schedule_requires_manual_review(self):
-        result = await Service.read(None, self.job(kind='image', orchestration_state='3', upstream_state='6'))
+        with patch('module_higgsfield.service.generation_diagnostic_service.GenerationReadDao.latest_execution_call', AsyncMock(return_value=None)):
+            result = await Service.read(None, self.job(kind='image', orchestration_state='3', upstream_state='6'))
         self.assertEqual(result['code'], 'IMAGE_MANUAL_REVIEW_REQUIRED')
         self.assertIn('自动恢复已停止', result['message'])
+
+    async def test_actual_connection_error_takes_priority_over_generic_recovery_message(self):
+        call = self.call(operation='image', state='3', acceptance='unknown', http_status=None,
+                         response_metadata={'transport': 'network_error'},
+                         request_metadata={'exchanges': {'a': {'diagnostic': {'exceptionType': 'RemoteProtocolError'}}}})
+        with patch('module_higgsfield.service.generation_diagnostic_service.GenerationReadDao.latest_execution_call', AsyncMock(return_value=call)):
+            result = await Service.read(None, self.job(kind='image', orchestration_state='3', upstream_state='6'))
+        self.assertEqual(result['code'], 'SUBMISSION_CONNECTION_INTERRUPTED')
+        self.assertNotIn('管理员', result['message'])
 
     async def test_changed_poll_diagnostic_refreshes_stream_without_new_job_event(self):
         snapshot = dict(eventCursor='1:7', allowedActions=[], elementDestination=None,

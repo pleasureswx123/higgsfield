@@ -30,13 +30,14 @@ class GeneratedOutputDao:
         return {row.job_id: {'outputId': str(row.output_id), 'revision': str(row.revision), 'kind': row.kind} for row in rows}
 
     @staticmethod
-    async def archive_candidates(db, now, limit):
+    async def archive_candidates(db, now, limit, exclude_ids=()):
         """只读取候选编号与版本；实际占用仍按任务→输出加锁，避免锁顺序倒置。"""
         return (
             await db.execute(
                 select(HfGeneratedOutput.output_id, HfGeneratedOutput.revision)
                 .where(
                     HfGeneratedOutput.del_flag == '0',
+                    HfGeneratedOutput.output_id.not_in(exclude_ids),
                     HfGeneratedOutput.kind.in_(('image', 'video')),
                     HfGeneratedOutput.source_url_ciphertext.is_not(None),
                     HfGeneratedOutput.archive_state.in_(('0', '1', '3')),

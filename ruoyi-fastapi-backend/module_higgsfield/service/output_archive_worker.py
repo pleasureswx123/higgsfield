@@ -94,7 +94,20 @@ class OutputArchiveWorker:
         return await asyncio.gather(*(self.process(identity, revision) for identity, revision in candidates))
 
     async def serve(self, stop):
-        while not stop.is_set():
-            await self.run_once()
-            with suppress(TimeoutError):
-                await asyncio.wait_for(stop.wait(), timeout=1)
+        from module_higgsfield.service.bounded_dispatch_service import serve_bounded
+
+        in_flight = set()
+
+        async def claim(limit):
+            async with self.sessions() as db:
+                items = await GeneratedOutputDao.archive_candidates(db, await JobLeaseDao.now(db), limit, tuple(in_flight))
+                in_flight.update(item[0] for item in items)
+                return items
+
+        async def execute(item):
+            try:
+                return await self.process(*item)
+            finally:
+                in_flight.discard(item[0])
+
+        await serve_bounded(stop, self.batch_size, claim, execute)

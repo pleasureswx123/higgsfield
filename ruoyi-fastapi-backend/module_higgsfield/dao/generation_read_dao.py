@@ -8,9 +8,24 @@ from module_higgsfield.entity.do.job_do import HfCreationJob, HfJobReference
 from module_higgsfield.entity.do.model_do import HfModelProfile, HfModelProfileVersion
 from module_higgsfield.entity.do.project_do import HfProject, HfProjectMember, HfProjectRolePermission
 from module_higgsfield.entity.do.provider_call_do import HfProviderCall
+from module_higgsfield.entity.do.generated_output_do import HfGeneratedOutput
 
 
 class GenerationReadDao:
+    @staticmethod
+    def category_condition(category):
+        """按任务与输出事实分类，在分页前过滤；异常优先于进行中。"""
+        def output_in(states):
+            return select(HfGeneratedOutput.output_id).where(
+                HfGeneratedOutput.job_id == HfCreationJob.job_id,
+                HfGeneratedOutput.archive_state.in_(states),
+            ).correlate(HfCreationJob).exists()
+        attention = or_(HfCreationJob.orchestration_state.in_(('3', '6')),
+                        HfCreationJob.upstream_state == '4', output_in(('3', '4')))
+        active = and_(~attention, HfCreationJob.upstream_state != '5', or_(
+            HfCreationJob.orchestration_state.in_(('0', '1', '2', '4')), output_in(('0', '1'))))
+        return {'active': active, 'attention': attention, 'done': and_(~attention, ~active)}[category]
+
     @staticmethod
     async def latest_execution_call(db, job_id):
         return await db.scalar(
@@ -72,6 +87,8 @@ class GenerationReadDao:
             statement = statement.where(HfCreationJob.actor_id == actor_id)
         if query.kind:
             statement = statement.where(HfCreationJob.kind == query.kind)
+        if query.category:
+            statement = statement.where(GenerationReadDao.category_condition(query.category))
         if query.state:
             statement = statement.where(
                 HfCreationJob.orchestration_state == str(JobEventDao.ORCHESTRATION.index(query.state))

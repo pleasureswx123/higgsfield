@@ -116,6 +116,21 @@ export const updateOutputStatus = (
   headers: { 'Idempotency-Key': key },
 })
 export interface GenerationSnapshot extends GenerationSummary {
+  execution?: {
+    attemptCount: number
+    events: { id: string; time: string; label: string; sincePreviousMs?: number | null }[]
+    calls: {
+      id: string; operation: string; httpStatus: number | null; acceptance: string
+      startedAt: string | null; finishedAt: string | null
+      exchanges: {
+        startedAt: string | null; finishedAt: string | null; httpStatus: number | null
+        requestSentAt?: string | null; responseHeadersAt?: string | null; responseBodyAt?: string | null
+        timingsMs?: Record<string, number>
+        transport: string | null; request: unknown; response: unknown; issue: unknown
+        diagnostic?: { exceptionType?: string; receivedBytes?: number; phase?: string }
+      }[]
+    }[]
+  }
   diagnostic?: { code: string; phase: 'prepare' | 'submit' | 'poll'; message: string } | null
   sourceJobId?: string | null
   elementDestination?: { id: string; projectId: string; name: string } | null
@@ -187,6 +202,8 @@ export type GenerationState =
   | 'blocked'
 export type GenerationKind = 'image' | 'video' | 'chat'
 export interface GenerationSummary {
+  executionStage?: string | null
+  requestState?: 'not_started' | 'preparing_request' | 'awaiting_response' | 'response_received' | 'transport_error'
   promptExcerpt?: string
   id: string
   projectId: string
@@ -205,6 +222,7 @@ export interface GenerationSummary {
   allowedActions: string[]
 }
 export interface GenerationQuery {
+  category?: 'active' | 'attention' | 'done'
   scope: 'mine' | 'project'
   projectId?: string
   folderId?: string

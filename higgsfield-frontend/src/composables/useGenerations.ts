@@ -15,6 +15,7 @@ export function useGenerations(projectId: () => string | undefined, active: () =
     page = ref(1)
   const kind = ref<GenerationKind | ''>(''),
     state = ref<GenerationState | ''>('')
+  const category = ref<'' | 'active' | 'attention' | 'done'>('')
   const dates = ref<string[] | null>(null)
   const loading = ref(false),
     error = ref('')
@@ -46,6 +47,7 @@ export function useGenerations(projectId: () => string | undefined, active: () =
           pageSize: 20,
           kind: kind.value || undefined,
           state: state.value || undefined,
+          category: category.value || undefined,
           ...libraryWindow(dates.value),
         },
         current.signal,
@@ -61,11 +63,11 @@ export function useGenerations(projectId: () => string | undefined, active: () =
       if (!current.signal.aborted) loading.value = false
     }
   }
-  watch([projectId, projectFilter, kind, state, dates], () => {
+  watch([projectId, projectFilter, kind, state, category, dates], () => {
     page.value = 1
   })
   watch(
-    [projectId, projectFilter, active, page, kind, state, dates],
+    [projectId, projectFilter, active, page, kind, state, category, dates],
     () => {
       void refresh()
     },
@@ -92,5 +94,5 @@ export function useGenerations(projectId: () => string | undefined, active: () =
     }
   })
   onBeforeUnmount(() => { alive = false; clear() })
-  return { rows, total, page, kind, state, dates, loading, error, refresh }
+  return { rows, total, page, kind, state, category, dates, loading, error, refresh }
 }

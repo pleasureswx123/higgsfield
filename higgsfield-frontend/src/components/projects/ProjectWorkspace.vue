@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { useGenerationActivity } from '@/composables/useGenerationActivity'
 import ProjectSwitcher from './ProjectSwitcher.vue'
 import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator } from '@/components/ui/dropdown-menu'
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs'
@@ -37,6 +38,7 @@ const {
   load,
   save,
 } = useProjectWorkspace(props.projectId)
+const activity = useGenerationActivity(() => props.projectId, () => Boolean(brief.value?.allowedActions.includes('generation:read')))
 const canManageProject = computed(() => Boolean(brief.value?.allowedActions.includes('project:manage') && ['active', 'paused'].includes(props.project.status)))
 const canArchiveProject = computed(() => Boolean(brief.value?.allowedActions.includes('project:archive') && ['active', 'paused', 'archived'].includes(props.project.status)))
 function lifecycleChanged(project: Project) {
@@ -92,8 +94,8 @@ watch(
       <DropdownMenuTrigger as-child><Button variant="ghost" class="project-management-trigger" :disabled="saving" aria-label="项目管理" title="项目管理"><IconDotsVertical :size="17" /></Button></DropdownMenuTrigger>
       <DropdownMenuContent align="start" side="right" :side-offset="8" class="project-management-menu">
         <DropdownMenuItem v-if="canManageProject && project.status === 'active'" @select="lifecycle?.start(project, 'rename')">修改名称</DropdownMenuItem>
-        <DropdownMenuItem v-if="canManageProject && project.status === 'active'" @select="lifecycle?.start(project, 'pause')">暂停项目</DropdownMenuItem>
-        <DropdownMenuItem v-if="canManageProject && project.status === 'paused'" @select="lifecycle?.start(project, 'resume')">恢复运行</DropdownMenuItem>
+        <DropdownMenuItem v-if="canManageProject && project.status === 'active'" @select="lifecycle?.start(project, 'pause')">暂停创作</DropdownMenuItem>
+        <DropdownMenuItem v-if="canManageProject && project.status === 'paused'" @select="lifecycle?.start(project, 'resume')">恢复创作</DropdownMenuItem>
         <DropdownMenuSeparator v-if="canManageProject && canArchiveProject" />
         <DropdownMenuItem v-if="canArchiveProject && project.status !== 'archived'" class="project-archive-action" @select="lifecycle?.start(project, 'archive')">归档项目</DropdownMenuItem>
         <DropdownMenuItem v-if="canArchiveProject && project.status === 'archived'" @select="lifecycle?.start(project, 'restore')">恢复项目</DropdownMenuItem>
@@ -104,10 +106,9 @@ watch(
       <SidebarMenuItem><SidebarMenuButton v-if="brief?.allowedActions.includes('generation:create')" class="nav-link" :class="{ active: tab === 'creation' }" @click="tab = 'creation'"><span class="project-nav-icon"><IconSparkles :size="17" aria-hidden="true" /></span><span>开始创作</span></SidebarMenuButton></SidebarMenuItem>
 
       <SidebarMenuItem><SidebarMenuButton v-if="brief?.allowedActions.includes('element:read')" class="nav-link" :class="{ active: tab === 'elements' }" @click="tab = 'elements'"><span class="project-nav-icon"><IconAt :size="17" aria-hidden="true" /></span><span>项目元素库</span></SidebarMenuButton></SidebarMenuItem>
-      <SidebarMenuItem><SidebarMenuButton v-if="brief?.allowedActions.includes('generation:read')" class="nav-link" :class="{ active: tab === 'generations' }" @click="tab = 'generations'"><span class="project-nav-icon"><IconPhotoVideo :size="17" aria-hidden="true" /></span><span>项目生成记录</span></SidebarMenuButton></SidebarMenuItem>
+      <SidebarMenuItem><SidebarMenuButton v-if="brief?.allowedActions.includes('generation:read')" class="nav-link" :class="{ active: tab === 'generations' }" @click="tab = 'generations'"><span class="project-nav-icon"><IconPhotoVideo :size="17" aria-hidden="true" /></span><span>项目生成记录</span><span v-if="activity.count.value" class="generation-activity-count">进行中 {{ activity.count.value }}</span></SidebarMenuButton></SidebarMenuItem>
 
       </SidebarMenu>
-      <div :id="`project-activity-${projectId}`" v-show="tab === 'creation' || tab === 'folders'" class="project-activity-host"></div>
     </div>
   </Teleport>
   <Teleport to="#project-sidebar-management"><div v-if="route.params.id === projectId" class="project-local-navigation"><SidebarMenu class="project-sidebar-menu"><SidebarMenuItem><SidebarMenuButton class="nav-link" :class="{ active: tab === 'brief' || tab === 'members' || tab === 'permissions' }" :aria-current="tab === 'brief' || tab === 'members' || tab === 'permissions' ? 'page' : undefined" @click="tab = ['members', 'permissions'].includes(tab) ? tab : 'brief'"><span class="project-nav-icon"><IconAdjustmentsHorizontal :size="17" aria-hidden="true" /></span><span>项目设置<span v-if="dirty"> ·</span></span></SidebarMenuButton></SidebarMenuItem></SidebarMenu></div></Teleport>
@@ -127,6 +128,7 @@ watch(
     v-show="tab === 'generations'"
     :project-id="projectId"
     :active="tab === 'generations'"
+    :refresh-key="activity.count.value"
   />
   <p v-if="useError" class="project-error" role="alert">{{ useError }}</p>
   <p v-if="loading" role="status">正在加载项目工作区…</p>
@@ -196,7 +198,7 @@ watch(
     :use-error="useError"
     @use="useElements"
   />
-  <ProjectCreation ref="creation" :activity-target="`#project-activity-${projectId}`" dock @assets-changed="folderWorkspace?.refreshAll()"
+  <ProjectCreation ref="creation" @task-accepted="activity.refresh" dock @assets-changed="folderWorkspace?.refreshAll(); activity.refresh()"
     v-if="brief?.allowedActions.includes('generation:create')"
     v-show="tab === 'creation' || (tab === 'folders' && !selectedAssetCount && route.query.folderView !== 'trash')"
     :project-id="projectId"
@@ -205,6 +207,7 @@ watch(
 </template>
 
 <style scoped>
+.generation-activity-count { margin-left:auto; font-size:11px; color:var(--muted-foreground); white-space:nowrap; }
 .project-sidebar-heading { display:flex; align-items:center; gap:0; margin-bottom:8px; padding-right:4px; border:1px solid var(--border); border-radius:10px; background:var(--surface); }
 .project-sidebar-switcher { flex:1; min-width:0; }
 .project-sidebar-switcher :deep(.project-switcher) { margin-bottom:0; border:0; background:transparent; border-radius:9px; }

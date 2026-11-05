@@ -47,13 +47,21 @@ class GenerationDiagnosticService:
                     code, message = 'SUBMISSION_TIMEOUT', '提交等待响应超时，不能据此判断供应商未受理。'
                 elif transport == 'network_error':
                     code, message = 'SUBMISSION_NETWORK_UNKNOWN', '提交通信发生错误，不能据此判断供应商未受理。'
+                    exchanges = (call.request_metadata or {}).get('exchanges', {})
+                    if any((item.get('diagnostic') or {}).get('exceptionType') == 'RemoteProtocolError'
+                           for item in exchanges.values()):
+                        code, message = 'SUBMISSION_CONNECTION_INTERRUPTED', '与供应商通信时连接中断，未取得完整响应，无法确认生成结果。为避免重复计费，系统不会自动重发。'
         return {'code': code, 'phase': phase, 'message': message} if code else None
 
     @classmethod
     async def read(cls, db, job):
+        if job.orchestration_state == '3':
+            actual = cls.project(job, await GenerationReadDao.latest_execution_call(db, job.job_id))
+            if actual:
+                return actual
         if job.kind == 'image' and job.orchestration_state == '3' and job.next_action_time is None:
             return {'code': 'IMAGE_MANUAL_REVIEW_REQUIRED', 'phase': 'submit',
-                    'message': '本次未取得可恢复的完整图片结果，自动恢复已停止。无需继续等待，请管理员核查供应商调用及费用记录；不会自动重新生成。'}
+                    'message': '本次未取得可恢复的完整图片结果，自动恢复已停止。可展开执行过程查看实际请求与响应；系统不会自动重新生成。'}
         if job.orchestration_state in {'0', '1'}:
             return await PreparationDiagnosticService.read(db, job)
         if job.upstream_state not in {'4', '6'} and job.orchestration_state != '3':

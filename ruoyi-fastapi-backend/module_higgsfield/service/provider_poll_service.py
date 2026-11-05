@@ -23,6 +23,15 @@ HTTP_MIN, HTTP_MAX = 100, 599
 
 class ProviderPollService:
     @staticmethod
+    def next_delay(state: str) -> int:
+        # 保持至少30秒的原有频率边界；排队和查询异常减少无效查询。
+        if state in {'running', 'succeeded'}:
+            return 30 + secrets.randbelow(6)
+        if state == 'queued':
+            return 45 + secrets.randbelow(16)
+        return 60
+
+    @staticmethod
     async def begin(db: AsyncSession, lease: JobLease, request_hash: str) -> int:
         if not isinstance(request_hash, str) or not re.fullmatch('[0-9a-f]{64}', request_hash):
             raise ValueError('请求摘要必须是SHA256')
@@ -136,7 +145,7 @@ class ProviderPollService:
             target = '5' if upstream == '4' else '4'
             changed = (job.orchestration_state, job.upstream_state) != (target, upstream)
             job.orchestration_state, job.upstream_state = target, upstream
-            job.next_action_time = now + timedelta(seconds=30 + secrets.randbelow(31)) if target == '4' else None
+            job.next_action_time = now + timedelta(seconds=ProviderPollService.next_delay(fact.upstream_state)) if target == '4' else None
             if target == '5':
                 job.finished_time = now
             job.lease_owner, job.lease_until = None, None
