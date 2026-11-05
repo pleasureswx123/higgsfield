@@ -58,10 +58,15 @@ class JobLeaseService:
         if type(limit) is not int or not 1 <= limit <= 100:
             raise ValueError('单次领取数量必须为1到100')
         try:
+            if not await JobLeaseDao.lock_scheduler(db):
+                await db.rollback()
+                return []
             now = await JobLeaseDao.now(db)
-            rows = await JobLeaseDao.candidates(db, now, limit, kinds)
+            rows = await JobLeaseDao.candidates(db, now, max(100, limit * 4), kinds)
             leases = []
             for row in rows:
+                if len(leases) >= limit:
+                    break
                 if row.orchestration_state in ('0', '1') and not await JobLeaseDao.has_execution_capacity(db, row, now):
                     row.next_action_time = now + timedelta(seconds=2)
                     continue

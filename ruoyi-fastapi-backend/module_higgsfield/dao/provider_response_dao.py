@@ -35,13 +35,14 @@ class ProviderResponseDao:
         )
 
     @classmethod
-    async def recovery_candidates(cls, db, now, limit):
+    async def recovery_candidates(cls, db, now, limit, exclude_ids=()):
         evidence = cls.completed_images().where(HfProviderResponse.job_id == HfGeneratedOutput.job_id).exists()
         return (
             await db.execute(
                 select(HfGeneratedOutput.output_id, HfGeneratedOutput.revision)
                 .where(
                     HfGeneratedOutput.kind == 'image',
+                    HfGeneratedOutput.output_id.not_in(exclude_ids),
                     HfGeneratedOutput.del_flag == '0',
                     HfGeneratedOutput.archive_state.in_(('0', '1', '3')),
                     HfGeneratedOutput.source_url_ciphertext.is_(None),

@@ -20,6 +20,12 @@ class ArchiveRetryTests(unittest.IsolatedAsyncioTestCase):
 
     async def asyncSetUp(self):
         await OutputArchiveTests.asyncSetUp(self)
+        # 归档重试会检查已保存的图片响应证据，隔离测试也需加载对应迁移。
+        for filename in ('20261027_35_provider_calls.py', '20261027_37_provider_responses.py'):
+            spec = importlib.util.spec_from_file_location('retry_response', Path(__file__).resolve().parents[1] / 'alembic/versions' / filename)
+            self.migration = importlib.util.module_from_spec(spec)
+            spec.loader.exec_module(self.migration)
+            await self.migrate('upgrade')
         spec = importlib.util.spec_from_file_location('retry_permission', Path(__file__).resolve().parents[1] / 'alembic/versions/20261028_47_archive_retry_permission.py')
         self.migration = importlib.util.module_from_spec(spec)
         spec.loader.exec_module(self.migration)

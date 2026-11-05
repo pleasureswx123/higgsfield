@@ -1,6 +1,7 @@
 """保存发送时的脱敏交换证据；查询不会重新编译或发送请求。"""
 
 import json
+import logging
 import re
 import shlex
 from datetime import datetime, timezone
@@ -146,16 +147,18 @@ class ProviderExchangeService:
         finally:
             transport.network_trace = None
         timings['total'] = round((perf_counter() - clock) * 1000, 3)
-        await writer(
-            identity,
-            {
-                'finishedAt': datetime.now(timezone.utc).isoformat(),
-                **milestones, 'timingsMs': timings,
-                'transport': result.transport,
-                'httpStatus': result.http_status,
-                'issue': result.issue,
-                'diagnostic': result.diagnostic,
-                'response': cls.redact(result.body if result.body is not None else result.diagnostic_body, secret),
-            },
-        )
+        evidence = {
+            'finishedAt': datetime.now(timezone.utc).isoformat(),
+            **milestones, 'timingsMs': timings,
+            'transport': result.transport,
+            'httpStatus': result.http_status,
+            'issue': result.issue,
+            'diagnostic': result.diagnostic,
+            'response': cls.redact(result.body if result.body is not None else result.diagnostic_body, secret),
+        }
+        try:
+            await writer(identity, evidence)
+        except Exception as exc:
+            # 已收到的响应继续交给业务层持久化；展示日志故障不能丢弃结果或诱发重新付费。
+            logging.getLogger(__name__).warning('供应商响应展示证据保存失败：%s', type(exc).__name__)
         return result

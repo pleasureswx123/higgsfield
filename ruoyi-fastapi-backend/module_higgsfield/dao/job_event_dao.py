@@ -1,6 +1,7 @@
 """任务可见状态及通知在同一事务中持久化。"""
 
 from datetime import datetime
+from sqlalchemy import text
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -77,6 +78,9 @@ class JobEventDao:
 
     @classmethod
     async def state(cls, db: AsyncSession, row: HfCreationJob, now: datetime, worker: str, *, stage=None) -> None:
+        # 与任务写入同事务提交，回滚不会误唤醒；通知不携带提示词或凭据。
+        if stage is None:
+            await db.execute(text("SELECT pg_notify('hf_generation_ready_' || md5(current_schema()), '')"))
         audit = {'create_by': worker, 'update_by': worker, 'create_time': now, 'update_time': now}
         db.add(
             HfTaskEvent(

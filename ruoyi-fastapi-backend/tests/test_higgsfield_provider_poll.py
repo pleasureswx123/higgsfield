@@ -135,6 +135,18 @@ class ProviderPollTests(unittest.IsolatedAsyncioTestCase):
             self.assertEqual(await db.scalar(text('SELECT count(*) FROM hf_billing_subject')), 0)
             self.assertEqual(await db.scalar(text('SELECT orchestration_state FROM hf_creation_job')), '4')
 
+    async def test_interrupted_body_preserves_http_and_only_retries_poll(self):
+        for transport in ('timeout', 'network_error'):
+            async with self.sessions() as db:
+                identity = await ProviderPollService.begin(db, self.lease, 'b' * 64)
+                await ProviderPollService.record(db, self.lease, identity, transport=transport, http_status=200)
+                row = (await db.execute(text('SELECT state,http_status FROM hf_provider_call WHERE call_id=:id'), {'id': identity})).one()
+                self.assertEqual(tuple(row), ('3', 200))
+                self.assertEqual(await db.scalar(text('SELECT orchestration_state FROM hf_creation_job')), '4')
+                self.assertEqual(await db.scalar(text('SELECT count(*) FROM hf_generated_output')), 0)
+                self.assertEqual(await db.scalar(text("SELECT count(*) FROM hf_provider_call WHERE operation='video_submit'")), 1)
+            await self.claim()
+
     async def test_repeated_poll_usage_deduplicates_and_new_revision_changes_task(self):
         revisions = []
         for count in (100, 100, 120):

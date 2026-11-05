@@ -27,8 +27,12 @@ def arguments() -> argparse.Namespace:
     parser.add_argument('--concurrency', type=int, default=4)
     parser.add_argument('--lease-seconds', type=int, default=60)
     parser.add_argument('--handler-timeout', type=int, default=300)
+    parser.add_argument('--control-dir', help='本地管理脚本专用控制目录')
+    parser.add_argument('--drain-seconds', type=int, default=1200, help='停止领取后等待在途任务的最长秒数')
     parser.add_argument('--test-stale-seconds', type=int, default=600, help='测试发送意图回收窗口，须大于处理超时加60秒')
     options = parser.parse_args()
+    if not 1 <= options.concurrency <= 100 or not 1 <= options.drain_seconds <= 3600:
+        parser.error('并发须为1到100，停机等待须为1到3600秒')
     if not options.enable_consumption:
         parser.error('任务消费默认关闭；完成环境与恢复核验后，使用--enable-consumption显式启用')
     return options
@@ -106,7 +110,12 @@ async def run(options: argparse.Namespace) -> int:
             )
         for signum in (signal.SIGINT, signal.SIGTERM):
             previous[signum] = signal.signal(signum, lambda *_: stop.set())
-        await worker.serve(stop)
+        from module_higgsfield.service.worker_control_service import serve_controlled
+        from module_higgsfield.service.worker_wakeup_service import worker_notifications
+        async with worker_notifications(engine, stop):
+            await serve_controlled(worker, engine, stop,
+                control_dir=options.control_dir, mode=options.mode,
+                concurrency=options.concurrency, drain_seconds=options.drain_seconds)
         return 0
     finally:
         for signum, handler in previous.items():

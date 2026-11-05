@@ -1,7 +1,5 @@
 """从已认证的响应证据恢复失败图片，不请求供应商、不修改原始用量。"""
 
-import asyncio
-
 from module_higgsfield.dao.generated_output_dao import GeneratedOutputDao
 from module_higgsfield.dao.job_lease_dao import JobLeaseDao
 from module_higgsfield.dao.provider_response_dao import ProviderResponseDao
@@ -54,7 +52,6 @@ class ImageArchiveRecoveryWorker(OutputArchiveWorker):
                 facts=stored,
             )
 
-    async def run_once(self):
+    async def candidates(self, limit, exclude_ids=()):
         async with self.sessions() as db:
-            candidates = await ProviderResponseDao.recovery_candidates(db, await JobLeaseDao.now(db), self.batch_size)
-        return await asyncio.gather(*(self.process(identity, revision) for identity, revision in candidates))
+            return await ProviderResponseDao.recovery_candidates(db, await JobLeaseDao.now(db), limit, exclude_ids)

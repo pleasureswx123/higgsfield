@@ -4,6 +4,8 @@ const { readFileSync } = require('node:fs')
 const { runInNewContext } = require('node:vm')
 const ts = require('typescript')
 const vue = require('vue')
+const feedback = {}
+runInNewContext(ts.transpileModule(readFileSync('src/utils/generationFeedback.ts', 'utf8'), { compilerOptions: { module: ts.ModuleKind.CommonJS } }).outputText, { exports: feedback, Date })
 
 test('目录查询包含视频，归档完成自动通知素材刷新', async () => {
   const exports = {}, calls = [], hooks = {}
@@ -12,6 +14,8 @@ test('目录查询包含视频，归档完成自动通知素材刷新', async ()
   runInNewContext(ts.transpileModule(source, { compilerOptions: { module: ts.ModuleKind.CommonJS } }).outputText, {
     exports, AbortController, Error, setTimeout: () => 1, clearTimeout: () => {},
     require: name => name === 'vue' ? { ...vue, onActivated: () => {}, onDeactivated: () => {}, onBeforeUnmount: fn => { hooks.close = fn } }
+      : name === '@/utils/generationFeedback' ? feedback
+      : name === 'element-plus' ? { ElNotification: () => {} }
       : name === '@/stores/auth' ? { useAuthStore: () => ({ token: 'token' }) }
       : { listGenerations: async query => { calls.push(query); return { rows: [{ id: '7', kind: 'video', orchestrationState: 'finished', archiveSummary: { ready, failed: 0 } }] } } },
   })
@@ -41,6 +45,8 @@ test('生成与待确认分开、连接失败保留旧结果且不刷新素材',
   runInNewContext(ts.transpileModule(source, {compilerOptions:{module:ts.ModuleKind.CommonJS}}).outputText, {
     exports, AbortController, Error, setTimeout:()=>1, clearTimeout:()=>{},
     require: name => name === 'vue' ? {...vue,onActivated:()=>{},onDeactivated:()=>{},onBeforeUnmount:fn=>{hooks.close=fn}}
+      : name === '@/utils/generationFeedback' ? feedback
+      : name === 'element-plus' ? { ElNotification: () => {} }
       : name === '@/stores/auth' ? {useAuthStore:()=>({token:'token'})}
       : {listGenerations:async()=>{if(fail)throw new Error('离线'); return {rows:[row]}}},
   })
@@ -73,6 +79,8 @@ test('人工核查停止轮询，连续三次失败停止重试，手动刷新�
     setTimeout: (fn, ms) => { const id = ++seq; timers.set(id, { fn, ms }); return id },
     clearTimeout: id => timers.delete(id),
     require: name => name === 'vue' ? { ...vue, onActivated: () => {}, onDeactivated: () => {}, onBeforeUnmount: fn => { hooks.close = fn } }
+      : name === '@/utils/generationFeedback' ? feedback
+      : name === 'element-plus' ? { ElNotification: () => {} }
       : name === '@/stores/auth' ? { useAuthStore: () => ({ token: 'token' }) }
       : { listGenerations: async () => { calls++; if (fail) throw new Error('离线'); return { rows: [{ id: '3', orchestrationState: 'submission_unknown', upstreamState: 'unknown', archiveSummary: { ready: 0, pending: 0 } }] } } },
   })
@@ -105,6 +113,8 @@ test('新任务不在当前目录时按编号追踪，受理后立即进入等�
   runInNewContext(ts.transpileModule(source, { compilerOptions: { module: ts.ModuleKind.CommonJS } }).outputText, {
     exports, AbortController, Error, setTimeout: () => 1, clearTimeout: () => {},
     require: name => name === 'vue' ? { ...vue, onActivated: () => {}, onDeactivated: () => {}, onBeforeUnmount: fn => { hooks.close = fn } }
+      : name === '@/utils/generationFeedback' ? feedback
+      : name === 'element-plus' ? { ElNotification: () => {} }
       : name === '@/stores/auth' ? { useAuthStore: () => ({ token: 'token' }) }
       : { listGenerations: async () => ({ rows: [] }), getGeneration: async id => { details.push(id); return { data: { id, projectId:'2', orchestrationState:'submitting', upstreamState:'not_submitted', archiveSummary:{ready:0,pending:0} } } } },
   })

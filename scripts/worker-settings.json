@@ -1,0 +1,12 @@
+{
+  "drainSeconds": 1200,
+  "modes": {
+    "image": { "concurrency": 2, "handlerTimeout": 1200 },
+    "image-recovery": { "concurrency": 1, "handlerTimeout": 300 },
+    "video": { "concurrency": 4, "handlerTimeout": 300 },
+    "archive": { "concurrency": 2, "handlerTimeout": 300 },
+    "billing": { "concurrency": 10, "handlerTimeout": 300 },
+    "image-thumbnail": { "concurrency": 2, "handlerTimeout": 300 },
+    "credential-test": { "concurrency": 1, "handlerTimeout": 300 }
+  }
+}

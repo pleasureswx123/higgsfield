@@ -88,9 +88,12 @@ class OutputArchiveWorker:
             await asyncio.gather(work, heartbeat, return_exceptions=True)
             # 不删除已下载文件：提交结果不确定时可能已经绑定，交由证据清理流程处理。
 
-    async def run_once(self):
+    async def candidates(self, limit, exclude_ids=()):
         async with self.sessions() as db:
-            candidates = await GeneratedOutputDao.archive_candidates(db, await JobLeaseDao.now(db), self.batch_size)
+            return await GeneratedOutputDao.archive_candidates(db, await JobLeaseDao.now(db), limit, exclude_ids)
+
+    async def run_once(self):
+        candidates = await self.candidates(self.batch_size)
         return await asyncio.gather(*(self.process(identity, revision) for identity, revision in candidates))
 
     async def serve(self, stop):
@@ -99,10 +102,9 @@ class OutputArchiveWorker:
         in_flight = set()
 
         async def claim(limit):
-            async with self.sessions() as db:
-                items = await GeneratedOutputDao.archive_candidates(db, await JobLeaseDao.now(db), limit, tuple(in_flight))
-                in_flight.update(item[0] for item in items)
-                return items
+            items = await self.candidates(limit, tuple(in_flight))
+            in_flight.update(item[0] for item in items)
+            return items
 
         async def execute(item):
             try:

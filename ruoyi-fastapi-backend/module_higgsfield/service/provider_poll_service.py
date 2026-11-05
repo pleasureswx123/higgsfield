@@ -93,8 +93,12 @@ class ProviderPollService:
         if transport == 'response':
             if type(http_status) is not int or not HTTP_MIN <= http_status <= HTTP_MAX:
                 raise ValueError('响应必须有有效HTTP状态')
-        elif http_status is not None or body is not None:
-            raise ValueError('未收到响应不能提供HTTP状态或正文')
+        else:
+            # 响应头可能已收到，但正文读取超时；保留HTTP事实，不据此推断生成结果。
+            if http_status is not None and (type(http_status) is not int or not HTTP_MIN <= http_status <= HTTP_MAX):
+                raise ValueError('HTTP状态无效')
+            if body is not None:
+                raise ValueError('传输中断不能提供完整响应正文')
         try:
             job, now = await JobLeaseService.guard(db, lease)
             call = await ProviderCallDao.locked(db, call_id)

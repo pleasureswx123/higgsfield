@@ -10,6 +10,7 @@ from module_higgsfield.service.provider_connection_pool import provider_pool_sco
 from module_higgsfield.service.provider_http_service import ProviderHttpService
 from module_higgsfield.service.generation_trace_service import GenerationTraceService
 from module_higgsfield.service.provider_poll_service import ProviderPollService
+from module_higgsfield.service.provider_exchange_service import ProviderExchangeService
 
 
 class DispatchTests(unittest.IsolatedAsyncioTestCase):
@@ -51,6 +52,38 @@ class DispatchTests(unittest.IsolatedAsyncioTestCase):
 
 
 class NetworkMilestoneTests(unittest.IsolatedAsyncioTestCase):
+    async def test_response_survives_display_evidence_failure(self):
+        result = SimpleNamespace(transport='response', http_status=200, issue=None,
+                                 diagnostic=None, body={'id': 'accepted'}, diagnostic_body=None)
+        calls = []
+
+        async def save(identity, evidence):
+            if 'finishedAt' in evidence:
+                raise OSError('模拟日志存储故障')
+
+        async def action():
+            calls.append('request')
+            return result
+
+        transport = SimpleNamespace(evidence_writer=save, secret=SecretStr('test'),
+                                    connection=SimpleNamespace(base_url='http://localhost',
+                                                               config=SimpleNamespace(biz_id='test')))
+        with self.assertLogs('module_higgsfield.service.provider_exchange_service', level='WARNING'):
+            received = await ProviderExchangeService.capture(transport, 'POST', '/generate', b'{}',
+                                                            'application/json', action)
+        self.assertIs(received, result)
+        self.assertEqual(calls, ['request'])
+        self.assertIsNone(transport.network_trace)
+
+        async def fail_before_send(identity, evidence):
+            raise OSError('模拟发送前存储故障')
+
+        transport.evidence_writer = fail_before_send
+        with self.assertRaises(OSError):
+            await ProviderExchangeService.capture(transport, 'POST', '/generate', b'{}',
+                                                  'application/json', action)
+        self.assertEqual(calls, ['request'])
+
     async def test_sent_before_response_and_connection_reuse_without_cookie_leak(self):
         release, sent = asyncio.Event(), asyncio.Event()
         connections, requests, handlers = [], [], set()
