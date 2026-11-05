@@ -1,6 +1,11 @@
 import request from '@/utils/request'
 
 const base = '/api/admin/v1'
+export const releaseTestCapacity = (id, data, key) => request({
+  businessErrorDetails: true, skipErrorMessage: true,
+  url: `${base}/credential-tests/${encodeURIComponent(id)}/release-capacity`, method: 'post', data,
+  headers: { 'Idempotency-Key': key, repeatSubmit: false },
+})
 export const getCredentialTestDetails = id => request({ url: `${base}/credential-tests/${encodeURIComponent(id)}/details` })
 export const getCredentialTestVideo = id => request({ url: `${base}/credential-tests/${encodeURIComponent(id)}/video`, responseType: 'blob' })
 export const getCredentialTestRuntime = () => request({ url: `${base}/credential-test-runtime` })

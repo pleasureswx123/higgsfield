@@ -67,8 +67,11 @@ test('归档恢复保留修订和重试键，撤权忽略迟到写响应', async
   state.form.reason = '人工接管'
   await state.submit()
   assert.equal(calls.length, 3)
-  assert.match(state.error.value, /证据引用/)
+  assert.match(state.error.value, /核实供应商/)
   state.form.evidenceRef = 'ticket:456'
+  await state.submit()
+  assert.equal(calls.length, 3)
+  state.form.acknowledgeSupplierStopped = true
   const closing = state.submit()
   await flush()
   assert.equal(calls[3].args[1].action, 'close_tracking')

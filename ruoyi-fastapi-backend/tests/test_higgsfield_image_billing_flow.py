@@ -1,4 +1,4 @@
-"""同一隔离图片任务贯通生成、归档、两口径计价与预算结算，不调用真实供应商。"""
+"""同一隔离图片任务贯通生成、归档与两口径计价，不调用真实供应商。"""
 import importlib.util
 import os
 import unittest
@@ -25,7 +25,7 @@ class ImageBillingFlowTests(unittest.IsolatedAsyncioTestCase):
         self.migration = importlib.util.module_from_spec(spec)
         spec.loader.exec_module(self.migration)
         await self.migrate('upgrade')
-        # 基础夹具已建立6元预占。此处仅配置测试图片单价；进入执行后不再改变固定价格。
+        # 当前受理不预占预算。此处仅配置测试图片单价；进入执行后不再改变固定价格。
         # 这验证已受理任务的跨模块执行，不替代前端估价及发布价格的验收。
         async with self.sessions() as db:
             await db.execute(text("UPDATE hf_price_rule_item r SET item_code='input',unit_quantity=1, "
@@ -37,7 +37,7 @@ class ImageBillingFlowTests(unittest.IsolatedAsyncioTestCase):
     async def test_same_job_archives_and_settles_once_with_distinct_currencies(self):
         identity = self.lease.job_id
         async with self.sessions() as db:
-            self.assertEqual(await db.scalar(text('SELECT reserved_amount FROM hf_budget_period')), Decimal('6'))
+            self.assertEqual(await db.scalar(text('SELECT reserved_amount FROM hf_budget_period')), Decimal('0'))
         # 真实HTTP回环响应和图片落盘，随后消费同一任务的持久化用量。
         self.assertEqual((await self.worker.run_once())[0]['status'], 'handled')
         self.assertEqual(self.errors, [])
@@ -50,9 +50,8 @@ class ImageBillingFlowTests(unittest.IsolatedAsyncioTestCase):
             self.assertEqual(await db.scalar(text('SELECT count(*) FROM hf_billing_subject WHERE job_id=:id'), {'id': identity}), 1)
             self.assertEqual(await db.scalar(text('SELECT archive_state FROM hf_generated_output WHERE job_id=:id'), {'id': identity}), '2')
             self.assertEqual((await db.execute(text('SELECT reserved_amount,consumed_amount FROM hf_budget_period'))).one(),
-                             (Decimal('0'), Decimal('1.2')))
-            self.assertEqual((await db.execute(text('SELECT sum(reserved_delta),sum(consumed_delta) FROM hf_budget_ledger_entry'))).one(),
-                             (Decimal('0'), Decimal('1.2')))
+                             (Decimal('0'), Decimal('0')))
+            self.assertEqual(await db.scalar(text('SELECT count(*) FROM hf_budget_ledger_entry')), 0)
             before = (await db.execute(text('SELECT to_jsonb(e) FROM hf_budget_ledger_entry e ORDER BY entry_id'))).all()
             key = await db.scalar(text('SELECT storage_key FROM hf_stored_file'))
         self.assertEqual((Path(self.temp.name) / key).read_bytes(), self.data)

@@ -21,6 +21,7 @@ class GenerationReadDao:
                 HfGeneratedOutput.archive_state.in_(states),
             ).correlate(HfCreationJob).exists()
         attention = or_(HfCreationJob.orchestration_state.in_(('3', '6')),
+                        and_(HfCreationJob.orchestration_state == '4', HfCreationJob.next_action_time.is_(None)),
                         HfCreationJob.upstream_state == '4', output_in(('3', '4')))
         active = and_(~attention, HfCreationJob.upstream_state != '5', or_(
             HfCreationJob.orchestration_state.in_(('0', '1', '2', '4')), output_in(('0', '1'))))

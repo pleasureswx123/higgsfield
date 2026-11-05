@@ -55,6 +55,9 @@ class GenerationDiagnosticService:
 
     @classmethod
     async def read(cls, db, job):
+        if job.orchestration_state in {'3', '4'} and job.next_action_time is None:
+            return {'code': 'MEDIA_MANUAL_REVIEW_REQUIRED', 'phase': 'poll' if job.upstream_task_id else 'submit',
+                    'message': '自动核查已暂停，生成结果尚未确认，供应商名额暂保留。请管理员核查后继续查询或结束追踪并释放名额；不会自动重新生成。'}
         if job.orchestration_state == '3':
             actual = cls.project(job, await GenerationReadDao.latest_execution_call(db, job.job_id))
             if actual:

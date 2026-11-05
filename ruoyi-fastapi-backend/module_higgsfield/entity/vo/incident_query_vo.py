@@ -6,7 +6,7 @@ from module_higgsfield.entity.vo.project_workspace_vo import WorkspaceInput, Big
 
 class IncidentQuery(WorkspaceInput):
     project_id: BigId | None = None
-    state: Literal['submission_unknown', 'blocked', 'upstream_unknown', 'upstream_failed',
+    state: Literal['tracking_paused', 'submission_unknown', 'blocked', 'upstream_unknown', 'upstream_failed',
                    'archive_failed', 'source_expired', 'billing_disputed'] | None = None
     page_num: int = Field(default=1, ge=1, le=1000000)
     page_size: int = Field(default=20, ge=1, le=100)

@@ -132,6 +132,8 @@ class CredentialTestDetailService:
                   'startedAt': call.started_time.isoformat() if call and call.started_time else None,
                   'finishedAt': call.finished_time.isoformat() if call and call.finished_time else None}
         result['elapsedSeconds'] = round((call.finished_time - call.started_time).total_seconds(), 3) if call and call.finished_time and call.started_time else None
+        result['capacityReviewRequired'] = bool(call and row.state != '0' and call.acceptance == 'unknown'
+                                                and not call.request_metadata.get('capacityReleasedAt'))
         from module_higgsfield.service.credential_test_cost_service import CredentialTestCostService
         cost = (await CredentialTestCostService.attach(db, user, [CredentialTestService.result(row)]))[0]
         result['billing'] = cost.get('cost')

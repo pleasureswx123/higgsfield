@@ -78,7 +78,9 @@ class ImageSubmitHandlerTests(unittest.IsolatedAsyncioTestCase):
             headers = dict(line.split(': ', 1) for line in header.decode().split('\r\n')[1:] if ': ' in line)
             self.requests.append(json.loads(await reader.readexactly(int(headers['Content-Length']))))
             async with self.sessions() as db:
-                state = await db.scalar(text('SELECT orchestration_state FROM hf_creation_job FOR UPDATE NOWAIT'))
+                # 允许发送节点的短事务，但不允许整个网络等待期间持有任务锁。
+                await db.execute(text("SET LOCAL lock_timeout = '1s'"))
+                state = await db.scalar(text('SELECT orchestration_state FROM hf_creation_job FOR UPDATE'))
                 self.assertEqual(state, '2')
                 self.assertEqual(await db.scalar(text('SELECT state FROM hf_provider_call')), '1')
             inner = json.dumps(

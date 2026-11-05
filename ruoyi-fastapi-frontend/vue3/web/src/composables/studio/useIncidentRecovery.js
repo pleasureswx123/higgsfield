@@ -8,7 +8,7 @@ export function useIncidentRecovery(onSaved) {
   const allowed = computed(() => !!user.token && (user.permissions.includes('*:*:*') ||
     (user.permissions.includes('operations:read') && user.permissions.includes('operations:recover'))))
   const target = ref(), pending = ref(false), uncertain = ref(false), error = ref(''), formRef = ref()
-  const form = reactive({ reason: '', evidenceRef: '' })
+  const form = reactive({ reason: '', evidenceRef: '', acknowledgeSupplierStopped: false })
   let epoch = 0, attempt, controller
   function reset() {
     controller?.abort()
@@ -17,7 +17,7 @@ export function useIncidentRecovery(onSaved) {
     pending.value = false
     uncertain.value = false
     error.value = ''
-    form.reason = ''; form.evidenceRef = ''; attempt = undefined
+    form.reason = ''; form.evidenceRef = ''; form.acknowledgeSupplierStopped = false; attempt = undefined
   }
   function start(detail, action = 'retry_archive') {
     if (!['retry_archive', 'requery', 'close_tracking', 'confirm_not_accepted'].includes(action) || pending.value || uncertain.value || !allowed.value || !detail?.allowedActions?.includes(action)) return
@@ -35,6 +35,10 @@ export function useIncidentRecovery(onSaved) {
         if (!(await formRef.value?.validate().catch(() => false))) return
         if (current !== epoch || !allowed.value) return
         const data = { revision: target.value.revision, action: target.value.action, reason: form.reason.trim() }
+        if (data.action === 'close_tracking') {
+          if (!form.acknowledgeSupplierStopped) throw new Error('请先核实供应商任务已停止或未运行')
+          data.acknowledgeSupplierStopped = true
+        }
         if (!data.reason || data.reason.length > 4000) throw new Error('请填写原因，最多4000字符')
         if (['close_tracking', 'confirm_not_accepted'].includes(data.action) && !form.evidenceRef.trim()) throw new Error('此操作必须填写证据引用')
         if (data.action === 'confirm_not_accepted' && !/^provider-call:[1-9][0-9]{0,18}$/.test(form.evidenceRef.trim())) throw new Error('请填写 provider-call 调用证据引用')

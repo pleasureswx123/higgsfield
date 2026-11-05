@@ -31,13 +31,13 @@ class VideoReconciliationHandler:
                     'files': {key: getattr(evidence, key) for key in ('storage_key', 'sha256', 'byte_size')},
                 }
         if saved is None:
-            await context.defer(60)
+            await context.require_manual_review()
             return
         # 文件校验、解密及解析均在数据库事务外执行。
         body = await self.evidence_storage.load(saved['files'], saved['call_id'], saved['job_id'])
         fact = VideoPlusResponseService.submission(saved['http_status'], body)
         if fact.acceptance == 'unknown':
-            await context.defer(60)
+            await context.require_manual_review()
             return
         await context.record_submission(
             saved['call_id'], fact, recovery_evidence_id=saved['evidence_id']

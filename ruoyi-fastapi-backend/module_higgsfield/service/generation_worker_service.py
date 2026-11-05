@@ -241,14 +241,15 @@ class GenerationWorkerService:
         diagnostic_code = None
         try:
             done, _ = await asyncio.wait({task, renew}, return_when=asyncio.FIRST_COMPLETED)
-            if renew in done:
+            if task in done:
+                # 完成结果优先，避免提交成功后的续租冲突被误报为租约丢失。
+                await task
+            else:
                 # 续租失败即停止旧执行者；不记录可能含供应商响应或秘密的异常正文。
                 status = 'lease_lost'
                 task.cancel()
                 await asyncio.gather(task, return_exceptions=True)
                 context.closed = True
-            else:
-                await task
         except asyncio.CancelledError:
             task.cancel()
             await asyncio.gather(task, return_exceptions=True)

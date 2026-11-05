@@ -226,4 +226,11 @@ POST /api/v1/generations/validate只验证受理条件；POST /api/v1/generation
 | GET | `/api/v1/view-preferences/{view_key}` | 读取本人视图偏好 | [view_preference_controller](../ruoyi-fastapi-backend/module_higgsfield/controller/view_preference_controller.py) |
 | PUT | `/api/v1/view-preferences/{view_key}` | 保存本人视图偏好 | [view_preference_controller](../ruoyi-fastapi-backend/module_higgsfield/controller/view_preference_controller.py) |
 
+多人制作补充（2026-11-05）：
+
+- `POST /api/v1/generations` 在持久化前检查三级待处理上限，满额返回业务错误 `GENERATION_QUEUE_FULL`；已受理请求使用原幂等键仍可取得原回执。
+- `POST /api/admin/v1/generation-incidents/{job_id}/actions` 的 `close_tracking` 必须同时提供原因、`evidenceRef` 和 `acknowledgeSupplierStopped: true`，表示管理员已核实供应商任务停止或未运行；提交后释放本地名额，保留上游与费用事实。
+- `POST /api/admin/v1/credential-tests/{test_id}/release-capacity` 需要 `credential:test` 权限及 `Idempotency-Key`。请求字段为 `reason`、`evidenceRef`、`acknowledgeSupplierStopped: true`；只允许已结束但受理未知的测试，返回 `testId` 与 `capacityReleased`。此接口不调用供应商。
+- 测试详情增加 `capacityReviewRequired`；媒体输出增加 `archivePaused` 和 `archiveNextRetryAt`，用于解释暂停与延后保存。异常任务筛选增加 `tracking_paused`。
+
 传输字段见[VO目录](../ruoyi-fastapi-backend/module_higgsfield/entity/vo)，逻辑见[Service目录](../ruoyi-fastapi-backend/module_higgsfield/service)。历史请求草案见[历史快照](历史版本/2026-11-03同步前/平台API契约.md)。

@@ -9,11 +9,14 @@ class IncidentAction(WorkspaceInput):
     action: Literal['retry_archive', 'requery', 'close_tracking', 'confirm_not_accepted']
     reason: str = Field(min_length=1, max_length=4000)
     evidence_ref: str | None = Field(default=None, min_length=1, max_length=255, pattern=r'^[A-Za-z0-9][A-Za-z0-9_.:-]*$')
+    acknowledge_supplier_stopped: Literal[True] | None = None
 
     @model_validator(mode='after')
     def required_evidence(self):
         if self.action in {'close_tracking', 'confirm_not_accepted'} and not self.evidence_ref:
             raise ValueError('此治理操作必须填写证据引用')
+        if self.action == 'close_tracking' and self.acknowledge_supplier_stopped is not True:
+            raise ValueError('释放名额前必须确认已核实供应商任务停止或未运行')
         return self
 
     @field_validator('reason')

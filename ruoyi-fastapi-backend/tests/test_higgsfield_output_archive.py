@@ -60,6 +60,32 @@ class OutputArchiveTests(unittest.IsolatedAsyncioTestCase):
                 db, self.identity, revision=revision, action=action, worker='archiver', **kwargs
             )
 
+    async def test_backoff_pauses_after_five_failures_and_crashes_are_bounded(self):
+        revision = 1
+        for attempt in range(1, 6):
+            started = await self.change(revision, 'begin')
+            failed = await self.change(int(started['revision']), 'fail')
+            revision = int(failed['revision'])
+            async with self.sessions() as db:
+                row = (await db.execute(text('SELECT actual_metadata,next_retry_time,update_time FROM hf_generated_output'))).one()
+                self.assertEqual(row.actual_metadata['archiveRecovery']['attempts'], attempt)
+                self.assertEqual(row.actual_metadata['archiveRecovery']['paused'], attempt == 5)
+                if attempt < 5:
+                    self.assertAlmostEqual((row.next_retry_time - row.update_time).total_seconds(), 60 * 2 ** (attempt - 1), delta=0.002)
+                    await db.execute(text("UPDATE hf_generated_output SET next_retry_time=clock_timestamp()-interval '1 second'"))
+                    await db.commit()
+                else:
+                    self.assertIsNone(row.next_retry_time)
+                    self.assertEqual(await GeneratedOutputDao.archive_candidates(db, row.update_time, 10), [])
+        with self.assertRaises(ServiceWarning):
+            await self.change(revision, 'begin')
+        async with self.sessions() as db:
+            # 模拟第五次下载进程崩溃、没来得及写 fail 的历史。
+            await db.execute(text("UPDATE hf_generated_output SET archive_state='1',actual_metadata=CAST(:metadata AS jsonb),next_retry_time=clock_timestamp()-interval '1 second'"),
+                             {'metadata': '{"archiveRecovery":{"attempts":5,"paused":false}}'})
+            await db.commit()
+        self.assertEqual((await self.change(revision, 'begin'))['archiveState'], 'archive_failed')
+
     async def archive_worker(self):
         crypto = OutputSourceCryptoService(CredentialKeyring('v1', {'v1': b'x' * 32}, b'y' * 32))
         async with self.sessions() as db:
@@ -69,6 +95,7 @@ class OutputArchiveTests(unittest.IsolatedAsyncioTestCase):
             )
             await db.commit()
         downloader = AsyncMock()
+        downloader.storage = None  # 本夹具模拟下载器，无真实 NAS 根目录。
         downloader.download.return_value = dict(
             storage_key='media/' + 'c' * 32,
             sha256='d' * 64,

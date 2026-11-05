@@ -45,6 +45,7 @@ class ProviderResponseDao:
                     HfGeneratedOutput.output_id.not_in(exclude_ids),
                     HfGeneratedOutput.del_flag == '0',
                     HfGeneratedOutput.archive_state.in_(('0', '1', '3')),
+                    HfGeneratedOutput.actual_metadata['archiveRecovery']['paused'].as_boolean().is_not(True),
                     HfGeneratedOutput.source_url_ciphertext.is_(None),
                     or_(HfGeneratedOutput.next_retry_time.is_(None), HfGeneratedOutput.next_retry_time <= now),
                     evidence,

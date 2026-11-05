@@ -11,6 +11,7 @@ from module_higgsfield.entity.vo.generation_input_vo import GenerationInput
 from module_higgsfield.service.generation_preparation_service import GenerationPreparationService
 from module_higgsfield.service.project_workspace_service import WorkspaceService
 from module_higgsfield.service.write_service import WriteService
+from module_higgsfield.service.production_policy_service import ProductionPolicyService
 from utils.response_util import ResponseUtil
 
 
@@ -53,6 +54,7 @@ class GenerationAcceptService:
                 return json.loads(ResponseUtil.success(data=cls.receipt(existing.job_id)).body), True
             if await WriteService.replay(db, user, path, key, data):
                 WorkspaceService.conflict('GENERATION_RECEIPT_INCONSISTENT', '受理回执缺少对应任务，请联系管理员核查')
+            await ProductionPolicyService.admit(db, user.user.user_id, int(payload.project_id))
             prepared = await GenerationPreparationService.prepare(db, user, payload, currencies=currencies)
             now = prepared['acceptedAt']
             department = user.user.dept

@@ -47,6 +47,10 @@ class ArchiveRetryTests(unittest.IsolatedAsyncioTestCase):
             return await GenerationArchiveRetryService.retry(db, user or self.owner, self.job_id, GenerationRetryArchive(revision=revision, outputIds=ids), key or str(uuid4()))
 
     async def test_retry_and_replay_do_not_regenerate(self):
+        async with self.sessions() as db:
+            await db.execute(text('UPDATE hf_generated_output SET actual_metadata=CAST(:metadata AS jsonb)'),
+                {'metadata': '{"archiveRecovery":{"attempts":5,"paused":true}}'})
+            await db.commit()
         key = str(uuid4())
         first, replayed = await self.retry(key=key)
         self.assertFalse(replayed)
@@ -56,6 +60,7 @@ class ArchiveRetryTests(unittest.IsolatedAsyncioTestCase):
         async with self.sessions() as db:
             row = (await db.execute(text('SELECT archive_state,revision FROM hf_generated_output'))).one()
             self.assertEqual(tuple(row), ('0', 2))
+            self.assertEqual(await db.scalar(text("SELECT actual_metadata->'archiveRecovery' FROM hf_generated_output")), {'attempts': 0, 'paused': False})
             row = (await db.execute(text('SELECT orchestration_state,upstream_state,revision FROM hf_creation_job'))).one()
             self.assertEqual(tuple(row), ('5', '3', 2))
             self.assertEqual(await db.scalar(text('SELECT count(*) FROM hf_task_event')), 1)

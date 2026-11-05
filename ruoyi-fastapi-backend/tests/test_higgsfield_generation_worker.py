@@ -13,8 +13,27 @@ from module_higgsfield.dao.generation_read_dao import GenerationReadDao
 from sqlalchemy import text
 
 from module_higgsfield.service.generation_worker_service import GenerationWorkerService, JobExecutionContext
-from module_higgsfield.service.job_lease_service import JobLeaseService
+from module_higgsfield.service.job_lease_service import JobLease, JobLeaseService
 from tests import test_higgsfield_job_leases as leases
+
+
+class GenerationCompletionRaceTests(unittest.IsolatedAsyncioTestCase):
+    async def test_completed_handler_wins_simultaneous_renewal_failure(self):
+        async def handler(context):
+            context.closed = True
+
+        async def both_done(tasks, **kwargs):
+            await asyncio.gather(*tasks, return_exceptions=True)
+            return set(tasks), set()
+
+        worker = GenerationWorkerService(None, 'race-test', {'prepare': handler}, lease_seconds=5)
+        with (
+            patch('module_higgsfield.service.generation_worker_service.asyncio.wait', both_done),
+            patch('module_higgsfield.service.generation_worker_service.asyncio.sleep', AsyncMock()),
+            patch.object(JobExecutionContext, 'renew', AsyncMock(side_effect=RuntimeError('模拟完成后的续租冲突'))),
+        ):
+            result = await worker._execute(JobLease(1, 'race-test', 1, 1, 'prepare'))
+        self.assertEqual(result['status'], 'handled')
 
 
 @unittest.skipUnless(os.getenv('HF_RUN_DB_TESTS') == '1', '需要显式启用隔离数据库测试')

@@ -55,6 +55,7 @@ class GenerationArchiveRetryService:
                         or (row.source_expires_time is not None and row.source_expires_time <= now)):
                     WorkspaceService.conflict('OUTPUT_RETRY_UNAVAILABLE', '仅能重试源仍有效的失败媒体输出')
             for row in candidates:
+                row.actual_metadata = {**row.actual_metadata, 'archiveRecovery': {'attempts': 0, 'paused': False}}
                 row.archive_state, row.next_retry_time = '0', now
                 row.revision += 1
                 row.update_by, row.update_time = user.user.user_name, now

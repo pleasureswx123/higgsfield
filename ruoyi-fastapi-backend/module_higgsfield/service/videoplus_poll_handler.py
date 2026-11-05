@@ -9,6 +9,8 @@ from module_higgsfield.service.provider_exchange_service import ProviderExchange
 from module_higgsfield.service.provider_http_service import ProviderHttpService
 from module_higgsfield.service.provider_job_binding_service import ProviderJobBindingService
 from module_higgsfield.service.write_service import WriteService
+from module_higgsfield.dao.tracking_window_dao import TrackingWindowDao
+from module_higgsfield.service.production_policy_service import ProductionPolicyService
 
 
 class VideoPlusPollHandler:
@@ -21,6 +23,13 @@ class VideoPlusPollHandler:
         self.credential_crypto, self.output_crypto = credential_crypto, output_crypto
 
     async def __call__(self, context: JobExecutionContext) -> None:
+        async with context.sessions() as db:
+            job, now = await JobLeaseService.guard(db, context.lease)
+            policy = await ProductionPolicyService.read(db)
+            expired = (now - await TrackingWindowDao.start(db, job)).total_seconds() >= policy['videoTrackingSeconds']
+        if expired:
+            await context.require_manual_review()
+            return
         async with context.sessions() as db:
             job, _ = await JobLeaseService.guard(db, context.lease)
             if job.kind != 'video' or job.orchestration_state != '4' or not job.upstream_task_id:

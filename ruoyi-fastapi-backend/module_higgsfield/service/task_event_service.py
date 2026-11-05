@@ -104,6 +104,7 @@ class TaskEventService:
             yield frame
         yield 'retry: 3000\n\n'
         heartbeat = time.monotonic()
+        watermark, refreshed = None, 0.0
         while not await request.is_disconnected():
             await asyncio.sleep(1)
             try:
@@ -111,7 +112,14 @@ class TaskEventService:
                     user = await LoginService._resolve_current_user(request, token, db, refresh_session=False)
                     if user.user.status != '0' or user.user.del_flag != '0':
                         raise AuthException(message='账户不可用')
-                    frames, sequence, visibility = await cls.batch(db, user, job_id, sequence, visibility)
+                    current = await TaskEventDao.watermark(db, job_id)
+                    # 变化即刷新；无变化时最多每5秒重验完整对象权限及快照，不跨用户缓存。
+                    backlog = current is not None and sequence is not None and sequence < current.event_sequence
+                    if current != watermark or backlog or time.monotonic() - refreshed >= 5:
+                        frames, sequence, visibility = await cls.batch(db, user, job_id, sequence, visibility)
+                        watermark, refreshed = current, time.monotonic()
+                    else:
+                        frames = []
                 # 会话及任务锁已释放后才向慢客户端写入数据。
                 for frame in frames:
                     yield frame

@@ -10,13 +10,20 @@ class GenerationTraceService:
         if call is None:
             return 'not_started'
         exchanges = (call.request_metadata or {}).get('exchanges', {})
-        if any(row.get('finishedAt') for row in exchanges.values()):
-            return 'response_received' if any(row.get('httpStatus') for row in exchanges.values()) else 'transport_error'
-        if any(row.get('requestSentAt') for row in exchanges.values()):
+        if not exchanges:
+            return 'preparing_request'
+        # 以最后一次交换为准；收到响应头不代表响应正文完整到达。
+        # PostgreSQL JSONB 不保留字典插入顺序，必须按实际开始时间选择。
+        latest = max(exchanges.values(), key=lambda row: row.get('startedAt') or '')
+        if latest.get('finishedAt'):
+            return 'response_received' if latest.get('transport') == 'response' else 'transport_error'
+        if latest.get('requestSentAt'):
             return 'awaiting_response'
         return 'preparing_request'
 
     STAGES = {
+        'manual_review_required': '自动核查已暂停，等待管理员核实供应商状态',
+        'manual_requery': '管理员恢复原任务状态核查',
         'worker_claimed': '后台已领取任务',
         'references_preparing': '开始准备参考图与请求参数',
         'references_ready': '参考图与请求参数准备完成',
@@ -37,7 +44,8 @@ class GenerationTraceService:
         if not label and event.event_type == 'task.state':
             label = cls.STATES.get(data.get('orchestrationState'))
         if event.event_type == 'output.state':
-            label = {'archived': '结果已保存', 'archive_failed': '结果保存失败',
+            label = {'not_started': '生成结果已发现，等待保存',
+                     'archived': '结果已保存', 'archive_failed': '结果保存失败',
                      'archiving': '正在保存结果', 'source_expired': '结果源地址已过期'}.get(data.get('archiveState'))
         if event.event_type == 'task.problem':
             label = '执行遇到问题'
@@ -47,7 +55,7 @@ class GenerationTraceService:
     def call(call, *, include_body=True):
         metadata = call.request_metadata or {}
         exchanges = []
-        for row in list(metadata.get('exchanges', {}).values())[-20:]:
+        for row in sorted(metadata.get('exchanges', {}).values(), key=lambda item: item.get('startedAt') or '')[-20:]:
             request = row.get('request') or {}
             exchanges.append({
                 'startedAt': row.get('startedAt'), 'finishedAt': row.get('finishedAt'),

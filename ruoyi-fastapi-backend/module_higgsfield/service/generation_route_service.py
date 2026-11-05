@@ -78,7 +78,7 @@ class GenerationRouteService:
                 if credential is None or credential.account_id != account.account_id or credential.status != '1':
                     continue
                 identity_keys = [item for item in keys if item.credential_id == credential.credential_id]
-                # 轮换不能重置同一身份的执行占用；已转人工核查的图片不占本地名额。
+                # 路由按历史依赖量保守选择；真实执行名额由共享容量门禁统一判断。
                 eligible = [
                     item
                     for item in identity_keys

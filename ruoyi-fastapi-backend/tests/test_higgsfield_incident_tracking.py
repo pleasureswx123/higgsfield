@@ -24,7 +24,7 @@ class IncidentTrackingTests(unittest.IsolatedAsyncioTestCase):
     async def close(self, key=None):
         async with self.sessions() as db:
             return await IncidentTrackingService.close(db, self.actor, self.job_id,
-                IncidentAction(revision='1', action='close_tracking', reason='人工接管核实', evidenceRef='ticket:123'), key or str(uuid4()))
+                IncidentAction(revision='1', action='close_tracking', reason='人工接管核实', evidenceRef='ticket:123', acknowledgeSupplierStopped=True), key or str(uuid4()))
 
     async def test_close_stops_claim_without_rewriting_facts_and_rechecks_replay(self):
         with self.assertRaises(ServiceWarning):

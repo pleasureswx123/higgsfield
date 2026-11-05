@@ -80,6 +80,7 @@ class ProviderExchangeService:
                 exchanges[identity] = {**previous, **evidence}
                 metadata['exchanges'] = exchanges
                 call.request_metadata = metadata
+                call.update_time = datetime.now(timezone.utc)
                 await db.commit()
 
         transport.evidence_writer = save

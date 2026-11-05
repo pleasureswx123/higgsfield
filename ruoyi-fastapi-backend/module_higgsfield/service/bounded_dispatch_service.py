@@ -11,6 +11,14 @@ async def serve_bounded(stop, capacity, claim, execute, *, wakeup=None, poll_sec
     stopping = asyncio.create_task(stop.wait())
     retry_at = 0.0
     loop = asyncio.get_running_loop()
+
+    async def execute_isolated(item):
+        try:
+            return await execute(item)
+        except Exception as error:
+            # 单项故障不能关闭调度器或取消其他付费请求；恢复仍由持久化租约决定。
+            logging.getLogger(__name__).error('单项后台任务执行失败：%s', type(error).__name__)
+
     try:
         while not stop.is_set():
             if len(pending) < capacity and loop.time() >= retry_at:
@@ -23,7 +31,7 @@ async def serve_bounded(stop, capacity, claim, execute, *, wakeup=None, poll_sec
                     logging.getLogger(__name__).warning('任务领取连接暂不可用，将重试：%s', type(error).__name__)
                     retry_at = loop.time() + max(1, poll_seconds)
                 else:
-                    pending.update(asyncio.create_task(execute(item)) for item in items)
+                    pending.update(asyncio.create_task(execute_isolated(item)) for item in items)
             notification = (asyncio.create_task(wakeup.wait())
                             if wakeup is not None and len(pending) < capacity and loop.time() >= retry_at else None)
             try:

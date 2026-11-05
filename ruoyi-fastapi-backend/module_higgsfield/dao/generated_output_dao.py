@@ -41,6 +41,7 @@ class GeneratedOutputDao:
                     HfGeneratedOutput.kind.in_(('image', 'video')),
                     HfGeneratedOutput.source_url_ciphertext.is_not(None),
                     HfGeneratedOutput.archive_state.in_(('0', '1', '3')),
+                    HfGeneratedOutput.actual_metadata['archiveRecovery']['paused'].as_boolean().is_not(True),
                     or_(HfGeneratedOutput.next_retry_time.is_(None), HfGeneratedOutput.next_retry_time <= now),
                 )
                 .order_by(HfGeneratedOutput.next_retry_time.asc().nullsfirst(), HfGeneratedOutput.output_id)

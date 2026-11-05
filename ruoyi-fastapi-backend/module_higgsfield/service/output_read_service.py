@@ -52,6 +52,8 @@ class OutputReadService:
             )[int(output.archive_state)],
             'actualMetadata': metadata,
             'destinationIssue': output.actual_metadata.get('destinationIssue'),
+            'archivePaused': bool((output.actual_metadata.get('archiveRecovery') or {}).get('paused')),
+            'archiveNextRetryAt': output.next_retry_time if output.archive_state == '3' else None,
             'allowedActions': ['output:archive'] if (
                 'output:archive' in allowed and output.archive_state == '3'
                 and output.kind in {'image', 'video'} and (output.source_url_ciphertext is not None or image_evidence is not None)

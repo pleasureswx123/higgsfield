@@ -6,6 +6,7 @@ from module_higgsfield.dao.price_source_dao import PriceSourceDao
 from module_higgsfield.service.admin_scope_service import AdminScopeService
 from module_higgsfield.service.project_workspace_service import WorkspaceService
 from module_higgsfield.service.write_service import WriteService
+from module_higgsfield.dao.provider_call_dao import ProviderCallDao
 
 
 class IncidentTrackingService:
@@ -34,6 +35,12 @@ class IncidentTrackingService:
             if not cls.eligible(job, now):
                 WorkspaceService.conflict('INCIDENT_CLOSE_UNAVAILABLE', '仅可关闭无有效租约的提交未知或运行中任务追踪')
             before = {'orchestrationState': job.orchestration_state, 'nextActionAt': job.next_action_time.isoformat() if job.next_action_time else None}
+            call = await ProviderCallDao.submission(db, job.job_id)
+            if call is not None:
+                call = await ProviderCallDao.locked(db, call.call_id)
+                call.request_metadata = {**call.request_metadata, 'capacityReleasedAt': now.isoformat(),
+                                         'capacityReleaseEvidence': payload.evidence_ref}
+                call.update_time, call.update_by = now, user.user.user_name
             job.orchestration_state = '6'
             job.next_action_time = None
             job.lease_owner = None

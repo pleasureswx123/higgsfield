@@ -126,7 +126,9 @@ class MediaResolverTests(unittest.IsolatedAsyncioTestCase):
             body = await reader.readexactly(int(headers.get('Content-Length', '0')))
             self.requests.append((lines[0], body))
             async with self.sessions() as db:
-                await db.execute(text('SELECT job_id FROM hf_creation_job FOR UPDATE NOWAIT'))
+                # 允许发送节点的短事务；若网络等待持有锁，仍会在返回响应前超时。
+                await db.execute(text("SET LOCAL lock_timeout = '1s'"))
+                await db.execute(text('SELECT job_id FROM hf_creation_job FOR UPDATE'))
             if lines[0] == 'GET /v1/video/tasks/task HTTP/1.1':
                 response = {'id': 'task', 'status': 'succeeded',
                     'content': {'video_url': getattr(self, 'output_url', 'https://example.com/video?signature=secret')},

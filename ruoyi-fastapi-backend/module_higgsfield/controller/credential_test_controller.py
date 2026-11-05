@@ -14,9 +14,17 @@ from module_higgsfield.service.credential_test_detail_service import CredentialT
 from module_higgsfield.service.credential_test_runtime_service import CredentialTestRuntimeService
 from module_higgsfield.service.admin_scope_service import AdminScopeService
 from module_higgsfield.service.project_workspace_service import WorkspaceService
+from module_higgsfield.service.test_capacity_release_service import TestCapacityReleaseService
+from module_higgsfield.entity.vo.capacity_release_vo import CapacityRelease
 
 credential_test_controller = APIRouterPro(prefix='/api/admin/v1', tags=['后台管理-凭据测试'], order_num=99,
     dependencies=[PreAuthDependency()], route_class=CredentialRoute)
+
+
+@credential_test_controller.post('/credential-tests/{test_id}/release-capacity', summary='核查后释放未知测试的本地名额')
+@Log(title='释放测试名额', business_type=BusinessType.UPDATE)
+async def release_capacity(request: Request, test_id: ProjectId, payload: CapacityRelease, key: Key, db: Db, user: User):
+    return mutation_response(await TestCapacityReleaseService.release(db, user, test_id, payload, key))
 
 
 @credential_test_controller.get('/credential-test-runtime', summary='读取测试后台服务就绪状态')

@@ -29,7 +29,12 @@ class TaskEventTests(unittest.IsolatedAsyncioTestCase):
     job = snapshots.GenerationSnapshotTests.job
     output = snapshots.GenerationSnapshotTests.output
     create = snapshots.GenerationSnapshotTests.create
-    asyncSetUp = snapshots.GenerationSnapshotTests.asyncSetUp
+    async def asyncSetUp(self):
+        await snapshots.GenerationSnapshotTests.asyncSetUp(self)
+        async with self.sessions() as db:
+            # 使用可被撤权的项目负责人，Owner 的固定完整权限不随角色配置删改。
+            await db.execute(text("UPDATE hf_project_member SET role_id=(SELECT role_id FROM hf_project_role WHERE code='admin') WHERE user_id=1"))
+            await db.commit()
 
     async def test_initial_snapshot_replay_and_missing_history_reset(self):
         async with self.sessions() as db:
@@ -58,8 +63,9 @@ class TaskEventTests(unittest.IsolatedAsyncioTestCase):
             )
             await db.execute(text('UPDATE hf_creation_job SET event_sequence=8,revision=9'))
             await db.commit()
-            frames, seq, _ = await TaskEventService.batch(db, self.owner, self.job_id, 7, visible)
-            self.assertIn('event: task.state', frames[0])
+            frames, seq, visible = await TaskEventService.batch(db, self.owner, self.job_id, 7, visible)
+            # 新执行证据同时更新授权投影，完整快照恢复仍应去掉私有载荷。
+            self.assertIn('event: stream.reset', frames[0])
             self.assertNotIn('private-value', frames[0])
             self.assertEqual(seq, 8)
             frames, seq, _ = await TaskEventService.batch(db, self.owner, self.job_id, 8, visible)
@@ -204,7 +210,7 @@ class TaskEventTests(unittest.IsolatedAsyncioTestCase):
             frames, _, _ = await TaskEventService.batch(db, self.owner, self.job_id, next_sequence, next_visibility)
             self.assertEqual(frames, [])
 
-    async def test_cancel_permission_change_resets_without_task_event(self):
+    async def test_legacy_cancel_permission_does_not_restore_removed_product_action(self):
         async with self.sessions() as db:
             await db.execute(text("UPDATE hf_creation_job SET orchestration_state='0',upstream_state='0',upstream_task_id=NULL,upstream_response_id=NULL"))
             await db.execute(text(
@@ -213,11 +219,10 @@ class TaskEventTests(unittest.IsolatedAsyncioTestCase):
             ))
             await db.commit()
             frames, sequence, visibility = await TaskEventService.batch(db, self.owner, self.job_id, None)
-            self.assertIn('generation:cancel', frames[0])
+            self.assertNotIn('generation:cancel', frames[0])
             await db.commit()
             await db.execute(text("DELETE FROM hf_project_role_permission WHERE permission_code='generation:cancel'"))
             await db.commit()
             frames, next_sequence, _ = await TaskEventService.batch(db, self.owner, self.job_id, sequence, visibility)
             self.assertEqual(next_sequence, sequence)
-            self.assertIn('event: stream.reset', frames[0])
-            self.assertNotIn('generation:cancel', frames[0])
+            self.assertEqual(frames, [])

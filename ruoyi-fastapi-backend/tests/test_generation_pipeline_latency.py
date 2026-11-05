@@ -14,6 +14,36 @@ from module_higgsfield.service.provider_exchange_service import ProviderExchange
 
 
 class DispatchTests(unittest.IsolatedAsyncioTestCase):
+    async def test_one_failure_does_not_cancel_inflight_or_stop_queue(self):
+        stop, release, third = asyncio.Event(), asyncio.Event(), asyncio.Event()
+        queue, completed = [1, 2, 3], []
+
+        async def claim(limit):
+            items = queue[:limit]
+            del queue[:limit]
+            return items
+
+        async def execute(item):
+            if item == 1:
+                await release.wait()
+            elif item == 2:
+                raise OSError('模拟单项归档占用失败')
+            else:
+                third.set()
+            completed.append(item)
+
+        with self.assertLogs('module_higgsfield.service.bounded_dispatch_service', level='ERROR'):
+            worker = asyncio.create_task(serve_bounded(stop, 2, claim, execute))
+            try:
+                await asyncio.wait_for(third.wait(), 2)
+                stop.set()
+                release.set()
+                await asyncio.wait_for(worker, 2)
+                self.assertEqual(sorted(completed), [1, 3])
+            finally:
+                worker.cancel()
+                await asyncio.gather(worker, return_exceptions=True)
+
     async def test_free_slot_refills_before_slow_task_finishes(self):
         stop, release, third = asyncio.Event(), asyncio.Event(), asyncio.Event()
         queue, active, peak = [1, 2, 3], set(), 0

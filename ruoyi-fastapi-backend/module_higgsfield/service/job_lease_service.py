@@ -22,17 +22,17 @@ class JobLease:
 class JobLeaseService:
     @classmethod
     async def require_manual_review(cls, db, lease):
-        """同步图片缺少可恢复证据时停止调度，保留未知受理及费用事实。"""
+        """无法继续自动核查时暂停；不释放供应商名额、不改写上游及费用事实。"""
         try:
             row, now = await cls.guard(db, lease)
-            if row.kind != 'image' or row.orchestration_state != '3':
-                raise ValueError('仅未知图片提交可进入人工核查')
+            if row.kind not in {'image', 'video'} or row.orchestration_state not in {'3', '4'}:
+                raise ValueError('仅未知提交或运行中媒体任务可进入人工核查')
             row.next_action_time = None
             row.lease_owner = row.lease_until = None
             row.revision += 1
             row.event_sequence += 1
             row.update_time, row.update_by = now, lease.worker
-            await JobEventDao.state(db, row, now, lease.worker)
+            await JobEventDao.state(db, row, now, lease.worker, stage='manual_review_required')
             await db.commit()
         except Exception:
             await db.rollback()

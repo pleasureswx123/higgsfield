@@ -44,7 +44,7 @@ class IncidentRequeryService:
             job.revision += 1
             job.event_sequence += 1
             job.update_time, job.update_by = now, user.user.user_name
-            await JobEventDao.state(db, job, now, user.user.user_name)
+            await JobEventDao.state(db, job, now, user.user.user_name, stage='manual_requery')
             receipt = {'jobId': str(identity), 'revision': str(job.revision), 'accepted': True, 'action': 'requery'}
             await PriceSourceDao.audit(db, dict(actor_id=user.user.user_id, actor_kind='user', project_id=job.project_id,
                 object_type='creation_job', object_id=str(identity), action='requery', reason=payload.reason,

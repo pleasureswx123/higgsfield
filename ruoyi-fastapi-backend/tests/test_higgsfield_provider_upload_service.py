@@ -32,7 +32,7 @@ class ProviderUploadServiceTests(unittest.IsolatedAsyncioTestCase):
             await self.migrate('upgrade')
         self.upload_crypto = ProviderUploadCryptoService(self.crypto.keyring)
         async with self.sessions() as db:
-            await db.execute(text("INSERT INTO hf_asset(asset_id,space_id,asset_name,media_type,create_user_id,create_time,update_time) SELECT 1,space_id,'参考图','image',:actor,NOW(),NOW() FROM hf_asset_space WHERE project_id=:project"), {'actor': self.owner.user.user_id, 'project': self.project_id})
+            await db.execute(text("INSERT INTO hf_asset(space_id,asset_name,media_type,create_user_id,create_time,update_time) SELECT space_id,'参考图','image',:actor,NOW(),NOW() FROM hf_asset_space WHERE project_id=:project"), {'actor': self.owner.user.user_id, 'project': self.project_id})
             file_id = await db.scalar(
                 text(
                     'INSERT INTO hf_stored_file(storage_key,sha256,byte_size,mime_type,state,create_time,update_time) '

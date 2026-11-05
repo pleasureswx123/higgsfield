@@ -12,6 +12,7 @@ class IncidentReadDao:
             FROM hf_generated_output WHERE job_id=:id AND del_flag='0' AND archive_state='3'"""), {'id': identity}))
 
     CONDITIONS = {
+        'tracking_paused': "j.orchestration_state='4' AND j.next_action_time IS NULL",
         'submission_unknown': "j.orchestration_state='3'",
         'blocked': "j.orchestration_state='6'",
         'upstream_unknown': "j.upstream_state='6'",

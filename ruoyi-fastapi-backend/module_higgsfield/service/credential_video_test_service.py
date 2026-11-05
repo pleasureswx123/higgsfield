@@ -15,6 +15,7 @@ from module_higgsfield.service.archive_worker_runtime import video_download_poli
 from module_higgsfield.service.output_download_service import OutputDownloadService
 from module_higgsfield.service.credential_test_usage_service import CredentialTestUsageService
 from module_higgsfield.service.credential_test_billing_service import CredentialTestBillingService
+from module_higgsfield.service.production_policy_service import ProductionPolicyService
 
 
 class CredentialVideoTestService:
@@ -58,6 +59,11 @@ class CredentialVideoTestService:
             if not task_id:
                 return False
             now = await JobLeaseDao.now(db)
+            policy = await ProductionPolicyService.read(db)
+            if (now - call.started_time).total_seconds() >= policy['videoTrackingSeconds']:
+                return await CredentialTestCompletionService.finish(db, test_id, call.call_id,
+                    dict(transport='network_error', authentication='unknown', acceptance='unknown',
+                         issue='EXECUTION_INTERRUPTED'))
             next_poll = call.request_metadata.get('videoNextPoll')
             if next_poll and datetime.fromisoformat(next_poll) > now:
                 return True

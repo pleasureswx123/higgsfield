@@ -7,6 +7,8 @@ const workStates = { none: '未设置', working: '制作中', review: '待审核
 
 <template>
   <section class="output-metadata" :aria-label="hideWorkStatus ? '产出规格' : '作品工作状态与实际规格'">
+    <p v-if="output.archivePaused">自动保存已暂停。请管理员检查存储后使用“重试归档”，不会重新生成。</p>
+    <p v-else-if="output.archiveState === 'archive_failed' && output.archiveNextRetryAt">保存暂未成功，后台将延后重试；无需重新生成。</p>
     <p v-if="!hideWorkStatus">作品工作状态：{{ workStates[output.workStatus] || '状态未知' }}</p>
     <dl v-if="output.kind !== 'text'">
       <div><dt>实际宽度</dt><dd>{{ output.actualMetadata?.width != null ? `${output.actualMetadata.width} px` : '未记录' }}</dd></div>

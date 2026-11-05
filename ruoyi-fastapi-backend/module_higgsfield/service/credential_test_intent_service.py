@@ -7,6 +7,7 @@ from module_higgsfield.service.credential_test_binding_service import Credential
 from module_higgsfield.service.write_service import WriteService
 from module_higgsfield.service.credential_test_usage_service import CredentialTestUsageService
 from module_higgsfield.service.credential_test_price_service import CredentialTestPriceService
+from module_higgsfield.dao.production_capacity_dao import ProductionCapacityDao
 
 
 @dataclass(repr=False)
@@ -35,6 +36,11 @@ class CredentialTestIntentService:
             if not isinstance(payload, dict) or not payload:
                 raise ValueError('测试编译器必须返回非空请求对象')
             now = await JobLeaseDao.now(db)
+            if not await ProductionCapacityDao.acquire(db, row.credential_version_id, now):
+                # 排队不写发送意图、不调用供应商；轮转到其他凭据测试。
+                row.update_time = now
+                await db.commit()
+                return None
             pricing = await CredentialTestPriceService.freeze(db, binding, payload,
                 currency=procurement_currency, at=now)
             call = await ProviderCallDao.add(db, dict(cost_center_id=row.cost_center_id,

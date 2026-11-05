@@ -79,6 +79,8 @@ export async function subscribeGeneration(
 }
 
 export interface GenerationOutput {
+  archivePaused?: boolean
+  archiveNextRetryAt?: string | null
   destinationIssue?: string | null
   id: string
   jobId: string

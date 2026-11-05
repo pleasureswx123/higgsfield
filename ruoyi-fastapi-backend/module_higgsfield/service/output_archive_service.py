@@ -12,6 +12,7 @@ from module_higgsfield.entity.vo.archive_file_vo import ArchiveFileFacts
 from module_higgsfield.service.generated_asset_binding_service import GeneratedAssetBindingService
 from module_higgsfield.service.job_lease_service import JobLeaseService
 from module_higgsfield.service.project_workspace_service import WorkspaceService
+from module_higgsfield.service.production_policy_service import ProductionPolicyService
 
 
 class OutputArchiveService:
@@ -88,13 +89,22 @@ class OutputArchiveService:
             if output.revision != revision:
                 WorkspaceService.conflict('OUTPUT_REVISION_CHANGED', '归档阶段已变化，旧执行者不能写回')
             if action == 'begin':
+                recovery = dict(output.actual_metadata.get('archiveRecovery') or {})
+                if recovery.get('paused'):
+                    WorkspaceService.conflict('OUTPUT_ARCHIVE_PAUSED', '自动保存已暂停，请检查存储后重试归档')
                 if output.archive_state == '1' and (output.next_retry_time is None or output.next_retry_time > now):
                     WorkspaceService.conflict('OUTPUT_ARCHIVE_BUSY', '输出正在归档')
                 if output.archive_state not in {'0', '1', '3'}:
                     WorkspaceService.conflict('OUTPUT_ARCHIVE_UNAVAILABLE', '当前输出源不可归档')
                 if output.archive_state in {'0', '3'} and output.next_retry_time and output.next_retry_time > now:
                     WorkspaceService.conflict('OUTPUT_ARCHIVE_NOT_DUE', '尚未到归档重试时间')
-                if output.source_expires_time and output.source_expires_time <= now:
+                policy = await ProductionPolicyService.read(db)
+                if int(recovery.get('attempts', 0)) >= policy['archiveMaxAttempts']:
+                    # 崩溃后租约过期也计入尝试次数，避免反复重启绕过暂停上限。
+                    recovery['paused'] = True
+                    output.actual_metadata = {**output.actual_metadata, 'archiveRecovery': recovery}
+                    output.archive_state, output.next_retry_time = '3', None
+                elif output.source_expires_time and output.source_expires_time <= now:
                     output.archive_state, output.next_retry_time = '4', None
                 else:
                     if output.source_url_ciphertext is None:
@@ -106,6 +116,8 @@ class OutputArchiveService:
                         if evidence is None:
                             WorkspaceService.conflict('OUTPUT_SOURCE_MISSING', '归档缺少已保存的媒体源')
                     output.archive_state, output.next_retry_time = '1', now + timedelta(seconds=delay_seconds)
+                    recovery['attempts'] = int(recovery.get('attempts', 0)) + 1
+                    output.actual_metadata = {**output.actual_metadata, 'archiveRecovery': recovery}
             else:
                 if output.archive_state != '1' or output.next_retry_time is None or output.next_retry_time <= now:
                     WorkspaceService.conflict('OUTPUT_ARCHIVE_LEASE_LOST', '归档占用已失效，请重新领取')
@@ -136,7 +148,17 @@ class OutputArchiveService:
                     await GeneratedAssetBindingService.bind(db, job, output, file, now, worker)
                 else:
                     output.archive_state = '3' if action == 'fail' else '4'
-                    output.next_retry_time = now + timedelta(seconds=delay_seconds) if action == 'fail' else None
+                    output.next_retry_time = None
+                    if action == 'fail':
+                        policy = await ProductionPolicyService.read(db)
+                        recovery = dict(output.actual_metadata.get('archiveRecovery') or {})
+                        attempts = max(1, int(recovery.get('attempts', 1)))
+                        recovery['paused'] = attempts >= policy['archiveMaxAttempts']
+                        output.actual_metadata = {**output.actual_metadata, 'archiveRecovery': recovery}
+                        if not recovery['paused']:
+                            seconds = min(policy['archiveRetryMaxSeconds'],
+                                          policy['archiveRetryBaseSeconds'] * 2 ** min(attempts - 1, 20))
+                            output.next_retry_time = now + timedelta(seconds=seconds)
             output.revision += 1
             output.update_time, output.update_by = now, worker
             job.revision += 1

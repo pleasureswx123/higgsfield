@@ -38,6 +38,10 @@ class ProjectDatabaseTests(unittest.IsolatedAsyncioTestCase):
         self.sessions = async_sessionmaker(self.engine, expire_on_commit=False)
         self.addAsyncCleanup(self.cleanup_schema)
         async with self.engine.begin() as conn:
+            await conn.execute(text("""CREATE TABLE sys_config (
+                config_id serial PRIMARY KEY, config_key varchar(100), config_value varchar(500),
+                config_name varchar(100), config_type char(1), create_by varchar(64),
+                create_time timestamptz, remark varchar(500))"""))
             await conn.execute(
                 text(
                     'CREATE TABLE sys_user (user_id bigint PRIMARY KEY, status char(1), '

@@ -39,6 +39,17 @@ class ImageResultTests(unittest.IsolatedAsyncioTestCase):
         self.migration = importlib.util.module_from_spec(spec)
         spec.loader.exec_module(self.migration)
         await self.migrate('upgrade')
+        spec = importlib.util.spec_from_file_location(
+            'image_asset_status', synchronous.submission.intent.pipeline.MIGRATIONS / '20261028_79_asset_status.py'
+        )
+        self.migration = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(self.migration)
+        await self.migrate('upgrade')
+        async with self.sessions() as db:
+            # 公共发送夹具使用视频契约，本组显式建立图片发送事实。
+            await db.execute(text("UPDATE hf_creation_job SET kind='image'"))
+            await db.execute(text("UPDATE hf_provider_call SET operation='image'"))
+            await db.commit()
         self.fact = ImageProviderFact(
             response_id='image-result',
             images=[ProviderImage(ordinal=0, data=b'private')],
@@ -71,7 +82,7 @@ class ImageResultTests(unittest.IsolatedAsyncioTestCase):
             self.assertEqual(metadata['unarchivedOrdinals'], [1])
             self.assertNotIn('private', str(metadata))
             self.assertEqual(await db.scalar(text('SELECT billing_state FROM hf_creation_job')), '0')
-            self.assertEqual(await db.scalar(text('SELECT reserved_amount FROM hf_budget_period')), 6)
+            self.assertEqual(await db.scalar(text('SELECT reserved_amount FROM hf_budget_period')), 0)
             self.assertEqual(await GeneratedOutputDao.archive_candidates(db, await JobLeaseDao.now(db), 10), [])
 
     async def test_event_error_rolls_back_files_outputs_and_call(self):

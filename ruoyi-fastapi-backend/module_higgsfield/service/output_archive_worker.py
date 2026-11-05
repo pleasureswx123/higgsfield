@@ -45,6 +45,10 @@ class OutputArchiveWorker:
             url = self.crypto.decrypt(output.source_url_ciphertext, output.job_id, output.ordinal)
             kind = output.kind
         # 会话已关闭，网络和文件操作不持有数据库事务。
+        storage = getattr(self.downloader, 'storage', None)
+        if storage is not None:
+            # NAS 挂载异常时先失败，避免每轮先下载完整视频再发现存储不可用。
+            await asyncio.to_thread(storage.verify_root)
         facts = await self.downloader.download(url, kind=kind)
         async with self.sessions() as db:
             return await OutputArchiveService.register_download(
@@ -60,8 +64,8 @@ class OutputArchiveWorker:
             claimed = await self.change(identity, revision, 'begin')
         except ServiceWarning:
             return {'outputId': str(identity), 'status': 'skipped'}
-        if claimed['archiveState'] == 'source_expired':
-            return {'outputId': str(identity), 'status': 'source_expired'}
+        if claimed['archiveState'] != 'archiving':
+            return {'outputId': str(identity), 'status': claimed['archiveState']}
         revision = int(claimed['revision'])
         work = asyncio.create_task(self.download_and_register(identity, revision))
         heartbeat = asyncio.create_task(self.heartbeat(identity, revision))

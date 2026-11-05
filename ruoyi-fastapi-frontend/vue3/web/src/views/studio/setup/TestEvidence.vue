@@ -2,6 +2,7 @@
 import { computed, ref, reactive, watch } from 'vue'
 import TestProgress from './TestProgress.vue'
 import { useTestEvidence } from '@/composables/studio/useTestEvidence'
+import { useTestCapacityRelease } from '@/composables/studio/useTestCapacityRelease'
 const props = defineProps({ testId: { type: String, default: '' }, kind: { type: String, default: 'image' }, credentialVersionId: { type: String, default: '' }, modelVersionId: { type: String, default: '' }, costCenterId: { type: String, default: '' }, submissionError: { type: String, default: '' }, submitting: Boolean, submissionUncertain: Boolean, hideEntry: Boolean })
 const emit = defineEmits(['ready', 'start'])
 const preparing = ref(false)
@@ -15,6 +16,7 @@ const evidenceProps = reactive({
 })
 watch(() => props.testId, (value, old) => { if (value && value !== old) preparing.value = false })
 const { runtime, detail, preview, loading, error, copied, videoUrl, health, refresh, copy, loadVideo } = useTestEvidence(evidenceProps, emit)
+const capacity = useTestCapacityRelease(() => testId.value, refresh)
 const sections = ref(['request', 'response'])
 const evidence = computed(() => testId.value ? detail.value : preview.value)
 const waiting = computed(() => !!testId.value && (!detail.value || String(detail.value.testState) === '0'))
@@ -40,6 +42,16 @@ defineExpose({ show, prepare })
     <TestProgress v-if="submitting || (waiting && hasResponse && !error)" :message="submitting ? '正在提交测试…' : hasResponse ? '已收到响应，正在等待生成和保存完成…' : '正在等待供应商响应…'" />
     <el-alert v-else-if="testId && detail && !waiting && !error" :title="String(detail.testState) === '1' ? '测试已完成，结果已自动更新' : '测试未通过，请查看下方响应和诊断'" :type="String(detail.testState) === '1' ? 'success' : 'warning'" :closable="false" show-icon />
     <el-alert v-if="submissionError" :title="submissionError" type="error" :closable="false" />
+    <section v-if="testId && detail?.capacityReviewRequired && !preparing">
+      <el-alert title="结果未知，已暂停自动执行并保留供应商名额。请核查后释放；不要重新生成来确认结果。" type="warning" :closable="false" />
+      <el-form v-if="capacity.allowed.value" label-position="top" :disabled="capacity.pending.value || capacity.uncertain.value">
+        <el-form-item label="核查原因"><el-input v-model="capacity.form.reason" type="textarea" maxlength="4000" /></el-form-item>
+        <el-form-item label="证据引用（如 ticket:123）"><el-input v-model="capacity.form.evidenceRef" maxlength="255" /></el-form-item>
+        <el-checkbox v-model="capacity.form.acknowledgeSupplierStopped" class="supplier-confirmation">我已核实供应商任务停止或未运行，可以释放名额</el-checkbox>
+      </el-form>
+      <el-alert v-if="capacity.error.value" :title="capacity.error.value" type="error" :closable="false" />
+      <el-button v-if="capacity.allowed.value" type="primary" :loading="capacity.pending.value" @click="capacity.submit">{{ capacity.uncertain.value ? '确认原释放请求' : '核查完成，释放名额' }}</el-button>
+    </section>
     <div class="evidence-toolbar"><strong>{{ preparing ? '待发送请求' : '请求与响应' }}</strong><el-button text :loading="loading" @click="refresh">刷新</el-button><el-button v-if="!runtime?.ready" text @click="health">检查服务状态</el-button></div>
     <el-alert v-if="error" :title="error" type="error" :closable="false" />
     <p v-if="!testId && !costCenterId">请先选择下方的测试费用归属，即可查看待发送请求。</p>
@@ -88,5 +100,8 @@ defineExpose({ show, prepare })
   </section>
 </template>
 <style scoped>
+.supplier-confirmation { height:auto; align-items:flex-start; margin:8px 0 12px; }
+.supplier-confirmation :deep(.el-checkbox__label) { white-space:normal; line-height:1.5; }
+.supplier-confirmation :deep(.el-checkbox__input) { margin-top:3px; }
 .test-evidence { margin-bottom: 20px; } .test-evidence:empty { display: none; } .footer-cost { display: inline-block; margin-right: 16px; font-size: 13px; color: var(--el-text-color-secondary); } .evidence-toolbar { display: flex; align-items: center; flex-wrap: wrap; gap: 10px; margin: 16px 0; } p { color: var(--el-text-color-secondary); line-height: 1.7; } pre { white-space: pre-wrap; overflow-wrap: anywhere; padding: 14px; border-radius: 8px; background: var(--el-fill-color-light); color: var(--el-text-color-primary); max-height: 280px; overflow: auto; } img, video { max-width: 100%; max-height: 360px; object-fit: contain; } summary { cursor: pointer; color: var(--el-color-primary); margin: 12px 0; } .evidence-note { font-size: 12px; }
 </style>

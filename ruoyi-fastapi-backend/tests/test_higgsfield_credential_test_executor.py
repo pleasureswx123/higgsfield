@@ -175,6 +175,32 @@ class CredentialTestExecutorTests(unittest.IsolatedAsyncioTestCase):
             self.assertEqual(await db.scalar(text('SELECT state FROM hf_provider_call')), '1')
             self.assertEqual(await db.scalar(text('SELECT state FROM hf_credential_test')), '0')
 
+    async def test_unknown_test_blocks_shared_slot_until_audited_release(self):
+        from uuid import uuid4
+        from module_higgsfield.service.test_capacity_release_service import TestCapacityReleaseService
+        from module_higgsfield.entity.vo.capacity_release_vo import CapacityRelease
+        receipt, _ = await self.request(modelVersionId=str(self.model_version_id))
+        identity = int(receipt['data']['id'])
+        self.response = ProviderHttpResult(transport='timeout')
+        await self.executor.execute(identity)
+        queued, _ = await self.request(modelVersionId=str(self.model_version_id))
+        queued_id = int(queued['data']['id'])
+        self.assertFalse(await self.executor.execute(queued_id))
+        self.assertEqual(self.calls, 1)
+        key = str(uuid4())
+        payload = CapacityRelease(reason='模拟供应商确认已停止', evidenceRef='ticket:mock', acknowledgeSupplierStopped=True)
+        async with self.sessions() as db:
+            original = await db.scalar(text('SELECT result FROM hf_credential_test WHERE test_id=:id'), {'id': identity})
+            first, replayed = await TestCapacityReleaseService.release(db, self.owner, identity, payload, key)
+            self.assertFalse(replayed)
+            again, replayed = await TestCapacityReleaseService.release(db, self.owner, identity, payload, key)
+            self.assertTrue(replayed)
+            self.assertEqual(first, again)
+            self.assertEqual(await db.scalar(text('SELECT result FROM hf_credential_test WHERE test_id=:id'), {'id': identity}), original)
+            self.assertEqual(await db.scalar(text("SELECT count(*) FROM hf_audit_log WHERE action='release_test_capacity'")), 1)
+        await self.executor.execute(queued_id)
+        self.assertEqual(self.calls, 2)
+
     async def test_disabled_cost_center_ends_before_transport(self):
         receipt, _ = await self.request(modelVersionId=str(self.model_version_id))
         async with self.sessions() as db:

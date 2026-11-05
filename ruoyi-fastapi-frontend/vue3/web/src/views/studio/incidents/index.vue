@@ -8,8 +8,8 @@ const { allowed, filters, rows, page, total, loading, error, selectedId, detail,
 const { allowed: canRecover, target, pending, uncertain, error: actionError, form, formRef, start, close: closeRecovery, submit } = useIncidentRecovery(load)
 const open = computed({ get: () => !!selectedId.value, set: value => { if (!value) close() } })
 const actionOpen = computed({ get: () => !!target.value, set: value => { if (!value) closeRecovery() } })
-const states = { submission_unknown:'提交未知', blocked:'编排阻塞', upstream_unknown:'上游未知', upstream_failed:'上游失败', archive_failed:'归档失败', source_expired:'归档源过期', billing_disputed:'费用争议' }
-const actionLabels = { retry_archive: '重试归档', requery: '重新查询', close_tracking: '关闭本地追踪', confirm_not_accepted: '确认未受理' }
+const states = { tracking_paused:'已暂停追踪', submission_unknown:'提交未知', blocked:'编排阻塞', upstream_unknown:'上游未知', upstream_failed:'上游失败', archive_failed:'归档失败', source_expired:'归档源过期', billing_disputed:'费用争议' }
+const actionLabels = { retry_archive: '重试归档', requery: '重新查询', close_tracking: '结束追踪并释放名额', confirm_not_accepted: '确认未受理' }
 </script>
 <template>
   <div class="app-container">
@@ -42,18 +42,19 @@ const actionLabels = { retry_archive: '重试归档', requery: '重新查询', c
           <p>证据定位：{{ detail.evidenceRefs.join('、') || '暂无调用证据' }}</p>
           <el-button v-if="canRecover && detail.allowedActions.includes('retry_archive')" :disabled="pending || uncertain" @click="start(detail)">重试归档</el-button>
           <el-button v-if="canRecover && detail.allowedActions.includes('requery')" :disabled="pending || uncertain" @click="start(detail, 'requery')">重新查询</el-button>
-          <el-button v-if="canRecover && detail.allowedActions.includes('close_tracking')" :disabled="pending || uncertain" @click="start(detail, 'close_tracking')">关闭本地追踪</el-button>
+          <el-button v-if="canRecover && detail.allowedActions.includes('close_tracking')" :disabled="pending || uncertain" @click="start(detail, 'close_tracking')">结束追踪并释放名额</el-button>
           <el-button v-if="canRecover && detail.allowedActions.includes('confirm_not_accepted')" :disabled="pending || uncertain" @click="start(detail, 'confirm_not_accepted')">确认未受理</el-button>
         </template>
       </div>
     </el-dialog>
     <el-dialog v-model="actionOpen" :title="actionLabels[target?.action] || '异常处理'" width="min(620px, 92vw)" :close-on-click-modal="!pending && !uncertain" :close-on-press-escape="!pending && !uncertain" :show-close="!pending && !uncertain">
       <p v-if="target?.action === 'confirm_not_accepted'">必须引用同一提交的明确拒绝调用证据（provider-call:编号）。确认后结束本地任务，不覆盖原未知调用、不重新生成、不宣称免费或释放费用预占。</p>
-      <p v-else-if="target?.action === 'close_tracking'">停止此任务的本地自动状态核查，保留为阻塞状态。不取消供应商任务、不代表免费或释放费用预占；独立归档和费用处理仍继续。必须填写关闭依据。</p>
+      <p v-else-if="target?.action === 'close_tracking'">核实供应商任务已停止或未运行后，结束本地追踪并释放共享名额。此操作不会取消供应商任务，不修改原生成结果与费用，独立归档仍可继续。请填写核查依据。</p>
       <p v-else-if="target?.action === 'requery'">提前调度已有任务核查：提交未知的图片和视频核查本地已保存响应，已有供应商任务编号的视频请求查询接口。不重新提交生成，也不宣称供应商查询免费。</p>
       <p v-else>仅重新调度此任务已有的失败媒体归档，不创建新模型任务。所有失败输出的来源必须仍然有效。</p>
       <p>任务 {{ target?.jobId }} · 修订 {{ target?.revision }}</p>
       <el-form ref="formRef" :model="form" label-position="top" @submit.prevent>
+        <el-form-item v-if="target?.action === 'close_tracking'"><el-checkbox v-model="form.acknowledgeSupplierStopped" class="supplier-confirmation" :disabled="pending || uncertain">我已核实供应商任务停止或未运行，可以释放名额</el-checkbox></el-form-item>
         <el-form-item label="处理原因" prop="reason" :rules="[{required:true, whitespace:true, message:'请填写处理原因', trigger:'blur'}]"><el-input v-model="form.reason" type="textarea" maxlength="4000" :disabled="pending || uncertain" /></el-form-item>
         <el-form-item :label="['close_tracking', 'confirm_not_accepted'].includes(target?.action) ? '证据引用（必填）' : '证据引用（可选，如 ticket:123）'" prop="evidenceRef" :rules="['close_tracking', 'confirm_not_accepted'].includes(target?.action) ? [{required:true, whitespace:true, message:'请填写证据引用', trigger:'blur'}] : []"><el-input v-model="form.evidenceRef" maxlength="255" :disabled="pending || uncertain" /></el-form-item>
       </el-form>
@@ -64,6 +65,9 @@ const actionLabels = { retry_archive: '重试归档', requery: '重新查询', c
   </div>
 </template>
 <style scoped>
+.supplier-confirmation { height:auto; align-items:flex-start; }
+.supplier-confirmation :deep(.el-checkbox__label) { white-space:normal; line-height:1.5; }
+.supplier-confirmation :deep(.el-checkbox__input) { margin-top:3px; }
 header { display:flex; align-items:center; justify-content:space-between; }
 p { color:var(--el-text-color-secondary); overflow-wrap:anywhere; }
 .el-pagination { margin-top:20px; }
