@@ -13,7 +13,7 @@ class AssetGenerationInfoTests(unittest.IsolatedAsyncioTestCase):
 
     async def test_generation_projection_and_permission(self):
         version = SimpleNamespace(version_id=1, source_output_id=2)
-        job = SimpleNamespace(project_id=2, actor_id=103, model_version_id=4, create_time='2026-11-03', input_snapshot={
+        job = SimpleNamespace(job_id=4, project_id=2, actor_id=103, model_version_id=4, create_time='2026-11-03', input_snapshot={
             'prompt': {'content': [{'content': [{'type': 'text', 'text': '雨夜街头'}]}]},
             'parameters': {'resolution': '2K', 'quality': 'low', 'aspect_ratio': '16:9'},
             'internalSecret': 'must-not-leak',
@@ -24,7 +24,16 @@ class AssetGenerationInfoTests(unittest.IsolatedAsyncioTestCase):
              patch('module_higgsfield.service.asset_service.WorkspaceService.authorize', AsyncMock()) as authorize:
             result = await AssetService.generation_info(None, None, version)
             self.assertEqual(result['prompt'], '雨夜街头')
+            self.assertEqual(result['jobId'], '4')
             self.assertEqual(result['resolution'], '2K')
             self.assertNotIn('must-not-leak', str(result))
+            job.input_snapshot['prompt']['content'][0]['content'] = [
+                {'type': 'text', 'text': '@园丁小白 '},
+                {'type': 'mention', 'referenceKey': '1'},
+                {'type': 'text', 'text': '在木工工作室。'},
+                {'type': 'mention', 'referenceKey': '2'},
+            ]
+            result = await AssetService.generation_info(None, None, version)
+            self.assertEqual(result['prompt'], '@园丁小白 在木工工作室。@素材引用')
             authorize.side_effect = PermissionException(message='无权查看')
             self.assertIsNone(await AssetService.generation_info(None, None, version))

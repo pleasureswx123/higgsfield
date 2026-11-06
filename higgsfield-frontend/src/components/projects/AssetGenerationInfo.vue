@@ -1,9 +1,12 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue'
-import { IconSparkles, IconInfoCircle, IconChevronDown, IconChevronUp } from '@tabler/icons-vue'
+import { IconSparkles, IconInfoCircle, IconChevronDown, IconChevronUp, IconArrowBackUp } from '@tabler/icons-vue'
 import type { AssetGenerationInfo, Asset } from '@/api/assets'
 import { formatProjectDate } from '@/utils/projects'
-const props = defineProps<{ info: AssetGenerationInfo; file: Asset['file'] }>()
+import Button from '@/components/ui/Button.vue'
+import { useAssetGenerationCopy } from '@/composables/useAssetGenerationCopy'
+const props = defineProps<{ info: AssetGenerationInfo; file: Asset['file']; canLoad?: boolean }>()
+const restore = useAssetGenerationCopy(() => props.info.jobId)
 const expanded = ref(false)
 const detailsOpen = ref(true)
 const longPrompt = computed(() => props.info.prompt.length > 100 || props.info.prompt.split('\n').length > 5)
@@ -12,7 +15,11 @@ const quality = computed(() => ({ low: '低', medium: '中', high: '高', auto: 
 
 <template>
   <div class="generation-info">
-    <h3 class="generation-heading"><IconSparkles :size="16" />提示词</h3>
+    <div class="prompt-heading">
+      <h3 class="generation-heading"><IconSparkles :size="16" />提示词</h3>
+      <Button v-if="info.jobId && canLoad" class="restore-input" variant="outline" :disabled="restore.loading.value" title="恢复提示词、参考素材和生成参数，仅载入，不生成" @click="restore.load()"><IconArrowBackUp :size="15" />{{ restore.loading.value ? '载入中…' : '载入创作参数' }}</Button>
+    </div>
+    <p v-if="restore.error.value || restore.copyError.value" role="alert">{{ restore.error.value || restore.copyError.value }}</p>
     <div class="prompt-card">
       <p :class="{ clamped: longPrompt && !expanded }">{{ info.prompt || '未记录提示词' }}</p>
       <button v-if="longPrompt" type="button" :aria-expanded="expanded" @click="expanded = !expanded">
@@ -35,6 +42,9 @@ const quality = computed(() => ({ low: '低', medium: '中', high: '高', auto: 
 
 <style scoped>
 .generation-info { margin-bottom:20px; }
+.prompt-heading { display:flex; align-items:center; justify-content:space-between; gap:8px; }
+.prompt-heading .restore-input { display:inline-flex; align-items:center; gap:5px; font-size:12px; padding:6px 10px; min-height:32px; height:auto; color:var(--foreground); background:var(--surface-raised); border:1px solid var(--border); border-radius:8px; white-space:nowrap; }
+.prompt-heading .restore-input:hover { background:var(--surface-hover); }
 .generation-heading { display:flex; align-items:center; gap:8px; color:var(--muted-foreground); font-size:12px; }
 .prompt-card { padding:14px; background:var(--surface-raised); border-radius:12px; }
 .prompt-card p { margin:0; color:var(--foreground); font-size:14px; font-weight:500; line-height:1.6; white-space:pre-wrap; overflow-wrap:anywhere; }

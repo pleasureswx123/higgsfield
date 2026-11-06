@@ -53,6 +53,21 @@ export function useCreationDraft(projectId: string, defaultFolder: () => string 
     | undefined
   const draft = ref<CreationDraft | null>(null),
     formRef = ref<FormInstance>()
+  const replaceConfirmationOpen = ref(false)
+  let resolveReplacement: ((confirmed: boolean) => void) | undefined
+  function confirmReplacement(confirmed: boolean) {
+    replaceConfirmationOpen.value = false
+    const resolve = resolveReplacement
+    resolveReplacement = undefined
+    resolve?.(confirmed)
+  }
+  function requestReplacement() {
+    return new Promise<boolean>(resolve => {
+      resolveReplacement = resolve
+      replaceConfirmationOpen.value = true
+    })
+  }
+  watch(() => auth.token, () => confirmReplacement(false), { flush: 'sync' })
   const drafts = ref<DraftSummary[]>([]),
     draftPage = ref(1),
     draftTotal = ref(0),
@@ -191,14 +206,15 @@ export function useCreationDraft(projectId: string, defaultFolder: () => string 
       view = viewEpoch
     if (
       locked.value ||
-      opening.value ||
-      (dirty.value && !window.confirm('载入其他创作参数将替换当前未保存修改，是否继续？'))
+      opening.value
     )
       return
     opening.value = true
     error.value = ''
     notice.value = ''
     try {
+      if ((hasContent(body.value) || references.value.length > 0) && !(await requestReplacement())) return
+      if (!readable() || session !== epoch || view !== viewEpoch) return
       const result = await getCreationDraft(id)
       if (!readable() || session !== epoch || view !== viewEpoch) return
       if (result.data.projectId !== projectId) throw new Error('该创作参数记录不属于当前项目')
@@ -248,6 +264,19 @@ export function useCreationDraft(projectId: string, defaultFolder: () => string 
     } finally {
       if (session === epoch && view === viewEpoch) opening.value = false
     }
+  }
+  function clearCompletedInput() {
+    if (!readable() || locked.value || opening.value) return false
+    stopAutoSave()
+    // 已提交的参数记录保留在历史中，新创作不覆盖原记录。
+    draft.value = null
+    preservedBody.value = null
+    references.value = []
+    prompt.value = ''
+    originalPrompt.value = ''
+    notice.value = ''
+    saved.value = signature.value
+    return true
   }
   function newDraft() {
     if (!readable()) return
@@ -529,6 +558,7 @@ export function useCreationDraft(projectId: string, defaultFolder: () => string 
     { flush: 'sync' },
   )
   onDeactivated(() => {
+    confirmReplacement(false)
     active = false
     stopReads()
   })
@@ -542,6 +572,7 @@ export function useCreationDraft(projectId: string, defaultFolder: () => string 
   })
   window.addEventListener('beforeunload', beforeUnload)
   onBeforeUnmount(() => {
+    confirmReplacement(false)
     stopAutoSave()
     alive = false
     sequence++
@@ -556,6 +587,9 @@ export function useCreationDraft(projectId: string, defaultFolder: () => string 
   loadDrafts()
   scheduleAutoSave()
   return {
+    folderId,
+    replaceConfirmationOpen,
+    confirmReplacement,
     autoSaveError,
     body,
     kind,
@@ -571,6 +605,7 @@ export function useCreationDraft(projectId: string, defaultFolder: () => string 
     loadDrafts,
     openDraft,
     newDraft,
+    clearCompletedInput,
     prompt,
     promptDocument,
     models,

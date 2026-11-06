@@ -6,7 +6,7 @@ const { readFileSync } = require('node:fs'),
 const { webcrypto } = require('node:crypto'),
   ts = require('typescript'),
   vue = require('vue')
-function setup(api = {}) {
+function setup(api = {}, destination) {
   const exports = {},
     calls = [],
     routes = [],
@@ -86,7 +86,7 @@ function setup(api = {}) {
     },
   )
   const scope = vue.effectScope(),
-    state = scope.run(() => exports.useGenerationCopy(() => task.value))
+    state = scope.run(() => exports.useGenerationCopy(() => task.value, destination))
   return {
     state,
     task,
@@ -101,6 +101,20 @@ function setup(api = {}) {
     },
   }
 }
+test('素材回填保留文件夹和导航位置，重试不改变保存目标', async () => {
+  let folder = '9', writes = 0
+  const h = setup({ save: async () => {
+    if (++writes === 1) throw new Error('连接中断')
+    return { data: { id: '11' } }
+  } }, () => ({ folderId: folder, query: { tab: 'folders', folder } }))
+  await h.state.copy()
+  folder = '10'
+  assert.equal(await h.state.copy(), true)
+  assert.equal(h.calls[1][3].folderId, '9')
+  assert.equal(h.routes[0].query.tab, 'folders')
+  assert.equal(h.routes[0].query.folder, '9')
+  h.close()
+})
 test('复制完整输入及字符串来源编号，只保存草稿并导航，不提交生成', async () => {
   const h = setup()
   assert.equal(await h.state.copy(), true)

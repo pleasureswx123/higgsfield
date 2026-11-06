@@ -90,7 +90,7 @@ const props = defineProps<{
   refreshKey: number
   folderSettings: FolderViewSettings
 }>()
-const emit = defineEmits<{ restoreFolders: [settings: FolderViewSettings]; create: []; reference: [asset: Asset, kind: 'image' | 'video']; selectionChange: [count: number]; contentsChanged: [] }>()
+const emit = defineEmits<{ restoreFolders: [settings: FolderViewSettings]; create: []; reference: [asset: Asset, kind: 'image' | 'video']; selectionChange: [count: number]; contentsChanged: []; emptyChange: [state: { folderId: string | null; empty: boolean }] }>()
 const {
   rows,
   total,
@@ -166,14 +166,22 @@ const activeFilters = computed(() => {
   const activityNames = { generated: '生成来源', uploaded: '上传来源', liked: '本人收藏', downloaded: '本人下载' }
   if (activity.value) values.push({ key: 'activity', label: `活动：${activityNames[activity.value]}` })
   if (dates.value?.length) values.push({ key: 'dates', label: `创建日期：${dates.value.join(' 至 ')}` })
-  if (includeDescendants.value) values.push({ key: 'includeDescendants', label: '包含子目录素材' })
+  if (props.folderId && !includeDescendants.value) values.push({ key: 'includeDescendants', label: '仅当前文件夹素材' })
   return values
 })
+// 后台刷新时维持已确认的空布局，切换目录和请求失败时不沿用旧结论。
+const loadedFolder = ref<string | null | undefined>(undefined)
+watch([loading, error, () => props.folderId], ([busy, failure, folderId]) => {
+  if (failure) loadedFolder.value = undefined
+  else if (!busy) loadedFolder.value = folderId
+})
+const emptyForCreation = computed(() => Boolean(props.compact && props.canGenerate && loadedFolder.value === props.folderId && !error.value && total.value === 0 && !rows.value.length && !activeFilters.value.length))
+watch([emptyForCreation, () => props.folderId], ([empty, folderId]) => emit('emptyChange', { folderId, empty }), { immediate: true })
 function restoreView(value: LibraryViewSettings) {
   layout.value = value.layout; cardSize.value = value.cardSize; splitByDate.value = value.splitByDate
   fileType.value = value.fileType || ''
   dates.value = value.dates ? [...value.dates] : null
-  includeDescendants.value = value.includeDescendants ?? false
+  includeDescendants.value = props.folderId ? value.includeDescendants ?? true : true
   activity.value = value.activity || ''; filter()
   emit('restoreFolders', value)
 }
@@ -276,7 +284,7 @@ defineExpose({ includeDescendants })
         <template #reference><Button variant="outline" aria-label="筛选素材"><IconFilter :size="16" />筛选<span v-if="activeFilters.length" class="asset-filter-count">{{ activeFilters.length }}</span></Button></template>
         <h4>筛选素材</h4>
     <div class="asset-filters" :inert="batchBusy">
-      <ElCheckbox v-model="includeDescendants" @change="filter">包含子目录素材</ElCheckbox>
+      <ElCheckbox v-if="folderId" v-model="includeDescendants" @change="filter">包含子目录素材</ElCheckbox>
       <span class="muted">创建日期（上海时间，包含结束日）</span>
       <ElDatePicker v-model="dates" type="daterange" value-format="YYYY-MM-DD" start-placeholder="创建开始日期" end-placeholder="创建结束日期" aria-label="素材创建日期（上海时间，包含结束日）" @change="filter" />
       <ElSelect v-model="activity" placeholder="全部活动" aria-label="素材活动" @change="filter">
@@ -284,7 +292,7 @@ defineExpose({ includeDescendants })
       </ElSelect>
       <ElInput
         v-model="search"
-        :placeholder="includeDescendants ? '搜索当前目录及子目录素材' : '搜索当前目录素材'"
+        :placeholder="!folderId ? '搜索项目全部素材' : includeDescendants ? '搜索当前文件夹及子文件夹素材' : '搜索当前文件夹素材'"
         clearable
         maxlength="200"
         aria-label="素材名称"
@@ -404,7 +412,7 @@ defineExpose({ includeDescendants })
       </div>
     </section>
     </div>
-    <section v-if="!loading && !error && !rows.length" class="asset-empty" aria-label="素材列表为空">
+    <section v-if="!loading && !error && !rows.length && !emptyForCreation" class="asset-empty" aria-label="素材列表为空">
       <span class="asset-empty-icon"><IconSearch :size="28" aria-hidden="true" /></span>
       <template v-if="activeFilters.length">
         <h4>没有符合筛选条件的素材</h4>
@@ -524,7 +532,7 @@ defineExpose({ includeDescendants })
             <button id="asset-preview-comments-tab" role="tab" :aria-selected="previewTab === 'comments'" aria-controls="asset-preview-comments" @click="previewTab = 'comments'"><IconMessageCircle :size="16" />评论</button>
           </div>
           <section v-show="previewTab === 'info'" id="asset-preview-info" class="asset-preview-info" role="tabpanel" aria-labelledby="asset-preview-info-tab">
-            <AssetGenerationInfo v-if="selected?.generation" :key="selected.currentVersionId" :info="selected.generation" :file="selected.file" />
+            <AssetGenerationInfo v-if="selected?.generation" :key="selected.currentVersionId" :info="selected.generation" :file="selected.file" :can-load="canGenerate" />
             <h3>详细信息</h3>
             <dl v-if="selected">
               <dt>名称</dt><dd>{{ selected.name }}</dd>

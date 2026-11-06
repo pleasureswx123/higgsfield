@@ -1,15 +1,17 @@
 <script setup lang="ts">
-import { generationSubmissionFeedback } from '@/utils/generationFeedback'
+import { generationFeedback, generationSubmissionFeedback } from '@/utils/generationFeedback'
 import GenerationFeedbackCard from './GenerationFeedbackCard.vue'
 import StudioPagination from '@/components/ui/StudioPagination.vue'
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog'
 import { IconX, IconHistory } from '@tabler/icons-vue'
 import { ElForm, ElFormItem, ElMessage, } from 'element-plus'
 
 import type { Asset } from '@/api/assets'
 import { selectCandidate } from '@/utils/draftReferences'
 import CreationComposer from '@/components/creation/CreationComposer.vue'
+import CreationDestination from '@/components/creation/CreationDestination.vue'
 import { computed, ref, watch } from 'vue'
-import { RouterLink, useRoute } from 'vue-router'
+import { RouterLink, useRoute, useRouter } from 'vue-router'
 import Button from '@/components/ui/Button.vue'
 import { useElementUse } from '@/composables/useElementUse'
 import { useElementGenerationTarget } from '@/composables/useElementGenerationTarget'
@@ -23,15 +25,21 @@ import GenerationDetail from './GenerationDetail.vue'
 import type { GenerationActivityState } from '@/composables/useGenerationActivity'
 import { useCreationProgress } from '@/composables/useCreationProgress'
 import { useGenerationSubmit } from '@/composables/useGenerationSubmit'
-const props = defineProps<{ projectId: string; activity: GenerationActivityState; initialPrompt?: string; initialKind?: 'image' | 'video'; dock?: boolean }>()
-const emit = defineEmits<{ assetsChanged: [folders: (string | null)[]] }>()
+const props = defineProps<{ projectId: string; activity: GenerationActivityState; initialPrompt?: string; initialKind?: 'image' | 'video'; dock?: boolean; landing?: boolean; emptyFolder?: boolean; projectName?: string; canCreateFolder?: boolean; currentFolder?: string | null }>()
+const emit = defineEmits<{ assetsChanged: [folders: (string | null)[]]; foldersChanged: [] }>()
 const route = useRoute()
+const router = useRouter()
+const destinationBlock = ref('正在检查保存位置')
+const generationLocationBlock = computed(() => props.currentFolder ? '' : destinationBlock.value)
 const draftsOpen = ref(false)
 const referencePicker = ref<InstanceType<typeof DraftReferences>>()
 const pickerOpen = ref(false)
 const promptEditor = ref<InstanceType<typeof ComposerPrompt>>()
 const {
   body,
+  folderId,
+  replaceConfirmationOpen,
+  confirmReplacement,
   kind,
   promptDocument,
   prompt,
@@ -64,12 +72,17 @@ const {
   setParameter,
   changeKind,
   save,
+  clearCompletedInput,
 } = useCreationDraft(props.projectId, () => {
   const folder = route.query.folder
   return route.params.id === props.projectId && typeof folder === 'string' && /^[1-9]\d*$/.test(folder)
     ? folder
     : null
 }, { prompt: props.initialPrompt, kind: props.initialKind, autoSave: true, pauseAutoSave: () => pickerOpen.value })
+// 文件夹页以当前目录为准；草稿载入完成后再更新归属，让自动保存记录这次变化。
+watch([() => props.currentFolder, folderId, opening, draftLocked], () => {
+  if (props.currentFolder && !opening.value && !draftLocked.value) folderId.value = props.currentFolder
+}, { flush: 'post', immediate: true })
 watch(draftsOpen, open => { if (open) void loadDrafts() })
 const imageReferences = computed(() => references.value.filter(item => item.mediaRole !== 'reference_video').sort((a, b) => Number(Boolean(a.elementRevisionId)) - Number(Boolean(b.elementRevisionId))))
 const videoReference = computed(() => references.value.find(item => item.mediaRole === 'reference_video'))
@@ -82,18 +95,28 @@ function removeSelected(item: DraftReference) {
 const elementTarget = useElementGenerationTarget(props.projectId)
 watch(
   () => [route.params.id, route.query.draft],
-  () => {
+  async () => {
     const id = route.query.draft
     if (
       route.params.id === props.projectId &&
       typeof id === 'string' &&
       /^[1-9]\d*$/.test(id) &&
       draft.value?.id !== id
-    )
-      void openDraft(id)
+    ) {
+      await openDraft(id)
+      // 取消替换时地址栏也回到当前草稿，避免刷新后载入被取消的内容。
+      if (route.params.id === props.projectId && route.query.draft === id && draft.value?.id !== id)
+        await router.replace({ query: { ...route.query, draft: draft.value?.id } })
+    }
   },
   { immediate: true },
 )
+async function restoreDraft(id: string) {
+  await openDraft(id)
+  if (draft.value?.id !== id || opening.value || error.value) return
+  draftsOpen.value = false
+  await router.replace({ query: { ...route.query, draft: id } })
+}
 const generation = useGenerationSubmit(() =>
   selected.value &&
   body.value.modelVersionId &&
@@ -158,27 +181,55 @@ const latestSubmitted = computed(() => {
   return progress.rows.value.find(row => row.id === id) || (generation.acceptedId.value ? undefined : progress.running.value)
 })
 const submissionFeedback = computed(() => latestSubmitted.value ? generationSubmissionFeedback(latestSubmitted.value) : undefined)
+const completedInputCleared = new Set<string>()
+watch(() => [latestSubmitted.value, generation.sameAsAccepted.value, draftLocked.value, opening.value], () => {
+  const row = latestSubmitted.value
+  if (!row || row.id !== generation.acceptedId.value || completedInputCleared.has(row.id)
+    || generationFeedback(row).tone !== 'success' || !generation.sameAsAccepted.value) return
+  // 只清理本次已成功且未再修改的输入，不能覆盖用户正在准备的下一次创作。
+  if (clearCompletedInput()) completedInputCleared.add(row.id)
+})
 const generationBusy = computed(() => Boolean(submissionFeedback.value?.busy))
 const buttonLabel = computed(() => generation.submitting.value ? '保存任务…' : generation.checking.value || generation.generating.value ? '检查参数…' : submissionFeedback.value?.label)
 async function checkGeneration() {
-  if (draftLocked.value || generationBusy.value) return
+  if (generationLocationBlock.value || draftLocked.value || generationBusy.value || generation.sameAsAccepted.value) return
   if (elementTarget.requested.value && (!elementTarget.target.value || kind.value !== 'image'))
     return
-  if (!(await formRef.value?.validate().catch(() => false)) || draftLocked.value) return
+  if (!(await formRef.value?.validate().catch(() => false)) || draftLocked.value || generationLocationBlock.value) return
+  if (props.currentFolder) folderId.value = props.currentFolder
   await generation.generate()
 }
 const rules = { prompt: [{ max: 50000, message: '提示词不能超过50000字符', trigger: 'blur' }] }
 </script>
 
 <template>
-  <section class="creation-panel" :class="{ 'creation-dock': dock }">
+  <section class="creation-panel" :class="{ 'creation-dock': dock, 'creation-landing': landing, 'creation-folder-landing': emptyFolder }">
+    <header v-if="landing" class="creation-welcome">
+      <span class="creation-eyebrow">{{ projectName }} · 创作空间</span>
+      <h1>{{ emptyFolder ? '在这里开始新的创作' : '让灵感成为画面' }}</h1>
+      <p>描述你的想法，添加参考素材，开始创作图片或视频。</p>
+      <div class="creation-guides"><span>输入描述</span><span>添加素材或 @ 元素</span><span>生成并保存到项目</span></div>
+    </header>
+    <div v-if="!currentFolder" class="creation-save-location"><CreationDestination v-model="folderId" :project-id="projectId" :can-create="canCreateFolder" @generation-block="destinationBlock = $event" @created="emit('foldersChanged')" :disabled="draftLocked || opening || generation.locked.value || generation.generating.value" /></div>
+    <Dialog :open="replaceConfirmationOpen" @update:open="value => { if (!value) confirmReplacement(false) }">
+      <DialogContent class="studio-dialog">
+        <DialogHeader>
+          <DialogTitle>替换当前创作内容？</DialogTitle>
+          <DialogDescription>将载入所选记录的提示词、参考素材和生成参数，替换创作栏中的当前内容。此操作不会生成或扣费。</DialogDescription>
+        </DialogHeader>
+        <DialogFooter>
+          <Button variant="outline" @click="confirmReplacement(false)">取消</Button>
+          <Button @click="confirmReplacement(true)">替换并载入</Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
     <GenerationFeedbackCard v-if="latestSubmitted || progress.awaitingAccepted.value"
       :row="latestSubmitted" :awaiting="progress.awaitingAccepted.value" :error="progress.error.value" :loading="progress.loading.value"
       @refresh="progress.reload()" @detail="taskId = $event" />
     <ElForm ref="formRef" :model="form" :rules="rules" class="composer-validation" @submit.prevent>
     <ElFormItem prop="prompt">
     <CreationComposer v-model:prompt="prompt" :kind="kind" :models="models" :selected="selected"
-      :job-busy="generationBusy" :job-label="buttonLabel" :job-spinning="submissionFeedback?.spinning" :active-task="generation.sameAsAccepted.value && !generationBusy" :parameters="parameters" :reference-count="references.length" :disabled="editingLocked || opening || generation.locked.value || generation.generating.value"
+      :generation-block="generationLocationBlock" :job-busy="generationBusy" :job-label="buttonLabel" :job-spinning="submissionFeedback?.spinning" :active-task="generation.sameAsAccepted.value && !generationBusy" :parameters="parameters" :reference-count="references.length" :disabled="editingLocked || opening || generation.locked.value || generation.generating.value"
       :loading="loading" :saving="saving" :checking="generation.generating.value || generation.submitting.value"
       :estimate="generation.visibleEstimate.value ? `${generation.visibleEstimate.value.amount} ${generation.visibleEstimate.value.currency}` : undefined"
       @kind="changeKind" @model="choose" @parameter="setParameter" @reference="(source, anchor) => referencePicker?.show(source, anchor)"
@@ -258,7 +309,7 @@ const rules = { prompt: [{ max: 50000, message: '提示词不能超过50000字�
           <button
             type="button"
             :disabled="draftLocked || opening || generation.locked.value"
-            @click="openDraft(item.id)"
+            @click="restoreDraft(item.id)"
           >
             <strong>{{ item.kind === 'image' ? '图像' : '视频' }}</strong
             ><span>{{ item.promptExcerpt || '空白提示词' }}</span
@@ -353,6 +404,15 @@ const rules = { prompt: [{ max: 50000, message: '提示词不能超过50000字�
   max-width: 1000px;
   margin: 24px auto;
 }
+.creation-save-location { display:flex; justify-content:flex-end; padding:0 8px 10px; }
+.creation-landing { width:min(960px,calc(100% - 48px)); min-height:calc(100dvh - 110px); display:flex; flex-direction:column; justify-content:center; padding:56px 0 100px; margin:0 auto; }
+.creation-welcome { text-align:center; margin-bottom:36px; }
+.creation-eyebrow { font-size:12px; letter-spacing:.12em; color:var(--muted-foreground); }
+.creation-welcome h1 { margin:16px 0 12px; font-size:clamp(28px,3vw,42px); letter-spacing:-.04em; color:var(--foreground); font-weight:650; }
+.creation-welcome p { color:var(--muted-foreground); font-size:14px; }
+.creation-guides { display:flex; justify-content:center; flex-wrap:wrap; gap:10px; margin-top:22px; }
+.creation-guides span { padding:7px 12px; border:1px solid var(--border); background:var(--surface); border-radius:20px; font-size:12px; color:var(--muted-foreground); }
+@media(max-width:800px) { .creation-landing { width:calc(100% - 24px); padding:32px 0 80px; }.creation-welcome { margin-bottom:24px; } }
 .creation-drafts {
   margin-bottom: 8px;
   padding: 0;

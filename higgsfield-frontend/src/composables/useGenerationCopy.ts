@@ -4,7 +4,8 @@ import { useAuthStore } from '@/stores/auth'
 import { getGenerationInput, type GenerationSnapshot } from '@/api/generations'
 import { saveCreationDraft, type DraftBody, type DraftReference, type Scalar } from '@/api/creation'
 
-export function useGenerationCopy(snapshot: () => GenerationSnapshot | undefined) {
+export function useGenerationCopy(snapshot: () => GenerationSnapshot | undefined,
+  destination?: () => { folderId: string | null; query: Record<string, string> }) {
   const auth = useAuthStore(),
     router = useRouter()
   const pending = ref(false),
@@ -21,6 +22,7 @@ export function useGenerationCopy(snapshot: () => GenerationSnapshot | undefined
         references: DraftReference[]
         key: string
         draftId?: string
+        query?: Record<string, string>
       }
     | undefined
   function reset() {
@@ -59,13 +61,14 @@ export function useGenerationCopy(snapshot: () => GenerationSnapshot | undefined
             projectId: task.projectId,
             kind: task.kind,
             key: crypto.randomUUID(),
+            query: destination?.().query,
             body: {
               schemaVersion: 1,
               prompt: input.prompt,
               parameters,
               modelVersionId: input.modelVersionId,
               sourceJobId: task.id,
-              folderId: null,
+              folderId: destination?.().folderId ?? null,
             },
             references: input.references,
           }),
@@ -87,7 +90,7 @@ export function useGenerationCopy(snapshot: () => GenerationSnapshot | undefined
       const failure = await router.push({
         name: 'project-detail',
         params: { id: intent.projectId },
-        query: { tab: 'creation', draft: intent.draftId },
+        query: { ...(intent.query || { tab: 'creation' }), draft: intent.draftId },
       })
       if (ticket !== epoch) return false
       if (failure) throw new Error('草稿已保存，页面未切换；请重试打开，不会重复创建')

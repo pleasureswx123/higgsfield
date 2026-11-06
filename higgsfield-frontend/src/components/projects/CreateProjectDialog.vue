@@ -31,13 +31,14 @@ const { form, name, pending, error, rules, submit } = useCreateProject(open, (id
       <DialogHeading :title-id="titleId" :title-class="titleClass" title="新建项目" />
     </template>
     <ElAlert v-if="error" :title="error" type="error" :closable="false" show-icon />
-    <ElForm ref="form" :model="{ name }" :rules="rules" @submit.prevent="submit"
+    <ElForm ref="form" :model="{ name }" :rules="rules" @submit.prevent
       ><ElFormItem prop="name" label="项目名称" class="project-name-field"
         ><ElInput
           v-model="name"
           placeholder="我的项目"
           maxlength="200"
           :disabled="pending"
+          @keyup.enter="submit"
           autofocus
           aria-label="项目名称"
       /></ElFormItem>
@@ -47,7 +48,7 @@ const { form, name, pending, error, rules, submit } = useCreateProject(open, (id
           >你将成为这个项目的首位负责人。<small>项目空间将与项目同时创建。</small></span
         >
       </div>
-      <Button type="submit" class="project-create-submit" :disabled="pending">{{
+      <Button type="button" @click="submit" class="project-create-submit" :disabled="pending">{{
         pending ? '正在创建…' : '创建项目'
       }}</Button></ElForm
     >

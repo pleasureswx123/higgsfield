@@ -1493,3 +1493,8 @@ p {
 .studio-pill-tabs [role="tab"][data-state="active"] { background:var(--surface-hover); color:var(--foreground); box-shadow:none; }
 .studio-pill-tabs [role="tab"]:focus-visible { outline:2px solid var(--focus); outline-offset:2px; box-shadow:none; }
 @media (max-width:520px) { .studio-pill-tabs { gap:4px; } .studio-pill-tabs [role="tab"] { padding-inline:12px; } }
+
+/* 空文件夹保留顶部路径和上传入口，引导与创作栏作为一个整体展示。 */
+.project-studio-page:has(.creation-folder-landing) { padding-bottom:24px !important; }
+.project-studio-page:has(.creation-folder-landing) .folder-workspace:has(.asset-workspace) { min-height:0; }
+.creation-panel.creation-folder-landing { min-height:calc(100dvh - 160px); padding-top:24px; padding-bottom:56px; }

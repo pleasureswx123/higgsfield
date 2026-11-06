@@ -35,14 +35,14 @@ export function useAssetLibrary(
   const documentSections = ref<string[]>([])
   const pdfBlob = ref<Blob | null>(null)
   const dates = ref<string[] | null>(null)
-  const includeDescendants = ref(false)
+  const includeDescendants = ref(true)
   type FilterKey = 'search' | 'fileType' | 'activity' | 'dates' | 'includeDescendants'
   function clearFilter(key?: FilterKey) {
     if (!key || key === 'search') search.value = ''
     if (!key || key === 'fileType') fileType.value = ''
     if (!key || key === 'activity') activity.value = ''
     if (!key || key === 'dates') dates.value = null
-    if (!key || key === 'includeDescendants') includeDescendants.value = false
+    if (!key || key === 'includeDescendants') includeDescendants.value = true
     filter()
   }
   let listController: AbortController | undefined, mediaController: AbortController | undefined
@@ -61,7 +61,7 @@ export function useAssetLibrary(
         {
           ...libraryWindow(dates.value),
           folderId: folderId.value,
-          includeDescendants: includeDescendants.value,
+          includeDescendants: !folderId.value || includeDescendants.value,
           q: search.value,
           pageNum: requestedPage,
           fileType: fileType.value || undefined,
@@ -155,6 +155,7 @@ export function useAssetLibrary(
     folderId,
     () => {
       closePreview()
+      includeDescendants.value = true
       rows.value = []
       filter()
     },

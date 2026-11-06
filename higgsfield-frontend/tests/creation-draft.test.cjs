@@ -70,9 +70,51 @@ function harness(api = {}, confirm = () => true, autoSave = false) {
     window: { confirm, addEventListener() {}, removeEventListener() {} },
   })
   const state = exported.useCreationDraft('9', () => folder.value, { autoSave })
+  vue.watch(state.replaceConfirmationOpen, open => {
+    if (open) state.confirmReplacement(confirm())
+  }, { flush: 'sync' })
   state.formRef.value = { validate: async () => true }
   return { state, auth, calls, hooks, folder }
 }
+
+test('完成后清空输入并保留参数及历史草稿，保存中不清理', async () => {
+  const { state, hooks } = harness()
+  await new Promise(setImmediate)
+  state.prompt.value = '木工工作室'
+  state.parameters.value = { quality: 'high' }
+  state.folderId.value = '9'
+  state.references.value = [{ referenceKey: '1', assetVersionId: '19', mediaRole: 'reference_image', ordinal: 0 }]
+  const old = { id: '7', body: { prompt: '历史正文' } }
+  state.draft.value = old
+  state.saving.value = true
+  assert.equal(state.clearCompletedInput(), false)
+  assert.equal(state.prompt.value, '木工工作室')
+  state.saving.value = false
+  assert.equal(state.clearCompletedInput(), true)
+  assert.equal(state.prompt.value, '')
+  assert.equal(state.references.value.length, 0)
+  assert.equal(state.parameters.value.quality, 'high')
+  assert.equal(state.body.value.folderId, '9')
+  assert.equal(state.draft.value, null)
+  assert.equal(old.body.prompt, '历史正文')
+  assert.equal(state.dirty.value, false)
+  hooks.unmount()
+})
+
+test('载入参数取消替换时保留已自动保存的输入和引用', async () => {
+  let reads = 0, confirms = 0
+  const { state, hooks } = harness({ getCreationDraft: async () => { reads++; throw new Error('不应读取') } }, () => { confirms++; return false })
+  await new Promise(setImmediate)
+  state.prompt.value = '需要保留的输入'
+  state.references.value = [{ referenceKey: '1', assetVersionId: '19', mediaRole: 'reference_image', ordinal: 0 }]
+  await state.save()
+  await state.openDraft('88')
+  assert.equal(confirms, 1)
+  assert.equal(reads, 0)
+  assert.equal(state.prompt.value, '需要保留的输入')
+  assert.equal(state.references.value[0].assetVersionId, '19')
+  hooks.unmount()
+})
 
 test('创作参数按类型分页，切换清空旧列表并拒绝迟到响应', async () => {
   const requests = []

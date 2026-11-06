@@ -235,13 +235,24 @@ class AssetService:
             return None
         snapshot = job.input_snapshot or {}
         prompt = snapshot.get('prompt') or {}
-        text = '\n'.join(''.join(
-            node.get('text', '') if node.get('type') == 'text' else '@素材引用'
-            for node in paragraph.get('content', [])
-        ) for paragraph in prompt.get('content', []))
+        paragraphs = []
+        for paragraph in prompt.get('content', []):
+            segments, previous = [], {}
+            for node in paragraph.get('content', []):
+                if node.get('type') == 'text':
+                    segments.append(node.get('text', ''))
+                elif node.get('type') == 'mention':
+                    # 编辑器将标签保存为「名称正文 + 固定引用键」，名称已经展示时不重复占位。
+                    label = previous.get('text', '') if previous.get('type') == 'text' else ''
+                    if not (label.endswith(' ') and '@' in label.rsplit('\n', 1)[-1]):
+                        segments.append('@素材引用')
+                previous = node
+            paragraphs.append(''.join(segments))
+        text = '\n'.join(paragraphs)
         parameters = snapshot.get('parameters') or {}
         model = await GenerationReadDao.model(db, job.model_version_id)
         return {
+            'jobId': str(job.job_id),
             'prompt': text,
             'modelName': model.display_name if model else None,
             'quality': parameters.get('quality'),

@@ -11,6 +11,7 @@ export interface UploadSession {
 }
 export type AssetWorkStatus = 'none' | 'working' | 'review' | 'approved' | 'rejected'
 export interface AssetGenerationInfo {
+  jobId?: string
   prompt: string
   modelName: string | null
   quality: string | null

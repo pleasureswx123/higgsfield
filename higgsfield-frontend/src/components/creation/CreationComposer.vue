@@ -16,6 +16,7 @@ const props = withDefaults(defineProps<{
   selected?: ModelCapability | null
   parameters?: Record<string, Scalar>
   projectRequired?: boolean
+  generationBlock?: string
   disabled?: boolean
   promptReadonly?: boolean
   loading?: boolean
@@ -240,9 +241,8 @@ watch(() => [props.kind, props.selected?.versionId, props.disabled], () => { men
         </div>
       </div>
       <slot name="video" :label="referenceVideoLabel"><button v-if="kind === 'video'" type="button" class="composer-video-reference" :disabled="disabled" aria-label="添加参考视频" @click="reference('asset', $event)"><IconPlus :size="18" /><span>{{ referenceVideoLabel }}</span></button></slot>
-      <button type="button" class="composer-generate" :title="activeTask ? '相同参数已提交，点击会新增一组生成任务并可能产生费用' : undefined" :aria-busy="checking || jobBusy" :disabled="disabled || saving || checking || jobBusy || (!projectRequired && (!selected || Boolean(sizeIssue)))" @click="projectRequired ? emit('project') : emit('generate')">
-        <strong>{{ projectRequired ? '选择项目' : checking ? (jobLabel || '提交中…') : jobBusy ? (jobLabel || '等待启动') : activeTask ? '再生成一组' : '生成' }}<span v-if="checking || (jobBusy && jobSpinning !== false)" class="generate-spinner" aria-hidden="true"></span></strong>
-        <span v-if="activeTask && !checking && !jobBusy" class="generate-active-hint">相同参数已提交</span>
+      <button type="button" class="composer-generate" :title="generationBlock || (activeTask ? '本次内容已提交，请修改创作内容后再生成' : undefined)" :aria-busy="checking || jobBusy" :disabled="Boolean(generationBlock) || disabled || saving || checking || jobBusy || activeTask || (!projectRequired && (!selected || Boolean(sizeIssue)))" @click="projectRequired ? emit('project') : emit('generate')">
+        <strong>{{ projectRequired ? '选择项目' : checking ? (jobLabel || '提交中…') : jobBusy ? (jobLabel || '等待启动') : activeTask ? '已提交' : '生成' }}<span v-if="checking || (jobBusy && jobSpinning !== false)" class="generate-spinner" aria-hidden="true"></span></strong>
       </button>
       </div>
       <p v-if="sizeIssue" class="composer-size-error" role="alert">{{ sizeIssue }}</p>

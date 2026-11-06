@@ -17,7 +17,7 @@ import {
   ElPagination,
   type FormRules,
 } from 'element-plus'
-import { IconFolder, IconPlus, IconTrash, IconSearch } from '@tabler/icons-vue'
+import { IconFolder, IconPlus, IconTrash, IconSearch, IconSparkles } from '@tabler/icons-vue'
 import { useFolders } from '@/composables/useFolders'
 import type { FolderColor } from '@/api/folders'
 import FolderTreeNode from './FolderTreeNode.vue'
@@ -33,7 +33,7 @@ const props = defineProps<{
   canDownload: boolean
   canGenerate?: boolean
 }>()
-const emit = defineEmits<{ create: []; select: []; reference: [asset: Asset, kind: 'image' | 'video']; selectionChange: [count: number] }>()
+const emit = defineEmits<{ create: []; select: []; reference: [asset: Asset, kind: 'image' | 'video']; selectionChange: [count: number]; emptyChange: [state: { folderId: string | null; empty: boolean }] }>()
 const assetRefreshKey = ref(0)
 const assetPanel = ref<InstanceType<typeof ProjectAssets>>()
 const {
@@ -130,17 +130,14 @@ const rules: FormRules = {
     <Teleport to="#project-sidebar-tree" :disabled="!sidebar">
     <aside v-show="visible !== false" class="folder-sidebar" aria-label="项目文件夹">
       <div class="folder-sidebar-scroll">
-      <div class="folder-heading">
-        <span>文件夹</span
-        ><button
-          v-if="canWrite"
-          class="folder-icon-button"
-          :disabled="pending"
-          aria-label="新建根目录"
-          @click="startCreate(null)"
-        >
-          <IconPlus :size="18" />
-        </button>
+      <div class="folder-heading" :class="{ active: navigationActive !== false && !currentId && !trash }">
+        <button
+          class="folder-total-button"
+          :class="{ active: navigationActive !== false && !currentId && !trash }"
+          :aria-label="`查看全部素材，共 ${assetCounts?.total ?? '未知'} 个`"
+          title="查看全部素材"
+          @click="navigate([])"
+        ><span class="all-assets-icon" aria-hidden="true"><IconSparkles :size="20" /></span><span>全部素材</span><span class="folder-total-count">{{ assetCounts?.total ?? '—' }}</span></button>
         <ElPopover v-if="sidebar" trigger="click" placement="right-start" :width="260">
           <template #reference><button class="folder-icon-button" aria-label="查找与排序文件夹"><IconSearch :size="16" /></button></template>
           <ElInput v-model="search" placeholder="搜索项目内目录" clearable aria-label="搜索目录" @input="filter" />
@@ -148,13 +145,6 @@ const rules: FormRules = {
         </ElPopover>
       </div>
       <div v-if="sidebar && search" class="folder-search-results"><button v-for="folder in rows" :key="folder.id" class="folder-tree-label" @click="navigate([folder])"><IconFolder :size="18" />{{ folder.name }}</button><span v-if="!rows.length && !loading">无匹配目录</span><button v-if="total > page * 30" class="folder-text-button" @click="changePage(page + 1)">下一页</button></div>
-      <button
-        class="folder-tree-label folder-root"
-        :class="{ active: navigationActive !== false && !currentId && !trash }"
-        @click="navigate([])"
-      >
-        <IconFolder :size="19" />全部素材<span class="folder-asset-count">{{ assetCounts?.total ?? '—' }}</span>
-      </button>
       <button v-if="canWrite" class="folder-tree-label folder-add" :disabled="pending" @click="startCreate(null)"><IconPlus :size="18" />添加文件夹</button>
       <ul class="folder-tree">
         <FolderTreeNode
@@ -271,7 +261,7 @@ const rules: FormRules = {
         layout="prev, pager, next"
         @current-change="changePage"
       />
-      <ProjectAssets ref="assetPanel"
+      <ProjectAssets ref="assetPanel" @empty-change="emit('emptyChange', $event)"
         :compact="sidebar"
         :project-actions="projectActions"
         v-show="!trash"
@@ -425,3 +415,12 @@ const rules: FormRules = {
 
 
 
+<style scoped>
+.folder-heading { margin:0 0 12px; padding:4px 8px; gap:6px; border-radius:9px; transition:background-color .15s; }
+.folder-heading:hover,.folder-heading:focus-within,.folder-heading.active { background:var(--surface-hover); }
+.all-assets-icon { display:grid; place-items:center; flex-shrink:0; width:28px; height:28px; border-radius:9px; color:var(--foreground); border:1px solid color-mix(in srgb, var(--foreground) 22%, transparent); background:linear-gradient(145deg, color-mix(in srgb, var(--foreground) 20%, var(--surface-raised)), var(--surface-raised)); box-shadow:inset 0 1px 3px color-mix(in srgb, var(--foreground) 14%, transparent); }
+.folder-total-button { display:flex; align-items:center; gap:8px; flex:1; min-width:0; padding:2px 0; border:0; border-radius:6px; background:transparent; color:var(--foreground); font:inherit; font-variant-numeric:tabular-nums; cursor:pointer; }
+.folder-total-count { margin-left:auto; padding:0 4px; color:var(--muted-foreground); }
+.folder-total-button:hover,.folder-total-button.active { background:transparent; color:var(--foreground); }
+.folder-total-button:focus-visible { outline:2px solid var(--ring); outline-offset:2px; }
+</style>

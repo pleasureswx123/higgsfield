@@ -17,7 +17,7 @@ test('素材缓存停用取消列表，激活和权限变化重新读取，退�
   })
   const scope = vue.effectScope(), state = scope.run(() => exports.useAssetLibrary('99', vue.ref(null)))
   hooks.activate(); assert.equal(calls.length, 1)
-  assert.equal(calls[0].args[1].includeDescendants, false)
+  assert.equal(calls[0].args[1].includeDescendants, true)
   state.includeDescendants.value = true
   hooks.deactivate(); assert.equal(calls[0].args[2].aborted, true)
   calls[0].resolve({ rows: [{ id: 'old' }], total: 1 }); await tick()
@@ -44,7 +44,8 @@ test('素材缓存停用取消列表，激活和权限变化重新读取，退�
       return { listAssets: async (...args) => { calls.push(args); return { rows: [], total: 0 } } }
     },
   })
-  const scope = vue.effectScope(), state = scope.run(() => exports.useAssetLibrary('99', vue.ref('9007199254740993')))
+  const folder = vue.ref('9007199254740993')
+  const scope = vue.effectScope(), state = scope.run(() => exports.useAssetLibrary('99', folder))
   await tick();state.search.value = '角色';state.fileType.value = 'image';state.activity.value = 'liked'
   state.dates.value = ['2024-02-29','2024-03-01'];state.includeDescendants.value = true
   state.clearFilter('fileType');await tick()
@@ -54,8 +55,16 @@ test('素材缓存停用取消列表，激活和权限变化重新读取，退�
   state.clearFilter();await tick()
   assert.equal(calls.length, before + 1);assert.equal(state.page.value, 1)
   const query = calls.at(-1)[1]
-  assert.equal(query.q, '');assert.equal(query.activity, undefined);assert.equal(query.includeDescendants, false)
+  assert.equal(query.q, '');assert.equal(query.activity, undefined);assert.equal(query.includeDescendants, true)
   assert.equal(query.from, undefined);assert.equal(query.to, undefined);assert.equal(query.folderId, '9007199254740993')
+  state.includeDescendants.value = false
+  folder.value = '42'; await tick()
+  assert.equal(calls.at(-1)[1].folderId, '42')
+  assert.equal(calls.at(-1)[1].includeDescendants, true)
+  folder.value = null; await tick()
+  state.includeDescendants.value = false; await state.refresh()
+  assert.equal(calls.at(-1)[1].folderId, null)
+  assert.equal(calls.at(-1)[1].includeDescendants, true)
   scope.stop()
 })
 

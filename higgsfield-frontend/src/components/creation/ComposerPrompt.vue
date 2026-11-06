@@ -66,7 +66,6 @@ defineExpose({ insert })
       :show-arrow="false"
       popper-class="prompt-element-suggestions"
     >
-      <div class="mention-heading">引用素材与项目元素</div>
       <p v-if="picker.loading.value" role="status">正在查找…</p>
       <p v-else-if="picker.error.value" role="alert">{{ picker.error.value }}</p>
       <div v-if="rows.length" role="listbox" aria-label="素材与元素候选">
@@ -202,11 +201,6 @@ defineExpose({ insert })
   font-weight: 650;
   box-decoration-break: clone;
   -webkit-box-decoration-break: clone;
-}
-.mention-heading {
-  font-size: 12px;
-  color: var(--muted-foreground);
-  padding: 4px 0 8px;
 }
 .mention-option {
   display: flex;

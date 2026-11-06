@@ -9,7 +9,7 @@ import type { ElementRecord } from '@/api/elements'
 import type { Project } from '@/api/projects'
 import { computed, ref, watch } from 'vue'
 import { IconDotsVertical, IconAdjustmentsHorizontal, IconAt, IconPhotoVideo, IconSparkles } from '@tabler/icons-vue'
-import { useRoute } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
 import { useProjectWorkspace } from '@/composables/useProjectWorkspace'
 import { formatProjectDate } from '@/utils/projects'
 import BriefEditor from './BriefEditor.vue'
@@ -64,6 +64,8 @@ const creation = ref<InstanceType<typeof ProjectCreation>>()
 const permissionEpoch = ref(0)
 function memberChanged() { permissionEpoch.value++; void load() }
 const selectedAssetCount = ref(0)
+const emptyFolderState = ref<{ folderId: string | null; empty: boolean }>({ folderId: null, empty: false })
+const folderLanding = computed(() => tab.value === 'folders' && route.query.folderView !== 'trash' && emptyFolderState.value.empty && emptyFolderState.value.folderId === (typeof route.query.folder === 'string' ? route.query.folder : null))
 const folderWorkspace = ref<InstanceType<typeof ProjectFolders>>()
 const useError = ref('')
 async function useElements(items: ElementRecord[], completed?: () => void) {
@@ -73,6 +75,12 @@ async function useElements(items: ElementRecord[], completed?: () => void) {
   else useError.value = creation.value?.useError || '创作区正在处理其他操作，请稍后重试'
 }
 const route = useRoute()
+const router = useRouter()
+// 导航选择与地址栏一致，刷新后仍恢复当前页面。
+watch(tab, value => {
+  if (route.params.id === props.projectId && route.query.tab !== value)
+    void router.replace({ query: { ...route.query, tab: value } })
+})
 watch(
   () => [route.params.id, route.query.tab],
   () => {
@@ -83,6 +91,7 @@ watch(
     if (route.params.id === props.projectId && route.query.tab === 'creation')
       tab.value = 'creation'
     if (route.params.id === props.projectId && route.query.tab === 'folders') tab.value = 'folders'
+    if (route.params.id === props.projectId && ['brief', 'members', 'permissions'].includes(String(route.query.tab))) tab.value = route.query.tab as 'brief' | 'members' | 'permissions'
   },
 )
 </script>
@@ -173,7 +182,7 @@ watch(
   />
 
   </TabsContent>
-  <ProjectFolders @select="tab = 'folders'" ref="folderWorkspace" @selection-change="selectedAssetCount = $event"
+  <ProjectFolders @empty-change="emptyFolderState = $event" @select="tab = 'folders'" ref="folderWorkspace" @selection-change="selectedAssetCount = $event"
     v-if="brief?.allowedActions.includes('asset:read')"
     v-show="tab === 'folders'"
     :visible="route.params.id === projectId"
@@ -199,7 +208,7 @@ watch(
     :use-error="useError"
     @use="useElements"
   />
-  <ProjectCreation ref="creation" :activity="activity" dock @assets-changed="folders => folderWorkspace?.refreshGenerated(folders)"
+  <ProjectCreation :current-folder="tab === 'folders' && typeof route.query.folder === 'string' ? route.query.folder : null" :can-create-folder="brief?.allowedActions.includes('folder:write')" @folders-changed="folderWorkspace?.refreshAll()" ref="creation" :activity="activity" :dock="tab === 'folders' && !folderLanding" :landing="tab === 'creation' || folderLanding" :empty-folder="folderLanding" :project-name="project.name" @assets-changed="folders => folderWorkspace?.refreshGenerated(folders)"
     v-if="brief?.allowedActions.includes('generation:create')"
     v-show="tab === 'creation' || (tab === 'folders' && !selectedAssetCount && route.query.folderView !== 'trash')"
     :project-id="projectId"
