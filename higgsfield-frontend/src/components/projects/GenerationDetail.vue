@@ -63,6 +63,7 @@ async function copyPrompt() {
 }
 const taskFeedback = computed(() => detail.value ? generationFeedback(detail.value, feedbackNow.value) : undefined)
 const summaryStatus = computed(() => taskFeedback.value?.label || '生成详情')
+const previewPending = computed(() => mediaLoading.value || Boolean(chosenOutput.value?.previewUrl && !mediaUrl.value && !mediaError.value))
 const archive = {
   not_started: '待归档',
   archiving: '归档中',
@@ -107,7 +108,7 @@ const billing = { pending: '待确认', calculated: '已计算', confirmed: '已
             <img v-if="mediaUrl && mediaKind === 'image'" :src="mediaUrl" alt="生成结果预览" />
             <video v-else-if="mediaUrl && mediaKind === 'video'" :src="mediaUrl" controls preload="metadata" />
             <pre v-else-if="chosenOutput?.kind === 'text'">{{ chosenOutput.text }}</pre>
-            <div v-else class="preview-empty"><IconVideo v-if="detail.kind === 'video'" :size="32" /><IconPhoto v-else :size="32" /><strong>{{ mediaLoading ? '正在加载结果…' : summaryStatus }}</strong><span>{{ detail.outputsVisibility === 'hidden' ? '当前没有查看输出内容的权限' : chosenOutput ? '暂时无法预览此结果' : '暂无生成结果' }}</span></div>
+            <div v-else class="preview-empty"><IconVideo v-if="detail.kind === 'video'" :size="32" /><IconPhoto v-else :size="32" /><strong>{{ previewPending ? '正在加载结果…' : summaryStatus }}</strong><span>{{ detail.outputsVisibility === 'hidden' ? '当前没有查看输出内容的权限' : previewPending ? '正在读取已归档文件，请稍候。' : chosenOutput ? '暂时无法预览此结果' : '暂无生成结果' }}</span></div>
           </div>
           <p v-if="mediaError" class="project-error" role="alert">{{ mediaError }} <Button v-if="chosenOutput?.previewUrl" variant="ghost" :disabled="mediaLoading" @click="media(chosenOutput)">重新加载</Button></p>
           <div v-if="detail.outputs.length > 1" class="output-selector" aria-label="选择生成结果">
