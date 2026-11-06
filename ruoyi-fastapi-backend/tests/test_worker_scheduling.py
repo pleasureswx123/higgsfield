@@ -18,6 +18,57 @@ from tests.test_higgsfield_job_leases import JobLeaseTests
 
 
 class SchedulingTests(unittest.IsolatedAsyncioTestCase):
+    async def test_heartbeat_file_failure_preserves_execution_and_recovers(self):
+        class Connection:
+            async def __aenter__(self): return self
+            async def __aexit__(self, *_): pass
+            async def execute(self, *_): pass
+
+        # 分别覆盖临时文件写入失败、Windows 替换目标文件被占用。
+        for operation in ('write_text', 'replace'):
+            with self.subTest(operation=operation), tempfile.TemporaryDirectory() as directory:
+                stop, failed, recovered = (asyncio.Event() for _ in range(3))
+                completed = []
+                original = getattr(Path, operation)
+                calls = 0
+
+                def write(path, *args, **kwargs):
+                    nonlocal calls
+                    calls += 1
+                    if calls == 1:
+                        failed.set()
+                        raise PermissionError('模拟文件被占用')
+                    result = original(path, *args, **kwargs)
+                    recovered.set()
+                    return result
+
+                async def serve(event):
+                    await failed.wait()
+                    await recovered.wait()
+                    completed.append(True)
+                    event.set()
+
+                with patch.object(Path, operation, new=write):
+                    await asyncio.wait_for(serve_controlled(SimpleNamespace(serve=serve),
+                        SimpleNamespace(connect=Connection), stop, control_dir=directory), 4)
+                self.assertEqual(completed, [True])
+                self.assertEqual(json.loads(Path(directory, 'status.json').read_text())['state'], 'stopped')
+
+    async def test_final_heartbeat_failure_does_not_mask_worker_error(self):
+        class Connection:
+            async def __aenter__(self): return self
+            async def __aexit__(self, *_): pass
+            async def execute(self, *_): pass
+
+        async def serve(event):
+            raise ValueError('模拟业务异常')
+
+        with tempfile.TemporaryDirectory() as directory, \
+             patch.object(Path, 'replace', side_effect=PermissionError('模拟文件被占用')):
+            with self.assertRaisesRegex(ValueError, '模拟业务异常'):
+                await serve_controlled(SimpleNamespace(serve=serve), SimpleNamespace(connect=Connection),
+                    asyncio.Event(), control_dir=directory)
+
     async def test_claim_connection_failure_preserves_running_task_and_recovers(self):
         from sqlalchemy.exc import OperationalError
         stop, entered, recovered = (asyncio.Event() for _ in range(3))

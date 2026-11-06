@@ -11,6 +11,8 @@ $backend = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot '../ruoyi-fastapi-bac
 $python = Join-Path $backend '.venv/Scripts/python.exe'
 $logs = Join-Path $backend 'output/image-workers'
 $statePath = Join-Path $logs 'processes.json'
+. (Join-Path $PSScriptRoot 'worker-version.ps1')
+$fingerprint = Get-WorkerFingerprint ([IO.Path]::GetFullPath((Join-Path $PSScriptRoot '..'))) $ConfigPath
 $config = Get-Content -LiteralPath $ConfigPath -Raw -Encoding UTF8 | ConvertFrom-Json
 foreach ($mode in $Modes) {
     $setting = $config.modes.$mode
@@ -55,8 +57,9 @@ try {
             $entry = $saved | Where-Object { $_.mode -eq $mode } | Select-Object -First 1
             if (!$entry -or !(Get-OwnedWorker $entry)) { Write-Output "$mode : 未运行"; continue }
             $health = Get-Health $entry
-            $description = if (Test-Ready $entry) { '新版（支持健康心跳），就绪，数据库连接正常' } elseif (!$entry.controlDir) { '旧版（无健康心跳），无法验证就绪状态' } elseif ($health) { "新版，状态 $($health.state)，请检查心跳时间 $($health.updatedAt)" } else { '新版，初始化中或心跳缺失' }
+            $description = if (Test-Ready $entry) { '就绪，数据库连接正常' } elseif (!$entry.controlDir) { '无健康心跳，无法验证就绪状态' } elseif ($health) { "状态 $($health.state)，请检查心跳时间 $($health.updatedAt)" } else { '初始化中或心跳缺失' }
             Write-Output "$mode : PID $($entry.id)，$description，配置并发/批量 $($entry.concurrency)"
+            Write-Output "  $(Get-WorkerVersionDescription $entry $fingerprint)"
         }
         Write-Output "日志目录：$logs"
         return
@@ -78,13 +81,19 @@ try {
         if ($Action -eq 'stop') { return }
     }
     if (!(Test-Path -LiteralPath $python)) { throw '未找到后端虚拟环境。' }
+    # 先检查全部目标，避免部分启动后才发现旧代码；不自动重启在途工作器。
+    foreach ($entry in $saved) {
+        if ($entry.mode -in $Modes -and (Get-OwnedWorker $entry) -and $entry.fingerprint -ne $fingerprint) {
+            throw "$($entry.mode)：$(Get-WorkerVersionDescription $entry $fingerprint)。请执行 -Action restart；未复用版本不符的进程。"
+        }
+    }
     New-Item -ItemType Directory -Path $logs -Force | Out-Null
     $current = @($saved | Where-Object { $_.mode -notin $Modes })
     foreach ($mode in $Modes) {
         $entry = $saved | Where-Object { $_.mode -eq $mode } | Select-Object -First 1
         if ($entry -and (Get-OwnedWorker $entry)) {
             $current += $entry
-            $generation = if ($entry.controlDir) { '新版（支持健康心跳）' } else { '旧版（无健康心跳）' }
+            $generation = Get-WorkerVersionDescription $entry $fingerprint
             Write-Output "$mode : $generation，PID $($entry.id)，复用现有进程。"
             continue
         }
@@ -95,7 +104,7 @@ try {
         $workerProcess = Start-Process -FilePath $python -WorkingDirectory $backend -WindowStyle Hidden -PassThru `
             -ArgumentList @('-m', 'module_higgsfield.worker', '--mode', $mode, '--env', 'dev', '--enable-consumption', '--concurrency', $setting.concurrency, '--handler-timeout', $setting.handlerTimeout, '--drain-seconds', $config.drainSeconds, '--control-dir', ('"' + $control + '"'), '--worker-id', "manual-image-$mode-$stamp") `
             -RedirectStandardOutput (Join-Path $control 'out.log') -RedirectStandardError (Join-Path $control 'err.log')
-        $current += [PSCustomObject]@{ mode = $mode; id = $workerProcess.Id; controlDir = $control; concurrency = $setting.concurrency }
+        $current += [PSCustomObject]@{ mode = $mode; id = $workerProcess.Id; controlDir = $control; concurrency = $setting.concurrency; fingerprint = $fingerprint }
         ConvertTo-Json -InputObject @($current) | Set-Content -LiteralPath $statePath -Encoding UTF8
     }
     $legacy = @($current | Where-Object { $_.mode -in $Modes -and !$_.controlDir -and (Get-OwnedWorker $_) })
@@ -111,7 +120,7 @@ try {
     } while ([DateTime]::UtcNow -lt $deadline)
     if ($waiting.Count) { throw "工作器尚未通过健康检查：$($waiting.mode -join ', ')。查看 $logs；未重复启动现有进程。" }
     $verified = @($current | Where-Object { $_.mode -in $Modes -and $_.controlDir } | ForEach-Object { $_.mode })
-    if ($verified.Count) { Write-Output "新版工作器健康检查通过：$($verified -join ', ')。并发/批量配置：$ConfigPath" }
+    if ($verified.Count) { Write-Output "工作器健康检查通过：$($verified -join ', ')。代码及配置指纹：$($fingerprint.Substring(0, 12))。并发/批量配置：$ConfigPath" }
     Write-Output '日常启动无需重启工作器；修改工作器代码或配置后，在另一个 PowerShell 窗口执行：'
     Write-Output ('& "' + $PSCommandPath + '" -Action restart -WaitSeconds 30')
     Write-Output '重启会先停止领取，再等待在途任务；若超过30秒仍未退出，请稍后查看 status，停止完成后再执行 start。'
