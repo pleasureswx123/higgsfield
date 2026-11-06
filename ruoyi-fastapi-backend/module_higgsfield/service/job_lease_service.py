@@ -62,6 +62,8 @@ class JobLeaseService:
                 await db.rollback()
                 return []
             now = await JobLeaseDao.now(db)
+            from module_higgsfield.service.unknown_capacity_service import UnknownCapacityService
+            await UnknownCapacityService.recover(db, now, worker)
             rows = await JobLeaseDao.candidates(db, now, max(100, limit * 4), kinds)
             leases = []
             for row in rows:

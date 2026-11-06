@@ -1,6 +1,7 @@
 """生成输入仅从固定业务快照投影，内部执行信息不得直接返回。"""
 
 from pydantic import ValidationError
+from module_higgsfield.dao.production_capacity_dao import ProductionCapacityDao
 from module_higgsfield.dao.generation_trace_dao import GenerationTraceDao
 
 from common.vo import PageModel
@@ -84,6 +85,7 @@ class GenerationReadService:
             'diagnostic': await GenerationDiagnosticService.read(db, job),
             'execution': await GenerationTraceService.read(db, job, include_body=visible),
             'executionStage': await GenerationTraceDao.latest_stage(db, job.job_id),
+            'queueReason': (await ProductionCapacityDao.waiting_reasons(db, [job])).get(job.job_id),
             'requestState': GenerationTraceService.request_state(await GenerationReadDao.latest_execution_call(db, job.job_id)),
             'elementDestination': await GenerationTargetService.project(db, user, job),
             'kind': job.kind,
@@ -121,6 +123,7 @@ class GenerationReadService:
         billing = await TaskBillingReadService.read(db, job, allowed)
         result = {'projectName': project.project_name, 'billingVisibility': billing['billingVisibility']}
         result['executionStage'] = await GenerationTraceDao.latest_stage(db, job.job_id)
+        result['queueReason'] = (await ProductionCapacityDao.waiting_reasons(db, [job])).get(job.job_id)
         result['requestState'] = GenerationTraceService.request_state(await GenerationReadDao.latest_execution_call(db, job.job_id))
         if preview and 'asset:read' in allowed:
             result['cardPreview'] = preview

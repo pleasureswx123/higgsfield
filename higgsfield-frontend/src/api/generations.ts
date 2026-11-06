@@ -136,8 +136,10 @@ export interface GenerationSnapshot extends GenerationSummary {
         startedAt: string | null; finishedAt: string | null; httpStatus: number | null
         requestSentAt?: string | null; responseHeadersAt?: string | null; responseBodyAt?: string | null
         timingsMs?: Record<string, number>
+        requestBodyBytes?: number | null
+        requestBodySha256?: string | null
         transport: string | null; request: unknown; response: unknown; issue: unknown
-        diagnostic?: { exceptionType?: string; receivedBytes?: number; phase?: string }
+        diagnostic?: { exceptionType?: string; receivedBytes?: number; phase?: string; failedPhase?: string; [key: string]: unknown }
       }[]
     }[]
   }
@@ -212,6 +214,7 @@ export type GenerationState =
   | 'blocked'
 export type GenerationKind = 'image' | 'video' | 'chat'
 export interface GenerationSummary {
+  queueReason?: 'capacity_unknown' | 'capacity_full' | null
   folderId?: string | null
   executionStage?: string | null
   requestState?: 'not_started' | 'preparing_request' | 'awaiting_response' | 'response_received' | 'transport_error'

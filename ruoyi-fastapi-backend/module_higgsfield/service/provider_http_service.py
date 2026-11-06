@@ -6,7 +6,7 @@ import re
 from collections.abc import AsyncIterator
 from dataclasses import dataclass, field
 from typing import Literal, Self
-from urllib.parse import quote
+from urllib.parse import quote, urlsplit
 
 import httpx
 from pydantic import SecretStr, TypeAdapter
@@ -20,6 +20,7 @@ from module_higgsfield.service.provider_decode_service import ProviderDecodeServ
 from module_higgsfield.service.provider_upload_stream import ProviderUploadStream
 from module_higgsfield.service.videoplus_response_service import unique_object
 from utils.output_source_util import validate_output_source
+from module_higgsfield.service.provider_network_diagnostic import error_chain, response_facts
 
 MAX_RESPONSE_BYTES = 8 * 1024 * 1024
 HARD_RESPONSE_BYTES = 256 * 1024 * 1024
@@ -154,7 +155,7 @@ class ProviderHttpService:
     async def _send(
         self, method, path, content, *, content_type='application/json', content_length=None,
     ) -> ProviderHttpResult:
-        from module_higgsfield.service.provider_connection_pool import request_transport
+        from module_higgsfield.service.provider_connection_pool import request_transport, local_bindings
         config = self.connection.config
         timeout = httpx.Timeout(
             config.read_timeout_seconds,
@@ -175,6 +176,12 @@ class ProviderHttpService:
         response = None
         phase = 'request'
         received_bytes = 0
+        facts = {'connectTimeoutSeconds': config.connect_timeout_seconds,
+                 'readTimeoutSeconds': config.read_timeout_seconds,
+                 'operationTimeoutSeconds': config.operation_timeout_seconds,
+                 'trustEnvironmentProxy': False, 'followRedirects': False,
+                 'automaticRetries': 0, 'httpxVersion': httpx.__version__}
+        facts['outboundLocalAddress'] = local_bindings().get(urlsplit(self.connection.base_url).hostname)
         try:
             async with (
                 asyncio.timeout(config.operation_timeout_seconds),
@@ -183,6 +190,7 @@ class ProviderHttpService:
                     extensions={"trace": self.network_trace} if self.network_trace else {}) as response,
             ):
                 http_status = response.status_code
+                facts.update(response_facts(response))
                 phase = 'response_body'
                 data = bytearray()
                 try:
@@ -192,7 +200,8 @@ class ProviderHttpService:
                         data.extend(decoder.feed(chunk))
                     decoder.finish()
                 except ValueError:
-                    return ProviderHttpResult('response', response.status_code, issue='RESPONSE_ENCODING_INVALID_OR_TOO_LARGE')
+                    return ProviderHttpResult('response', response.status_code, issue='RESPONSE_ENCODING_INVALID_OR_TOO_LARGE',
+                                              diagnostic={**facts, 'phase': 'response_body', 'receivedBytes': received_bytes})
                 try:
                     body = json.loads(data, object_pairs_hook=unique_object, parse_constant=invalid_constant)
                 except (ValueError, UnicodeError, RecursionError):
@@ -200,6 +209,7 @@ class ProviderHttpService:
                         'response', response.status_code, issue='RESPONSE_JSON_INVALID',
                         diagnostic_body=bytes(data[:32000]).decode('utf-8', errors='replace')
                         + ('[超长正文已截断]' if len(data) > 32000 else ''),
+                        diagnostic={**facts, 'phase': 'response_decode', 'receivedBytes': received_bytes},
                     )
                 if isinstance(body, dict):
                     # 仅保留调用编号和成本证据，不保存密钥额度、余额等其他响应头。
@@ -211,22 +221,18 @@ class ProviderHttpService:
                     if re.fullmatch(r'[A-Za-z0-9_-]{1,128}', call_id):
                         headers_fact['callId'] = call_id
                     body['_platformGatewayHeaders'] = headers_fact
-                return ProviderHttpResult('response', response.status_code, body)
+                return ProviderHttpResult('response', response.status_code, body,
+                                          diagnostic={**facts, 'phase': 'complete', 'receivedBytes': received_bytes})
         except (TimeoutError, httpx.RequestError) as error:
             # 仅保存结构化异常类别，异常正文可能携带密钥、签名地址或请求内容。
-            classes = []
-            cause = error
-            while cause is not None and len(classes) < 5:
-                classes.append(type(cause).__name__)
-                cause = cause.__cause__
+            causes = error_chain(error)
             timed_out = isinstance(error, (TimeoutError, httpx.TimeoutException))
             if response is not None:
                 received_bytes = response.num_bytes_downloaded
             return ProviderHttpResult(
                 'timeout' if timed_out else 'network_error', http_status,
                 issue='RESPONSE_BODY_INTERRUPTED' if http_status is not None else 'REQUEST_TRANSPORT_FAILED',
-                diagnostic={'phase': phase, 'exceptionType': type(error).__name__,
-                            'causeTypes': classes, 'receivedBytes': received_bytes,
-                            'operationTimeoutSeconds': config.operation_timeout_seconds,
-                            'readTimeoutSeconds': config.read_timeout_seconds},
+                diagnostic={**facts, 'phase': phase, 'exceptionType': type(error).__name__,
+                            'causeTypes': [cause['type'] for cause in causes],
+                            'errorChain': causes, 'receivedBytes': received_bytes},
             )

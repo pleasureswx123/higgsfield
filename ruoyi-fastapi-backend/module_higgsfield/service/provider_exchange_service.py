@@ -2,6 +2,9 @@
 from module_higgsfield.dao.project_activity_notification_dao import ProjectActivityNotificationDao
 
 import json
+import hashlib
+import asyncio
+import ipaddress
 import logging
 import re
 import shlex
@@ -115,16 +118,36 @@ class ProviderExchangeService:
             'body': body,
         }
         await writer(
-            identity, {'id': identity, 'request': request, 'startedAt': datetime.now(timezone.utc).isoformat()}
+            identity, {'id': identity, 'request': request, 'startedAt': datetime.now(timezone.utc).isoformat(),
+                       'requestBodyBytes': len(content) if isinstance(content, bytes) else None,
+                       'requestBodySha256': hashlib.sha256(content).hexdigest() if isinstance(content, bytes) else None}
         )
         clock = perf_counter()
         timings = {}
         starts = {}
         milestones = {}
+        network = {}
 
         async def trace(name, info):
             # 不保存底层info，里面可能带请求头或连接秘密。
             phase, _, outcome = name.rpartition('.')
+            if name == 'connection.connect_tcp.complete':
+                network['newConnectionObserved'] = True
+                try:
+                    address = info['return_value'].get_extra_info('server_addr')
+                    network['peerIp'] = str(ipaddress.ip_address(address[0]))
+                    network['peerPort'] = int(address[1])
+                except (AttributeError, KeyError, TypeError, ValueError, IndexError, OSError):
+                    # 连接后端可能不提供地址，诊断缺失不得打断请求。
+                    pass
+            if phase.startswith(('connection.', 'http11.', 'http2.')):
+                if outcome == 'started' and not phase.endswith(('close', 'response_closed')):
+                    network['lastStartedPhase'] = phase
+                if outcome == 'failed' and 'failedPhase' not in network:
+                    from module_higgsfield.service.provider_network_diagnostic import error_chain
+                    network['failedPhase'] = phase
+                    if isinstance(info.get('exception'), BaseException):
+                        network['traceErrorChain'] = error_chain(info['exception'])
             if outcome == 'started':
                 starts[phase] = perf_counter()
             elif outcome in {'complete', 'failed'} and phase in starts:
@@ -147,6 +170,17 @@ class ProviderExchangeService:
         transport.network_trace = trace
         try:
             result = await action()
+        except asyncio.CancelledError:
+            # 标明是本地协程取消，不能误写成供应商拒绝；保存失败不掩盖取消。
+            try:
+                async with asyncio.timeout(2):
+                    await writer(identity, {'finishedAt': datetime.now(timezone.utc).isoformat(),
+                        **milestones, 'timingsMs': {**timings, 'total': round((perf_counter() - clock) * 1000, 3)},
+                        'issue': 'LOCAL_EXECUTION_CANCELLED',
+                        'diagnostic': {**network, 'exceptionType': 'CancelledError', 'phase': 'local_cancel'}})
+            except Exception:
+                pass
+            raise
         finally:
             transport.network_trace = None
         timings['total'] = round((perf_counter() - clock) * 1000, 3)
@@ -156,7 +190,7 @@ class ProviderExchangeService:
             'transport': result.transport,
             'httpStatus': result.http_status,
             'issue': result.issue,
-            'diagnostic': result.diagnostic,
+            'diagnostic': {**(result.diagnostic or {}), **network},
             'response': cls.redact(result.body if result.body is not None else result.diagnostic_body, secret),
         }
         try:

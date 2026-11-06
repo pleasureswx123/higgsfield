@@ -1,6 +1,7 @@
 """合并个人进行中状态与授权项目数量；不会触发调度或供应商请求。"""
 
 from exceptions.exception import PermissionException
+from module_higgsfield.dao.production_capacity_dao import ProductionCapacityDao
 from module_higgsfield.dao.generation_activity_dao import GenerationActivityDao
 from module_higgsfield.dao.generated_output_dao import GeneratedOutputDao
 from module_higgsfield.dao.job_event_dao import JobEventDao
@@ -28,6 +29,7 @@ class GenerationActivityService:
         identities = [row.job_id for row in rows]
         summaries = await GeneratedOutputDao.archive_summaries(db, identities)
         stages, calls = await GenerationActivityDao.execution(db, identities)
+        waiting = await ProductionCapacityDao.waiting_reasons(db, rows)
         return {
             'projectActiveCount': count, 'hasNext': has_next,
             'rows': [{
@@ -40,6 +42,7 @@ class GenerationActivityService:
                 'archiveSummary': summaries[row.job_id],
                 'billingState': ('pending', 'calculated', 'confirmed', 'disputed')[int(row.billing_state)],
                 'allowedActions': [], 'executionStage': stages.get(row.job_id),
+                'queueReason': waiting.get(row.job_id),
                 'requestState': GenerationTraceService.request_state(calls.get(row.job_id)),
             } for row in rows],
         }

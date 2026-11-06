@@ -21,6 +21,63 @@ class TeamProductionTests(unittest.IsolatedAsyncioTestCase):
     job = intent.SubmitIntentTests.job
     asyncSetUp = intent.SubmitIntentTests.asyncSetUp
 
+    async def test_unknown_capacity_expires_once_without_resubmit_or_fact_change(self):
+        from datetime import timedelta
+        from module_higgsfield.service.provider_submit_intent_service import ProviderSubmitIntentService
+        from module_higgsfield.service.unknown_capacity_service import UnknownCapacityService
+        async with self.sessions() as db:
+            self.lease, call_id = await ProviderSubmitIntentService.begin(db, self.lease, 'a' * 64)
+            await db.execute(text("UPDATE hf_creation_job SET orchestration_state='3',upstream_state='6',next_action_time=NULL,lease_owner=NULL,lease_until=NULL"))
+            await db.execute(text("UPDATE hf_provider_call SET state='3',finished_time=clock_timestamp()"))
+            await db.commit()
+            now = await db.scalar(text('SELECT clock_timestamp()'))
+            self.assertEqual(await UnknownCapacityService.recover(db, now, 'recovery-test'), 0)
+            self.assertFalse(await ProductionCapacityDao.acquire(db, self.key_id, now))
+            # 配置允许最长七天，使用八天后的时钟验证所有保护条件都已满足。
+            future = now + timedelta(days=8)
+            self.assertEqual(await UnknownCapacityService.recover(db, future, 'recovery-test'), 1)
+            self.assertEqual(await UnknownCapacityService.recover(db, future, 'recovery-test'), 0)
+            self.assertTrue(await ProductionCapacityDao.acquire(db, self.key_id, future))
+            from module_higgsfield.dao.production_policy_dao import ProductionPolicyDao
+            self.assertEqual(tuple(await ProductionPolicyDao.queue_counts(db, 1, self.project_id)), (0, 0, 0))
+            self.assertEqual((await db.execute(text('SELECT state,acceptance,http_status FROM hf_provider_call'))).one(), ('3','unknown',None))
+            self.assertEqual((await db.execute(text('SELECT orchestration_state,upstream_state,next_action_time FROM hf_creation_job'))).one(), ('3','6',None))
+            self.assertEqual(await db.scalar(text("SELECT count(*) FROM hf_audit_log WHERE action='release_unknown_capacity'")), 1)
+            self.assertEqual(await db.scalar(text('SELECT count(*) FROM hf_provider_call')), 1)
+            await db.rollback()
+            self.assertIsNone(await db.scalar(text("SELECT request_metadata->>'capacityReleasedAt' FROM hf_provider_call")))
+
+    async def test_unknown_capacity_never_reclaims_live_or_reconciling_job(self):
+        from datetime import timedelta
+        from module_higgsfield.service.provider_submit_intent_service import ProviderSubmitIntentService
+        from module_higgsfield.service.unknown_capacity_service import UnknownCapacityService
+        async with self.sessions() as db:
+            self.lease, _ = await ProviderSubmitIntentService.begin(db, self.lease, 'a' * 64)
+            await db.execute(text("UPDATE hf_creation_job SET orchestration_state='3',upstream_state='6',next_action_time=clock_timestamp(),lease_owner=NULL,lease_until=NULL"))
+            await db.execute(text("UPDATE hf_provider_call SET state='3',finished_time=clock_timestamp()"))
+            await db.commit()
+            now = await db.scalar(text('SELECT clock_timestamp()'))
+            future = now + timedelta(days=8)
+            self.assertEqual(await UnknownCapacityService.recover(db, future, 'recovery-test'), 0)
+            await db.execute(text("UPDATE hf_creation_job SET next_action_time=NULL,lease_owner='live-worker',lease_until=:until"), {'until':future+timedelta(seconds=60)})
+            self.assertEqual(await UnknownCapacityService.recover(db, future, 'recovery-test'), 0)
+
+    async def test_invalid_response_test_capacity_is_recovered_but_sending_is_not(self):
+        from datetime import timedelta
+        from module_higgsfield.service.unknown_capacity_service import UnknownCapacityService
+        async with self.sessions() as db:
+            now = await db.scalar(text('SELECT clock_timestamp()'))
+            for state in ('1', '2', '3'):
+                await ProviderCallDao.add(db, dict(account_id=int(self.account_id), cost_center_id=1,
+                    credential_version_id=self.key_id, operation='test', request_hash='a'*64,
+                    state=state, acceptance='unknown', request_metadata={}, started_time=now,
+                    finished_time=None if state == '1' else now))
+            await db.commit()
+            self.assertEqual(await UnknownCapacityService.recover(db, now+timedelta(days=8), 'test-recovery'), 2)
+            self.assertEqual(await UnknownCapacityService.recover(db, now+timedelta(days=8), 'test-recovery'), 0)
+            self.assertIsNone(await db.scalar(text("SELECT request_metadata->>'capacityReleasedAt' FROM hf_provider_call WHERE state='1'")))
+            self.assertEqual(await db.scalar(text("SELECT count(*) FROM hf_audit_log WHERE action='release_unknown_capacity'")), 2)
+
     async def test_user_rotation_and_member_removal_preserve_isolation(self):
         from copy import deepcopy
         producer = deepcopy(self.owner)

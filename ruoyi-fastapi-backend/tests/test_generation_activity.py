@@ -1,6 +1,8 @@
 """真实隔离 PostgreSQL 验证合并状态授权、终态跟踪和批量查询成本，无供应商调用。"""
 import os
 import unittest
+import importlib.util
+from pathlib import Path
 from sqlalchemy import event, text
 from exceptions.exception import PermissionException, ServiceWarning
 from module_higgsfield.entity.vo.generation_query_vo import GenerationActivityQuery
@@ -15,7 +17,14 @@ class GenerationActivityTests(unittest.IsolatedAsyncioTestCase):
     job = listing.GenerationListTests.job
     create = listing.GenerationListTests.create
     output = listing.GenerationListTests.output
-    asyncSetUp = listing.GenerationListTests.asyncSetUp
+    async def asyncSetUp(self):
+        await listing.GenerationListTests.asyncSetUp(self)
+        for name in ('20261027_17_credentials.py',):
+            spec = importlib.util.spec_from_file_location('capacity_setup',
+                Path(__file__).resolve().parents[1] / 'alembic/versions' / name)
+            self.migration = importlib.util.module_from_spec(spec)
+            spec.loader.exec_module(self.migration)
+            await self.migrate('upgrade')
 
     async def read(self, db, **values):
         return await GenerationActivityService.read(db, self.owner,
@@ -65,6 +74,7 @@ class GenerationActivityTests(unittest.IsolatedAsyncioTestCase):
     async def test_query_count_does_not_grow_per_task_and_pages_cover_all(self):
         async with self.sessions() as db:
             await db.execute(text('DELETE FROM hf_generated_output'))
+            await db.execute(text("UPDATE hf_creation_job SET orchestration_state='0'"))
             statements = []
             def record(conn, cursor, statement, parameters, context, executemany):
                 statements.append(statement)

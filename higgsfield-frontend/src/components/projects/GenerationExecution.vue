@@ -33,7 +33,9 @@ function time(value: string | null) {
         <p class="muted">请求发送完成：{{ time(exchange.requestSentAt || null) }}<br />响应正文接收完成：{{ time(exchange.responseBodyAt || null) }}</p>
         <dl v-if="exchange.timingsMs" class="trace-timings"><template v-for="(value, key) in exchange.timingsMs" :key="key"><div v-if="phaseName(key)"><dt>{{ phaseName(key) }}</dt><dd>{{ duration(value) }}</dd></div></template></dl>
         <p v-if="exchange.issue" class="muted">诊断代码：{{ exchange.issue }}</p>
-        <details><summary>Request · 实际请求（已脱敏）</summary><pre>{{ JSON.stringify(exchange.request, null, 2) }}</pre></details>
+        <p v-if="exchange.diagnostic?.failedPhase" class="trace-warning">失败环节：{{ phaseName(exchange.diagnostic.failedPhase) || exchange.diagnostic.failedPhase }}</p>
+        <details v-if="exchange.diagnostic"><summary>网络诊断 · 错误码与响应头</summary><pre>{{ JSON.stringify(exchange.diagnostic, null, 2) }}</pre></details>
+        <details><summary>Request · 实际请求（已脱敏）</summary><p v-if="exchange.requestBodyBytes != null">正文大小：{{ exchange.requestBodyBytes }} 字节</p><p v-if="exchange.requestBodySha256">正文 SHA-256：{{ exchange.requestBodySha256 }}</p><pre>{{ JSON.stringify(exchange.request, null, 2) }}</pre></details>
         <details><summary>Response · 实际响应（已脱敏）</summary><pre v-if="exchange.response != null">{{ JSON.stringify(exchange.response, null, 2) }}</pre><p v-else class="muted">尚未记录响应正文</p></details>
       </div>
     </details>

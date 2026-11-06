@@ -15,6 +15,7 @@ from module_higgsfield.service.project_activity_stream_service import ProjectAct
 from module_higgsfield.service.generation_activity_service import GenerationActivityService
 from module_higgsfield.entity.vo.generation_query_vo import GenerationActivityQuery
 from tests import test_higgsfield_generation_list as listing
+from tests import test_generation_activity as activity
 
 
 @unittest.skipUnless(os.getenv('HF_RUN_DB_TESTS') == '1', '需要显式启用隔离数据库测试')
@@ -25,7 +26,8 @@ class ProjectActivityStreamTests(unittest.IsolatedAsyncioTestCase):
     create = listing.GenerationListTests.create
     output = listing.GenerationListTests.output
     async def asyncSetUp(self):
-        await listing.GenerationListTests.asyncSetUp(self)
+        # 合并快照会读取容量原因，复用包含凭据真实迁移的隔离夹具。
+        await activity.GenerationActivityTests.asyncSetUp(self)
         self.owner.user.status = '0'
         self.owner.user.del_flag = '0'
 

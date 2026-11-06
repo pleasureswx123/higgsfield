@@ -17,6 +17,26 @@ from module_higgsfield.service.provider_upload_stream import ProviderUploadStrea
 
 
 class ProviderHttpTests(unittest.IsolatedAsyncioTestCase):
+    async def test_diagnostic_distinguishes_header_failure_body_failure_and_success(self):
+        for mode, phase in (('disconnect', 'http11.receive_response_headers'),
+                            ('broken_body', 'http11.receive_response_body'), ('ok', None)):
+            self.mode = mode
+            records = []
+            async def save(identity, facts): records.append(facts)
+            self.client.evidence_writer = save
+            before = len(self.requests)
+            await self.client.submit({'model': 'test'})
+            self.assertEqual(len(self.requests), before + 1)
+            self.assertEqual(records[-1]['diagnostic'].get('failedPhase'), phase)
+            self.assertTrue(records[-1]['requestSentAt'])
+            self.assertEqual(records[0]['requestBodyBytes'], len(self.requests[-1][2]))
+            self.assertEqual(records[0]['requestBodySha256'], hashlib.sha256(self.requests[-1][2]).hexdigest())
+            self.assertNotIn('test-secret-value', str(records[-1]))
+            self.assertTrue(records[-1]['diagnostic']['newConnectionObserved'])
+            self.assertEqual(records[-1]['diagnostic']['peerIp'], '127.0.0.1')
+            if mode == 'ok':
+                self.assertEqual(records[-1]['diagnostic']['httpVersion'], 'HTTP/1.1')
+
     async def test_sync_image_timeout_is_bounded_and_does_not_mutate_connection(self):
         connection = self.connection.model_copy(deep=True)
         connection.config.operation_timeout_seconds = 240
@@ -72,6 +92,8 @@ class ProviderHttpTests(unittest.IsolatedAsyncioTestCase):
             body = await reader.readexactly(int(headers.get('Content-Length', '0')))
             self.requests.append((lines[0], headers, body))
             status, extra, data = '200 OK', '', b'{"id":"response"}'
+            if self.mode == 'disconnect':
+                return
             if self.mode == 'broken_body':
                 writer.write(b'HTTP/1.1 200 OK\r\nContent-Length: 100\r\nConnection: close\r\n\r\n{"partial":')
                 await writer.drain()

@@ -157,8 +157,8 @@ watch(() => progress.running.value?.id, id => { if (id) trackedTaskId.value = id
 const latestSubmitted = computed(() => progress.rows.value.find(row => row.id === (generation.acceptedId.value || trackedTaskId.value)) || progress.running.value)
 const taskFeedback = computed(() => latestSubmitted.value ? generationFeedback(latestSubmitted.value, feedbackNow.value) : undefined)
 const submissionFeedback = computed(() => latestSubmitted.value ? generationSubmissionFeedback(latestSubmitted.value) : undefined)
-const generationBusy = computed(() => Boolean(submissionFeedback.value?.busy || progress.awaitingAccepted.value))
-const buttonLabel = computed(() => generation.submitting.value ? '保存任务…' : generation.checking.value || generation.generating.value ? '检查参数…' : progress.awaitingAccepted.value ? '任务已保存…' : submissionFeedback.value?.label)
+const generationBusy = computed(() => Boolean(submissionFeedback.value?.busy))
+const buttonLabel = computed(() => generation.submitting.value ? '保存任务…' : generation.checking.value || generation.generating.value ? '检查参数…' : submissionFeedback.value?.label)
 async function checkGeneration() {
   if (draftLocked.value || generationBusy.value) return
   if (elementTarget.requested.value && (!elementTarget.target.value || kind.value !== 'image'))

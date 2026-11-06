@@ -13,6 +13,17 @@ from module_higgsfield.service.provider_http_service import ProviderHttpResult
 
 
 class ExchangeTests(unittest.IsolatedAsyncioTestCase):
+    async def test_local_cancellation_records_evidence_and_propagates_without_retry(self):
+        import asyncio
+        records = []
+        async def save(identity, facts): records.append(facts)
+        action = AsyncMock(side_effect=asyncio.CancelledError())
+        with self.assertRaises(asyncio.CancelledError):
+            await Evidence.capture(self.transport(save), 'POST', 'v1/chat/completions', b'{}',
+                'application/json', action)
+        action.assert_awaited_once()
+        self.assertEqual(records[-1]['issue'], 'LOCAL_EXECUTION_CANCELLED')
+
     async def test_milestone_write_failure_does_not_interrupt_or_resend(self):
         records = []
 

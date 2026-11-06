@@ -1,7 +1,8 @@
 """复用若依参数配置及数据库事务锁，不依赖进程内计数。"""
-from sqlalchemy import select, func
+from sqlalchemy import select, func, and_
 from module_admin.entity.do.config_do import SysConfig
 from module_higgsfield.entity.do.job_do import HfCreationJob
+from module_higgsfield.entity.do.provider_call_do import HfProviderCall
 
 
 class ProductionPolicyDao:
@@ -19,4 +20,9 @@ class ProductionPolicyDao:
             func.count(),
             func.count().filter(HfCreationJob.actor_id == actor_id),
             func.count().filter(HfCreationJob.project_id == project_id),
-        ).where(HfCreationJob.orchestration_state.in_(('0', '1', '2', '3', '4'))))).one()
+        ).where(HfCreationJob.orchestration_state.in_(('0', '1', '2', '3', '4')),
+            ~and_(HfCreationJob.orchestration_state == '3',
+                select(HfProviderCall.call_id).where(
+                    HfProviderCall.job_id == HfCreationJob.job_id,
+                    HfProviderCall.request_metadata['capacityReleasedAt'].astext.is_not(None),
+                ).exists())))).one()

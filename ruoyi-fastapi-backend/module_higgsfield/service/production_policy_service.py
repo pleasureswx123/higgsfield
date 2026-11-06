@@ -8,6 +8,7 @@ class ProductionPolicyService:
         'userPending': 20, 'projectPending': 200, 'platformPending': 1000,
         'videoTrackingSeconds': 7200, 'archiveMaxAttempts': 5,
         'archiveRetryBaseSeconds': 60, 'archiveRetryMaxSeconds': 1800,
+        'unknownCapacityHoldSeconds': 3600,
     }
     PREFIX = 'hf.production.'
 

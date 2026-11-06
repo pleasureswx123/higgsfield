@@ -26,15 +26,17 @@ test('生成、保存和完成分开显示；未知结果继续防重复提交',
  assert.equal(generationFeedback({ ...base, orchestrationState: 'submission_unknown', requestState: 'transport_error' }).label, '通信异常')
 })
 
-test('请求发出后立即释放按钮，下一张不等待上一张结果', () => {
+test('受理后按钮恢复，排队准备生成均不锁住创作入口', () => {
  const { generationSubmissionFeedback: button } = exportsObject
- assert.equal(button(base).busy, true)
- assert.equal(button({ ...base, executionStage: 'worker_claimed' }).label, '后台已领取')
- assert.equal(button({ ...base, orchestrationState: 'preparing', executionStage: 'references_preparing' }).label, '准备参考图…')
- assert.equal(button({ ...base, orchestrationState: 'submitting', requestState: 'preparing_request' }).busy, true)
- for (const requestState of ['awaiting_response', 'response_received', 'transport_error']) {
-   assert.equal(button({ ...base, orchestrationState: 'submitting', requestState }).busy, false)
+ for (const state of ['accepted', 'preparing', 'submitting', 'running', 'submission_unknown', 'finished']) {
+  const result = button({ ...base, orchestrationState: state })
+  assert.equal(result.busy, false); assert.equal(result.spinning, false)
  }
- assert.equal(button({ ...base, orchestrationState: 'submission_unknown' }).busy, false)
- assert.equal(button({ ...base, orchestrationState: 'accepted' }).busy, true)
+})
+test('供应商名额与未知占用有明确原因且不持续转圈', () => {
+ const full = generationFeedback({ ...base, queueReason: 'capacity_full' })
+ assert.equal(full.label, '等待生成名额'); assert.equal(full.spinning, false)
+ const unknown = generationFeedback({ ...base, queueReason: 'capacity_unknown' })
+ assert.equal(unknown.label, '排队受阻'); assert.equal(unknown.busy, false)
+ assert.match(unknown.description, /结果待核查/)
 })

@@ -15,4 +15,6 @@ if __name__ == '__main__':
         reload=AppConfig.app_reload,
         workers=AppConfig.app_workers,
         factory=True,
+        # SSE 是长连接；退出/热重载不能无限等待，付费生成由独立工作器执行。
+        timeout_graceful_shutdown=15,
     )
