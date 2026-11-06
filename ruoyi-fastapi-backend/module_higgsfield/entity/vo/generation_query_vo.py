@@ -29,3 +29,17 @@ class GenerationQuery(WorkspaceInput):
         if self.from_time and self.to_time and self.from_time >= self.to_time:
             raise ValueError('结束时间必须晚于开始时间')
         return self
+
+
+class GenerationActivityQuery(WorkspaceInput):
+    """工作区合并状态读取；每批最多跟踪一百个任务，编号仍需逐项授权过滤。"""
+
+    project_id: BigId
+    page_num: int = Field(default=1, ge=1)
+    tracked_ids: str = Field(default='', max_length=2000, pattern=r'^([1-9][0-9]{0,18}(,[1-9][0-9]{0,18}){0,99})?$')
+
+    @model_validator(mode='after')
+    def valid_ids(self):
+        if any(int(value) > 9223372036854775807 for value in self.tracked_ids.split(',') if value):
+            raise ValueError('任务编号超出范围')
+        return self

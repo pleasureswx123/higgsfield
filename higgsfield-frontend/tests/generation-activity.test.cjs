@@ -1,39 +1,36 @@
-const { test } = require('node:test')
-const assert = require('node:assert/strict')
-const { readFileSync } = require('node:fs')
-const { join } = require('node:path')
-const { runInNewContext } = require('node:vm')
-const ts = require('typescript'), vue = require('vue')
-const tick = () => new Promise(resolve => setImmediate(resolve))
-function setup(list) {
-  const exports = {}, hooks = {}, timers = new Map()
-  const auth = vue.reactive({ token: 'test', user: { user: { userId: 1 }, permissions: [] } })
-  let sequence = 0
-  runInNewContext(ts.transpileModule(readFileSync(join(__dirname, '../src/composables/useGenerationActivity.ts'), 'utf8'), { compilerOptions: { module: ts.ModuleKind.CommonJS } }).outputText, {
-    exports, AbortController,
-    setTimeout(fn, ms) { const id = ++sequence; timers.set(id, { fn, ms }); return id },
-    clearTimeout(id) { timers.delete(id) },
-    require(id) {
-      if (id === 'vue') return { ...vue, onActivated: fn => { hooks.activate = fn }, onDeactivated: fn => { hooks.deactivate = fn }, onBeforeUnmount: fn => { hooks.unmount = fn } }
-      if (id === '@/stores/auth') return { useAuthStore: () => auth }
-      if (id === '@/api/generations') return { listGenerations: list }
-      throw new Error(id)
-    },
-  })
-  const scope = vue.effectScope(), state = scope.run(() => exports.useGenerationActivity(() => '2', () => true))
-  return { state, auth, hooks, timers, close() { hooks.unmount(); scope.stop() } }
-}
-test('导航使用授权项目进行中总数，不把当前页条数当作总数；空闲时降低刷新频率', async () => {
-  let total = 25
-  const c = setup(async query => { assert.equal(query.scope, 'project'); assert.equal(query.category, 'active'); return { rows: [{}], total } })
-  await tick(); assert.equal(c.state.count.value, 25); assert.equal([...c.timers.values()][0].ms, 5000)
-  total = 0; await c.state.refresh(); assert.equal(c.state.count.value, 0); assert.equal([...c.timers.values()][0].ms, 30000)
-  c.hooks.deactivate(); assert.equal(c.timers.size, 0); c.close()
+const {test}=require('node:test')
+const assert=require('node:assert/strict')
+const {setup,tick,row,ApiError}=require('./generation-activity-harness.cjs')
+const response=(count,rows=[])=>({data:{projectActiveCount:count,rows,hasNext:false}})
+test('共享状态一次读取同时驱动数量与个人进度，失败保留最后成功值并自动恢复',async()=>{
+ let fail=false
+ const c=setup(async()=>{if(fail)throw Error('断网');return response(25,[row('1')])})
+ await tick();assert.equal(c.calls.length,1);assert.equal(c.activity.count.value,25);assert.equal(c.progress.running.value.id,'1')
+ fail=true;await c.activity.refresh();assert.equal(c.activity.count.value,25);assert.equal(c.progress.rows.value.length,1);assert.match(c.activity.error.value,/暂未更新/)
+ fail=false;await c.activity.refresh();assert.equal(c.activity.error.value,'');assert.equal([...c.timers.values()].filter(timer=>timer.ms<40000).length,1);c.close()
 })
-test('退出账号后中止请求，迟到响应不能恢复计数或轮询', async () => {
-  let finish, signal
-  const c = setup((_query, current) => { signal = current; return new Promise(resolve => { finish = resolve }) })
-  c.auth.token = ''; assert.equal(signal.aborted, true)
-  finish({ total: 8 }); await tick()
-  assert.equal(c.state.count.value, 0); assert.equal(c.timers.size, 0); c.close()
+test('退出和切换项目中止请求，迟到响应不能恢复旧项目状态',async()=>{
+ const requests=[];const c=setup((query,signal)=>new Promise(resolve=>requests.push({query,signal,resolve})))
+ c.project.value='3';assert.equal(requests[0].signal.aborted,true)
+ requests[1].resolve(response(2));await tick();requests[0].resolve(response(99));await tick();assert.equal(c.activity.count.value,2)
+ c.auth.token='';assert.equal(c.activity.count.value,undefined);assert.equal(c.progress.rows.value.length,0);assert.equal(c.timers.size,0);c.close()
+})
+test('后台标签暂停查询，恢复可见补查；权限失败清除旧结果',async()=>{
+ let fail=false;const c=setup(async()=>{if(fail)throw new ApiError(403);return response(4,[row('1')])})
+ await tick();c.document.visibilityState='hidden';c.listeners.visibilitychange();assert.equal(c.timers.size,0)
+ await c.activity.refresh();assert.equal(c.calls.length,1)
+ c.document.visibilityState='visible';c.listeners.visibilitychange();await tick();assert.equal(c.calls.length,2)
+ fail=true;await c.activity.refresh();assert.equal(c.activity.count.value,undefined);assert.equal(c.progress.rows.value.length,0);c.close()
+})
+test('并发刷新只保留一个在途读取，新提交在本次完成后补查而不丢失',async()=>{
+ const requests=[];const c=setup((query,signal)=>new Promise(resolve=>requests.push({query,signal,resolve})))
+ c.accepted.value='10';c.activity.refresh();c.activity.refresh();assert.equal(requests.length,1)
+ requests[0].resolve(response(0));await tick();assert.equal(requests.length,2);assert.equal(requests[1].query.trackedIds,'10')
+ requests[1].resolve(response(1,[row('10')]));await tick();assert.equal(c.progress.awaitingAccepted.value,false);assert.equal([...c.timers.values()].filter(timer=>timer.ms<40000).length,1);c.close()
+})
+test('个人任务多页与超过一百个跟踪编号分批读取并去重',async()=>{
+ let phase=0
+ const c=setup(async query=>phase===0?{data:{projectActiveCount:120,rows:Array.from({length:query.pageNum===1?100:20},(_,i)=>row(String((query.pageNum-1)*100+i+1))),hasNext:query.pageNum===1}}:response(0,query.trackedIds.split(',').filter(Boolean).map(id=>row(id,'finished'))))
+ await tick();assert.equal(c.activity.rows.value.length,120);assert.equal(c.calls.length,2)
+ phase=1;await c.activity.refresh();assert.equal(c.activity.rows.value.length,120);assert.equal(c.calls.length,4);assert.ok(c.calls.slice(2).every(call=>call.query.trackedIds.split(',').length<=100));c.close()
 })

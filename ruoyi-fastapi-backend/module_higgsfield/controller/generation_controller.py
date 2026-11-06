@@ -7,7 +7,8 @@ from common.router import APIRouterPro
 from module_higgsfield.controller.project_workspace_controller import Db, Key, ProjectId, User, mutation_response
 from module_higgsfield.entity.vo.generation_action_vo import GenerationCancel, GenerationRetryArchive
 from module_higgsfield.entity.vo.generation_input_vo import GenerationInput
-from module_higgsfield.entity.vo.generation_query_vo import GenerationQuery
+from module_higgsfield.entity.vo.generation_query_vo import GenerationQuery, GenerationActivityQuery
+from module_higgsfield.service.generation_activity_service import GenerationActivityService
 from module_higgsfield.service.generation_accept_service import GenerationAcceptService
 from module_higgsfield.service.generation_archive_retry_service import GenerationArchiveRetryService
 from module_higgsfield.service.generation_cancel_service import GenerationCancelService
@@ -15,6 +16,7 @@ from module_higgsfield.service.generation_policy_service import GenerationPolicy
 from module_higgsfield.service.generation_read_service import GenerationReadService
 from module_higgsfield.service.generation_validation_service import GenerationValidationService
 from module_higgsfield.service.task_event_service import TaskEventService
+from module_higgsfield.service.project_activity_stream_service import ProjectActivityStreamService
 from utils.response_util import ResponseUtil
 
 generation_controller = APIRouterPro(
@@ -54,6 +56,22 @@ async def retry_archive(request: Request, job_id: ProjectId, payload: Generation
 @generation_controller.get('/generations', summary='分页读取当前授权范围内的生成任务')
 async def listing(request: Request, query: Annotated[GenerationQuery, Query()], db: Db, user: User):
     return ResponseUtil.success(model_content=await GenerationReadService.listing(db, user, query))
+
+
+@generation_controller.get('/generations/activity', summary='合并读取个人任务状态和授权项目进行中数量')
+async def activity(request: Request, query: Annotated[GenerationActivityQuery, Query()], db: Db, user: User):
+    return ResponseUtil.success(data=await GenerationActivityService.read(db, user, query))
+
+
+@generation_controller.get('/projects/{project_id}/generation-events', summary='订阅授权项目任务变化，断线后重新同步快照')
+async def project_events(request: Request, project_id: ProjectId, db: Db, user: User):
+    scope = await ProjectActivityStreamService.authorize(db, user, project_id)
+    await db.rollback()
+    return ResponseUtil.streaming(
+        data=ProjectActivityStreamService.stream(request, request.headers.get('authorization', ''),
+            project_id, user.user.user_id, scope), media_type='text/event-stream',
+        headers={'Cache-Control': 'no-store', 'X-Accel-Buffering': 'no'},
+    )
 
 
 @generation_controller.get('/generations/{job_id}/input', summary='读取已授权生成任务的固定输入')

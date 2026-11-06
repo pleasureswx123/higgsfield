@@ -21,10 +21,11 @@ import type { DraftReference } from '@/api/creation'
 import ComposerPrompt from '@/components/creation/ComposerPrompt.vue'
 import { removePromptReference } from '@/utils/promptEditorDocument'
 import GenerationDetail from './GenerationDetail.vue'
+import type { GenerationActivityState } from '@/composables/useGenerationActivity'
 import { useCreationProgress } from '@/composables/useCreationProgress'
 import { useGenerationSubmit } from '@/composables/useGenerationSubmit'
-const props = defineProps<{ projectId: string; initialPrompt?: string; initialKind?: 'image' | 'video'; dock?: boolean }>()
-const emit = defineEmits<{ assetsChanged: []; taskAccepted: [] }>()
+const props = defineProps<{ projectId: string; activity: GenerationActivityState; initialPrompt?: string; initialKind?: 'image' | 'video'; dock?: boolean }>()
+const emit = defineEmits<{ assetsChanged: [folders: (string | null)[]] }>()
 const route = useRoute()
 const draftsOpen = ref(false)
 const referencePicker = ref<InstanceType<typeof DraftReferences>>()
@@ -146,12 +147,8 @@ defineExpose({
   using: elementUse.pending,
   useError: elementUse.error,
 })
-watch(() => generation.acceptedId.value, value => { if (value) emit('taskAccepted') })
 const taskId = ref<string>()
-const progress = useCreationProgress(() => props.projectId, () => {
-  const folder = route.query.folder
-  return typeof folder === 'string' && /^[1-9]\d*$/.test(folder) ? folder : null
-}, () => generation.acceptedId.value, () => emit('assetsChanged'), id => { taskId.value = id })
+const progress = useCreationProgress(props.activity, () => generation.acceptedId.value, folders => emit('assetsChanged', folders), id => { taskId.value = id })
 // 发送前阻止重复点击；请求发出后允许新的独立生成。
 const feedbackNow = useTimestamp({ scheduler: callback => useIntervalFn(callback, 1000) })
 const trackedTaskId = ref<string>()
@@ -284,7 +281,7 @@ const rules = { prompt: [{ max: 50000, message: '提示词不能超过50000字�
     <p v-if="opening" role="status">正在载入创作参数…</p>
     <p v-if="notice" role="status">{{ notice }}</p>
     </div>
-    <DraftReferences ref="referencePicker" picker-only link-prompt @element-select="(candidate, role) => promptEditor?.insert(candidate, role)" @uploaded="emit('assetsChanged')" @picker-open="pickerOpen = $event"
+    <DraftReferences ref="referencePicker" picker-only link-prompt @element-select="(candidate, role) => promptEditor?.insert(candidate, role)" @uploaded="emit('assetsChanged', [body.folderId ?? null])" @picker-open="pickerOpen = $event"
       :folder-id="body.folderId ?? null" v-model="references" :project-id="projectId"
       :disabled="draftLocked || opening || generation.locked.value" :protected-keys="protectedReferenceKeys" :model="selected" />
 

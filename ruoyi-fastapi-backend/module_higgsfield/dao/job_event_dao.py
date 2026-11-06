@@ -2,6 +2,7 @@
 
 from datetime import datetime
 from sqlalchemy import text
+from module_higgsfield.dao.project_activity_notification_dao import ProjectActivityNotificationDao
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -38,6 +39,7 @@ class JobEventDao:
             )
         )
         await db.flush()
+        await ProjectActivityNotificationDao.publish(db, job)
 
     @staticmethod
     async def output(db, job, output, now, worker):
@@ -75,6 +77,7 @@ class JobEventDao:
             )
         )
         await db.flush()
+        await ProjectActivityNotificationDao.publish(db, job)
 
     @classmethod
     async def state(cls, db: AsyncSession, row: HfCreationJob, now: datetime, worker: str, *, stage=None) -> None:
@@ -110,3 +113,4 @@ class JobEventDao:
             )
         )
         await db.flush()
+        await ProjectActivityNotificationDao.publish(db, row, own_only=stage is not None)

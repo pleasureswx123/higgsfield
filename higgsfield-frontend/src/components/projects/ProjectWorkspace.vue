@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { useGenerationActivity } from '@/composables/useGenerationActivity'
 import ProjectSwitcher from './ProjectSwitcher.vue'
+import GenerationActivityBadge from './GenerationActivityBadge.vue'
 import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator } from '@/components/ui/dropdown-menu'
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs'
 import { SidebarMenu, SidebarMenuItem, SidebarMenuButton } from '@/components/ui/sidebar'
@@ -38,7 +39,7 @@ const {
   load,
   save,
 } = useProjectWorkspace(props.projectId)
-const activity = useGenerationActivity(() => props.projectId, () => Boolean(brief.value?.allowedActions.includes('generation:read')))
+const activity = useGenerationActivity(() => props.projectId, () => Boolean(brief.value?.allowedActions.some(action => ['generation:read', 'generation:create'].includes(action))))
 const canManageProject = computed(() => Boolean(brief.value?.allowedActions.includes('project:manage') && ['active', 'paused'].includes(props.project.status)))
 const canArchiveProject = computed(() => Boolean(brief.value?.allowedActions.includes('project:archive') && ['active', 'paused', 'archived'].includes(props.project.status)))
 function lifecycleChanged(project: Project) {
@@ -106,7 +107,7 @@ watch(
       <SidebarMenuItem><SidebarMenuButton v-if="brief?.allowedActions.includes('generation:create')" class="nav-link" :class="{ active: tab === 'creation' }" @click="tab = 'creation'"><span class="project-nav-icon"><IconSparkles :size="17" aria-hidden="true" /></span><span>开始创作</span></SidebarMenuButton></SidebarMenuItem>
 
       <SidebarMenuItem><SidebarMenuButton v-if="brief?.allowedActions.includes('element:read')" class="nav-link" :class="{ active: tab === 'elements' }" @click="tab = 'elements'"><span class="project-nav-icon"><IconAt :size="17" aria-hidden="true" /></span><span>项目元素库</span></SidebarMenuButton></SidebarMenuItem>
-      <SidebarMenuItem><SidebarMenuButton v-if="brief?.allowedActions.includes('generation:read')" class="nav-link" :class="{ active: tab === 'generations' }" @click="tab = 'generations'"><span class="project-nav-icon"><IconPhotoVideo :size="17" aria-hidden="true" /></span><span>项目生成记录</span><span v-if="activity.count.value" class="generation-activity-count">进行中 {{ activity.count.value }}</span></SidebarMenuButton></SidebarMenuItem>
+      <SidebarMenuItem><SidebarMenuButton v-if="brief?.allowedActions.includes('generation:read')" class="nav-link" :class="{ active: tab === 'generations' }" @click="tab = 'generations'"><span class="project-nav-icon"><IconPhotoVideo :size="17" aria-hidden="true" /></span><span>项目生成记录</span><GenerationActivityBadge :count="activity.count.value" :error="activity.error.value" /></SidebarMenuButton></SidebarMenuItem>
 
       </SidebarMenu>
     </div>
@@ -198,7 +199,7 @@ watch(
     :use-error="useError"
     @use="useElements"
   />
-  <ProjectCreation ref="creation" @task-accepted="activity.refresh" dock @assets-changed="folderWorkspace?.refreshAll(); activity.refresh()"
+  <ProjectCreation ref="creation" :activity="activity" dock @assets-changed="folders => folderWorkspace?.refreshGenerated(folders)"
     v-if="brief?.allowedActions.includes('generation:create')"
     v-show="tab === 'creation' || (tab === 'folders' && !selectedAssetCount && route.query.folderView !== 'trash')"
     :project-id="projectId"
@@ -207,7 +208,6 @@ watch(
 </template>
 
 <style scoped>
-.generation-activity-count { margin-left:auto; font-size:11px; color:var(--muted-foreground); white-space:nowrap; }
 .project-sidebar-heading { display:flex; align-items:center; gap:0; margin-bottom:8px; padding-right:4px; border:1px solid var(--border); border-radius:10px; background:var(--surface); }
 .project-sidebar-switcher { flex:1; min-width:0; }
 .project-sidebar-switcher :deep(.project-switcher) { margin-bottom:0; border:0; background:transparent; border-radius:9px; }

@@ -43,6 +43,17 @@ export function useFolders(projectId: string, visible: () => boolean = () => tru
   const children = reactive<Record<string, Folder[]>>({}),
     expanded = reactive(new Set<string>())
   const assetCounts = ref<FolderAssetCounts>()
+  let countsSequence = 0
+  async function refreshCounts() {
+    if (!active.value || !alive || !auth.token) return
+    const identity = identityEpoch, ticket = ++countsSequence
+    try {
+      const result = await readFolderAssetCounts(projectId)
+      if (current(identity) && active.value && ticket === countsSequence) assetCounts.value = result.data
+    } catch (cause) {
+      if (current(identity) && ticket === countsSequence) error.value = message(cause)
+    }
+  }
   const autoExpanded = new Set<string>()
   const currentId = computed(() => crumbs.value.at(-1)?.id ?? null)
   const loading = ref(false),
@@ -165,9 +176,10 @@ export function useFolders(projectId: string, visible: () => boolean = () => tru
         controller.signal,
       )
       if (!parent && !append) {
+        const countTicket = ++countsSequence
         const counts = await readFolderAssetCounts(projectId, controller.signal)
         if (!alive || controller.signal.aborted) return
-        assetCounts.value = counts.data
+        if (countTicket === countsSequence) assetCounts.value = counts.data
       }
       if (!alive || controller.signal.aborted) return
       const previous = parent ? (children[parent] ?? []) : roots.value
@@ -740,6 +752,7 @@ export function useFolders(projectId: string, visible: () => boolean = () => tru
     rows,
     roots,
     assetCounts,
+    refreshCounts,
     crumbs,
     children,
     expanded,

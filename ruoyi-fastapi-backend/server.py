@@ -228,6 +228,8 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
         await logger.complete()
         yield
     finally:
+        from module_higgsfield.service.project_activity_hub import project_activity_hub
+        await project_activity_hub.close()
         await _shutdown_application_runtime(app)
 
 

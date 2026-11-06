@@ -35,9 +35,11 @@ const props = defineProps<{
 }>()
 const emit = defineEmits<{ create: []; select: []; reference: [asset: Asset, kind: 'image' | 'video']; selectionChange: [count: number] }>()
 const assetRefreshKey = ref(0)
+const assetPanel = ref<InstanceType<typeof ProjectAssets>>()
 const {
   active,
   assetCounts,
+  refreshCounts,
   rows,
   roots,
   crumbs,
@@ -98,7 +100,12 @@ async function refreshAll() {
   await refresh()
   assetRefreshKey.value++
 }
-defineExpose({ refreshAll })
+async function refreshGenerated(folders: (string | null)[]) {
+  // 生成不会改变目录结构；只刷新素材数量及当前受影响目录的素材页。
+  if (folders.includes(currentId.value) || assetPanel.value?.includeDescendants) assetRefreshKey.value++
+  await refreshCounts()
+}
+defineExpose({ refreshAll, refreshGenerated })
 watch(pending, (value, before) => {
   if (before && !value) assetRefreshKey.value++
 })
@@ -264,7 +271,7 @@ const rules: FormRules = {
         layout="prev, pager, next"
         @current-change="changePage"
       />
-      <ProjectAssets
+      <ProjectAssets ref="assetPanel"
         :compact="sidebar"
         :project-actions="projectActions"
         v-show="!trash"

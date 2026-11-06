@@ -9,7 +9,7 @@ function harness(initialVisible = true) {
   const route=vue.reactive({query:{}}), visible=vue.ref(initialVisible)
   const exports = {}, auth = vue.reactive({ token: 'one' }), calls = [], actions = [], confirmations = [], reads = []
   let unmount, activate, deactivate, mount, keys = 0
-  const api = { listFolders: (...args) => new Promise((resolve, reject) => calls.push({ args, resolve, reject })),
+  const api = { readFolderAssetCounts: async () => ({ data: { total: 0, folders: {} } }), listFolders: (...args) => new Promise((resolve, reject) => calls.push({ args, resolve, reject })),
     readFolder: (...args) => new Promise((resolve, reject) => reads.push({ args, resolve, reject })),
     actOnFolder: (...args) => { actions.push(args); return Promise.resolve({ data: {} }) } }
   runInNewContext(ts.transpileModule(readFileSync(join(__dirname, '../src/composables/useFolders.ts'), 'utf8'), { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 } }).outputText, {
@@ -29,12 +29,11 @@ function harness(initialVisible = true) {
 test('节点刷新拒绝迟到结果，加载更多去重且保留字符串ID', async () => {
   const h = harness(), old = h.state.loadTree(), fresh = h.state.loadTree()
   assert.equal(h.calls[0].args[2].aborted, true)
-  h.calls[1].resolve({ rows: [{ id: '9007199254740993' }], hasNext: true }); await fresh
+  h.calls[1].resolve({ rows: [{ id: '9007199254740993' }], hasNext: true }); await new Promise(setImmediate)
+  assert.equal(h.calls.length, 3)
+  await h.state.loadTree(null, true); assert.equal(h.calls.length, 3)
+  h.calls[2].resolve({ rows: [{ id: '9007199254740993', name: '最新' }, { id: '2' }], hasNext: false }); await fresh
   h.calls[0].resolve({ rows: [{ id: 'old' }], hasNext: false }); await old
-  assert.equal(h.state.roots.value[0].id, '9007199254740993')
-  const more = h.state.loadTree(null, true); await h.state.loadTree(null, true)
-  assert.equal(h.calls.length, 3); assert.equal(h.calls[2].args[1].pageNum, 2)
-  h.calls[2].resolve({ rows: [{ id: '9007199254740993', name: '最新' }, { id: '2' }], hasNext: false }); await more
   assert.equal(h.state.roots.value.length, 2); assert.equal(h.state.roots.value[0].name, '最新')
   await h.state.loadTree(null, true); assert.equal(h.calls.length, 3)
   h.close()
@@ -279,4 +278,19 @@ test('v-show隐藏目录页时，未完成删除确认不能发请求', async ()
  const deleting=h.state.remove({id:'7',revision:'1',name:'目录'})
  h.visible.value=false; h.visible.value=true; h.confirmations[0](); await deleting
  assert.equal(h.actions.length,0); assert.equal(h.state.pending.value,false); h.close()
+})
+
+
+test('仅刷新素材数量不读取目录树，账号变化后拒绝迟到计数', async () => {
+  const h = harness(), pending = []
+  h.api.readFolderAssetCounts = () => new Promise(resolve => pending.push(resolve))
+  const first = h.state.refreshCounts(), second = h.state.refreshCounts()
+  pending[1]({ data: { total: 8 } }); await second
+  pending[0]({ data: { total: 3 } }); await first
+  assert.equal(h.state.assetCounts.value.total, 8)
+  assert.equal(h.calls.length, 0)
+  const last = h.state.refreshCounts()
+  h.auth.token = ''; pending[2]({ data: { total: 99 } }); await last
+  assert.equal(h.state.assetCounts.value, undefined)
+  h.close()
 })

@@ -260,6 +260,7 @@ watch(
     if (!allowed) pause()
   },
 )
+defineExpose({ includeDescendants })
 </script>
 <template>
   <section class="asset-library" :class="{ 'asset-workspace': compact }" aria-label="项目素材">

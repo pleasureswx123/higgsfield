@@ -78,6 +78,14 @@ export async function subscribeGeneration(
   }
 }
 
+export async function subscribeProjectActivity(projectId: string, signal: AbortSignal, receive: (event: ServerEvent) => Promise<void>) {
+  const body = await requestEventStream(`/api/v1/projects/${projectId}/generation-events`, undefined, signal)
+  for await (const event of parseEventStream(body)) {
+    if (signal.aborted) return
+    await receive(event)
+  }
+}
+
 export interface GenerationOutput {
   archivePaused?: boolean
   archiveNextRetryAt?: string | null
@@ -204,6 +212,7 @@ export type GenerationState =
   | 'blocked'
 export type GenerationKind = 'image' | 'video' | 'chat'
 export interface GenerationSummary {
+  folderId?: string | null
   executionStage?: string | null
   requestState?: 'not_started' | 'preparing_request' | 'awaiting_response' | 'response_received' | 'transport_error'
   promptExcerpt?: string
@@ -242,4 +251,13 @@ export function listGenerations(params: GenerationQuery, signal?: AbortSignal) {
     params,
     signal,
   })
+}
+
+export interface GenerationActivity {
+  projectActiveCount: number
+  rows: GenerationSummary[]
+  hasNext: boolean
+}
+export function getGenerationActivity(params: { projectId: string; pageNum: number; trackedIds: string }, signal: AbortSignal) {
+  return request<{ code: number; data: GenerationActivity }>({ url: '/api/v1/generations/activity', params, signal })
 }

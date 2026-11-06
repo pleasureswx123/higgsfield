@@ -57,6 +57,8 @@ class GenerationListTests(unittest.IsolatedAsyncioTestCase):
 
     async def test_card_preview_requires_ready_archive_and_asset_permission(self):
         async with self.sessions() as db:
+            # Owner 权限固定；使用可配置的制作人角色验证撤权后的投影。
+            await db.execute(text("UPDATE hf_project_member SET role_id=(SELECT role_id FROM hf_project_role WHERE code='producer') WHERE user_id=1"))
             await db.execute(text("UPDATE hf_generated_output SET archive_state='2',file_id=:file WHERE job_id=:job"), {'file': self.file_id, 'job': self.identity})
             await db.commit()
             result = await GenerationReadService.listing(db, self.owner, GenerationQuery(scope='mine'))

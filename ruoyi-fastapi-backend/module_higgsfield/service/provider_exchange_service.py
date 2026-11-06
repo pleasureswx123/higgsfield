@@ -1,4 +1,5 @@
 """保存发送时的脱敏交换证据；查询不会重新编译或发送请求。"""
+from module_higgsfield.dao.project_activity_notification_dao import ProjectActivityNotificationDao
 
 import json
 import logging
@@ -70,7 +71,7 @@ class ProviderExchangeService:
     def bind(transport, context, call_id):
         async def save(identity, evidence):
             async with context.sessions() as db:
-                await JobLeaseService.guard(db, context.lease)
+                job, _ = await JobLeaseService.guard(db, context.lease)
                 call = await ProviderCallDao.locked(db, call_id)
                 if call is None or call.job_id != context.lease.job_id:
                     raise ValueError('调用证据与任务不匹配')
@@ -81,6 +82,7 @@ class ProviderExchangeService:
                 metadata['exchanges'] = exchanges
                 call.request_metadata = metadata
                 call.update_time = datetime.now(timezone.utc)
+                await ProjectActivityNotificationDao.publish(db, job, own_only=True)
                 await db.commit()
 
         transport.evidence_writer = save

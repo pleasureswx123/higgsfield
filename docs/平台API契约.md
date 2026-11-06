@@ -122,6 +122,8 @@ POST /api/v1/generations/validate只验证受理条件；POST /api/v1/generation
 | POST | `/api/v1/generations/{job_id}/cancel` | 取消明确未提交的任务并释放原预占 | [generation_controller](../ruoyi-fastapi-backend/module_higgsfield/controller/generation_controller.py) |
 | POST | `/api/v1/generations/{job_id}/retry-archive` | 仅重试已有失败输出的归档 | [generation_controller](../ruoyi-fastapi-backend/module_higgsfield/controller/generation_controller.py) |
 | GET | `/api/v1/generations` | 分页读取当前授权范围内的生成任务 | [generation_controller](../ruoyi-fastapi-backend/module_higgsfield/controller/generation_controller.py) |
+| GET | `/api/v1/generations/activity` | 合并读取个人任务状态与授权项目进行中数量 | [generation_controller](../ruoyi-fastapi-backend/module_higgsfield/controller/generation_controller.py) |
+| GET | `/api/v1/projects/{project_id}/generation-events` | 订阅当前授权项目的状态变化，重连补查快照 | [generation_controller](../ruoyi-fastapi-backend/module_higgsfield/controller/generation_controller.py) |
 | GET | `/api/v1/generations/{job_id}/input` | 读取已授权生成任务的固定输入 | [generation_controller](../ruoyi-fastapi-backend/module_higgsfield/controller/generation_controller.py) |
 | GET | `/api/v1/generations/{job_id}` | 读取任务聚合状态与已授权输出快照 | [generation_controller](../ruoyi-fastapi-backend/module_higgsfield/controller/generation_controller.py) |
 | GET | `/api/v1/generations/{job_id}/events` | 订阅任务持久事件与重放 | [generation_controller](../ruoyi-fastapi-backend/module_higgsfield/controller/generation_controller.py) |
@@ -234,3 +236,24 @@ POST /api/v1/generations/validate只验证受理条件；POST /api/v1/generation
 - 测试详情增加 `capacityReviewRequired`；媒体输出增加 `archivePaused` 和 `archiveNextRetryAt`，用于解释暂停与延后保存。异常任务筛选增加 `tracking_paused`。
 
 传输字段见[VO目录](../ruoyi-fastapi-backend/module_higgsfield/entity/vo)，逻辑见[Service目录](../ruoyi-fastapi-backend/module_higgsfield/service)。历史请求草案见[历史快照](历史版本/2026-11-03同步前/平台API契约.md)。
+
+
+### 工作区合并状态读取（2026-11-06）
+
+`GET /api/v1/generations/activity` 接收 `projectId`、`pageNum`（默认 1）及 `trackedIds`（逗号分隔，每批最多 100 个编号）。返回框架 `data` 中的 `projectActiveCount`、`rows`、`hasNext`。个人进行中任务每页 100 条；`trackedIds` 补充当前用户在本项目中的指定任务终态，不能读取其他人的任务或绕过成员权限。`hasNext` 仅表示个人进行中任务还有下一页，不表示生成完成。
+
+工作区共用一次状态刷新，同时驱动数量、个人进度和完成通知；不读取账单、媒体预览及供应商请求正文。查询失败保留最后成功状态并提示延迟；明确撤权清空旧状态。工作区优先订阅项目 SSE，收到变化后读取合并快照；心跳不触发任务查询。连接异常时降级为合并轮询：等待发送时约 1 秒、处理中约 5 秒、空闲约 30 秒，并加入少量随机延迟；查询失败退避、后台标签暂停、返回前台补查。单任务详情的持久事件协议保持不变。
+
+归档完成只刷新素材数量及受影响的当前素材列表；“包含子目录素材”开启时保守刷新当前素材页，不重新加载目录树。本次无数据库迁移；API 和工作器均需加载新代码，制作端需刷新页面。工作器的阶段与归档事件、供应商交换证据现在会在同一事务中发布通知；旧工作器尚未重启时仍由周期快照补查发现变化，不会补发生成请求。
+
+
+### 项目 SSE 协议与恢复边界（2026-11-06）
+
+- 入口：`GET /api/v1/projects/{project_id}/generation-events`，沿用 Bearer 登录鉴权和当前项目 `generation:read` 权限。每个工作区仅一条连接，多个任务共享；不会为每个任务建立连接。
+- `activity.sync`：初次连接、重连、权限范围变化及约 30 秒兜底同步，客户端重新读取授权合并快照；`activity.changed`：有相关状态变化，合并刷新；`activity.heartbeat`：保持连接及验证在线，不查询任务列表；`activity.degraded`：服务暂不可用，客户端降级轮询并退避重连；`access.revoked`：清空状态并停止自动订阅/查询，等待登录、授权变化或用户手动重试。
+- 正常通知数据仅含当前 `projectId`，不广播任务编号、提示词、文件地址、凭据或其他人的任务正文。个人范围只接受本人的变化；项目范围可接收数量变化。请求传输阶段只唤醒任务本人，避免全团队为无关进度读取快照。
+- 每个 API 进程使用一个 PostgreSQL LISTEN 连接。通知与状态写入同事务提交，回滚不投递；各 API 进程独立监听同一 schema 的频道。每个订阅只有一个脏标记，密集变化合并，慢客户端不积累无限事件队列。没有订阅时释放监听连接，API 关闭时也清理。
+- 推送前及空闲时约每 5 秒重新验证登录和项目权限，事件合并等待约 1 秒；权限变化可能在这个检查窗口内反映，不承诺瞬时撤权。任务详情始终通过独立授权接口读取。服务端发送前释放业务数据库会话。
+- 客户端 45 秒未收到有效事件会关闭半开连接，重连间隔从约 2 秒退避到 30 秒并加入随机延迟；后台标签或卸载立即关闭。代理需允许 SSE 长连接且不缓冲响应，服务端返回 `Cache-Control: no-store` 和 `X-Accel-Buffering: no`。
+- 项目流采用“变化通知 + 当前快照”，不以 `Last-Event-ID` 重放每个历史中间状态，也不承诺每个通知恰好送达一次。断线、API 重启、监听重连及漏通知均通过重新读取当前快照恢复；已跟踪任务编号随快照请求补查终态，避免任务退出进行中列表后漏掉最终结果。需要完整历史仍读取任务事件/详情。
+- 验证使用隔离 PostgreSQL schema、模拟账号/任务和本地模拟 HTTP SSE；覆盖两项目 20 名制作人并发、撤权与范围缩小、事务回滚、监听失败、断线/半开恢复及停止订阅清理。未调用真实付费供应商；正式反向代理和生产规模负载尚需部署环境验收。
