@@ -13,6 +13,7 @@ export interface ReferenceCandidate {
   primaryAssetVersionId?: string | null
 }
 export interface ReferenceUpdate {
+  displayName?: string
   elementRevisionId: string
   state: 'current' | 'updated' | 'unavailable'
   candidate?: ReferenceCandidate

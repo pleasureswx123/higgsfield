@@ -6,14 +6,14 @@ export function generationFeedback(row: GenerationSummary, now = Date.now()) {
   const age = Math.max(0, now - Date.parse(row.createTime))
   const result = (label: string, description: string, busy = false, tone = 'neutral', spinning = false) => ({ label, description, busy, tone, spinning })
   if (state === 'submission_unknown') return row.requestState === 'transport_error'
-    ? result('通信异常', '调用未取得有效响应，生成结果无法确认。可查看详情中的请求与异常记录，请勿重复提交。', true, 'warning')
-    : result('异常', '提交结果尚未确认，请勿重复提交。', true, 'warning')
+    ? result('结果暂未确认', '未收到完整的生成结果，暂时无法确认是否成功或扣费。系统不会自动重新生成；请查看详情，必要时联系管理员核查。', false, 'warning')
+    : result('结果暂未确认', '暂时无法确认是否生成成功。系统不会自动重新生成，请勿重复提交同一任务；可查看详情或继续其他创作。', false, 'warning')
   if (row.upstreamState === 'failed' || state === 'blocked') return result('生成失败', '本次任务未完成，可查看记录中的具体原因。', false, 'danger')
   if (row.upstreamState === 'cancelled') return result('已取消', '任务已取消。')
   if (row.archiveSummary.failed) return result('保存异常', '部分结果未保存成功，已保存的结果仍可查看。', false, 'warning')
   if (row.archiveSummary.pending) return result('保存结果中', '生成结果正在保存到素材库，请勿重复提交。', true, 'progress', true)
   if (state === 'finished') return result(row.archiveSummary.ready ? '已完成' : '已结束', row.archiveSummary.ready ? `已保存 ${row.archiveSummary.ready} 个结果，可在素材列表中查看。` : '任务已结束，暂无可见结果。', false, row.archiveSummary.ready ? 'success' : 'neutral')
-  if (state === 'accepted' && row.queueReason === 'capacity_unknown') return result('排队受阻', '生成服务有结果待核查的请求暂时占用名额，保护期结束后系统自动回收。本任务尚未发送，无需重复提交，可继续编辑其他创作。', false, 'warning')
+  if (state === 'accepted' && row.queueReason === 'capacity_unknown') return result('排队暂时延迟', '生成服务正在处理此前的异常请求，本任务还未开始生成。系统会在保护等待结束后自动恢复安排，无需重新提交。', false, 'warning')
   if (state === 'accepted' && row.queueReason === 'capacity_full') return result('等待生成名额', '生成服务当前名额已满，空出后会自动执行。本任务已保存，无需重复提交。', false, 'neutral')
   if (state === 'accepted') return age >= 120000
     ? result('请求尚未发出', '任务已保存，但尚未向生成服务发送请求，因此暂无生成结果。无需重复提交。', true, 'warning')
@@ -32,4 +32,22 @@ export function generationFeedback(row: GenerationSummary, now = Date.now()) {
 /** 任务受理即结束提交；后台排队和生成由状态卡展示，不锁住创作入口。 */
 export function generationSubmissionFeedback(row: GenerationSummary) {
   return { busy: false, label: '生成', spinning: false }
+}
+
+/** 只展示本机可证明的阶段，不虚构供应商百分比和预计完成时间。 */
+export function generationStage(row: GenerationSummary) {
+  if (row.orchestrationState === 'submission_unknown' || row.orchestrationState === 'blocked' || ['failed', 'cancelled'].includes(row.upstreamState) || row.archiveSummary.failed) return -1
+  if (row.archiveSummary.pending || row.executionStage === 'results_saving' || row.orchestrationState === 'finished') return 3
+  if (row.orchestrationState === 'accepted') return 0
+  if (row.orchestrationState === 'preparing') return 1
+  return 2
+}
+
+export function generationElapsed(row: GenerationSummary, now: number) {
+  if (generationStage(row) < 0 || (row.orchestrationState === 'finished' && !row.archiveSummary.pending)) return ''
+  const started = Date.parse(row.createTime)
+  if (!Number.isFinite(started) || !Number.isFinite(now)) return ''
+  const seconds = Math.max(0, Math.floor((now - started) / 1000))
+  const duration = seconds < 60 ? `${seconds} 秒` : seconds < 3600 ? `${Math.floor(seconds / 60)} 分 ${seconds % 60} 秒` : `${Math.floor(seconds / 3600)} 小时 ${Math.floor(seconds % 3600 / 60)} 分`
+  return `${row.orchestrationState === 'accepted' ? '已等待' : '已用时'} ${duration}`
 }

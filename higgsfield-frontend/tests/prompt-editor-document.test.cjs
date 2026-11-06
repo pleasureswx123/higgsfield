@@ -24,6 +24,15 @@ const refs = [
     ordinal: 0,
   },
 ]
+test('删除首张素材后连续编号，重复提及同步更新且不改变元素名字和素材身份', () => {
+  const images = ['a', 'b', 'c'].map((key, ordinal) => ({ referenceKey: key, assetVersionId: key, elementRevisionId: null, mediaRole: 'reference_image', ordinal }))
+  const mentions = [['a', 'Image 1'], ['b', 'Image 2'], ['b', 'Image 2'], ['c', 'Image 3'], [refs[0].referenceKey, '女主角']]
+  const doc = fromEditorDocument({ type: 'doc', content: [{ type: 'paragraph', content: mentions.map(([id, label]) => ({ type: 'mention', attrs: { id, label } })) }] }, [...images, ...refs])
+  const next = toEditorDocument(removePromptReference(doc, [...images.slice(1), ...refs], 'a'))
+  const result = next.content[0].content.filter(node => node.type === 'mention').map(node => [node.attrs.id, node.attrs.label])
+  assert.equal(JSON.stringify(result), JSON.stringify([['b', 'Image 1'], ['b', 'Image 1'], ['c', 'Image 2'], [refs[0].referenceKey, '女主角']]))
+  assert.equal(images[1].assetVersionId, 'b')
+})
 const original = {
   schemaVersion: 1,
   type: 'doc',

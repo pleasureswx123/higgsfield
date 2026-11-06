@@ -315,3 +315,7 @@
 .asset-media-badges .asset-comment-count { position:static; flex-shrink:0; }
 .asset-media-badges .asset-hover-status { position:static; min-width:0; }
 .asset-media-badges .asset-status-label { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+
+/* 短暂强调新归档的素材，不改变原图颜色或打断当前选择。 */
+.asset-card.is-new-result { position:relative; outline:2px solid var(--el-color-success); outline-offset:2px; }
+.asset-new-result { position:absolute; top:8px; right:8px; z-index:2; padding:3px 7px; border:1px solid var(--el-color-success); border-radius:6px; color:var(--foreground); background:var(--surface); font-size:11px; pointer-events:none; }

@@ -299,9 +299,11 @@ defineExpose({ insert })
   justify-content: center;
   gap: 3px;
   width: 100%;
-  min-height: 26px;
-  margin: 6px 0 0;
-  padding: 3px 4px;
+  height: 20px;
+  min-height: 20px;
+  margin: 2px 0 0;
+  padding: 0 4px;
+  line-height: 18px;
   border: 1px solid var(--border);
   border-radius: 6px;
   background: var(--surface-hover);

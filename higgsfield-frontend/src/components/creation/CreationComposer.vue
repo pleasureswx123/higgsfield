@@ -192,6 +192,7 @@ watch(() => [props.kind, props.selected?.versionId, props.disabled], () => { men
           <div class="composer-reference-tools">
             <button type="button" aria-label="添加参考素材" :disabled="disabled" @click="reference('asset', $event)"><IconPlus :size="16" /></button>
             <button type="button" aria-label="引用元素" :disabled="disabled" @click="reference('element', $event)"><IconAt :size="16" /></button>
+            <slot name="history" />
           </div>
           <button v-if="projectRequired" type="button" class="composer-tool" @click="emit('project')"><IconSparkles :size="16" />选择项目与模型 ›</button>
           <StudioPopover v-else placement="top-start" trigger="click" :width="420" :visible="menu === 'models'" :disabled="disabled" @update:visible="menu = $event ? 'models' : ''" popper-class="creation-control-popover">
@@ -258,7 +259,7 @@ watch(() => [props.kind, props.selected?.versionId, props.disabled], () => { men
 <style scoped>
 .composer-size-error { margin:6px 4px 0; color:var(--el-color-danger); font-size:12px; line-height:1.5; }
 .creation-composer-bar { display:flex; align-items:stretch; gap:7px; width:100%; text-align:left; }
-.composer-mode-rail { display:flex; flex-direction:column; flex:0 0 70px; align-self:flex-end; height:120px; padding:4px; border-radius:25px; background:var(--surface); box-shadow:0 3px 6px #0002; }
+.composer-mode-rail { display:flex; flex-direction:column; flex:0 0 70px; align-self:flex-start; height:120px; padding:4px; border-radius:25px; background:var(--surface); box-shadow:0 3px 6px #0002; }
 .composer-mode-rail button { display:grid; justify-items:center; align-content:center; flex:1; gap:5px; min-height:49px; border:0; border-radius:21px; background:transparent; color:var(--muted-foreground); font-size:11px; cursor:pointer; }
 .composer-mode-rail button.selected { background:var(--surface-raised); color:var(--foreground); font-weight:650; }
 .composer-main-panel { display:flex; flex-direction:column; flex:1; min-width:0; padding:4px; gap:0; background:var(--surface); border:0; border-radius:25px; box-shadow:0 4px 10px #0002; }
@@ -330,12 +331,19 @@ button:focus-visible { outline:2px solid var(--focus); outline-offset:2px; }
 
 <style scoped>
 /* 引用区与输入区分别成层，尺寸与参考图保持一致。 */
-.composer-mode-rail { height:116px; }
+.composer-mode-rail { align-self:flex-end; height:128px; }
+.composer-entry-surface { min-height:120px; }
 .composer-tool,.composer-reference-tools,.composer-batch { min-height:28px; height:28px; border-radius:6px; }
 .composer-toolbar { padding-top:10px; }
-.composer-input-tools textarea { min-height:48px; padding:0 4px; }
+.composer-input-tools textarea { min-height:58px; padding:0 4px; }
 .composer-generate { flex-basis:120px; height:80px; min-height:80px; border-radius:12px; }
 .composer-video-reference { flex-basis:80px; height:80px; }
+/* 空输入时操作区居中；输入增高后沿用底部对齐，不随文字向上漂移。 */
+.composer-entry-surface:has(.tiptap p:only-child > br:only-child) > .composer-generate,
+.composer-entry-surface:has(.tiptap p:only-child > br:only-child) > .composer-video-reference,
+.composer-entry-surface:has(.tiptap p:only-child > br:only-child) > :deep(.reference-video-item),
+.composer-entry-surface:has(textarea:placeholder-shown) > .composer-generate,
+.composer-entry-surface:has(textarea:placeholder-shown) > .composer-video-reference { align-self:center; }
 @media(max-width:650px) { .composer-entry-surface { gap:6px; padding:10px 8px; } .composer-generate { flex-basis:80px; } }
 :global(.dark .composer-main-panel),:global(.dark .composer-mode-rail) { background:#1d1f20; }
 :global(.dark .composer-entry-surface) { background:#262829; }
@@ -386,8 +394,4 @@ button:focus-visible { outline:2px solid var(--focus); outline-offset:2px; }
 .composer-audio-dialog .audio-cancel, .composer-audio-dialog .audio-confirm { padding:13px 24px; border:0; border-radius:13px; font-weight:600; cursor:pointer; }
 .audio-cancel { background:var(--surface-hover); color:var(--foreground); }
 .audio-confirm { background:var(--foreground); color:var(--background); }
-</style>
-
-<style scoped>
-.composer-entry-surface:focus-within::after { content:''; position:absolute; pointer-events:none; top:5px; right:5px; width:18px; height:18px; border-top:2px solid var(--muted-foreground); border-right:2px solid var(--muted-foreground); border-top-right-radius:16px; opacity:.45; }
 </style>

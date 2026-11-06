@@ -166,7 +166,7 @@ export function useCreationDraft(projectId: string, defaultFolder: () => string 
     const ticket = ++draftSequence
     draftsLoading.value = true
     try {
-      const result = await getCreationDrafts({ projectId, pageNum: draftPage.value, pageSize: 10 })
+      const result = await getCreationDrafts({ projectId, kind: kind.value, pageNum: draftPage.value, pageSize: 10 })
       if (!alive || ticket !== draftSequence) return
       drafts.value = result.rows
       draftTotal.value = result.total
@@ -177,6 +177,14 @@ export function useCreationDraft(projectId: string, defaultFolder: () => string 
       if (alive && ticket === draftSequence) draftsLoading.value = false
     }
   }
+  watch(kind, () => {
+    // 立即作废上一种类型的在途列表，防止切换后旧响应覆盖新记录。
+    draftSequence++
+    draftPage.value = 1
+    drafts.value = []
+    draftTotal.value = 0
+    void loadDrafts()
+  }, { flush: 'sync' })
   async function openDraft(id: string) {
     if (!readable()) return
     const session = epoch,

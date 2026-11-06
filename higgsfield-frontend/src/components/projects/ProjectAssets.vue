@@ -26,6 +26,7 @@ import type { Asset } from '@/api/assets'
 import Button from '@/components/ui/Button.vue'
 import { useAssetPreviewRoute } from '@/composables/useAssetPreviewRoute'
 import { useAssetLibrary } from '@/composables/useAssetLibrary'
+import { useAssetArrivalHighlights } from '@/composables/useAssetArrivalHighlights'
 import { useAssetUploads } from '@/composables/useAssetUploads'
 import { useAssetActions } from '@/composables/useAssetActions'
 import { useContentSelection } from '@/composables/useContentSelection'
@@ -115,6 +116,8 @@ const {
   openMedia: loadMedia,
   closePreview: clearPreview,
 } = useAssetLibrary(props.projectId, toRef(props, 'folderId'), () => props.visible !== false)
+const arrivals = useAssetArrivalHighlights(() => rows.value,
+  () => JSON.stringify([props.projectId, props.folderId, props.visible, page.value, search.value, fileType.value, dates.value, includeDescendants.value, activity.value]), refresh, () => !loading.value && !error.value)
 const { openPreview: openMedia, closePreview } = useAssetPreviewRoute(
   props.projectId, () => props.visible !== false, loadMedia, clearPreview,
   message => { error.value = message }, () => props.folderId,
@@ -251,7 +254,7 @@ function size(bytes: number | string) {
 watch(
   () => props.refreshKey,
   () => {
-    void refresh()
+    void arrivals.refreshGenerated()
   },
 )
 watch(
@@ -359,7 +362,8 @@ defineExpose({ includeDescendants })
     <section v-for="dateGroup in dateGroups" :key="dateGroup.key" class="asset-date-group">
       <h4 v-if="splitByDate">{{ dateGroup.label }} · {{ dateGroup.rows.length }} 项</h4>
       <div :class="layout === 'masonry' ? 'asset-masonry' : compact ? 'asset-filmstrip' : 'asset-grid'">
-      <article v-for="entry in dateGroup.rows" :key="entry.id" class="asset-card" :class="{ 'is-selected': selection.selected.value.includes(entry.asset.id) }" @mouseenter="videoCards.get(entry.id)?.start()" @mouseleave="videoCards.get(entry.id)?.stop()" :inert="batchBusy" :style="compact && layout === 'square' ? { '--media-ratio': entry.asset.file.width && entry.asset.file.height ? entry.asset.file.width / entry.asset.file.height : 0.8 } : undefined">
+      <article v-for="entry in dateGroup.rows" :key="entry.id" class="asset-card" :class="{ 'is-selected': selection.selected.value.includes(entry.asset.id), 'is-new-result': arrivals.highlighted.value.includes(entry.asset.id) }" @mouseenter="videoCards.get(entry.id)?.start()" @mouseleave="videoCards.get(entry.id)?.stop()" :inert="batchBusy" :style="compact && layout === 'square' ? { '--media-ratio': entry.asset.file.width && entry.asset.file.height ? entry.asset.file.width / entry.asset.file.height : 0.8 } : undefined">
+        <span v-if="arrivals.highlighted.value.includes(entry.asset.id)" class="asset-new-result">新增素材</span>
         <ElCheckbox :model-value="selection.selected.value.includes(entry.asset.id)" :aria-label="`选择素材 ${entry.name}`" :disabled="actionsLocked || batchBusy" @change="selection.toggle(entry.asset.id, Boolean($event))" />
         <button
           class="asset-preview-button"

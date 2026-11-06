@@ -5,24 +5,29 @@ import DialogHeading from '@/components/shared/DialogHeading.vue'
 import { useReferencePreview } from '@/composables/useReferencePreview'
 import type { DraftReference } from '@/api/creation'
 import ReferenceThumbnail from './ReferenceThumbnail.vue'
-const props = defineProps<{ item: DraftReference; disabled: boolean; protected: boolean; video?: boolean; label?: string }>()
+import { useReferenceName } from '@/composables/useReferenceName'
+const props = defineProps<{ item: DraftReference; projectId: string; disabled: boolean; protected: boolean; video?: boolean; label?: string }>()
 const emit = defineEmits<{ remove: []; edit: [anchor: HTMLElement] }>()
 const preview = useReferencePreview(() => !props.disabled)
+const name = useReferenceName(() => props.item.elementRevisionId ? props.item.assetVersionId : '', () => props.item.elementRevisionId || '', () => props.projectId)
 function enlarge() {
-  void preview.show({ displayName: props.video ? '参考视频预览' : '参考图片预览', assetVersionIds: [props.item.assetVersionId], allowedMediaRoles: [props.video ? 'reference_video' : 'reference_image'] })
+  void preview.show({ displayName: name.value || (props.video ? '参考视频预览' : '参考图片预览'), assetVersionIds: [props.item.assetVersionId], allowedMediaRoles: [props.video ? 'reference_video' : 'reference_image'] })
 }
 function edit(event: MouseEvent) {
   emit('edit', (event.currentTarget as HTMLElement).closest('.composer-main-panel') as HTMLElement)
 }
 </script>
 <template>
+  <figure class="selected-reference-item" :class="{ 'reference-video-item': video }">
   <div class="selected-reference" :class="{ 'selected-video': video }" :aria-label="video ? '已选参考视频' : '已选参考图片'">
     <ReferenceThumbnail :version-id="item.assetVersionId" fill passive :allow-original="!video" />
+    <span v-if="item.elementRevisionId" class="element-caption" :title="name ? `@${name}` : '元素引用'">{{ name ? `@${name}` : '@元素' }}</span>
     <span v-if="video" class="video-caption">{{ label || '参考视频' }}</span>
     <button v-if="video" class="reference-edit" type="button" :disabled="disabled" aria-label="编辑参考视频" title="选择参考视频" @click="edit"><IconPencil :size="13" /></button>
     <button class="reference-enlarge" type="button" :disabled="disabled" :aria-label="`放大参考${video ? '视频' : '图片'} ${item.assetVersionId}`" title="放大预览" @click="enlarge"><IconMaximize :size="19" /></button>
     <button class="reference-remove" type="button" :disabled="disabled" :aria-label="`移除${video ? '视频' : '图片'}引用 ${item.assetVersionId}`" title="移除引用及提示词中的对应标签" @click="$emit('remove')"><IconX :size="12" /></button>
   </div>
+  </figure>
   <ElDialog :model-value="Boolean(preview.candidate.value)" width="min(1000px, 94vw)" append-to-body :before-close="preview.close" :close-on-click-modal="false">
     <template #header="{ titleId, titleClass }"><DialogHeading :title-id="titleId" :title-class="titleClass" :title="video ? '参考视频预览' : '参考图片预览'" /></template>
     <p v-if="preview.loading.value" role="status">正在读取预览…</p>
@@ -32,6 +37,9 @@ function edit(event: MouseEvent) {
   </ElDialog>
 </template>
 <style scoped>
+.selected-reference-item { flex:0 0 48px; width:48px; margin:0; }
+.element-caption { position:absolute; bottom:0; left:0; right:0; z-index:1; padding:8px 3px 3px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; border-radius:0 0 7px 7px; background:linear-gradient(transparent,#000b); color:white; font-size:10px; line-height:14px; pointer-events:none; }
+.reference-video-item { flex-basis:80px; width:80px; }
 .selected-reference { position:relative; flex:0 0 48px; width:48px; height:48px; border-radius:7px; background:var(--surface-hover); }
 .selected-reference :deep(.reference-thumbnail img) { object-fit:cover; }
 .selected-video { flex-basis:80px; width:80px; height:80px; overflow:hidden; border:0; border-radius:12px; box-shadow:0 2px 5px #0005; }

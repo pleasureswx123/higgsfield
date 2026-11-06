@@ -102,7 +102,7 @@ const billing = { pending: '待确认', calculated: '已计算', confirmed: '已
         <p v-if="loading" role="status" class="muted">正在读取任务详情…</p>
         <p v-if="error" role="alert" class="project-error">{{ error }}</p>
         <section v-if="detail" class="generation-detail">
-          <p v-if="taskFeedback?.busy" class="record-diagnostic" role="status">{{ taskFeedback.description }}</p>
+          <p v-if="taskFeedback && taskFeedback.tone !== 'success'" class="record-diagnostic" role="status">{{ taskFeedback.description }}</p>
           <div class="result-preview">
             <img v-if="mediaUrl && mediaKind === 'image'" :src="mediaUrl" alt="生成结果预览" />
             <video v-else-if="mediaUrl && mediaKind === 'video'" :src="mediaUrl" controls preload="metadata" />

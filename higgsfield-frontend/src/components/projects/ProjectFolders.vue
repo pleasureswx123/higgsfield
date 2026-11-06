@@ -240,7 +240,7 @@ const rules: FormRules = {
       </details>
       <ProjectTrash v-if="trash" :project-id="projectId" :actions="projectActions || []" :visible="active && visible !== false && navigationActive !== false" :refresh-related="refreshAll" />
       <p v-if="error && !trash" class="project-error" role="alert">{{ error }}</p>
-      <p v-if="loading && !trash" class="muted" role="status">正在加载目录…</p>
+      <span v-if="loading && !trash" class="folder-loading-status" role="status">正在加载目录…</span>
       <template v-if="!trash && !sidebar">
         <div v-for="folder in rows" :key="folder.id" class="folder-list-row">
           <IconFolder :size="25" :class="'folder-color-' + folder.color" />

@@ -27,10 +27,13 @@ class ReferenceUpdateTests(unittest.IsolatedAsyncioTestCase):
             ))
 
     async def test_current_cross_project_and_deleted(self):
-        self.assertEqual((await self.check())['items'][0]['state'], 'current')
+        current = (await self.check())['items'][0]
+        self.assertEqual(current['state'], 'current')
+        self.assertTrue(current['displayName'])
         hidden = (await self.check(self.target_id))['items'][0]
         self.assertEqual(hidden['state'], 'unavailable')
         self.assertNotIn('candidate', hidden)
+        self.assertNotIn('displayName', hidden)
         async with self.sessions() as db:
             await db.execute(text("UPDATE hf_element SET del_flag='2' WHERE element_id=:id"),
                              {'id': int(self.source['element']['id'])})

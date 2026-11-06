@@ -27,7 +27,7 @@ export function useCreationProgress(activity: GenerationActivityState, accepted:
       const wasPending = previous && (!['finished', 'blocked', 'submission_unknown'].includes(previous.orchestrationState) || previous.archiveSummary.pending > 0)
       if (ended && !row.archiveSummary.pending && !notified.has(row.id) && (wasPending || submitted.has(row.id))) {
         notified.add(row.id)
-        ElNotification({ title: feedback.label, message: `${row.promptExcerpt?.slice(0, 40) || (row.kind === 'video' ? '视频生成' : '图片生成')}：${feedback.description}`,
+        ElNotification({ title: feedback.label, message: `${row.promptExcerpt?.slice(0, 40) || (row.kind === 'video' ? '视频生成' : '图片生成')}：${feedback.description}${feedback.tone === 'success' ? (row.kind === 'video' ? ' 点击查看视频。' : ' 点击查看图片。') : ' 点击查看详情。'}`,
           type: feedback.tone === 'success' ? 'success' : feedback.tone === 'danger' ? 'error' : 'warning',
           onClick: () => showResult(row.id), duration: feedback.tone === 'success' ? 6000 : 0 })
       }

@@ -74,6 +74,28 @@ function harness(api = {}, confirm = () => true, autoSave = false) {
   return { state, auth, calls, hooks, folder }
 }
 
+test('创作参数按类型分页，切换清空旧列表并拒绝迟到响应', async () => {
+  const requests = []
+  const { state, hooks } = harness({ getCreationDrafts: params => new Promise(resolve => requests.push({ params, resolve })) })
+  assert.equal(requests[0].params.kind, 'image')
+  state.draftPage.value = 3
+  state.changeKind('video')
+  const video = requests.at(-1)
+  assert.equal(video.params.kind, 'video')
+  assert.equal(video.params.pageNum, 1)
+  assert.equal(state.drafts.value.length, 0)
+  video.resolve({ rows: [{ id: 'v', kind: 'video' }], total: 1 })
+  await new Promise(setImmediate)
+  requests[0].resolve({ rows: [{ id: 'i', kind: 'image' }], total: 30 })
+  await new Promise(setImmediate)
+  assert.equal(state.drafts.value[0].id, 'v')
+  assert.equal(state.draftTotal.value, 1)
+  state.changeKind('image')
+  assert.equal(state.drafts.value.length, 0)
+  assert.equal(requests.at(-1).params.kind, 'image')
+  hooks.unmount()
+})
+
 test('自动选择默认模型、空格和图片视频切换不新增空草稿', async () => {
   const model = {
     versionId: '1', kind: 'image', displayName: 'mm-imagen2', menuMeta: { aliases: [] },

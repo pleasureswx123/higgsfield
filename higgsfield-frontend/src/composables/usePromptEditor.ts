@@ -10,6 +10,7 @@ import { searchReferences, type ReferenceCandidate } from '@/api/references'
 import type { PromptDocument } from '@/utils/promptDocument'
 import {
   fromEditorDocument,
+  referenceNumberLabels,
   toEditorDocument,
   reconcilePromptReferences,
   insertPromptText,
@@ -42,26 +43,14 @@ export function usePromptEditor(
     () => !!state().disabled,
   )
   const localCandidates = computed<ReferenceCandidate[]>(() => {
-    const labels = new Map<string, string>()
-    for (const paragraph of toEditorDocument(state().document).content ?? [])
-      for (const node of paragraph.content ?? [])
-        if (node.type === 'mention' && /^(Image|Video) \d+$/.test(String(node.attrs?.label)))
-          labels.set(String(node.attrs?.id), String(node.attrs?.label))
-    const reserved = new Set(labels.values())
+    const labels = referenceNumberLabels(state().references)
     const unique = state().references.filter(
       (item, index, all) =>
         !item.elementRevisionId &&
         all.findIndex((value) => value.referenceKey === item.referenceKey) === index,
     )
     return unique.map((item) => {
-      const prefix = item.mediaRole === 'reference_video' ? 'Video' : 'Image'
-      let label = labels.get(item.referenceKey)
-      if (!label) {
-        let number = 1
-        while (reserved.has(`${prefix} ${number}`)) number++
-        label = `${prefix} ${number}`
-        reserved.add(label)
-      }
+      const label = labels.get(item.referenceKey)!
       return {
         kind: 'asset' as const,
         id: item.referenceKey,

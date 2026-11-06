@@ -43,11 +43,25 @@ export function removePromptReference(
   key: string,
 ) {
   const content = toEditorDocument(document)
+  const remaining = references.filter(item => item.referenceKey !== key)
+  const labels = referenceNumberLabels(remaining)
   for (const paragraph of content.content ?? [])
     paragraph.content = paragraph.content?.filter(
       (node) => node.type !== 'mention' || node.attrs?.id !== key,
-    )
-  return fromEditorDocument(content, references)
+    ).map(node => node.type === 'mention' && labels.has(String(node.attrs?.id))
+      ? { ...node, attrs: { ...node.attrs, label: labels.get(String(node.attrs?.id)) } } : node)
+  return fromEditorDocument(content, remaining)
+}
+
+/** 素材按当前引用顺序连续编号，元素保持自己的名字，引用键和固定版本不变。 */
+export function referenceNumberLabels(references: DraftReference[]) {
+  const labels = new Map<string, string>()
+  let image = 0, video = 0
+  for (const item of references) {
+    if (item.elementRevisionId || labels.has(item.referenceKey)) continue
+    labels.set(item.referenceKey, item.mediaRole === 'reference_video' ? `Video ${++video}` : `Image ${++image}`)
+  }
+  return labels
 }
 
 /** 沿用后端的「名称正文 + 引用键」契约，在编辑器中合并显示为一个行内标签。 */

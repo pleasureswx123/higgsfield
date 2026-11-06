@@ -29,6 +29,7 @@ class ReferenceUpdateService:
                 else:
                     if result.rows:
                         candidate = result.rows[0]
+                        item['displayName'] = candidate['displayName']
                         item['state'] = 'current' if candidate['elementRevisionId'] == identity else 'updated'
                         if item['state'] == 'updated':
                             item['candidate'] = candidate

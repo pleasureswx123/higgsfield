@@ -1,9 +1,8 @@
 <script setup lang="ts">
-import { useTimestamp, useIntervalFn } from '@vueuse/core'
-import { generationFeedback, generationSubmissionFeedback } from '@/utils/generationFeedback'
-import { IconLoader2, IconAlertCircle, IconCircleCheck } from '@tabler/icons-vue'
+import { generationSubmissionFeedback } from '@/utils/generationFeedback'
+import GenerationFeedbackCard from './GenerationFeedbackCard.vue'
 import StudioPagination from '@/components/ui/StudioPagination.vue'
-import { IconX } from '@tabler/icons-vue'
+import { IconX, IconHistory } from '@tabler/icons-vue'
 import { ElForm, ElFormItem, ElMessage, } from 'element-plus'
 
 import type { Asset } from '@/api/assets'
@@ -137,7 +136,7 @@ function useAsset(asset: Asset, targetKind: 'image' | 'video') {
   const role = asset.mediaType === 'video' ? 'reference_video' : 'reference_image'
   try {
     references.value = selectCandidate(references.value, { kind: 'asset', id: asset.id, projectId: props.projectId, displayName: asset.name, assetVersionIds: [asset.currentVersionId], allowedMediaRoles: [role] }, role, selected.value, protectedReferenceKeys.value)
-    ElMessage.success(asset.mediaType === 'video' ? '已添加参考视频' : '已添加参考图片')
+    ElMessage.success(asset.mediaType === 'video' ? '已添加参考视频，点击生成后才会提交' : '已添加参考图片，点击生成后才会提交')
   } catch (cause) { error.value = cause instanceof Error ? cause.message : '添加引用失败' }
 }
 defineExpose({
@@ -150,12 +149,14 @@ defineExpose({
 const taskId = ref<string>()
 const progress = useCreationProgress(props.activity, () => generation.acceptedId.value, folders => emit('assetsChanged', folders), id => { taskId.value = id })
 // 发送前阻止重复点击；请求发出后允许新的独立生成。
-const feedbackNow = useTimestamp({ scheduler: callback => useIntervalFn(callback, 1000) })
 const trackedTaskId = ref<string>()
 watch(() => props.projectId, () => { trackedTaskId.value = undefined })
 watch(() => progress.running.value?.id, id => { if (id) trackedTaskId.value = id }, { immediate: true })
-const latestSubmitted = computed(() => progress.rows.value.find(row => row.id === (generation.acceptedId.value || trackedTaskId.value)) || progress.running.value)
-const taskFeedback = computed(() => latestSubmitted.value ? generationFeedback(latestSubmitted.value, feedbackNow.value) : undefined)
+const latestSubmitted = computed(() => {
+  const id = generation.acceptedId.value || trackedTaskId.value
+  // 新任务刚受理、快照尚未返回时，不把上一个任务的结果当成本次结果。
+  return progress.rows.value.find(row => row.id === id) || (generation.acceptedId.value ? undefined : progress.running.value)
+})
 const submissionFeedback = computed(() => latestSubmitted.value ? generationSubmissionFeedback(latestSubmitted.value) : undefined)
 const generationBusy = computed(() => Boolean(submissionFeedback.value?.busy))
 const buttonLabel = computed(() => generation.submitting.value ? '保存任务…' : generation.checking.value || generation.generating.value ? '检查参数…' : submissionFeedback.value?.label)
@@ -171,14 +172,9 @@ const rules = { prompt: [{ max: 50000, message: '提示词不能超过50000字�
 
 <template>
   <section class="creation-panel" :class="{ 'creation-dock': dock }">
-    <div v-if="latestSubmitted || progress.awaitingAccepted.value" class="generation-feedback" :data-tone="taskFeedback?.tone" role="status" aria-live="polite">
-      <IconLoader2 v-if="taskFeedback?.spinning || progress.awaitingAccepted.value" class="feedback-spinner" :size="16" />
-      <IconCircleCheck v-else-if="taskFeedback?.tone === 'success'" :size="16" />
-      <IconAlertCircle v-else :size="16" />
-      <div><strong>{{ taskFeedback?.label || '正在查询任务状态' }}</strong><p>{{ progress.error.value || taskFeedback?.description || '任务已保存，正在读取执行状态。' }}</p></div>
-      <Button variant="ghost" size="sm" :disabled="progress.loading.value" @click="progress.reload()">刷新状态</Button>
-      <Button v-if="latestSubmitted" variant="ghost" size="sm" @click="taskId = latestSubmitted.id">{{ taskFeedback?.tone === 'success' ? '查看结果' : '查看详情' }}</Button>
-    </div>
+    <GenerationFeedbackCard v-if="latestSubmitted || progress.awaitingAccepted.value"
+      :row="latestSubmitted" :awaiting="progress.awaitingAccepted.value" :error="progress.error.value" :loading="progress.loading.value"
+      @refresh="progress.reload()" @detail="taskId = $event" />
     <ElForm ref="formRef" :model="form" :rules="rules" class="composer-validation" @submit.prevent>
     <ElFormItem prop="prompt">
     <CreationComposer v-model:prompt="prompt" :kind="kind" :models="models" :selected="selected"
@@ -192,20 +188,22 @@ const rules = { prompt: [{ max: 50000, message: '提示词不能超过50000字�
           :context="kind" :disabled="editingLocked || opening || generation.locked.value || generation.generating.value"
           @apply="value => { promptDocument = value.prompt; references = value.references }" />
       </template>
+      <template #history>
+        <button type="button" class="creation-history-toggle" title="已保存的创作参数" aria-label="已保存的创作参数" :aria-expanded="draftsOpen" aria-controls="creation-parameter-history" @click="draftsOpen = !draftsOpen"><IconHistory :size="16" /></button>
+      </template>
       <template v-if="imageReferences.length" #images>
-        <SelectedReference v-for="item in imageReferences" :key="`${item.referenceKey}:${item.assetVersionId}:${item.mediaRole}`" :item="item" :disabled="draftLocked || opening || generation.locked.value" :protected="protectedReferenceKeys.includes(item.referenceKey)" @remove="removeSelected(item)" />
+        <SelectedReference :project-id="projectId" v-for="item in imageReferences" :key="`${item.referenceKey}:${item.assetVersionId}:${item.mediaRole}`" :item="item" :disabled="draftLocked || opening || generation.locked.value" :protected="protectedReferenceKeys.includes(item.referenceKey)" @remove="removeSelected(item)" />
       </template>
       <template v-if="videoReference" #video="{ label }">
-        <SelectedReference :item="videoReference" video :label="label" :disabled="draftLocked || opening || generation.locked.value" :protected="protectedReferenceKeys.includes(videoReference.referenceKey)" @remove="removeSelected(videoReference)" @edit="anchor => referencePicker?.show('asset', anchor)" />
+        <SelectedReference :project-id="projectId" :item="videoReference" video :label="label" :disabled="draftLocked || opening || generation.locked.value" :protected="protectedReferenceKeys.includes(videoReference.referenceKey)" @remove="removeSelected(videoReference)" @edit="anchor => referencePicker?.show('asset', anchor)" />
       </template>
     </CreationComposer>
     </ElFormItem>
     </ElForm>
     <div class="composer-notices">
-    <p class="compact-notice" role="status">
-      {{ saving ? '正在自动保存…' : autoSaveError ? '自动保存失败，内容仍保留' : dirty ? '等待自动保存…' : draft ? '已自动保存' : '填写提示词后自动保存' }}
-      <button v-if="autoSaveError" type="button" :disabled="saving" @click="save(true)">重试保存</button>
-      <button type="button" @click="draftsOpen = !draftsOpen">{{ draftsOpen ? '收起参数记录' : '已保存的创作参数' }}</button>
+    <p v-if="autoSaveError" class="compact-notice" role="alert">
+      自动保存失败，内容仍保留
+      <button type="button" :disabled="saving" @click="save(true)">{{ saving ? '正在重试…' : '重试保存' }}</button>
     </p>
     <p v-if="!loading && !models.length" class="compact-notice">暂无已授权模型，请由管理员配置；仍可编写描述、添加参考素材并保存创作参数。</p>
 
@@ -213,7 +211,7 @@ const rules = { prompt: [{ max: 50000, message: '提示词不能超过50000字�
     <p v-if="draftUncertain" class="compact-notice" role="alert">创作参数保存结果待确认，请点击重试保存。</p>
     <p v-if="error" class="compact-notice" role="alert">{{ error }}</p>
     </div>
-    <div v-show="draftsOpen" class="creation-expanded">
+    <div v-show="draftsOpen" id="creation-parameter-history" class="creation-expanded">
 
     <section
       v-if="elementTarget.requested.value"
@@ -247,14 +245,14 @@ const rules = { prompt: [{ max: 50000, message: '提示词不能超过50000字�
     </section>
     <div class="workspace-section-heading creation-drafts-heading">
       <div>
-        <h2>已保存的创作参数</h2>
+        <h2>已保存的{{ kind === 'image' ? '图片' : '视频' }}创作参数</h2>
         <p class="muted">保存提示词、模型、参数和参考素材；选择一条可载入创作栏继续编辑。</p>
       </div>
       <Button variant="ghost" class="creation-drafts-close" aria-label="关闭创作参数记录" title="关闭" @click="draftsOpen = false"><IconX :size="16" /></Button>
     </div>
     <section class="creation-drafts" aria-label="已保存的创作参数列表">
       <p v-if="draftsLoading" role="status">读取中…</p>
-      <p v-else-if="!drafts.length" class="muted">当前项目暂无已保存的创作参数。</p>
+      <p v-else-if="!drafts.length" class="muted">当前项目暂无已保存的{{ kind === 'image' ? '图片' : '视频' }}创作参数。</p>
       <ul>
         <li v-for="item in drafts" :key="item.id">
           <button
@@ -317,13 +315,9 @@ const rules = { prompt: [{ max: 50000, message: '提示词不能超过50000字�
 </template>
 
 <style scoped>
-.generation-feedback { display:flex; align-items:center; gap:10px; padding:12px; margin-bottom:8px; border:1px solid var(--border); border-radius:10px; background:var(--surface); font-size:12px; }
-.generation-feedback > div { flex:1; min-width:0; }
-.generation-feedback p { margin:4px 0 0; color:var(--muted-foreground); line-height:1.5; }
-.generation-feedback[data-tone="warning"] > svg { color:var(--el-color-warning); }
-.generation-feedback[data-tone="success"] > svg { color:var(--el-color-success); }
-.feedback-spinner { animation:feedback-spin 1s linear infinite; }
-@keyframes feedback-spin { to { transform:rotate(360deg); } }
+.creation-history-toggle { display:flex; align-items:center; justify-content:center; padding:6px; border:0; border-radius:6px; background:transparent; color:var(--muted-foreground); cursor:pointer; }
+.creation-history-toggle:hover,.creation-history-toggle[aria-expanded="true"] { background:var(--border); color:var(--foreground); }
+.creation-history-toggle:focus-visible { outline:2px solid var(--focus); outline-offset:2px; }
 
 
 .compact-notice button { border:0; background:transparent; color:var(--muted-foreground); cursor:pointer; margin-left:10px; text-decoration:underline; }
@@ -414,13 +408,6 @@ const rules = { prompt: [{ max: 50000, message: '提示词不能超过50000字�
 </style>
 
 <style scoped>
-.generation-feedback { display:flex; align-items:center; gap:10px; padding:12px; margin-bottom:8px; border:1px solid var(--border); border-radius:10px; background:var(--surface); font-size:12px; }
-.generation-feedback > div { flex:1; min-width:0; }
-.generation-feedback p { margin:4px 0 0; color:var(--muted-foreground); line-height:1.5; }
-.generation-feedback[data-tone="warning"] > svg { color:var(--el-color-warning); }
-.generation-feedback[data-tone="success"] > svg { color:var(--el-color-success); }
-.feedback-spinner { animation:feedback-spin 1s linear infinite; }
-@keyframes feedback-spin { to { transform:rotate(360deg); } }
 
 .creation-drafts-heading { display:flex; align-items:flex-start; justify-content:space-between; gap:12px; margin:0 0 10px; position:sticky; top:-12px; padding:8px 0; background:var(--background); z-index:1; }
 .creation-drafts-heading h2 { font-size:14px; line-height:1.4; margin:0 0 4px; }

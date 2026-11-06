@@ -1,4 +1,5 @@
 .folder-workspace {
+  position: relative;
   display: grid;
   grid-template-columns: 240px minmax(0, 1fr);
   min-height: 520px;
@@ -7,6 +8,25 @@
   border-radius: 16px;
   overflow: hidden;
 }
+/* 加载反馈脱离文档流，短请求不闪现，也不挤动面包屑和素材列表。 */
+.folder-loading-status {
+  position: absolute;
+  top: 8px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 2;
+  margin: 0;
+  padding: 4px 10px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface);
+  color: var(--muted-foreground);
+  font-size: 12px;
+  pointer-events: none;
+  opacity: 0;
+  animation: folder-loading-reveal 0s 300ms forwards;
+}
+@keyframes folder-loading-reveal { to { opacity: 1; } }
 .folder-sidebar {
   padding: 18px 12px;
   border-right: 1px solid var(--border);
