@@ -27,6 +27,8 @@ const {
   loading,
   inputLoading,
   mediaLoading,
+  downloadLoading,
+  downloadError,
   error,
   inputError,
   mediaError,
@@ -122,9 +124,10 @@ const billing = { pending: '待确认', calculated: '已计算', confirmed: '已
           <p v-else-if="summaryStatus === '生成失败'" class="muted">任务已失败，未记录具体原因。</p>
           <p v-else-if="summaryStatus === '异常'" class="muted">本次提交结果尚未确认。</p>
           <div v-if="chosenOutput" class="result-actions">
-            <Button v-if="chosenOutput.downloadUrl" :disabled="mediaLoading" @click="media(chosenOutput, true)">下载</Button>
+            <Button v-if="chosenOutput.downloadUrl" :disabled="downloadLoading" @click="media(chosenOutput, true)">{{ downloadLoading ? '下载中…' : '下载' }}</Button>
             <span class="muted">{{ archive[chosenOutput.archiveState] }}</span>
           </div>
+          <p v-if="downloadError" class="project-error" role="alert">下载失败：{{ downloadError }}，请重试下载。</p>
           <p v-if="chosenOutput?.destinationIssue" class="muted">生成结果已保留，但未能加入原素材目录。</p>
           <p v-if="chosenOutput?.file?.state === 'unavailable'" class="muted">文件当前不可用</p>
           <GenerationOutputMetadata v-if="chosenOutput" :output="chosenOutput" hide-work-status />

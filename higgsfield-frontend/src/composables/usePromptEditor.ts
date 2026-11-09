@@ -14,6 +14,7 @@ import {
   toEditorDocument,
   reconcilePromptReferences,
   insertPromptText,
+  bindNumberedMediaReferences,
 } from '@/utils/promptEditorDocument'
 import { prepareMentionReference, prepareMentionBatch } from '@/utils/promptMention'
 import { compatibleReferenceRoles, selectReferenceMedia } from '@/utils/draftReferences'
@@ -384,6 +385,20 @@ export function usePromptEditor(
     })
   }
   watch([() => state().projectId, () => state().context], create, { immediate: true })
+  watch(
+    [editor, () => JSON.stringify(state().references), () => state().disabled],
+    () => {
+      const current = editor.value
+      if (!current || applying || state().disabled) return
+      // 添加素材或恢复草稿后补齐编号引用，不重建编辑器，保留正文、选区和撤销历史。
+      const transaction = bindNumberedMediaReferences(closeHistory(current.state.tr), state().references)
+      if (transaction.docChanged) {
+        current.view.dispatch(transaction)
+        current.view.dispatch(closeHistory(current.state.tr))
+      }
+    },
+    { immediate: true, flush: 'post' },
+  )
   watch(
     () => state().document,
     (document) => {

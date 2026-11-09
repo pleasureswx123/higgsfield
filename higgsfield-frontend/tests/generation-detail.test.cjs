@@ -60,19 +60,61 @@ test('费用权限重置在相同任务版本下清除旧金额', async () => {
 })
 function harness() {
   const auth = vue.reactive({ token: 'one', user: { permissions: [] } })
-  const exports = {}, calls = [], revoked = [], hooks = {}, streams = [], timers = [], identity = vue.ref('1')
+  const exports = {}, calls = [], revoked = [], hooks = {}, streams = [], timers = [], downloads = [], identity = vue.ref('1')
+  let blobCount = 0
   const source = readFileSync(require('node:path').join(__dirname, '../src/composables/useGenerationDetail.ts'), 'utf8')
   const compiled = ts.transpileModule(source, { compilerOptions: { module: ts.ModuleKind.CommonJS } }).outputText
   const pending = (type, ...args) => new Promise(resolve => calls.push({ type, args, resolve }))
-  runInNewContext(compiled, { exports, AbortController, setTimeout: (fn, delay) => { const timer = { fn, delay, cancelled: false }; timers.push(timer); return timer }, clearTimeout: timer => { timer.cancelled = true }, URL: { createObjectURL: () => 'blob:preview', revokeObjectURL: value => revoked.push(value) },
+  runInNewContext(compiled, { exports, AbortController, document: { createElement: () => ({ click() { downloads.push(this.href) } }) }, setTimeout: (fn, delay) => { const timer = { fn, delay, cancelled: false }; timers.push(timer); return timer }, clearTimeout: timer => { timer.cancelled = true }, URL: { createObjectURL: () => ++blobCount === 1 ? 'blob:preview' : `blob:download-${blobCount}`, revokeObjectURL: value => revoked.push(value) },
     require: name => name.includes('stores/auth') ? { useAuthStore: () => auth } : name === 'vue' ? { ...vue, onBeforeUnmount: fn => { hooks.unmount = fn }, onActivated: fn => { hooks.activate = fn }, onDeactivated: fn => { hooks.deactivate = fn } } : {
       getGeneration: (...args) => pending('detail', ...args), getGenerationInput: (...args) => pending('input', ...args), getOutputMedia: (...args) => pending('media', ...args),
       subscribeGeneration: (...args) => { streams.push(args); args[4](); return new Promise((_, reject) => { args.reject = reject }) },
     } })
   const scope = vue.effectScope()
   const state = scope.run(() => exports.useGenerationDetail(() => identity.value))
-  return { state, auth, hooks, identity, calls, revoked, streams, timers, cleanup() { hooks.unmount(); scope.stop() } }
+  return { state, auth, hooks, identity, calls, revoked, streams, timers, downloads, cleanup() { hooks.unmount(); scope.stop() } }
 }
+
+test('下载不清空或替换正在播放的预览，重复点击不并发下载', async () => {
+  const h = harness()
+  const output = { id: '8', revision: '1', kind: 'video', previewUrl: '/preview', downloadUrl: '/download' }
+  h.calls[0].resolve({ data: { id: '1', outputs: [output] } })
+  await flush()
+  const preview = h.state.media(output)
+  h.calls[1].resolve(new Blob(['video']))
+  await preview
+  const download = h.state.media(output, true)
+  assert.equal(h.state.mediaUrl.value, 'blob:preview')
+  assert.equal(h.state.mediaLoading.value, false)
+  assert.equal(h.state.downloadLoading.value, true)
+  await h.state.media(output, true)
+  assert.equal(h.calls.length, 3)
+  h.calls[2].resolve(new Blob(['video']))
+  await download
+  assert.equal(h.state.mediaUrl.value, 'blob:preview')
+  assert.deepEqual(h.downloads, ['blob:download-2'])
+  h.timers.at(-1).fn()
+  assert.deepEqual(h.revoked, ['blob:download-2'])
+  assert.equal(h.state.downloadLoading.value, false)
+  h.cleanup()
+})
+
+test('关闭详情或下载权限撤销后不交付迟到的下载响应', async () => {
+  for (const close of [true, false]) {
+    const h = harness()
+    const output = { id: '8', revision: '1', kind: 'video', previewUrl: '/preview', downloadUrl: '/download' }
+    h.calls[0].resolve({ data: { id: '1', outputs: [output] } })
+    await flush()
+    const download = h.state.media(output, true)
+    if (close) h.identity.value = undefined
+    else h.state.detail.value.outputs[0].downloadUrl = undefined
+    h.calls[1].resolve(new Blob(['late']))
+    await download
+    assert.deepEqual(h.downloads, [])
+    assert.equal(h.state.downloadLoading.value, false)
+    h.cleanup()
+  }
+})
 test('切换详情隔离迟到响应，关闭时释放媒体地址与请求', async () => {
   const h = harness()
   h.identity.value = '2'

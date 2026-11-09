@@ -24,6 +24,54 @@ const refs = [
     ordinal: 0,
   },
 ]
+
+test('后加图片将手写编号绑定为固定版本引用，元素和视频不占图片编号', () => {
+  const { Schema } = require('@tiptap/pm/model')
+  const { EditorState } = require('@tiptap/pm/state')
+  const { bindNumberedMediaReferences } = load('promptEditorDocument')
+  const schema = new Schema({ nodes: {
+    doc: { content: 'paragraph+' }, paragraph: { content: 'inline*', group: 'block' },
+    text: { group: 'inline' }, mention: { inline: true, group: 'inline', atom: true, attrs: { id: {}, label: {} } },
+  } })
+  const image = { referenceKey: 'scene', assetVersionId: '9007199254740993', elementRevisionId: null, mediaRole: 'reference_image', ordinal: 2 }
+  const references = [...refs, { ...image, referenceKey: 'video', mediaRole: 'reference_video' }, image]
+  const doc = schema.node('doc', null, [schema.node('paragraph', null, [
+    schema.nodes.mention.create({ id: refs[0].referenceKey, label: 'woman' }),
+    schema.text(' @Image 1，沿用@image 1；@Image 10 @Image 2 @Image 1abc @@Image 1 @Image 01'),
+  ])])
+  const state = EditorState.create({ schema, doc })
+  assert.equal(bindNumberedMediaReferences(state.tr, refs).docChanged, false)
+  const bound = bindNumberedMediaReferences(state.tr, references)
+  const result = fromEditorDocument(bound.doc.toJSON(), references)
+  assert.deepEqual(json(result.content[0].content.filter(n => n.type === 'mention').map(n => n.referenceKey)), [refs[0].referenceKey, 'scene', 'scene'])
+  assert.match(bound.doc.textContent, /@Image 10 @Image 2 @Image 1abc @@Image 1 @Image 01/)
+  assert.equal(image.assetVersionId, '9007199254740993')
+  assert.equal(bindNumberedMediaReferences(state.apply(bound).tr, references).docChanged, false)
+  assert.equal(toEditorDocument(result).content[0].content[0].attrs.label, 'woman')
+})
+test('视频编号独立绑定且不误匹配长编号，保存恢复后保持视频身份', () => {
+  const { Schema } = require('@tiptap/pm/model')
+  const { EditorState } = require('@tiptap/pm/state')
+  const { bindNumberedMediaReferences } = load('promptEditorDocument')
+  const schema = new Schema({ nodes: {
+    doc: { content: 'paragraph+' }, paragraph: { content: 'inline*', group: 'block' },
+    text: { group: 'inline' }, mention: { inline: true, group: 'inline', atom: true, attrs: { id: {}, label: {} } },
+  } })
+  const image = { referenceKey: 'image', assetVersionId: '8', elementRevisionId: null, mediaRole: 'reference_image', ordinal: 1 }
+  const video = { ...image, referenceKey: 'video', assetVersionId: '9007199254740995', mediaRole: 'reference_video', ordinal: 2 }
+  const text = '@Image 1 @Video 1，@video 1。@Video 10 @Video 2 @Video 1abc @@Video 1 @Video 01'
+  const state = EditorState.create({ schema, doc: schema.node('doc', null, [schema.node('paragraph', null, schema.text(text))]) })
+  const before = bindNumberedMediaReferences(state.tr, [...refs, image])
+  assert.match(before.doc.textContent, /@Video 1，/)
+  const bound = bindNumberedMediaReferences(state.apply(before).tr, [...refs, image, video])
+  const document = fromEditorDocument(bound.doc.toJSON(), [...refs, image, video])
+  assert.deepEqual(json(document.content[0].content.filter(n => n.type === 'mention').map(n => n.referenceKey)), ['image', 'video', 'video'])
+  assert.match(bound.doc.textContent, /@Video 10 @Video 2 @Video 1abc @@Video 1 @Video 01/)
+  assert.equal(video.assetVersionId, '9007199254740995')
+  const restored = toEditorDocument(document)
+  assert.deepEqual(json(restored.content[0].content.filter(n => n.type === 'mention').map(n => n.attrs.label)), ['Image 1', 'Video 1', 'Video 1'])
+})
+
 test('删除首张素材后连续编号，重复提及同步更新且不改变元素名字和素材身份', () => {
   const images = ['a', 'b', 'c'].map((key, ordinal) => ({ referenceKey: key, assetVersionId: key, elementRevisionId: null, mediaRole: 'reference_image', ordinal }))
   const mentions = [['a', 'Image 1'], ['b', 'Image 2'], ['b', 'Image 2'], ['c', 'Image 3'], [refs[0].referenceKey, '女主角']]

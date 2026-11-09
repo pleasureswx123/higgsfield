@@ -23,6 +23,8 @@ export function useGenerationDetail(identity: () => string | undefined) {
     mediaError = ref('')
   const mediaUrl = ref(''),
     mediaKind = ref('')
+  const downloadLoading = ref(false), downloadError = ref('')
+  let downloadRequest: AbortController | undefined
   const liveState = ref<'connecting' | 'live' | 'reconnecting' | 'stopped'>('stopped')
   let subscription: AbortController | undefined
   let retryTimer: ReturnType<typeof setTimeout> | undefined
@@ -32,6 +34,9 @@ export function useGenerationDetail(identity: () => string | undefined) {
   let selectedMedia: { id: string; revision: string; download: boolean } | undefined
   const message = (cause: unknown) => (cause instanceof Error ? cause.message : '读取失败，请重试')
   function clearMedia() {
+    downloadRequest?.abort()
+    downloadLoading.value = false
+    downloadError.value = ''
     mediaRequest?.abort()
     selectedMedia = undefined
     if (mediaUrl.value) URL.revokeObjectURL(mediaUrl.value)
@@ -199,6 +204,31 @@ export function useGenerationDetail(identity: () => string | undefined) {
       (download && !latest.downloadUrl)
     )
       return
+    if (download) {
+      if (downloadLoading.value) return
+      // 下载使用独立请求与临时地址，不替换播放器正在使用的预览地址。
+      const current = new AbortController()
+      downloadRequest = current
+      downloadLoading.value = true
+      downloadError.value = ''
+      try {
+        const blob = await getOutputMedia(latest.id, true, current.signal)
+        const permitted = detail.value?.outputs.find((row) => row.id === latest.id)
+        if (current.signal.aborted || !permitted?.downloadUrl || !permitted.previewUrl ||
+          permitted.revision !== latest.revision || detail.value?.outputsVisibility === 'hidden') return
+        const url = URL.createObjectURL(blob)
+        const link = document.createElement('a')
+        link.href = url
+        link.download = `output-${latest.id}`
+        link.click()
+        setTimeout(() => URL.revokeObjectURL(url), 1000)
+      } catch (cause) {
+        if (!current.signal.aborted) downloadError.value = message(cause)
+      } finally {
+        if (!current.signal.aborted) downloadLoading.value = false
+      }
+      return
+    }
     clearMedia()
     selectedMedia = { id: latest.id, revision: latest.revision, download }
     const current = new AbortController()
@@ -209,12 +239,6 @@ export function useGenerationDetail(identity: () => string | undefined) {
       if (current.signal.aborted) return
       mediaUrl.value = URL.createObjectURL(blob)
       mediaKind.value = latest.kind
-      if (download) {
-        const link = document.createElement('a')
-        link.href = mediaUrl.value
-        link.download = `output-${latest.id}`
-        link.click()
-      }
     } catch (cause) {
       if (!current.signal.aborted) mediaError.value = message(cause)
     } finally {
@@ -238,6 +262,8 @@ export function useGenerationDetail(identity: () => string | undefined) {
     loading,
     inputLoading,
     mediaLoading,
+    downloadLoading,
+    downloadError,
     error,
     inputError,
     mediaError,

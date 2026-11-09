@@ -64,6 +64,24 @@ export function referenceNumberLabels(references: DraftReference[]) {
   return labels
 }
 
+/** 将普通图片与视频的完整编号绑定到已有固定版本，两类独立编号，元素不占编号。 */
+export function bindNumberedMediaReferences(transaction: Transaction, references: DraftReference[]) {
+  const targets = new Map([...referenceNumberLabels(references)]
+    .map(([id, label]) => [label.toLowerCase(), { id, label }]))
+  const replacements: { from: number; to: number; id: string; label: string }[] = []
+  transaction.doc.descendants((node, position) => {
+    if (!node.isText || !node.text) return
+    for (const match of node.text.matchAll(/(?<![\w@])@(Image|Video) ([1-9]\d*)(?![\w])/giu)) {
+      const target = targets.get(`${match[1]!.toLowerCase()} ${match[2]}`)
+      if (target) replacements.push({ from: position + match.index!, to: position + match.index! + match[0].length, ...target })
+    }
+  })
+  for (const item of replacements.reverse())
+    transaction.replaceWith(item.from, item.to,
+      transaction.doc.type.schema.nodes.mention!.create({ id: item.id, label: item.label }))
+  return transaction
+}
+
 /** 沿用后端的「名称正文 + 引用键」契约，在编辑器中合并显示为一个行内标签。 */
 export function toEditorDocument(document: PromptDocument): JSONContent {
   return {
