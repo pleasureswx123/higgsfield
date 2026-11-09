@@ -1,5 +1,6 @@
 """按已留存的mm-imagen2契约解析一次内层JSON及有界Base64。"""
 
+import asyncio
 import base64
 import binascii
 import json
@@ -20,6 +21,13 @@ def reject_constant(value: str) -> None:
 
 
 class ImageResponseService:
+    @staticmethod
+    async def parse_async(http_status: int, body: object, *, max_bytes: int, expected_count: int) -> ImageProviderFact:
+        """大响应解析移出事件循环，避免阻塞同进程的租约心跳与其他任务。"""
+        return await asyncio.to_thread(
+            ImageResponseService.parse, http_status, body, max_bytes=max_bytes, expected_count=expected_count,
+        )
+
     @staticmethod
     def parse(http_status: int, body: object, *, max_bytes: int, expected_count: int) -> ImageProviderFact:
         """总解码字节上限由部署配置明确给出；实际媒体格式由后续存储校验。"""

@@ -7,9 +7,23 @@ from sqlalchemy import select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from module_higgsfield.entity.do.provider_upload_do import HfProviderUpload
+from module_higgsfield.entity.do.provider_call_do import HfProviderCall
 
 
 class ProviderUploadDao:
+    @staticmethod
+    async def registration(db, asset_version_id, account_id, credential_version_id, project):
+        """注册身份不随上传地址过期；只取最新记录，不回退复活旧身份。"""
+        return await db.scalar(select(HfProviderUpload).join(
+            HfProviderCall, HfProviderCall.call_id == HfProviderUpload.provider_call_id,
+        ).where(
+            HfProviderUpload.asset_version_id == asset_version_id,
+            HfProviderUpload.account_id == account_id,
+            HfProviderUpload.credential_version_id == credential_version_id,
+            HfProviderUpload.state.in_(('1', '4')),
+            HfProviderCall.response_metadata['assetRegistrations'].has_key(project),
+        ).order_by(HfProviderUpload.provider_upload_id.desc()).limit(1))
+
     @staticmethod
     async def unresolved(
         db: AsyncSession, asset_version_id: int, account_id: int, credential_version_id: int

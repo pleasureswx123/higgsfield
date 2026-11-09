@@ -102,6 +102,8 @@ class ProviderUploadServiceTests(unittest.IsolatedAsyncioTestCase):
         self.assertIsNone(reused.call_id)
 
     async def test_crypto_failure_rolls_back_then_timeout_blocks_resend(self) -> None:
+        async with self.sessions() as db:
+            reserved_before = await db.scalar(text('SELECT reserved_amount FROM hf_budget_period'))
         pending = await self.begin()
         async with self.sessions() as db:
             with (
@@ -119,7 +121,7 @@ class ProviderUploadServiceTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(retried.status, 'unknown')
         async with self.sessions() as db:
             self.assertEqual(await db.scalar(text('SELECT count(*) FROM hf_provider_call')), 1)
-            self.assertEqual(await db.scalar(text('SELECT reserved_amount FROM hf_budget_period')), 6)
+            self.assertEqual(await db.scalar(text('SELECT reserved_amount FROM hf_budget_period')), reserved_before)
 
     async def test_new_lease_marks_interrupted_upload_unknown(self) -> None:
         pending = await self.begin()

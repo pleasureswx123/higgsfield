@@ -67,7 +67,8 @@ class VideoPlusMediaResolver:
             if item['mediaRole'] not in policy.roles or limit is None or not 0 < int(item['byteSize']) <= limit:
                 WorkspaceService.conflict('PROVIDER_MEDIA_UNSUPPORTED', '引用角色、类型或大小不符合已核实的直传策略')
         storage = self.storage or StorageService()
-        identities = {}
+        identities, registered = {}, set()
+        project = 'eva' if alias.startswith('mm-eva-') else 'nova'
         for item in media:
             async with context.sessions() as db:
                 prepared = await ProviderUploadService.begin(
@@ -76,6 +77,7 @@ class VideoPlusMediaResolver:
                     int(item['assetVersionId']),
                     required_seconds=policy.required_seconds,
                     crypto=self.crypto,
+                    registration_project=project if item['mediaRole'] == 'reference_person' else None,
                 )
             if prepared.status == 'upload':
                 async with context.sessions() as db:
@@ -101,54 +103,72 @@ class VideoPlusMediaResolver:
                     await ProviderUploadService.record(
                         db, context.lease, prepared.upload_id, result, crypto=self.crypto
                     )
+            elif prepared.status == 'registered':
+                registered.add(item['ordinal'])
             elif prepared.status != 'ready':
                 WorkspaceService.conflict('PROVIDER_UPLOAD_UNRESOLVED', '上传尚未确认可用，不能提交生成')
             identities[item['ordinal']] = prepared.upload_id
         # 全部上传完成后重新检查有效期；不能为刷新刚返回的短期地址再次创建上传意图。
         urls = {}
         for ordinal, identity in identities.items():
-            async with context.sessions() as db:
-                urls[ordinal] = await ProviderUploadService.ready_url(
-                    db, context.lease, identity, required_seconds=policy.required_seconds, crypto=self.crypto
-                )
+            if ordinal not in registered:
+                async with context.sessions() as db:
+                    urls[ordinal] = await ProviderUploadService.ready_url(
+                        db, context.lease, identity, required_seconds=policy.required_seconds, crypto=self.crypto
+                    )
             if media[ordinal]['mediaRole'] == 'reference_person':
                 # 先发起所有人物的注册，让供应商同时处理；不能等待第一张就绪才注册第二张。
-                await self.person_reference(context, identity, urls[ordinal],
-                    project='eva' if alias.startswith('mm-eva-') else 'nova', register_only=True)
+                await self.person_reference(context, identity, urls.get(ordinal),
+                    project=project, register_only=True)
         for ordinal, identity in identities.items():
             if media[ordinal]['mediaRole'] == 'reference_person':
-                urls[ordinal] = await self.person_reference(context, identity, urls[ordinal],
-                    project='eva' if alias.startswith('mm-eva-') else 'nova')
+                urls[ordinal] = await self.person_reference(context, identity, urls.get(ordinal), project=project)
+        # 必须等全部人物查询结束后再检查，避免后面的慢查询消耗前面地址的剩余有效期。
+        for ordinal, identity in identities.items():
+            if media[ordinal]['mediaRole'] != 'reference_person':
+                async with context.sessions() as db:
+                    urls[ordinal] = await ProviderUploadService.ready_url(
+                        db, context.lease, identity, required_seconds=policy.required_seconds, crypto=self.crypto,
+                    )
         return urls
 
     async def person_reference(self, context, upload_id, source, *, project, register_only=False):
         """复用同一上传、账号和区域的素材注册事实；结果不明时不重复注册。"""
         async with context.sessions() as db:
             job, now = await JobLeaseService.guard(db, context.lease)
+            if job.orchestration_state != '1':
+                WorkspaceService.conflict('UPLOAD_STAGE_INVALID', '只能在准备阶段注册或刷新人物素材')
             _, _, _, version, config = await ProviderJobBindingService.require(db, context.lease, job)
             transport = ProviderHttpService.from_versions(config, version, crypto=self.credentials)
             upload = await ProviderUploadDao.locked(db, upload_id)
             call = await ProviderCallDao.locked(db, upload.provider_call_id)
             registry = dict(call.response_metadata.get('assetRegistrations', {}))
             registration = registry.get(project)
-            if registration is None:
+            needs_registration = registration is None or registration.get('state') == 'invalid'
+            if needs_registration:
+                if source is None:
+                    WorkspaceService.conflict('PROVIDER_UPLOAD_UNRESOLVED', '重新注册需要有效的上传地址')
                 registration_call = await self.asset_call(db, job, now, upload, 'register', project, context.lease.worker)
                 registry[project] = {'state': 'registering', 'callId': str(registration_call.call_id)}
                 call.response_metadata = {**call.response_metadata, 'assetRegistrations': registry}
+                call.update_time, call.update_by = now, context.lease.worker
             await db.commit()
-        if registration is None:
+        if needs_registration:
             ProviderExchangeService.bind(transport, context, registration_call.call_id)
             response = await transport.register_asset(source.get_secret_value(), project=project, asset_type='Image', name='人物参考图')
             await self.record_asset_call(context, registration_call.call_id, response)
+            if response.transport != 'response':
+                WorkspaceService.conflict('ASSET_REGISTRATION_UNKNOWN', '注册响应未确认，不会自动重新注册')
             identity = VideoPlusAssetResponseService.registration(response.http_status or 0, response.body)
             async with context.sessions() as db:
-                await JobLeaseService.guard(db, context.lease)
+                _, now = await JobLeaseService.guard(db, context.lease)
                 upload = await ProviderUploadDao.locked(db, upload_id)
                 call = await ProviderCallDao.locked(db, upload.provider_call_id)
                 registry = dict(call.response_metadata.get('assetRegistrations', {}))
                 registration = {'state': 'registered', 'id': identity, 'callId': str(registration_call.call_id)}
                 registry[project] = registration
                 call.response_metadata = {**call.response_metadata, 'assetRegistrations': registry}
+                call.update_time, call.update_by = now, context.lease.worker
                 await db.commit()
         if not registration.get('id'):
             WorkspaceService.conflict('ASSET_REGISTRATION_UNKNOWN', '人物素材注册结果待核查，不会自动重复注册')
@@ -162,7 +182,29 @@ class VideoPlusMediaResolver:
         ProviderExchangeService.bind(transport, context, query_call.call_id)
         response = await transport.get_asset(registration['id'])
         await self.record_asset_call(context, query_call.call_id, response)
-        state = VideoPlusAssetResponseService.status(response.http_status or 0, response.body, expected_id=registration['id'])
+        if response.transport != 'response':
+            WorkspaceService.conflict('ASSET_QUERY_UNCONFIRMED', '素材查询未确认，保留原注册，不会自动重新注册')
+        try:
+            state = VideoPlusAssetResponseService.status(response.http_status or 0, response.body, expected_id=registration['id'])
+        except ValueError:
+            WorkspaceService.conflict('ASSET_QUERY_UNCONFIRMED', '素材查询没有返回可确认的状态，保留原注册')
+        if state in {'Expired', 'Deleted'}:
+            async with context.sessions() as db:
+                job, now = await JobLeaseService.guard(db, context.lease)
+                upload = await ProviderUploadDao.locked(db, upload_id)
+                call = await ProviderCallDao.locked(db, upload.provider_call_id)
+                registry = dict(call.response_metadata.get('assetRegistrations', {}))
+                # 另一任务可能已更新注册，迟到的旧查询不能使新身份失效。
+                if registry.get(project) == registration:
+                    registry[project] = {**registration, 'state': 'invalid', 'evidenceCallId': str(query_call.call_id)}
+                    call.response_metadata = {**call.response_metadata, 'assetRegistrations': registry}
+                    call.update_time, call.update_by = now, context.lease.worker
+                evidence = await ProviderCallDao.locked(db, query_call.call_id)
+                evidence.business_code = 'ASSET_ID_INVALID'
+                evidence.response_metadata = {**evidence.response_metadata, 'assetStatus': state}
+                evidence.update_time, evidence.update_by = now, context.lease.worker
+                await db.commit()
+            WorkspaceService.conflict('ASSET_ID_INVALID', '人物素材已明确失效，准备刷新素材后再提交生成')
         if state != 'Active':
             WorkspaceService.conflict('ASSET_PROCESSING' if state == 'Processing' else 'ASSET_REGISTRATION_FAILED',
                 '人物参考素材正在处理' if state == 'Processing' else '人物参考素材注册失败')
@@ -171,7 +213,8 @@ class VideoPlusMediaResolver:
     @staticmethod
     async def asset_call(db, job, now, upload, operation, project, worker):
         """上传可跨任务复用，但每次注册/查询的网络证据必须属于当前任务。"""
-        metadata = {'providerUploadId': str(upload.provider_upload_id), 'project': project}
+        metadata = {'providerUploadId': str(upload.provider_upload_id),
+                    'assetVersionId': str(upload.asset_version_id), 'project': project}
         return await ProviderCallDao.add(db, dict(job_id=job.job_id, account_id=upload.account_id,
             credential_version_id=job.credential_version_id, operation=operation,
             request_hash=WriteService.digest(metadata), request_metadata=metadata,

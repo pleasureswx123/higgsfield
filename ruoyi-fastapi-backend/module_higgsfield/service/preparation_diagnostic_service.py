@@ -6,6 +6,10 @@ from module_higgsfield.dao.job_event_dao import JobEventDao
 
 class PreparationDiagnosticService:
     MESSAGES = {
+        'ASSET_ID_INVALID': '人物素材已明确失效，后台会刷新素材后再提交生成，无需重复点击。',
+        'ASSET_QUERY_UNCONFIRMED': '人物素材状态暂未确认，后台会继续查询；不会因此重新注册或提交生成。',
+        'ASSET_RENEWAL_EXHAUSTED': '人物素材刷新后再次失效，已停止自动注册，请核查供应商素材状态；尚未提交生成。',
+        'PROVIDER_UPLOAD_UNRESOLVED': '上传地址尚未确认可用或有效期不足，后台会重新核查；尚未提交生成。',
         'ASSET_PROCESSING': '虚拟人物素材正在供应商素材库处理中，后台会继续查询，无需再次点击生成。',
         'ASSET_REGISTRATION_FAILED': '供应商未通过虚拟人物素材注册，请核查或更换参考图；尚未提交视频生成。',
         'ASSET_REGISTRATION_UNKNOWN': '虚拟人物素材注册结果尚未确认，请联系平台管理员核查；不会自动重复注册或生成。',

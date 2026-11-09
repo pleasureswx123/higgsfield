@@ -120,6 +120,7 @@ class MediaResolverTests(unittest.IsolatedAsyncioTestCase):
 
     async def respond(self, reader: asyncio.StreamReader, writer: asyncio.StreamWriter) -> None:
         try:
+            http_status = 200
             header = await reader.readuntil(b'\r\n\r\n')
             lines = header.decode().split('\r\n')
             headers = dict(line.split(': ', 1) for line in lines[1:] if ': ' in line)
@@ -135,14 +136,20 @@ class MediaResolverTests(unittest.IsolatedAsyncioTestCase):
                     'usage': {'completion_tokens': 123}}
             elif lines[0] == 'POST /v1/mm/assets HTTP/1.1':
                 payload = json.loads(body)
-                self.assertEqual(payload['ProjectName'], 'eva')
+                self.assertEqual(payload['ProjectName'], getattr(self, 'register_project', 'eva'))
                 self.assertEqual(payload['AssetType'], 'Image')
                 self.assertEqual(payload['URL'], 'https://example.com/reference?signature=secret')
-                response = {'Id': 'asset-20261102155631-test', 'base_resp': {'status_code': 0}}
+                response = {'Id': getattr(self, 'registered_identity', 'asset-20261102155631-test'), 'base_resp': {'status_code': 0}}
             elif lines[0] == 'POST /v1/mm/assets/get HTTP/1.1':
-                self.assertEqual(json.loads(body)['Id'], 'asset-20261102155631-test')
-                response = {'Id': 'asset-20261102155631-test', 'AssetType': 'Image',
-                    'Status': 'Processing' if self.mode == 'two_people' else 'Active', 'base_resp': {'status_code': 0}}
+                if getattr(self, 'asset_disconnect', False):
+                    return  # 模拟查询响应前连接断开，客户端必须保留原素材身份。
+                queried_id = json.loads(body)['Id']
+                self.assertIn(queried_id, {'asset-20261102155631-test', 'asset-renewed'})
+                response = {'Id': queried_id, 'AssetType': 'Image',
+                    'Status': getattr(self, 'asset_status', 'Processing' if self.mode == 'two_people' else 'Active'),
+                    'URL': 'https://example.com/expired-download?expires=1', 'base_resp': {'status_code': 0}}
+                response.update(getattr(self, 'asset_response_patch', {}))
+                http_status = getattr(self, 'asset_http_status', 200)
             elif '/assets/upload ' in lines[0]:
                 self.assertIn(self.data, body)
                 response = {
@@ -164,11 +171,11 @@ class MediaResolverTests(unittest.IsolatedAsyncioTestCase):
                 payload = json.loads(body)
                 content = payload['messages'][0]['content']
                 self.assertEqual(content[0]['text'], '参考图片 1')
-                self.assertEqual(content[1]['image_url']['url'], 'asset://asset-20261102155631-test' if self.mode == 'person' else 'https://example.com/reference?signature=secret')
+                self.assertEqual(content[1]['image_url']['url'], 'asset://' + getattr(self, 'expected_person_id', 'asset-20261102155631-test') if self.mode == 'person' else 'https://example.com/reference?signature=secret')
                 response = {'id': 'outer', 'choices': [{'message': {'content': '{"id":"task"}'}}]}
             encoded = json.dumps(response).encode()
             writer.write(
-                f'HTTP/1.1 200 OK\r\nContent-Length: {len(encoded)}\r\nConnection: close\r\n\r\n'.encode() + encoded
+                f'HTTP/1.1 {http_status} Response\r\nContent-Length: {len(encoded)}\r\nConnection: close\r\n\r\n'.encode() + encoded
             )
             await writer.drain()
         except Exception as error:

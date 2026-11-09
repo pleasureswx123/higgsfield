@@ -10,6 +10,17 @@ from module_higgsfield.service.provider_upload_stream import ProviderUploadStrea
 
 
 class UploadResponseTests(unittest.TestCase):
+    def test_slow_response_does_not_extend_relative_expiry(self):
+        now = datetime(2026, 10, 27, tzinfo=UTC)
+        body = {'success': True, 'file_name': 'test.png', 'asset_type': 'image', 'content_type': 'image/png', 'size': 10,
+                'url': 'https://example.com/file', 'expires_in': 3600}
+        result = ProviderUploadResponseService.parse(200, body, received_at=now,
+            requested_at=now-timedelta(minutes=10), expected_size=10, expected_mime='image/png')
+        self.assertEqual(result.expires_at, now + timedelta(minutes=49))
+        with self.assertRaises(ValueError):
+            ProviderUploadResponseService.parse(200, body, received_at=now,
+                requested_at=now-timedelta(hours=2), expected_size=10, expected_mime='image/png')
+
     def test_expiry_uses_earliest_fact_and_margin(self) -> None:
         now = datetime(2026, 10, 27, tzinfo=UTC)
         body = {

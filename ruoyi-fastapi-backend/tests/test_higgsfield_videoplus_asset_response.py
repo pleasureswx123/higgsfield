@@ -15,7 +15,7 @@ class AssetResponseTests(unittest.TestCase):
         self.assertEqual(Parser.reference(200, self.body, expected_id=identity), 'asset://asset-example-1')
 
     def test_processing_and_failed_never_generate(self):
-        for state in ('Processing', 'Failed'):
+        for state in ('Processing', 'Failed', 'Expired', 'Deleted'):
             body = {**self.body, 'Status': state}
             self.assertEqual(Parser.status(200, body, expected_id='asset-example-1'), state)
             with self.assertRaises(ValueError):

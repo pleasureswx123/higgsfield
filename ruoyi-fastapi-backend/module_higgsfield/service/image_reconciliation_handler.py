@@ -42,7 +42,7 @@ class ImageReconciliationHandler:
             return
         body = await self.evidence_storage.load(saved['files'], saved['call_id'], saved['job_id'])
         try:
-            fact = ImageResponseService.parse(
+            fact = await ImageResponseService.parse_async(
                 saved['http_status'],
                 body,
                 max_bytes=self.max_decoded_bytes,

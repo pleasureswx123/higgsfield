@@ -36,7 +36,7 @@ class ImageArchiveRecoveryWorker(OutputArchiveWorker):
             )
         body = await self.evidence_storage.load(file_facts, call_id, job_id)
         # 以原批次登记数量核对响应；请求级用量仍保留在原调用事实中。
-        fact = ImageResponseService.parse(status, body, max_bytes=self.max_decoded_bytes, expected_count=output_count)
+        fact = await ImageResponseService.parse_async(status, body, max_bytes=self.max_decoded_bytes, expected_count=output_count)
         image = next((item for item in fact.images if item.ordinal == ordinal), None)
         if image is None:
             raise ValueError('证据中没有可解码的目标图片')

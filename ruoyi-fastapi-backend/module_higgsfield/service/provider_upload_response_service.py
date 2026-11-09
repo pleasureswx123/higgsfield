@@ -18,9 +18,12 @@ class ProviderUploadResponseService:
         expected_size: int,
         expected_mime: str,
         safety_seconds: int = 60,
+        requested_at: datetime | None = None,
     ) -> ProviderUploadedMedia:
         if received_at.tzinfo is None or received_at.utcoffset() is None:
             raise ValueError('接收时间必须包含时区')
+        if requested_at is not None and (requested_at.tzinfo is None or requested_at.utcoffset() is None or requested_at > received_at):
+            raise ValueError('上传开始时间必须包含时区且不晚于接收时间')
         if type(safety_seconds) is not int or safety_seconds < 0:
             raise ValueError('安全余量必须为非负整数')
         if (
@@ -39,7 +42,7 @@ class ProviderUploadResponseService:
         ):
             raise ValueError('上传结果与原文件类型或大小不匹配')
         validate_output_source(body.get('url'))
-        expires_at, issues = ProviderUploadResponseService._expiry(body, received_at, safety_seconds)
+        expires_at, issues = ProviderUploadResponseService._expiry(body, received_at, safety_seconds, requested_at)
         return ProviderUploadedMedia(
             sourceUrl=body['url'],
             expiresAt=expires_at,
@@ -51,7 +54,7 @@ class ProviderUploadResponseService:
         )
 
     @staticmethod
-    def _expiry(body: dict, received_at: datetime, safety_seconds: int) -> tuple[datetime, list[str]]:
+    def _expiry(body: dict, received_at: datetime, safety_seconds: int, requested_at: datetime | None = None) -> tuple[datetime, list[str]]:
         deadlines, issues = [], []
         for field in ('expires_at', 'expires_time'):
             if field not in body:
@@ -67,7 +70,8 @@ class ProviderUploadResponseService:
             seconds = body['expires_in']
             if type(seconds) is int and seconds > 0:
                 try:
-                    deadlines.append(received_at + timedelta(seconds=seconds))
+                    # 从请求开始保守计时，避免慢上传或响应延迟延长供应商的真实有效期。
+                    deadlines.append((requested_at or received_at) + timedelta(seconds=seconds))
                 except OverflowError:
                     issues.append('UPLOAD_EXPIRY_INVALID')
             else:

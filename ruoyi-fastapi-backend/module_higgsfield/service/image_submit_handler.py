@@ -101,7 +101,7 @@ class ImageSubmitHandler:
                     http_status=response.http_status,
                 )
         try:
-            fact = ImageResponseService.parse(
+            fact = await ImageResponseService.parse_async(
                 response.http_status,
                 response.body,
                 max_bytes=self.max_decoded_bytes,

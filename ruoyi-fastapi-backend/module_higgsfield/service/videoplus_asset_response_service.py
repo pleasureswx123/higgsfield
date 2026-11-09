@@ -26,7 +26,9 @@ class VideoPlusAssetResponseService:
         if identity != expected_id or body.get('AssetType') != expected_type:
             raise ValueError('查询返回的素材身份或类型不一致')
         state = body.get('Status')
-        if state not in {'Active', 'Processing', 'Failed'}:
+        # 不根据年龄、裸404或自由文本猜测失效。兼容明确且绑定当前身份的失效状态；
+        # 文档尚未给出失效错误码，因此其他响应继续保守报错。
+        if state not in {'Active', 'Processing', 'Failed', 'Expired', 'Deleted'}:
             raise ValueError('素材状态未知')
         return state
 

@@ -25,7 +25,7 @@ MAX_REQUIRED_SECONDS = 604800
 @dataclass(frozen=True)
 class UploadPreparation:
     upload_id: int
-    status: Literal['upload', 'ready', 'busy', 'unknown']
+    status: Literal['upload', 'ready', 'busy', 'unknown', 'registered']
     call_id: int | None = None
     url: SecretStr | None = None
 
@@ -62,9 +62,12 @@ class ProviderUploadService:
         *,
         required_seconds: int,
         crypto: ProviderUploadCryptoService | None = None,
+        registration_project: str | None = None,
     ) -> UploadPreparation:
         if type(required_seconds) is not int or not 1 <= required_seconds <= MAX_REQUIRED_SECONDS:
             raise ValueError('上传地址所需有效期无效')
+        if registration_project not in {None, 'eva', 'nova'}:
+            raise ValueError('素材库项目无效')
         try:
             job, _ = await JobLeaseService.guard(db, lease)
             if job.orchestration_state != '1':
@@ -94,6 +97,18 @@ class ProviderUploadService:
             job, now, account, version, config = await ProviderJobBindingService.require(db, lease, job)
             await ProviderUploadDao.lock_scope(db, asset_version_id, account.account_id, version.credential_version_id)
             job, now = await JobLeaseService.guard(db, lease)
+            if registration_project is not None:
+                if await ProviderCallDao.asset_invalidations(db, job.job_id, asset_version_id, registration_project) >= 2:
+                    WorkspaceService.conflict('ASSET_RENEWAL_EXHAUSTED', '人物素材刷新后再次明确失效，已停止自动重新注册')
+                registered = await ProviderUploadDao.registration(
+                    db, asset_version_id, account.account_id, version.credential_version_id, registration_project,
+                )
+                if registered:
+                    call = await ProviderCallDao.get(db, registered.provider_call_id)
+                    registration = call.response_metadata['assetRegistrations'][registration_project]
+                    if registration.get('state') != 'invalid':
+                        await db.commit()
+                        return UploadPreparation(registered.provider_upload_id, 'registered')
             reusable = await ProviderUploadDao.reusable(
                 db,
                 asset_version_id,
@@ -203,6 +218,7 @@ class ProviderUploadService:
                         result.http_status,
                         result.body,
                         received_at=now,
+                        requested_at=call.started_time,
                         expected_size=int(call.request_metadata['byteSize']),
                         expected_mime=call.request_metadata['mimeType'],
                     )

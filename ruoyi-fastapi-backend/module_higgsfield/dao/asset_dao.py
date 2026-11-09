@@ -176,6 +176,11 @@ class AssetDao:
         return await db.get(HfStoredFile, file_id)
 
     @staticmethod
+    async def files(db, file_ids):
+        """一次读取固定参考图的文件事实，避免逐图往返数据库。"""
+        return (await db.scalars(select(HfStoredFile).where(HfStoredFile.file_id.in_(file_ids)))).all()
+
+    @staticmethod
     async def asset(db, asset_id):
         return await db.scalar(
             select(HfAsset).where(HfAsset.asset_id == asset_id).execution_options(populate_existing=True)

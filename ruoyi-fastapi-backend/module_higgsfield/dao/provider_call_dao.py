@@ -1,12 +1,21 @@
 """调用身份写入和任务提交意图查询。"""
 
-from sqlalchemy import select
+from sqlalchemy import select, func
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from module_higgsfield.entity.do.provider_call_do import HfProviderCall
 
 
 class ProviderCallDao:
+    @staticmethod
+    async def asset_invalidations(db, job_id, asset_version_id, project):
+        return await db.scalar(select(func.count()).select_from(HfProviderCall).where(
+            HfProviderCall.job_id == job_id, HfProviderCall.operation == 'asset_get',
+            HfProviderCall.business_code == 'ASSET_ID_INVALID',
+            HfProviderCall.request_metadata['assetVersionId'].astext == str(asset_version_id),
+            HfProviderCall.request_metadata['project'].astext == project,
+        ))
+
     @staticmethod
     async def get(db: AsyncSession, call_id: int):
         return await db.scalar(select(HfProviderCall).where(HfProviderCall.call_id == call_id))
