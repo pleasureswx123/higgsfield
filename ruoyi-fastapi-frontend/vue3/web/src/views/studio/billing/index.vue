@@ -1,9 +1,12 @@
 <script setup>
-import { computed, ref } from 'vue'
+import { computed, ref, watch } from 'vue'
 import { useBillingEvents } from '@/composables/studio/useBillingEvents'
 import BillingAdjustment from './BillingAdjustment.vue'
+import BillingCharts from './BillingCharts.vue'
 import BillingSummary from './BillingSummary.vue'
 import { billingTimeWindow } from '@/utils/billingQuery'
+import { formatBusinessTime, formatEpochMilliseconds } from '@/utils/time'
+const displayTime = value => formatBusinessTime(value, 'YYYY-MM-DD HH:mm:ss', 'Asia/Shanghai') || '—'
 const adjustmentPending = ref(false)
 function adjustmentSaved() {
   adjustmentPending.value = false
@@ -30,6 +33,9 @@ const {
   select,
   closeDetail,
 } = useBillingEvents()
+watch(() => filters.scope, scope => {
+  if (scope === 'cost_center' && filters.chartGroupBy === 'user') filters.chartGroupBy = 'day'
+})
 const states = { pending: '待确认', calculated: '已计算', confirmed: '已确认', disputed: '有争议', unpriced: '未计价' }
 const usageLabels = {
   inputTokens: '输入 Token',
@@ -49,7 +55,7 @@ const rules = {
       validator: (_rule, value, callback) => {
         try {
           const window = billingTimeWindow(value)
-          if (filters.mode === 'summary' && !window.from)
+          if (filters.mode !== 'events' && !window.from)
             throw new Error('汇总查询必须选择起止时间')
           callback()
         } catch (cause) {
@@ -64,6 +70,12 @@ const rules = {
   projectId: [{ pattern: /^[1-9]\d{0,18}$/, message: '请输入有效的项目编号', trigger: 'blur' }],
   jobId: [{ pattern: /^[1-9]\d{0,18}$/, message: '请输入有效的任务编号', trigger: 'blur' }],
   costCenterId: [{ pattern: /^[1-9]\d{0,18}$/, message: '请输入有效的成本中心ID', trigger: 'blur' }],
+}
+function initializeChartRange(mode) {
+  if (mode === 'charts' && !filters.timeRange?.length) {
+    const now = Date.now()
+    filters.timeRange = [now - 29 * 86400000, now].map(value => formatEpochMilliseconds(value, 'YYYY-MM-DD', 'Asia/Shanghai'))
+  }
 }
 // 保留十进制字符串，不经浮点数转换；未知金额不能显示为零。
 const amount = (value) => (value == null ? '待核算' : String(value))
@@ -84,12 +96,12 @@ const amount = (value) => (value == null ? '待核算' : String(value))
       label-position="top"
     >
       <el-form-item label="查看方式"
-        ><el-select v-model="filters.mode"
+        ><el-select v-model="filters.mode" @change="initializeChartRange"
           ><el-option
             label="费用明细"
             value="events" /><el-option
             label="费用汇总"
-            value="summary" /></el-select
+            value="summary" /><el-option label="统计图表" value="charts" /></el-select
       ></el-form-item>
       <el-form-item
         v-if="filters.mode === 'summary' && filters.scope === 'project'"
@@ -110,11 +122,17 @@ const amount = (value) => (value == null ? '待核算' : String(value))
       <el-form-item v-if="filters.mode === 'summary' && filters.scope === 'cost_center'" label="汇总维度">
         <el-select v-model="filters.costCenterGroupBy"><el-option label="成本中心" value="cost_center" /><el-option label="日期" value="day" /></el-select>
       </el-form-item>
+      <el-form-item v-if="filters.mode === 'charts'" label="统计维度">
+        <el-select v-model="filters.chartGroupBy"><el-option v-if="filters.scope === 'project'" label="按人" value="user" /><el-option label="按日" value="day" /><el-option label="按周（周一开始）" value="week" /><el-option label="按月" value="month" /></el-select>
+      </el-form-item>
       <el-form-item label="费用归属">
         <el-select v-model="filters.scope"><el-option label="项目创作" value="project" /><el-option label="管理员测试等非项目消耗" value="cost_center" /></el-select>
       </el-form-item>
       <el-form-item v-if="filters.scope === 'cost_center'" label="成本中心ID" prop="costCenterId">
         <el-input v-model="filters.costCenterId" placeholder="留空查询全部成本中心" clearable />
+      </el-form-item>
+      <el-form-item v-if="filters.scope === 'project'" label="生成类型">
+        <el-select v-model="filters.generationType" placeholder="全部类型"><el-option label="全部类型" value="" /><el-option label="图片" value="image" /><el-option label="视频" value="video" /></el-select>
       </el-form-item>
       <el-form-item label="计价口径"
         ><el-select v-model="filters.purpose"
@@ -179,15 +197,15 @@ const amount = (value) => (value == null ? '待核算' : String(value))
             :label="person.username ? `${person.name || person.username}（${person.username}）` : (person.name || `用户 ${person.id}`)" />
         </el-select></el-form-item>
       <el-form-item
-        label="费用创建时间（上海时间，结束时刻不包含）"
+        label="费用日期（上海时间，含结束日）"
         prop="timeRange"
       >
         <el-date-picker
           v-model="filters.timeRange"
-          type="datetimerange"
-          value-format="YYYY-MM-DD HH:mm:ss"
-          start-placeholder="开始时刻"
-          end-placeholder="结束时刻"
+          type="daterange"
+          value-format="YYYY-MM-DD"
+          start-placeholder="开始日期"
+          end-placeholder="结束日期"
         />
       </el-form-item>
       <el-form-item label="操作"
@@ -212,8 +230,10 @@ const amount = (value) => (value == null ? '待核算' : String(value))
       :closable="false"
       show-icon
     />
+    <BillingCharts v-if="filters.mode === 'charts'" v-loading="loading" :summary="summary"
+      :group-by="filters.scope === 'cost_center' && filters.chartGroupBy === 'user' ? 'day' : filters.chartGroupBy" :time-range="filters.timeRange" />
     <BillingSummary
-      v-if="filters.mode === 'summary'"
+      v-else-if="filters.mode === 'summary'"
       v-loading="loading"
       :summary="summary"
     />
@@ -239,6 +259,7 @@ const amount = (value) => (value == null ? '待核算' : String(value))
         label="币种"
         width="85"
       />
+      <el-table-column v-if="filters.scope === 'project'" label="生成类型" min-width="100"><template #default="{ row }">{{ ({ image: '图片', video: '视频', chat: '对话' })[row.generationType] || '未记录' }}</template></el-table-column>
       <el-table-column label="消耗人" min-width="190" show-overflow-tooltip>
         <template #default="{ row }">
           <div>{{ row.consumerName || row.consumerUsername || (row.consumerId ? `用户 ${row.consumerId}` : '未记录') }}</div>
@@ -263,12 +284,13 @@ const amount = (value) => (value == null ? '待核算' : String(value))
       >
       <el-table-column
         prop="createTime"
-        label="创建时间"
-        min-width="210"
-      />
+        label="创建时间（上海）"
+        width="185"
+      ><template #default="{ row }">{{ displayTime(row.createTime) }}</template></el-table-column>
       <el-table-column
         label="操作"
-        width="90"
+        fixed="right"
+        width="110"
         ><template #default="{ row }"
           ><el-button
             link
@@ -371,8 +393,9 @@ const amount = (value) => (value == null ? '待核算' : String(value))
             prop="reconciliationLineId"
             label="对账依据ID" /><el-table-column
             prop="createTime"
-            label="调整时间"
-        /></el-table>
+            label="调整时间（上海）"
+            min-width="185"
+        ><template #default="{ row }">{{ displayTime(row.createTime) }}</template></el-table-column></el-table>
       </template>
       <template #footer><el-button :disabled="adjustmentPending" @click="closeDetail">关闭明细</el-button></template>
     </el-drawer>

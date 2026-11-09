@@ -10,6 +10,22 @@ from module_higgsfield.service.usage_summary_calculation_service import (
 
 
 class UsageSummaryCalculationTests(unittest.TestCase):
+    def test_people_usage_counts_distinguish_missing_from_zero(self):
+        rows = Summary.summarize([
+            self.fact(generation_kind='image', image_count=3, user_name='maker'),
+            self.fact(event_id=2, subject_id=2, generation_kind='image'),
+            self.fact(event_id=3, subject_id=3, generation_kind='video', video_tokens=567242),
+            self.fact(event_id=4, subject_id=4, generation_kind='video'),
+        ], purpose='platform')
+        row = rows[0]
+        self.assertEqual(row['imageTaskCount'], '2')
+        self.assertEqual(row['videoTaskCount'], '2')
+        self.assertEqual(row['imageCount'], '3')
+        self.assertEqual(row['videoTokens'], '567242')
+        self.assertEqual(row['imageUsageMissingCount'], '1')
+        self.assertEqual(row['videoUsageMissingCount'], '1')
+        self.assertEqual(row['userName'], 'maker')
+
     def fact(self, **values):
         return UsageSummaryFact(
             **(

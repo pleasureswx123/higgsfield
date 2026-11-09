@@ -20,6 +20,9 @@ class UsageSummaryFact:
     output_tokens: int | None = None
     video_tokens: int | None = None
     usage_completeness: str = 'unknown'
+    generation_kind: str | None = None
+    user_name: str | None = None
+    image_count: int | None = None
 
 
 class UsageSummaryCalculationService:
@@ -60,6 +63,12 @@ class UsageSummaryCalculationService:
                         outputTokens=0,
                         videoTokens=0,
                         _completeness=[],
+                        userName=fact.user_name,
+                        imageTaskCount=0,
+                        videoTaskCount=0,
+                        imageCount=0,
+                        imageUsageMissingCount=0,
+                        videoUsageMissingCount=0,
                     ),
                 )
                 if fact.amount is None or fact.state == '0':
@@ -74,6 +83,18 @@ class UsageSummaryCalculationService:
                 if identity in subjects:
                     raise ValueError('汇总包含重复计费对象')
                 subjects.add(identity)
+                if fact.generation_kind == 'image':
+                    group['imageTaskCount'] += 1
+                    if fact.image_count is None:
+                        group['imageUsageMissingCount'] += 1
+                    elif type(fact.image_count) is not int or fact.image_count < 0:
+                        raise ValueError('图片数量必须为非负整数')
+                    else:
+                        group['imageCount'] += fact.image_count
+                elif fact.generation_kind == 'video':
+                    group['videoTaskCount'] += 1
+                    if fact.video_tokens is None:
+                        group['videoUsageMissingCount'] += 1
                 group['_completeness'].append(fact.usage_completeness)
                 for field, value in (
                     ('inputTokens', fact.input_tokens),
@@ -99,6 +120,8 @@ class UsageSummaryCalculationService:
                 for name in (*cls.buckets.values(), 'totalKnownAmount'):
                     group[name] = format(group[name], '.10f')
                 for name in ('unknownCount', 'inputTokens', 'outputTokens', 'videoTokens'):
+                    group[name] = str(group[name])
+                for name in ('imageTaskCount', 'videoTaskCount', 'imageCount', 'imageUsageMissingCount', 'videoUsageMissingCount'):
                     group[name] = str(group[name])
                 result.append(group)
         return result

@@ -76,12 +76,6 @@
             <router-link to="/user/profile">
               <el-dropdown-item>个人中心</el-dropdown-item>
             </router-link>
-            <el-dropdown-item
-              command="setLayout"
-              v-if="settingsStore.showSettings"
-            >
-              <span>布局设置</span>
-            </el-dropdown-item>
             <el-dropdown-item command="lockScreen">
               <span>锁定屏幕</span>
             </el-dropdown-item>

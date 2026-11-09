@@ -28,9 +28,9 @@ const actionLabels = { retry_archive: '重试归档', requery: '重新查询', c
       <el-table-column prop="jobId" label="任务编号" min-width="120" /><el-table-column prop="projectId" label="项目编号" min-width="120" />
       <el-table-column label="发起人" min-width="170"><template #default="{row}"><div>{{ row.actorName || row.actorUsername || (row.actorId ? `用户 ${row.actorId}` : '未记录') }}</div><div v-if="row.actorUsername" class="actor-account">{{ row.actorUsername }}</div></template></el-table-column><el-table-column prop="orchestrationState" label="编排阶段" min-width="150" />
       <el-table-column prop="upstreamState" label="上游状态" min-width="120" /><el-table-column prop="billingState" label="费用状态" min-width="120" />
-      <el-table-column prop="lastKnownFact" label="最后已知事实" min-width="300" show-overflow-tooltip />
-      <el-table-column label="下次调度（上海）" width="185"><template #default="{row}">{{ displayTime(row.nextActionAt) }}</template></el-table-column>
-      <el-table-column label="操作" fixed="right" width="100"><template #default="{row}"><el-button text @click="inspect(row.jobId)">查看详情</el-button></template></el-table-column>
+      <el-table-column label="最后已知事实" min-width="300"><template #default="{row}"><div class="incident-fact" :title="row.lastKnownFact">{{ row.lastKnownFact }}</div></template></el-table-column>
+      <el-table-column label="创建时间（上海）" width="185"><template #default="{row}">{{ displayTime(row.createTime) }}</template></el-table-column>
+      <el-table-column label="操作" fixed="right" width="140" align="center"><template #default="{row}"><el-button text @click="inspect(row.jobId)">查看详情</el-button></template></el-table-column>
     </el-table>
     <el-pagination v-model:current-page="page" :page-size="20" :total="total" layout="total, prev, pager, next" @current-change="load" />
     <el-dialog v-model="open" title="异常任务状态" width="min(900px, 92vw)" destroy-on-close>
@@ -39,6 +39,7 @@ const actionLabels = { retry_archive: '重试归档', requery: '重新查询', c
         <el-alert v-if="detailError" :title="detailError" type="error" :closable="false" />
         <el-button v-if="detailError" text @click="inspect(selectedId)">重新读取</el-button>
         <template v-if="detail">
+          <p v-if="detail.nextActionAt">下次后台处理时间（上海）：{{ displayTime(detail.nextActionAt) }}</p>
           <p>{{ detail.lastKnownFact }}</p><p>修订号：{{ detail.revision }} · 最近更新时间：{{ displayTime(detail.updateTime) }}（上海）</p>
           <p>归档：共 {{ detail.archiveSummary.total }} 项，已就绪 {{ detail.archiveSummary.ready }} 项，失败或过期 {{ detail.archiveSummary.failed }} 项，待处理 {{ detail.archiveSummary.pending }} 项。</p>
           <p>证据定位：{{ detail.evidenceRefs.join('、') || '暂无调用证据' }}</p>
@@ -67,6 +68,7 @@ const actionLabels = { retry_archive: '重试归档', requery: '重新查询', c
   </div>
 </template>
 <style scoped>
+.incident-fact { display:-webkit-box; -webkit-box-orient:vertical; -webkit-line-clamp:3; overflow:hidden; white-space:normal; overflow-wrap:anywhere; line-height:1.5; }
 .actor-account { color:var(--el-text-color-secondary); font-size:12px; }
 .supplier-confirmation { height:auto; align-items:flex-start; }
 .supplier-confirmation :deep(.el-checkbox__label) { white-space:normal; line-height:1.5; }

@@ -41,16 +41,16 @@ comment on table sys_dept is '部门表';
 -- ----------------------------
 -- 初始化-部门表数据
 -- ----------------------------
-insert into sys_dept values(100,  0,   '0',          '集团总公司',   0, '年糕', '15888888888', 'niangao@qq.com', '0', '0', 'admin', current_timestamp, '', null);
-insert into sys_dept values(101,  100, '0,100',      '深圳分公司', 1, '年糕', '15888888888', 'niangao@qq.com', '0', '0', 'admin', current_timestamp, '', null);
-insert into sys_dept values(102,  100, '0,100',      '长沙分公司', 2, '年糕', '15888888888', 'niangao@qq.com', '0', '0', 'admin', current_timestamp, '', null);
-insert into sys_dept values(103,  101, '0,100,101',  '研发部门',   1, '年糕', '15888888888', 'niangao@qq.com', '0', '0', 'admin', current_timestamp, '', null);
-insert into sys_dept values(104,  101, '0,100,101',  '市场部门',   2, '年糕', '15888888888', 'niangao@qq.com', '0', '0', 'admin', current_timestamp, '', null);
-insert into sys_dept values(105,  101, '0,100,101',  '测试部门',   3, '年糕', '15888888888', 'niangao@qq.com', '0', '0', 'admin', current_timestamp, '', null);
-insert into sys_dept values(106,  101, '0,100,101',  '财务部门',   4, '年糕', '15888888888', 'niangao@qq.com', '0', '0', 'admin', current_timestamp, '', null);
-insert into sys_dept values(107,  101, '0,100,101',  '运维部门',   5, '年糕', '15888888888', 'niangao@qq.com', '0', '0', 'admin', current_timestamp, '', null);
-insert into sys_dept values(108,  102, '0,100,102',  '市场部门',   1, '年糕', '15888888888', 'niangao@qq.com', '0', '0', 'admin', current_timestamp, '', null);
-insert into sys_dept values(109,  102, '0,100,102',  '财务部门',   2, '年糕', '15888888888', 'niangao@qq.com', '0', '0', 'admin', current_timestamp, '', null);
+insert into sys_dept values(100,  0,   '0',          '集团总公司',   0, NULL, NULL, NULL, '0', '0', 'admin', current_timestamp, '', null);
+insert into sys_dept values(101,  100, '0,100',      '深圳分公司', 1, NULL, NULL, NULL, '0', '0', 'admin', current_timestamp, '', null);
+insert into sys_dept values(102,  100, '0,100',      '长沙分公司', 2, NULL, NULL, NULL, '0', '0', 'admin', current_timestamp, '', null);
+insert into sys_dept values(103,  101, '0,100,101',  '研发部门',   1, NULL, NULL, NULL, '0', '0', 'admin', current_timestamp, '', null);
+insert into sys_dept values(104,  101, '0,100,101',  '市场部门',   2, NULL, NULL, NULL, '0', '0', 'admin', current_timestamp, '', null);
+insert into sys_dept values(105,  101, '0,100,101',  '测试部门',   3, NULL, NULL, NULL, '0', '0', 'admin', current_timestamp, '', null);
+insert into sys_dept values(106,  101, '0,100,101',  '财务部门',   4, NULL, NULL, NULL, '0', '0', 'admin', current_timestamp, '', null);
+insert into sys_dept values(107,  101, '0,100,101',  '运维部门',   5, NULL, NULL, NULL, '0', '0', 'admin', current_timestamp, '', null);
+insert into sys_dept values(108,  102, '0,100,102',  '市场部门',   1, NULL, NULL, NULL, '0', '0', 'admin', current_timestamp, '', null);
+insert into sys_dept values(109,  102, '0,100,102',  '财务部门',   2, NULL, NULL, NULL, '0', '0', 'admin', current_timestamp, '', null);
 
 -- ----------------------------
 -- 2、用户信息表

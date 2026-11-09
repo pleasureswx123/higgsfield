@@ -9,6 +9,7 @@ export function useBillingEvents() {
   const defaultFilters = () => ({
     purpose: 'platform',
     scope: 'project',
+    generationType: '',
     costCenterId: '',
     currency: '',
     state: '',
@@ -18,6 +19,7 @@ export function useBillingEvents() {
     timeRange: [],
     mode: 'events',
     groupBy: 'project',
+    chartGroupBy: 'user',
     costCenterGroupBy: 'cost_center',
   })
   const filters = reactive(defaultFilters())
@@ -89,17 +91,20 @@ export function useBillingEvents() {
       }
       for (const field of ['currency', 'projectId', 'userId'])
         if (filters[field]) params[field] = filters[field]
+      if (filters.scope === 'project' && filters.generationType) params.generationType = filters.generationType
       params.scope = filters.scope
       if (filters.scope === 'cost_center') {
         delete params.projectId; delete params.userId
         if (filters.costCenterId) params.costCenterId = filters.costCenterId
       }
-      if (filters.mode === 'summary') {
+      if (filters.mode !== 'events') {
         if (!params.from || !params.to) throw new Error('汇总查询必须选择起止时间')
         delete params.pageNum
         delete params.pageSize
         Object.assign(params, {
-          groupBy: filters.scope === 'cost_center' ? filters.costCenterGroupBy : filters.groupBy,
+          groupBy: filters.mode === 'charts'
+            ? (filters.scope === 'cost_center' && filters.chartGroupBy === 'user' ? 'day' : filters.chartGroupBy)
+            : (filters.scope === 'cost_center' ? filters.costCenterGroupBy : filters.groupBy),
           timeBasis: 'createTime',
           businessTimezone: 'Asia/Shanghai',
         })

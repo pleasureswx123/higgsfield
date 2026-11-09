@@ -9,6 +9,7 @@ from module_higgsfield.entity.vo.project_workspace_vo import WorkspaceInput, Big
 class BillingQuery(WorkspaceInput):
     purpose: Literal['platform', 'procurement'] = 'platform'
     scope: Literal['project', 'cost_center'] = 'project'
+    generation_type: Literal['image', 'video'] | None = None
     cost_center_id: BigId | None = None
     currency: str | None = Field(default=None, pattern=r'^[A-Z]{3}$')
     project_id: BigId | None = None
@@ -27,6 +28,8 @@ class BillingQuery(WorkspaceInput):
 
     @model_validator(mode='after')
     def valid_window(self):
+        if self.scope == 'cost_center' and self.generation_type is not None:
+            raise ValueError('生成类型筛选仅用于项目创作费用')
         if self.scope == 'cost_center' and any((self.project_id, self.job_id, self.user_id)):
             raise ValueError('成本中心费用不能同时按项目、任务或项目执行用户筛选')
         if self.scope == 'project' and self.cost_center_id is not None:

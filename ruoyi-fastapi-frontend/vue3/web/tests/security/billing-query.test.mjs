@@ -3,6 +3,13 @@ import test from 'node:test'
 import { billingTimeWindow } from '../../src/utils/billingQuery.js'
 import { setUserTimezone } from '../../src/utils/time.js'
 
+test('日期筛选包含结束日全天，允许查询单日', () => {
+  const range = billingTimeWindow(['2026-11-09', '2026-11-09'])
+  assert.equal(Date.parse(range.from), Date.parse('2026-11-08T16:00:00Z'))
+  assert.equal(Date.parse(range.to), Date.parse('2026-11-09T16:00:00Z'))
+  assert.throws(() => billingTimeWindow(['2026-11-10', '2026-11-09']))
+})
+
 test('费用时间范围固定上海时间，不受显示时区影响，结束时刻不自动扩展', () => {
   setUserTimezone('America/New_York')
   try {

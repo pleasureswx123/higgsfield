@@ -20,6 +20,19 @@ from tests import test_higgsfield_projects as projects
 
 @unittest.skipUnless(os.getenv('HF_RUN_DB_TESTS') == '1', '需要显式启用隔离数据库测试')
 class BillingAdminTests(unittest.IsolatedAsyncioTestCase):
+    async def test_generation_type_filters_before_pagination(self):
+        async with self.sessions() as db:
+            await db.execute(text("UPDATE hf_creation_job SET kind='image'"))
+            images = await BillingAdminService.listing(db, self.owner, BillingQuery(generationType='image', pageSize=1))
+            self.assertEqual(images.total, 1)
+            self.assertEqual(images.rows[0]['generationType'], 'image')
+            self.assertEqual((await BillingAdminService.listing(db, self.owner, BillingQuery(generationType='video'))).total, 0)
+            await db.execute(text("UPDATE hf_creation_job SET kind='video'"))
+            videos = await BillingAdminService.listing(db, self.owner, BillingQuery(generationType='video'))
+            self.assertEqual(videos.total, 1)
+            self.assertEqual(videos.rows[0]['generationType'], 'video')
+            self.assertEqual((await BillingAdminService.listing(db, self.owner, BillingQuery())).total, 1)
+
     cleanup_schema = worker.BillingWorkerTests.cleanup_schema
     migrate = worker.BillingWorkerTests.migrate
     job = worker.BillingWorkerTests.job

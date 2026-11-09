@@ -78,12 +78,14 @@ test('费用列表和明细隔离迟到结果，页面退出清除金额并重�
   state.filters.state = 'pending'
   state.filters.userId = '9007199254740993'
   state.filters.groupBy = 'department'
+  state.filters.generationType = 'image'
   const summaryRead = state.load()
   assert.equal(summaries[0].params.jobId, undefined)
   assert.equal(summaries[0].params.state, undefined)
   assert.equal(summaries[0].params.pageNum, undefined)
   assert.equal(summaries[0].params.userId, '9007199254740993')
   assert.equal(summaries[0].params.groupBy, 'department')
+  assert.equal(summaries[0].params.generationType, 'image')
   assert.equal(summaries[0].params.purpose, 'procurement')
   summaries[0].resolve({ data: { rows: [{ totalKnownAmount: '0.0000000001' }] } })
   await summaryRead
@@ -98,6 +100,7 @@ test('费用列表和明细隔离迟到结果，页面退出清除金额并重�
   assert.equal(summaries[1].params.projectId, undefined)
   assert.equal(summaries[1].params.userId, undefined)
   assert.equal(summaries[1].params.jobId, undefined)
+  assert.equal(summaries[1].params.generationType, undefined)
   state.filters.scope = 'project'
   assert.equal(summaries[1].signal.aborted, true)
   summaries[1].resolve({ data: { rows: [{ totalKnownAmount: '999' }] } })
@@ -124,18 +127,22 @@ test('费用列表和明细隔离迟到结果，页面退出清除金额并重�
   state.formRef.value = { validate: async () => true, clearValidate() {} }
   state.filters.jobId = '2'
   state.filters.jobId = '21'
+  state.filters.generationType = 'video'
   assert.equal(timers.size, 1)
   const beforeAuto = lists.length
   Array.from(timers.values())[0]()
   await flush()
   assert.equal(lists.length, beforeAuto + 1)
   assert.equal(lists.at(-1).params.jobId, '21')
+  assert.equal(lists.at(-1).params.generationType, 'video')
   lists.at(-1).resolve({ rows: [], total: 0 })
   await flush()
   state.filters.jobId = '22'
   const resetting = state.reset()
   assert.equal(timers.size, 0)
   assert.equal(state.filters.jobId, '')
+  assert.equal(state.filters.generationType, '')
+  assert.equal(lists.at(-1).params.generationType, undefined)
   assert.equal(lists.at(-1).params.jobId, undefined)
   assert.equal(lists.at(-1).params.purpose, 'platform')
   lists.at(-1).resolve({ rows: [], total: 0 })

@@ -44,6 +44,7 @@ class BillingAdminService:
                         'consumerId': str(row['consumer_id']) if row['consumer_id'] is not None else None,
                         'consumerUsername': row['consumer_username'],
                         'consumerName': row['consumer_name'],
+                        'generationType': row['generation_type'],
                         'costCenterId': str(row['cost_center_id']) if row['cost_center_id'] is not None else None,
                         'purpose': row['purpose'],
                         'currency': row['currency'],

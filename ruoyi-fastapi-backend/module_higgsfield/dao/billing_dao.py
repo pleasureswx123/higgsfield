@@ -32,6 +32,7 @@ class BillingDao:
     async def page(db, actor, roles, query):
         scope, params = BudgetDao.scope(actor, roles)
         consumer_id = 'j.actor_id'
+        generation_type = 'j.kind'
         sql = (
             ' FROM hf_billing_event e JOIN hf_billing_subject s ON s.subject_id=e.subject_id '
             'JOIN hf_creation_job j ON j.job_id=s.job_id JOIN hf_project p ON p.project_id=j.project_id '
@@ -40,6 +41,7 @@ class BillingDao:
         )
         if query.scope == 'cost_center':
             consumer_id = 'origin.actor_id'
+            generation_type = 'NULL'
             # 未计价对象以只读投影参与同一次分页，不伪造费用事件或零金额。
             sql = (''' FROM (
                 SELECT event_id,subject_id,purpose,currency,amount,state,revision,create_time FROM hf_billing_event
@@ -70,6 +72,9 @@ class BillingDao:
             if value is not None:
                 sql += f' AND {column}=:{key}'
                 params[key] = int(value) if key.endswith('_id') else value
+        if query.generation_type is not None:
+            sql += ' AND j.kind=:generation_type'
+            params['generation_type'] = query.generation_type
         if query.from_time is not None:
             sql += ' AND e.create_time>=:from_time'
             params['from_time'] = query.from_time
@@ -86,6 +91,7 @@ class BillingDao:
                 await db.execute(
                     text(
                         'SELECT e.*,s.job_id,s.cost_center_id,'
+                        f'{generation_type} AS generation_type,'
                         f'NULLIF({consumer_id},1) AS consumer_id,'
                         f'CASE WHEN {consumer_id}=1 THEN NULL ELSE consumer.user_name END AS consumer_username,'
                         f"CASE WHEN {consumer_id}=1 THEN '系统账号' ELSE consumer.nick_name END AS consumer_name,"

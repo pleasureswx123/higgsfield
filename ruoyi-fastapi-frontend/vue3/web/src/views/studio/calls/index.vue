@@ -45,12 +45,11 @@ const acceptance = { accepted: '已受理', rejected: '未受理', unknown: '受
       <el-table-column prop="id" label="调用ID" min-width="120" />
       <el-table-column prop="jobId" label="任务编号" min-width="120" />
       <el-table-column label="调用人" min-width="170"><template #default="{row}"><div>{{ callerLabel(row) }}</div><div v-if="row.callerUsername" class="caller-account">{{ row.callerUsername }}</div></template></el-table-column>
-      <el-table-column prop="costCenterId" label="成本中心ID" min-width="120" />
       <el-table-column label="操作" min-width="120"><template #default="{row}">{{ operations[row.operation] || row.operation }}</template></el-table-column>
       <el-table-column label="调用状态" min-width="120"><template #default="{row}">{{ states[row.state] }}</template></el-table-column>
       <el-table-column label="受理事实" min-width="120"><template #default="{row}">{{ acceptance[row.acceptance] }}</template></el-table-column>
       <el-table-column prop="httpStatus" label="HTTP状态" width="110" />
-      <el-table-column prop="businessCode" label="业务码" min-width="120" />
+      <el-table-column v-if="rows.some(row => row.businessCode)" prop="businessCode" label="业务码" min-width="120" />
       <el-table-column label="开始发送（上海）" width="185"><template #default="{row}">{{ displayTime(row.startedAt) }}</template></el-table-column>
       <el-table-column label="记录结束（上海）" width="185"><template #default="{row}">{{ displayTime(row.finishedAt) }}</template></el-table-column>
       <el-table-column label="操作" fixed="right" width="185"><template #default="{row}"><div class="call-actions"><el-button text @click="inspect(row.id)">查看详情</el-button><el-button v-if="row.jobId" text @click="showTask(row.jobId)">同任务记录</el-button></div></template></el-table-column>
@@ -62,6 +61,8 @@ const acceptance = { accepted: '已受理', rejected: '未受理', unknown: '受
         <el-alert v-if="detailError" :title="detailError" type="error" :closable="false" />
         <el-button v-if="detailError" text @click="inspect(selectedId)">重新读取</el-button>
         <template v-if="detail">
+          <p v-if="detail.costCenterId">成本中心ID：{{ detail.costCenterId }}</p>
+          <p v-if="detail.businessCode">供应商业务码：{{ detail.businessCode }}</p>
           <p>{{ operations[detail.operation] || detail.operation }} · {{ states[detail.state] }} · {{ acceptance[detail.acceptance] }} · HTTP {{ detail.httpStatus ?? '未记录' }}</p>
           <el-button :loading="detailLoading" @click="inspect(selectedId)">刷新详情</el-button>
           <el-button v-if="detail.jobId" @click="showTask(detail.jobId)">查看此任务全部调用</el-button>

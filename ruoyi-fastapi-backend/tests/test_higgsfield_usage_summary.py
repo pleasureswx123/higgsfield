@@ -8,11 +8,7 @@ from unittest.mock import patch, AsyncMock
 from sqlalchemy import text
 from module_higgsfield.entity.vo.usage_query_vo import UsageQuery
 from module_higgsfield.entity.vo.usage_query_vo import StudioUsageQuery
-from module_higgsfield.entity.do.billing_do import HfBillingEvent
-from module_higgsfield.entity.do.usage_do import HfBillingSubject
 from exceptions.exception import PermissionException
-from decimal import Decimal
-from datetime import datetime, UTC
 from uuid import uuid4
 from module_higgsfield.service.usage_summary_service import UsageSummaryService
 from tests import test_higgsfield_billing_admin as admin
@@ -72,104 +68,15 @@ class UsageSummaryTests(unittest.IsolatedAsyncioTestCase):
 
 
 
-    async def test_personal_summary_excludes_other_actors_and_removed_projects(self):
-        await self.create(name='项目二')
+    async def test_studio_summary_remains_unavailable_with_project_permissions(self):
         query = StudioUsageQuery.model_validate(
             {'from': '2026-11-01T00:00:00+08:00', 'to': '2026-11-02T00:00:00+08:00', 'groupBy': 'project'}
         )
         async with self.sessions() as db:
-            await db.execute(
-                text(
-                    "INSERT INTO hf_project_role_permission(role_id,permission_code,data_scope) SELECT role_id,'project:usage:read','project' FROM hf_project_role WHERE code='owner'"
-                )
-            )
-            for actor_id, amount in ((1, '3'), (2, '99')):
-                job = self.job(project_id=2, actor_id=actor_id, idempotency_key=f'cross-project:{actor_id}')
-                db.add(job)
-                await db.flush()
-                subject = HfBillingSubject(
-                    account_id=1,
-                    job_id=job.job_id,
-                    origin_call_id=100 + actor_id,
-                    subject_kind='generation',
-                    identity_key=f'cross:{actor_id}',
-                    **self.audit,
-                )
-                db.add(subject)
-                await db.flush()
-                db.add(
-                    HfBillingEvent(
-                        subject_id=subject.subject_id,
-                        purpose='platform',
-                        price_version_id=1,
-                        currency='USD',
-                        amount=Decimal(amount),
-                        state='1',
-                        **(self.audit | {'create_time': datetime(2026, 10, 31, 16, tzinfo=UTC)}),
-                    )
-                )
-            await db.commit()
-            result = await UsageSummaryService.personal_summary(db, self.owner, query)
-            self.assertEqual([row['totalKnownAmount'] for row in result['rows']], ['0.0200000000', '3.0000000000'])
-            await db.execute(text("UPDATE hf_project_member SET status='1' WHERE project_id=2 AND user_id=1"))
-            await db.commit()
-            result = await UsageSummaryService.personal_summary(db, self.owner, query)
-            self.assertEqual(len(result['rows']), 1)
-            self.assertEqual(result['rows'][0]['groupKey'], '1')
-            await db.execute(text("DELETE FROM hf_project_role_permission WHERE permission_code='project:usage:read'"))
-            await db.commit()
+            # 即使拥有项目用量权限，制作端也不得读取已迁移到管理端的费用汇总。
+            await db.execute(text("INSERT INTO hf_project_role_permission(role_id,permission_code,data_scope) SELECT role_id,'project:usage:read','project' FROM hf_project_role WHERE code='owner' ON CONFLICT (role_id,permission_code) DO UPDATE SET data_scope=EXCLUDED.data_scope"))
             with self.assertRaises(PermissionException):
                 await UsageSummaryService.personal_summary(db, self.owner, query)
-
-    async def test_studio_project_permission_scope_and_revocation(self):
-        query = StudioUsageQuery.model_validate(
-            {'from': '2026-11-01T00:00:00+08:00', 'to': '2026-11-02T00:00:00+08:00', 'groupBy': 'project'}
-        )
-        async with self.sessions() as db:
-            with self.assertRaises(PermissionException):
-                await UsageSummaryService.project_summary(db, self.owner, 1, query)
-            await db.execute(
-                text(
-                    "INSERT INTO hf_project_role_permission(role_id,permission_code,data_scope) SELECT role_id,'project:usage:read','project' FROM hf_project_role WHERE code='owner'"
-                )
-            )
-            other_job = self.job(actor_id=2, idempotency_key='other-user')
-            db.add(other_job)
-            await db.flush()
-            subject = HfBillingSubject(
-                account_id=1,
-                job_id=other_job.job_id,
-                origin_call_id=99,
-                subject_kind='generation',
-                identity_key='other:99',
-                **self.audit,
-            )
-            db.add(subject)
-            await db.flush()
-            db.add(
-                HfBillingEvent(
-                    subject_id=subject.subject_id,
-                    purpose='platform',
-                    price_version_id=1,
-                    currency='USD',
-                    amount=Decimal('99'),
-                    state='1',
-                    **(self.audit | {'create_time': datetime(2026, 10, 31, 16, tzinfo=UTC)}),
-                )
-            )
-            await db.commit()
-            result = await UsageSummaryService.project_summary(db, self.owner, 1, query)
-            self.assertEqual(result['rows'][0]['totalKnownAmount'], '99.0200000000')
-            await db.execute(
-                text(
-                    "UPDATE hf_project_role_permission SET data_scope='own' WHERE permission_code='project:usage:read'"
-                )
-            )
-            await db.commit()
-            result = await UsageSummaryService.project_summary(db, self.owner, 1, query)
-            self.assertEqual(result['rows'][0]['totalKnownAmount'], '0.0200000000')
-            await db.execute(text("DELETE FROM hf_project_role_permission WHERE permission_code='project:usage:read'"))
-            await db.commit()
             with self.assertRaises(PermissionException):
                 await UsageSummaryService.project_summary(db, self.owner, 1, query)
 
@@ -192,12 +99,19 @@ class UsageSummaryTests(unittest.IsolatedAsyncioTestCase):
     async def test_groups_use_business_timezone_snapshot_and_scoped_facts(self):
         base = {'from': '2026-11-01T00:00:00+08:00', 'to': '2026-11-02T00:00:00+08:00', 'purpose': 'platform'}
         async with self.sessions() as db:
+            await db.execute(text("UPDATE hf_creation_job SET kind='image'"))
+            images = await UsageSummaryService.summary(db, self.owner, UsageQuery.model_validate(base | {'groupBy': 'project', 'generationType': 'image'}))
+            videos = await UsageSummaryService.summary(db, self.owner, UsageQuery.model_validate(base | {'groupBy': 'project', 'generationType': 'video'}))
+            self.assertEqual(images['rows'][0]['totalKnownAmount'], '0.0200000000')
+            self.assertEqual(videos['rows'], [])
             for group, expected in (
                 ('project', '1'),
-                ('user', '1'),
+                ('user', 'system'),
                 ('department', '7'),
                 ('model', 'unknown'),
                 ('day', '2026-11-01'),
+                ('week', '2026-10-26'),
+                ('month', '2026-11'),
             ):
                 query = UsageQuery.model_validate(base | {'groupBy': group})
                 result = await UsageSummaryService.summary(db, self.owner, query)

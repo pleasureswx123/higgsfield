@@ -11,8 +11,9 @@ class UsageQuery(WorkspaceInput):
     from_time: AwareDatetime = Field(alias='from')
     to_time: AwareDatetime = Field(alias='to')
     time_basis: Literal['createTime'] = 'createTime'
-    group_by: Literal['project', 'user', 'department', 'model', 'day', 'cost_center']
+    group_by: Literal['project', 'user', 'department', 'model', 'day', 'week', 'month', 'cost_center']
     scope: Literal['project', 'cost_center'] = 'project'
+    generation_type: Literal['image', 'video'] | None = None
     cost_center_id: BigId | None = None
     purpose: Literal['platform', 'procurement']
     project_id: BigId | None = None
@@ -33,8 +34,10 @@ class UsageQuery(WorkspaceInput):
 
     @model_validator(mode='after')
     def valid_window(self):
+        if self.scope == 'cost_center' and self.generation_type is not None:
+            raise ValueError('生成类型筛选仅用于项目创作费用')
         if self.scope == 'cost_center':
-            if self.group_by not in {'cost_center', 'day'} or any(
+            if self.group_by not in {'cost_center', 'day', 'week', 'month'} or any(
                 value is not None for value in (self.project_id, self.user_id, self.department_id, self.model_id)
             ):
                 raise ValueError('成本中心汇总仅支持成本中心或日期维度，不能混用项目筛选')

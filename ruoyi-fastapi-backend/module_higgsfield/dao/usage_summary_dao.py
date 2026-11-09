@@ -38,6 +38,8 @@ class UsageSummaryDao:
                 params['own_actor'] = own_actor
         params.update(purpose=query.purpose, start=query.from_time, end=query.to_time, timezone=query.business_timezone)
         day = "to_char(timezone(:timezone,e.create_time),'YYYY-MM-DD')"
+        week = "to_char(date_trunc('week',timezone(:timezone,e.create_time)),'YYYY-MM-DD')"
+        month = "to_char(timezone(:timezone,e.create_time),'YYYY-MM')"
         groups = {
             'project': ('CAST(p.project_id AS text)', 'p.project_name'),
             'user': ("CASE WHEN j.actor_id=1 THEN 'system' ELSE CAST(j.actor_id AS text) END",
@@ -48,10 +50,14 @@ class UsageSummaryDao:
             ),
             'model': ("coalesce(CAST(m.model_id AS text),'unknown')", "coalesce(m.display_name,'未知模型')"),
             'day': (day, day),
+            'week': (week, week),
+            'month': (month, month),
         }
         key, name = groups[query.group_by]
+        params['people'] = query.group_by == 'user'
         sql = f"""SELECT e.event_id,e.subject_id,{key} AS group_key,{name} AS display_name,
-            e.purpose,e.currency,e.state,e.amount,
+            e.purpose,e.currency,e.state,e.amount,j.kind AS generation_kind,r.image_count,
+            CASE WHEN :people AND j.actor_id<>1 THEN v.user_name ELSE NULL END AS user_name,
             (SELECT coalesce(sum(a.delta_amount),0) FROM hf_billing_adjustment a WHERE a.event_id=e.event_id) AS adjustment_total,
             r.input_tokens,r.output_tokens,r.video_tokens,coalesce(r.completeness,'unknown') AS usage_completeness
             FROM hf_billing_event e JOIN hf_billing_subject s ON s.subject_id=e.subject_id
@@ -63,6 +69,7 @@ class UsageSummaryDao:
             WHERE p.del_flag='0' AND u.del_flag='0' AND e.purpose=:purpose
             AND e.create_time>=:start AND e.create_time<:end AND {scope}"""
         for field, column in (
+            ('generation_type', 'j.kind'),
             ('project_id', 'j.project_id'),
             ('user_id', 'j.actor_id'),
             ('model_id', 'm.model_id'),
@@ -81,9 +88,13 @@ class UsageSummaryDao:
         if not roles or not any(role['data_scope'] == '1' for role in roles):
             return []
         day = "to_char(timezone(:timezone,e.create_time),'YYYY-MM-DD')"
+        week = "to_char(date_trunc('week',timezone(:timezone,e.create_time)),'YYYY-MM-DD')"
+        month = "to_char(timezone(:timezone,e.create_time),'YYYY-MM')"
         key, name = {
             'cost_center': ('CAST(s.cost_center_id AS text)', "coalesce(c.cost_center_name,'未知成本中心')"),
             'day': (day, day),
+            'week': (week, week),
+            'month': (month, month),
         }[query.group_by]
         sql = f"""SELECT e.event_id,e.subject_id,{key} AS group_key,{name} AS display_name,
             e.purpose,e.currency,e.state,e.amount,
