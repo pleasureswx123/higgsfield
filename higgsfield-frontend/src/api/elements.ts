@@ -48,6 +48,7 @@ export interface PropertySnapshot extends PropertyValue {
   options: string[]
 }
 export interface ElementRevision {
+  isFictionalPerson: boolean
   id: string
   elementId: string
   revisionNo: number
@@ -63,6 +64,7 @@ export interface ElementDetail {
   currentRevision: ElementRevision
 }
 export interface ElementFields {
+  isFictionalPerson?: boolean
   name: string
   alias: string
   category: ElementCategory

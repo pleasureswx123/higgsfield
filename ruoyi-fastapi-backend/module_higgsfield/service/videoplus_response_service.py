@@ -31,6 +31,17 @@ class VideoPlusResponseService:
     @staticmethod
     def submission(http_status: int, body: object) -> ProviderSubmissionResult:
         facts = {'acceptance': 'unknown', 'transport': 'response', 'httpStatus': http_status}
+        # 仅识别完整响应中已验证的真人图片拒绝；不能把任意4xx/网关错误视为未受理。
+        error = body.get('error') if isinstance(body, dict) else None
+        if (http_status == 400 and isinstance(error, dict)
+                and error.get('code') in ('400', 400)
+                and isinstance(error.get('message'), str)
+                and error['message'].startswith('litellm.BadRequestError: The request failed because the input image ')
+                and 'may contain real person' in error['message']
+                and not any(key in body for key in ('id', 'choices', 'task'))):
+            return ProviderSubmissionResult(**(facts | {
+                'acceptance': 'rejected', 'businessCode': 'INPUT_REAL_PERSON_REJECTED',
+            }))
         if isinstance(body, dict):
             try:
                 facts['responseId'] = IDENTIFIER.validate_python(body.get('id'))

@@ -12,6 +12,7 @@ import { formatProjectDate } from '@/utils/projects'
 import GenerationBilling from './GenerationBilling.vue'
 import GenerationOutputMetadata from './GenerationOutputMetadata.vue'
 import GenerationExecution from './GenerationExecution.vue'
+import { archiveProgressText } from '@/utils/archiveProgress'
 
 const identity = defineModel<string | undefined>()
 function closeDetail() {
@@ -113,6 +114,7 @@ const billing = { pending: '待确认', calculated: '已计算', confirmed: '已
             <div v-else class="preview-empty"><IconVideo v-if="detail.kind === 'video'" :size="32" /><IconPhoto v-else :size="32" /><strong>{{ previewPending ? '正在加载结果…' : summaryStatus }}</strong><span>{{ detail.outputsVisibility === 'hidden' ? '当前没有查看输出内容的权限' : previewPending ? '正在读取已归档文件，请稍候。' : chosenOutput ? '暂时无法预览此结果' : '暂无生成结果' }}</span></div>
           </div>
           <p v-if="mediaError" class="project-error" role="alert">{{ mediaError }} <Button v-if="chosenOutput?.previewUrl" variant="ghost" :disabled="mediaLoading" @click="media(chosenOutput)">重新加载</Button></p>
+          <p v-if="chosenOutput?.archiveState === 'archiving' && archiveProgressText(chosenOutput.archiveProgress)" class="muted" role="status">{{ archiveProgressText(chosenOutput.archiveProgress) }}</p>
           <div v-if="detail.outputs.length > 1" class="output-selector" aria-label="选择生成结果">
             <div v-for="output in detail.outputs" :key="output.id" class="output-thumbnail" :class="{ selected: chosenOutput?.id === output.id }">
               <GenerationCardMedia v-if="output.kind === 'image' && output.previewUrl" :preview="{ outputId: output.id, revision: output.revision, kind: 'image' }" />

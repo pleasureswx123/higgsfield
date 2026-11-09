@@ -15,6 +15,7 @@ import {
   reconcilePromptReferences,
   insertPromptText,
   bindNumberedMediaReferences,
+  pastedPromptReferences,
 } from '@/utils/promptEditorDocument'
 import { prepareMentionReference, prepareMentionBatch } from '@/utils/promptMention'
 import { compatibleReferenceRoles, selectReferenceMedia } from '@/utils/draftReferences'
@@ -63,9 +64,14 @@ export function usePromptEditor(
       }
     })
   })
-  const mentionedKeys = computed(() => new Set(state().document.content.flatMap(
-    paragraph => paragraph.content.flatMap(node => node.type === 'mention' ? [node.referenceKey] : []),
-  )))
+  const mentionedKeys = computed(
+    () =>
+      new Set(
+        state().document.content.flatMap((paragraph) =>
+          paragraph.content.flatMap((node) => (node.type === 'mention' ? [node.referenceKey] : [])),
+        ),
+      ),
+  )
   const rows = computed(() =>
     [
       ...localCandidates.value.filter((item) =>
@@ -74,10 +80,12 @@ export function usePromptEditor(
       ...picker.rows.value,
     ].map((candidate) => ({
       candidate,
-      selected: state().references.some((item) =>
-        mentionedKeys.value.has(item.referenceKey) && (candidate.kind === 'asset'
-          ? item.referenceKey === candidate.id
-          : item.elementRevisionId === candidate.elementRevisionId),
+      selected: state().references.some(
+        (item) =>
+          mentionedKeys.value.has(item.referenceKey) &&
+          (candidate.kind === 'asset'
+            ? item.referenceKey === candidate.id
+            : item.elementRevisionId === candidate.elementRevisionId),
       ),
       disabled:
         !candidate.assetVersionIds.length ||
@@ -89,6 +97,8 @@ export function usePromptEditor(
     signature = '',
     pendingReferences: DraftReference[] | undefined
   const historyReferences = new Map<string, DraftReference[]>()
+  let pasteReferences: DraftReference[] = []
+  let pendingPasteCount = 0
   function referencesFor(transaction: Transaction) {
     const before = transaction.before.toJSON(),
       after = transaction.doc.toJSON()
@@ -98,11 +108,22 @@ export function usePromptEditor(
     const base = pendingReferences ?? state().references
     // 历史中的同一个键可能属于当时的另一份素材，以该历史文档的绑定为准。
     const keys = new Set(remembered.map((item) => item.referenceKey))
-    return reconcilePromptReferences(
+    const reconciled = reconcilePromptReferences(
       before,
       after,
       base.filter((item) => !keys.has(item.referenceKey)).concat(remembered),
     )
+    return [
+      ...reconciled,
+      ...pasteReferences.filter(
+        (item) =>
+          !reconciled.some(
+            (value) =>
+              value.referenceKey === item.referenceKey &&
+              value.assetVersionId === item.assetVersionId,
+          ),
+      ),
+    ].map((item, ordinal) => ({ ...item, ordinal }))
   }
   function close() {
     visible.value = false
@@ -173,7 +194,12 @@ export function usePromptEditor(
       insert(selectReferenceMedia(row.candidate))
   }
   let pasteController: AbortController | undefined
-  async function resolvePastedMentions(text: string, start: number, current: Editor, pasteTime: number) {
+  async function resolvePastedMentions(
+    text: string,
+    start: number,
+    current: Editor,
+    pasteTime: number,
+  ) {
     pasteController?.abort()
     const controller = new AbortController()
     pasteController = controller
@@ -364,10 +390,25 @@ export function usePromptEditor(
           const text = event.clipboardData?.getData('text/plain')
           if (text === undefined) return false
           event.preventDefault()
+          const resolveMentions = text.includes('@')
+          if (resolveMentions) pendingPasteCount++
           const { transaction, start } = insertPromptText(closeHistory(view.state.tr), text)
-          view.dispatch(transaction)
-          if (editor.value && text.includes('@'))
-            void resolvePastedMentions(text, start, editor.value, transaction.time)
+          pasteReferences = pastedPromptReferences(
+            view.state.doc.toJSON(),
+            text,
+            state().references,
+          )
+          try {
+            view.dispatch(transaction)
+          } finally {
+            pasteReferences = []
+          }
+          if (editor.value && resolveMentions)
+            void resolvePastedMentions(text, start, editor.value, transaction.time).finally(() => {
+              pendingPasteCount--
+              bindCurrentReferences()
+            })
+          else if (resolveMentions) pendingPasteCount--
           return true
         },
       },
@@ -385,18 +426,22 @@ export function usePromptEditor(
     })
   }
   watch([() => state().projectId, () => state().context], create, { immediate: true })
+  function bindCurrentReferences() {
+    const current = editor.value
+    if (!current || applying || state().disabled || pendingPasteCount) return
+    const transaction = bindNumberedMediaReferences(
+      closeHistory(current.state.tr),
+      state().references,
+    )
+    if (transaction.docChanged) {
+      current.view.dispatch(transaction)
+      current.view.dispatch(closeHistory(current.state.tr))
+    }
+  }
   watch(
     [editor, () => JSON.stringify(state().references), () => state().disabled],
-    () => {
-      const current = editor.value
-      if (!current || applying || state().disabled) return
-      // 添加素材或恢复草稿后补齐编号引用，不重建编辑器，保留正文、选区和撤销历史。
-      const transaction = bindNumberedMediaReferences(closeHistory(current.state.tr), state().references)
-      if (transaction.docChanged) {
-        current.view.dispatch(transaction)
-        current.view.dispatch(closeHistory(current.state.tr))
-      }
-    },
+    // 粘贴时由同一事务解析编号和元素，避免自动编号抢先改变文档使异步解析失效。
+    bindCurrentReferences,
     { immediate: true, flush: 'post' },
   )
   watch(

@@ -205,7 +205,7 @@ test('清除全部筛选只请求一次并恢复默认来源，空态依据已�
   assert.equal(h.calls.length, 3)
   const query = h.calls[2].args[1]
   assert.equal(query.pageNum, 1)
-  assert.equal(query.mineFilter, 'all')
+  assert.equal(query.mineFilter, 'created')
   assert.equal(query.q, '')
   assert.equal(query.category, undefined)
   assert.equal(query.workStatus, undefined)

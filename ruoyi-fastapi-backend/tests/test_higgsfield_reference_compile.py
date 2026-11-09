@@ -116,7 +116,20 @@ class ReferenceResolveTests(unittest.IsolatedAsyncioTestCase):
         with self.assertRaises(ServiceWarning):
             await self.resolve()
 
+    async def test_fictional_person_uses_fixed_revision_for_registration(self):
+        value = self.input()
+        compiled = await self.resolve(value, roles={'reference_image': ['image'], 'reference_person': ['image']})
+        self.assertEqual(compiled['media'][0]['mediaRole'], 'reference_person')
+        self.assertEqual(value.references[0].media_role, 'reference_image')
+        self.assertEqual((await self.resolve(value))['media'][0]['mediaRole'], 'reference_image')
+        async with self.sessions() as db:
+            await db.execute(text('UPDATE hf_element_revision SET is_fictional_person=false'))
+            await db.commit()
+        compiled = await self.resolve(value, roles={'reference_image': ['image'], 'reference_person': ['image']})
+        self.assertEqual(compiled['media'][0]['mediaRole'], 'reference_image')
+
     async def test_revoked_permission_and_forged_revision_media(self):
+        await references.ReferenceTests.use_member(self)
         async with self.sessions() as db:
             await db.execute(text("DELETE FROM hf_project_role_permission WHERE permission_code='asset:reference'"))
             await db.commit()
@@ -125,7 +138,7 @@ class ReferenceResolveTests(unittest.IsolatedAsyncioTestCase):
         async with self.sessions() as db:
             await db.execute(
                 text(
-                    "INSERT INTO hf_project_role_permission(role_id,permission_code,data_scope) SELECT role_id,'asset:reference','project' FROM hf_project_role WHERE code='owner'"
+                    "INSERT INTO hf_project_role_permission(role_id,permission_code,data_scope) SELECT role_id,'asset:reference','project' FROM hf_project_role WHERE code='producer'"
                 )
             )
             await db.execute(text('DELETE FROM hf_element_revision_media'))

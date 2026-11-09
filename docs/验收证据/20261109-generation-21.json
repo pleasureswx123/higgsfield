@@ -1,0 +1,158 @@
+{
+  "jobs": [
+    {
+      "job_id": 20,
+      "create_time": "2026-11-09 05:46:53.472000+00:00",
+      "finished_time": "2026-11-09 05:57:41.160000+00:00",
+      "orchestration_state": "5",
+      "upstream_state": "3"
+    },
+    {
+      "job_id": 21,
+      "create_time": "2026-11-09 06:38:18.785000+00:00",
+      "finished_time": "2026-11-09 06:43:42.372000+00:00",
+      "orchestration_state": "5",
+      "upstream_state": "3"
+    }
+  ],
+  "outputs": [
+    {
+      "output_id": 10,
+      "job_id": 20,
+      "archive_state": "2",
+      "create_time": "2026-11-09 05:57:41.159000+00:00",
+      "update_time": "2026-11-09 06:08:45.602000+00:00",
+      "progress": null,
+      "sha256": "ebb4c6dda7550740cbb61454628a089651875dc743f1eb8ef44321577488389c",
+      "byte_size": 6855033,
+      "width": 854,
+      "height": 480,
+      "seconds": "30.080000"
+    },
+    {
+      "output_id": 11,
+      "job_id": 21,
+      "archive_state": "2",
+      "create_time": "2026-11-09 06:43:42.371000+00:00",
+      "update_time": "2026-11-09 06:44:44.822000+00:00",
+      "progress": {
+        "bytes": 6623373,
+        "stage": "complete",
+        "requests": 5,
+        "dnsSeconds": 0.132,
+        "totalBytes": 6623373,
+        "connections": 4,
+        "resumeCount": 0,
+        "receivedBytes": 6623373,
+        "elapsedSeconds": 62.346,
+        "firstByteSeconds": 1.755
+      },
+      "sha256": "62895848a4770ca6352c90ffd7e6b07fe97a50d50ff636d66be04ed1498bd6d0",
+      "byte_size": 6623373,
+      "width": 854,
+      "height": 480,
+      "seconds": "30.080000"
+    }
+  ],
+  "calls21": [
+    {
+      "call_id": 58,
+      "operation": "asset_get",
+      "http_status": 200,
+      "started_time": "2026-11-09 06:38:19.699000+00:00",
+      "finished_time": "2026-11-09 06:38:20.913000+00:00"
+    },
+    {
+      "call_id": 59,
+      "operation": "asset_get",
+      "http_status": 200,
+      "started_time": "2026-11-09 06:38:20.957000+00:00",
+      "finished_time": "2026-11-09 06:38:21.805000+00:00"
+    },
+    {
+      "call_id": 60,
+      "operation": "video_submit",
+      "http_status": 200,
+      "started_time": "2026-11-09 06:38:21.871000+00:00",
+      "finished_time": "2026-11-09 06:38:29.879000+00:00"
+    },
+    {
+      "call_id": 61,
+      "operation": "video_poll",
+      "http_status": 200,
+      "started_time": "2026-11-09 06:38:35.076000+00:00",
+      "finished_time": "2026-11-09 06:38:35.925000+00:00"
+    },
+    {
+      "call_id": 62,
+      "operation": "video_poll",
+      "http_status": 200,
+      "started_time": "2026-11-09 06:39:09.910000+00:00",
+      "finished_time": "2026-11-09 06:39:10.794000+00:00"
+    },
+    {
+      "call_id": 63,
+      "operation": "video_poll",
+      "http_status": 200,
+      "started_time": "2026-11-09 06:39:46.771000+00:00",
+      "finished_time": "2026-11-09 06:39:47.965000+00:00"
+    },
+    {
+      "call_id": 64,
+      "operation": "video_poll",
+      "http_status": 200,
+      "started_time": "2026-11-09 06:40:18.855000+00:00",
+      "finished_time": "2026-11-09 06:40:19.736000+00:00"
+    },
+    {
+      "call_id": 65,
+      "operation": "video_poll",
+      "http_status": 200,
+      "started_time": "2026-11-09 06:40:52.756000+00:00",
+      "finished_time": "2026-11-09 06:40:53.862000+00:00"
+    },
+    {
+      "call_id": 66,
+      "operation": "video_poll",
+      "http_status": 200,
+      "started_time": "2026-11-09 06:41:24.747000+00:00",
+      "finished_time": "2026-11-09 06:41:25.747000+00:00"
+    },
+    {
+      "call_id": 67,
+      "operation": "video_poll",
+      "http_status": 200,
+      "started_time": "2026-11-09 06:42:00.613000+00:00",
+      "finished_time": "2026-11-09 06:42:01.865000+00:00"
+    },
+    {
+      "call_id": 68,
+      "operation": "video_poll",
+      "http_status": 200,
+      "started_time": "2026-11-09 06:42:32.731000+00:00",
+      "finished_time": "2026-11-09 06:42:33.610000+00:00"
+    },
+    {
+      "call_id": 69,
+      "operation": "video_poll",
+      "http_status": 200,
+      "started_time": "2026-11-09 06:43:07.585000+00:00",
+      "finished_time": "2026-11-09 06:43:08.638000+00:00"
+    },
+    {
+      "call_id": 70,
+      "operation": "video_poll",
+      "http_status": 200,
+      "started_time": "2026-11-09 06:43:40.543000+00:00",
+      "finished_time": "2026-11-09 06:43:42.347000+00:00"
+    }
+  ],
+  "sameInputs": [
+    {
+      "prompt": true,
+      "parameters": true,
+      "references": true,
+      "compiled": true
+    }
+  ]
+}

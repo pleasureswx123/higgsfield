@@ -40,6 +40,8 @@ class GenerationTraceService:
     @classmethod
     def event(cls, event):
         data = event.payload or {}
+        if data.get('downloadProgress'):
+            return None
         label = cls.STAGES.get(data.get('stage'))
         if not label and event.event_type == 'task.state':
             label = cls.STATES.get(data.get('orchestrationState'))

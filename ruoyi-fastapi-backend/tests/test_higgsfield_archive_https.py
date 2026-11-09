@@ -144,7 +144,9 @@ class ArchiveHttpsTests(unittest.IsolatedAsyncioTestCase):
             key = file.storage_key
             self.assertEqual((file.width, file.height, file.byte_size), (24, 12, len(self.data)))
             self.assertEqual(file.sha256, hashlib.sha256(self.data).hexdigest())
-            self.assertEqual(await db.scalar(text('SELECT count(*) FROM hf_task_event')), 2)
+            self.assertEqual(await db.scalar(text("SELECT count(*) FROM hf_task_event WHERE NOT (payload ? 'downloadProgress')")), 2)
+            self.assertGreater(await db.scalar(text("SELECT count(*) FROM hf_task_event WHERE payload ? 'downloadProgress'")), 0)
+            self.assertEqual(output.actual_metadata['archiveDownload']['stage'], 'complete')
             self.assertEqual(await db.scalar(text('SELECT billing_state FROM hf_creation_job')), '0')
 
         def read():

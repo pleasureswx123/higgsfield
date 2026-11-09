@@ -42,7 +42,7 @@ class JobEventDao:
         await ProjectActivityNotificationDao.publish(db, job)
 
     @staticmethod
-    async def output(db, job, output, now, worker):
+    async def output(db, job, output, now, worker, *, progress=False):
         audit = dict(create_by=worker, update_by=worker, create_time=now, update_time=now)
         db.add(
             HfTaskEvent(
@@ -51,6 +51,7 @@ class JobEventDao:
                 event_type='output.state',
                 schema_version=1,
                 payload={
+                    **({'downloadProgress': True} if progress else {}),
                     'outputId': str(output.output_id),
                     'revision': str(output.revision),
                     'archiveState': (

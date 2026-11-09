@@ -35,6 +35,14 @@ const doc = () => ({
   ],
 })
 const cursor = { block: 0, index: 0, start: 3, end: 5 }
+
+test('虚构人物默认注册，关闭或模型不支持时保持普通图片引用', () => {
+  const person = { ...candidate, isFictionalPerson: true, allowedMediaRoles: ['reference_image', 'reference_person'] }
+  assert.equal(insertElementMention(doc(), [], person, null, cursor).references[0].mediaRole, 'reference_person')
+  assert.equal(insertElementMention(doc(), [], { ...person, isFictionalPerson: false }, null, cursor).references[0].mediaRole, 'reference_image')
+  const model = { referenceRules: { maxTotal: 9, roles: { reference_image: { maxCount: 9, mediaTypes: ['image'] } } } }
+  assert.equal(insertElementMention(doc(), [], person, model, cursor).references[0].mediaRole, 'reference_image')
+})
 test('光标位置替换保留前后文字及标记，并固定元素和素材版本', () => {
   const original = doc(),
     result = insertElementMention(original, [], candidate, null, cursor)

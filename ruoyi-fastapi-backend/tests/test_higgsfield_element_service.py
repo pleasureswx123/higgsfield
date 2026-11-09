@@ -13,6 +13,7 @@ from exceptions.exception import ServiceWarning, PermissionException
 from module_higgsfield.dao.element_dao import ElementDao
 from module_higgsfield.entity.vo.element_vo import (
     ElementCreate,
+    ElementPatch,
     ElementLabel,
     ElementRevisionAction,
     ElementSave,
@@ -65,6 +66,31 @@ class ElementServiceTests(unittest.IsolatedAsyncioTestCase):
         async with self.sessions() as db:
             result, _ = await ElementService.create(db, self.owner, ElementCreate(**fields), str(uuid4()))
             return result['data']
+
+    async def test_fictional_person_default_toggle_and_fixed_revision(self):
+        created = await self.make_element()
+        first = created['currentRevision']
+        self.assertTrue(first['isFictionalPerson'])
+        animal = await self.make_element(alias='animal', isFictionalPerson=False)
+        self.assertFalse(animal['currentRevision']['isFictionalPerson'])
+        scene = await self.make_element(alias='scene', category='scene', isFictionalPerson=True)
+        self.assertFalse(scene['currentRevision']['isFictionalPerson'])
+        async with self.sessions() as db:
+            updated, _ = await ElementService.mutate(db, self.owner, int(created['element']['id']), 'save',
+                ElementSave(name='主角', alias='hero', category='character', revision=created['element']['revision'],
+                    isFictionalPerson=False), str(uuid4()))
+            self.assertFalse(updated['data']['currentRevision']['isFictionalPerson'])
+            self.assertNotEqual(updated['data']['currentRevision']['id'], first['id'])
+            old = await ElementDao.revision(db, int(first['id']))
+            self.assertTrue(old.is_fictional_person)
+        character = await self.make_element(alias='to_scene')
+        async with self.sessions() as db:
+            await ElementService.mutate(db, self.owner, int(character['element']['id']), 'patch',
+                ElementPatch(category='scene', revision=character['element']['revision']), str(uuid4()))
+            detail = await ElementService.detail(db, self.owner, int(character['element']['id']))
+            self.assertFalse(detail['currentRevision']['isFictionalPerson'])
+            old = await ElementDao.revision(db, int(character['currentRevision']['id']))
+            self.assertTrue(old.is_fictional_person)
 
     async def test_recycle_restore_preserves_identity_and_replay(self):
         created = await self.make_element()
@@ -173,6 +199,9 @@ class ElementServiceTests(unittest.IsolatedAsyncioTestCase):
             await db.execute(
                 text("UPDATE hf_project_role_permission SET data_scope='own' WHERE permission_code='element:remove'")
             )
+            # 所有者权限固定为全项目；自己的范围应由普通制作成员验证。
+            await db.execute(text("UPDATE hf_project_member SET role_id=(SELECT role_id FROM hf_project_role WHERE code='producer') WHERE user_id=:user"),
+                             {'user': self.owner.user.user_id})
             await db.commit()
         async with self.sessions() as db:
             page = await ElementService.trash(db, self.owner, int(self.project_id), 1, 1)
@@ -263,6 +292,10 @@ class ElementServiceTests(unittest.IsolatedAsyncioTestCase):
         element = created['element']
         restricted = SimpleNamespace(user=self.owner.user, permissions=['element:edit', 'element:read', 'project:read'])
         payload = ElementSave(revision='1', name='不能保存的名字', alias='hero', category='prop', workStatus='approved')
+        async with self.sessions() as db:
+            await db.execute(text("UPDATE hf_project_member SET role_id=(SELECT role_id FROM hf_project_role WHERE code='producer') WHERE user_id=:user"),
+                             {'user': self.owner.user.user_id})
+            await db.commit()
         async with self.sessions() as db:
             with self.assertRaises(PermissionException):
                 await ElementService.mutate(db, restricted, int(element['id']), 'save', payload, str(uuid4()))

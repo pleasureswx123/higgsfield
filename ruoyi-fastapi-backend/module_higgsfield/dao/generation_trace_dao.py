@@ -16,6 +16,7 @@ class GenerationTraceDao:
         rows = await db.scalars(select(HfTaskEvent).where(
             HfTaskEvent.job_id == job_id,
             HfTaskEvent.event_type.in_(('task.state', 'output.state', 'task.problem')),
+            ~HfTaskEvent.payload.has_key('downloadProgress'),
         ).order_by(HfTaskEvent.sequence.desc()).limit(200))
         return list(reversed(rows.all()))
 

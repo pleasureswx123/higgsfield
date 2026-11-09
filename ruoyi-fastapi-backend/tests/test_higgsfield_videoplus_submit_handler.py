@@ -151,7 +151,12 @@ class VideoPlusSubmitHandlerTests(unittest.IsolatedAsyncioTestCase):
                         'usage': {'completion_tokens': 123},
                     }
                 ).encode()
-            writer.write(f'HTTP/1.1 200 OK\r\nContent-Length: {len(body)}\r\nConnection: close\r\n\r\n'.encode() + body)
+            status = '200 OK'
+            if self.mode == 'real_person_rejected':
+                status = '400 Bad Request'
+                body = json.dumps({'error': {'code': '400', 'message':
+                    "litellm.BadRequestError: The request failed because the input image 'content[1]' may contain real person."}}).encode()
+            writer.write(f'HTTP/1.1 {status}\r\nContent-Length: {len(body)}\r\nConnection: close\r\n\r\n'.encode() + body)
             await writer.drain()
         except Exception as error:
             self.errors.append(type(error).__name__)
@@ -270,6 +275,26 @@ class VideoPlusSubmitHandlerTests(unittest.IsolatedAsyncioTestCase):
             self.assertEqual(await db.scalar(text('SELECT reserved_amount FROM hf_budget_period')), 0)
         self.assertEqual(len(self.requests), 1)
         self.assertEqual(self.errors, [])
+
+    async def test_saved_rejection_recovers_without_resubmission(self):
+        self.mode = 'real_person_rejected'
+        worker = create_video_worker(
+            self.sessions, 'video-rejection', credential_crypto=self.crypto, output_crypto=crypto(), storage=self.storage
+        )
+        with patch.object(ProviderSubmissionResultService, 'record', AsyncMock(side_effect=RuntimeError('状态写入故障'))):
+            self.assertEqual((await worker.run_once())[0]['status'], 'handler_failed')
+        async with self.sessions() as db:
+            await db.execute(text("UPDATE hf_creation_job SET next_action_time=clock_timestamp()-interval '1 second'"))
+            await db.commit()
+        self.assertEqual((await worker.run_once())[0]['status'], 'handled')
+        async with self.sessions() as db:
+            self.assertEqual(tuple((await db.execute(text(
+                'SELECT orchestration_state,upstream_state,upstream_task_id FROM hf_creation_job'
+            ))).one()), ('5', '4', None))
+            self.assertEqual(await db.scalar(text('SELECT acceptance FROM hf_provider_call')), 'rejected')
+            self.assertEqual(await db.scalar(text('SELECT count(*) FROM hf_provider_call')), 1)
+        self.assertEqual(len(self.requests), 1)
+        self.assertEqual(await worker.run_once(), [])
 
     async def test_ambiguous_saved_response_stays_unknown_without_resubmission(self):
         self.mode = 'unknown'

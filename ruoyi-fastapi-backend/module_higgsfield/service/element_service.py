@@ -11,6 +11,7 @@ from module_higgsfield.dao.project_workspace_dao import WorkspaceDao
 from module_higgsfield.entity.do.element_do import HfElement, HfPropertyDefinition
 from module_higgsfield.entity.do.review_do import HfReviewEvent
 from module_higgsfield.entity.do.folder_do import HfRecycleEntry
+from module_higgsfield.entity.vo.element_vo import RevisionContent
 from module_higgsfield.service.element_content_service import ElementContentService
 from module_higgsfield.service.folder_service import FolderService
 from module_higgsfield.service.project_workspace_service import WorkspaceService
@@ -241,6 +242,7 @@ class ElementService:
     @classmethod
     async def create_in_transaction(cls, db, user, payload):
         """调用方须先授权并持有项目写锁；本方法不提交事务。"""
+        payload = payload.model_copy(update={'is_fictional_person': payload.category == 'character' and payload.is_fictional_person is not False})
         project_id = int(payload.project_id)
         space = await FolderDao.space(db, project_id, lock=True)
         if await ElementDao.alias_exists(db, space.space_id, payload.alias):
@@ -310,7 +312,20 @@ class ElementService:
                     if field in data:
                         setattr(element, column, getattr(payload, field))
             revision = await ElementDao.revision(db, element.current_revision_id)
+            if action == 'patch' and element.category != 'character' and revision.is_fictional_person:
+                # 身份接口修改类型也要留下新修订，不能让新场景引用继续走人物注册或改写旧引用。
+                previous = await ElementContentService.result(db, revision)
+                content = RevisionContent(
+                    description=revision.description, isFictionalPerson=False,
+                    media=previous['media'], propertyValues=previous['propertyValues'],
+                )
+                revision = await ElementContentService.append(
+                    db, user, element, content, revision.property_snapshot, previous['label']
+                )
             if action in ('save', 'revisions'):
+                payload = payload.model_copy(update={'is_fictional_person': element.category == 'character' and (
+                    revision.is_fictional_person if payload.is_fictional_person is None else payload.is_fictional_person
+                )})
                 if action == 'save':
                     await cls.validate_fields(db, user, project.project_id, payload, element)
                     element.performer_id = int(payload.performer_id) if payload.performer_id else None
@@ -324,6 +339,7 @@ class ElementService:
                 )
                 changed = (
                     revision.description != payload.description
+                    or revision.is_fictional_person != payload.is_fictional_person
                     or revision.property_snapshot != snapshots
                     or previous['media'] != media
                 )

@@ -51,6 +51,8 @@ class OutputReadService:
                 'not_applicable',
             )[int(output.archive_state)],
             'actualMetadata': metadata,
+            'archiveProgress': {key: value for key, value in (output.actual_metadata.get('archiveDownload') or {}).items()
+                                if key in {'stage', 'bytes', 'totalBytes', 'elapsedSeconds'}},
             'destinationIssue': output.actual_metadata.get('destinationIssue'),
             'archivePaused': bool((output.actual_metadata.get('archiveRecovery') or {}).get('paused')),
             'archiveNextRetryAt': output.next_retry_time if output.archive_state == '3' else None,

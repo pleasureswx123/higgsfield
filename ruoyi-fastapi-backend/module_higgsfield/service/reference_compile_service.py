@@ -59,7 +59,7 @@ class ReferenceCompileService:
         """调用方传入已发布模型角色/媒体类型表，并在同一短事务保存快照；本方法不提交事务。"""
         await WorkspaceService.authorize(db, user, project_id, 'generation:create', write=True)
         space = await FolderDao.space(db, project_id)
-        snapshots, revisions = {}, {}
+        snapshots, revisions, fictional = {}, {}, {}
         for item in payload.references:
             if item.asset_version_id not in snapshots:
                 version = await AssetDao.version(db, int(item.asset_version_id))
@@ -104,6 +104,12 @@ class ReferenceCompileService:
                     revisions[item.element_revision_id] = {
                         str(row.asset_version_id) for row in await ElementDao.revision_media(db, revision.revision_id)
                     }
+                    fictional[item.element_revision_id] = revision.is_fictional_person
                 if item.asset_version_id not in revisions[item.element_revision_id]:
                     cls.fail('REFERENCE_REVISION_MISMATCH', '所选素材版本不属于指定元素修订')
-        return cls.compile(payload, snapshots)
+        # 以固定修订为准，旧客户端和已保存草稿也不能漏掉人物注册；不修改原输入。
+        normalized = [item.model_copy(update={'media_role': 'reference_person'})
+            if item.media_role == 'reference_image' and fictional.get(item.element_revision_id)
+            and 'image' in role_media_types.get('reference_person', ()) else item
+            for item in payload.references]
+        return cls.compile(payload.model_copy(update={'references': normalized}), snapshots)

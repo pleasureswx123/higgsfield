@@ -13,7 +13,7 @@ class GenerationDiagnosticTests(unittest.IsolatedAsyncioTestCase):
 
     def call(self, **changes):
         return SimpleNamespace(**(dict(job_id=1, credential_version_id=7, state='2', operation='video_submit',
-                                      acceptance='rejected', http_status=403, request_metadata={},
+                                      acceptance='rejected', http_status=403, business_code=None, request_metadata={},
                                       response_metadata={'message': 'secret-key', 'url': 'private-url'}) | changes))
 
     def test_rejection_and_unknown_are_distinct_and_no_raw_text_is_exposed(self):
@@ -26,6 +26,12 @@ class GenerationDiagnosticTests(unittest.IsolatedAsyncioTestCase):
         self.assertIsNone(Service.project(job, call))
         call.response_metadata = {'transport': 'timeout'}
         self.assertEqual(Service.project(job, call)['code'], 'SUBMISSION_TIMEOUT')
+
+    def test_real_person_rejection_has_actionable_safe_message(self):
+        result = Service.project(self.job(), self.call(http_status=400, business_code='INPUT_REAL_PERSON_REJECTED'))
+        self.assertEqual(result['code'], 'INPUT_REAL_PERSON_REJECTED')
+        self.assertIn('可能包含真人', result['message'])
+        self.assertNotIn('secret-key', result['message'])
 
     def test_poll_reason_requires_original_binding_and_matching_current_state(self):
         call = self.call(operation='video_poll', acceptance='not_applicable',

@@ -25,6 +25,14 @@ const refs = [
   },
 ]
 
+test('整段粘贴暂留仍被提及的引用，不保留被删掉的标签或误匹配长编号', () => {
+  const { pastedPromptReferences } = load('promptEditorDocument')
+  const document = { content: [{ content: [{ type: 'mention', attrs: { id: refs[0].referenceKey, label: 'Image 1' } }] }] }
+  assert.equal(pastedPromptReferences(document, '继续使用@Image 1。', refs).length, 1)
+  assert.equal(pastedPromptReferences(document, '@Image 10', refs).length, 0)
+  assert.equal(pastedPromptReferences(document, '新的提示词', refs).length, 0)
+})
+
 test('长提示词的软换行合并为正文，保留换行、格式和引用边界', () => {
   const lines = Array.from({ length: 160 }, (_, i) => `第${i}行镜头描述。`)
   const content = lines.flatMap((text, i) => [

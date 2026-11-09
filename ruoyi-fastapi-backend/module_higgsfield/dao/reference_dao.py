@@ -4,7 +4,7 @@ from datetime import datetime, timedelta, timezone
 
 from sqlalchemy import select, literal, func, or_, and_, false, union_all
 from module_higgsfield.entity.do.asset_do import HfAsset, HfAssetVersion, HfStoredFile, HfUploadBinding
-from module_higgsfield.entity.do.element_do import HfElement, HfElementRevisionMedia
+from module_higgsfield.entity.do.element_do import HfElement, HfElementRevision, HfElementRevisionMedia
 
 
 class ReferenceDao:
@@ -44,6 +44,7 @@ class ReferenceDao:
             HfAsset.create_time.label('created'),
             literal(None).label('alias'),
             literal(None).label('category'),
+            literal(False).label('is_fictional_person'),
             select(HfStoredFile.byte_size).join(HfAssetVersion, HfAssetVersion.file_id == HfStoredFile.file_id).where(HfAssetVersion.version_id == HfAsset.current_version_id).scalar_subquery().label('byte_size'),
         ).where(HfAsset.space_id == space_id, HfAsset.current_version_id.in_(media))
         linked = select(HfElementRevisionMedia.media_id).where(
@@ -61,6 +62,7 @@ class ReferenceDao:
             HfElement.create_time.label('created'),
             HfElement.alias.label('alias'),
             HfElement.category.label('category'),
+            select(HfElementRevision.is_fictional_person).where(HfElementRevision.revision_id == HfElement.current_revision_id).scalar_subquery().label('is_fictional_person'),
             select(func.max(HfStoredFile.byte_size)).select_from(HfElementRevisionMedia).join(HfAssetVersion, HfAssetVersion.version_id == HfElementRevisionMedia.asset_version_id).join(HfStoredFile, HfStoredFile.file_id == HfAssetVersion.file_id).where(HfElementRevisionMedia.element_revision_id == HfElement.current_revision_id).scalar_subquery().label('byte_size'),
         ).where(
             HfElement.space_id == space_id,

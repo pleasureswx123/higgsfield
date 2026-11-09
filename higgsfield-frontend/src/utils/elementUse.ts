@@ -16,7 +16,9 @@ export function prepareElementUse(
     if (!candidate.elementRevisionId || !candidate.assetVersionIds.length)
       throw new Error(`${candidate.displayName}没有可引用图片，请先补图`)
     const compatible = compatibleReferenceRoles(candidate, model)
-    const role = ['reference_image', 'first_frame'].find((value) => compatible.includes(value))
+    const role = compatible.find((value) =>
+      ['reference_person', 'reference_image', 'first_frame'].includes(value),
+    )
     if (!role) throw new Error('当前模型不支持元素图片引用，请在创作区选择兼容模型')
     let key = next.find(
       (item) => item.elementRevisionId === candidate.elementRevisionId && item.mediaRole === role,

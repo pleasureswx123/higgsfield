@@ -60,6 +60,23 @@ class OutputArchiveTests(unittest.IsolatedAsyncioTestCase):
                 db, self.identity, revision=revision, action=action, worker='archiver', **kwargs
             )
 
+    async def test_download_progress_preserves_lease_and_rejects_stale_writer(self):
+        begun = await self.change(1, 'begin')
+        revision = int(begun['revision'])
+        facts = dict(stage='downloading', bytes=64, totalBytes=128, elapsedSeconds=1,
+                     dnsSeconds=0.1, firstByteSeconds=0.2, requests=5, resumeCount=0,
+                     receivedBytes=64, connections=4)
+        async with self.sessions() as db:
+            await OutputArchiveService.progress(db, self.identity, revision=revision, worker='archiver', facts=facts)
+            output = await GeneratedOutputDao.get(db, self.identity)
+            self.assertEqual(output.revision, revision)
+            self.assertEqual(output.actual_metadata['archiveDownload'], facts)
+            await db.rollback()
+            with self.assertRaises(ServiceWarning):
+                await OutputArchiveService.progress(db, self.identity, revision=revision-1, worker='old', facts=facts)
+        renewed = await self.change(revision, 'renew')
+        self.assertEqual(int(renewed['revision']), revision)
+
     async def test_backoff_pauses_after_five_failures_and_crashes_are_bounded(self):
         revision = 1
         for attempt in range(1, 6):

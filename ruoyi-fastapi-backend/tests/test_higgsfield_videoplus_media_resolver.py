@@ -141,7 +141,8 @@ class MediaResolverTests(unittest.IsolatedAsyncioTestCase):
                 response = {'Id': 'asset-20261102155631-test', 'base_resp': {'status_code': 0}}
             elif lines[0] == 'POST /v1/mm/assets/get HTTP/1.1':
                 self.assertEqual(json.loads(body)['Id'], 'asset-20261102155631-test')
-                response = {'Id': 'asset-20261102155631-test', 'AssetType': 'Image', 'Status': 'Active', 'base_resp': {'status_code': 0}}
+                response = {'Id': 'asset-20261102155631-test', 'AssetType': 'Image',
+                    'Status': 'Processing' if self.mode == 'two_people' else 'Active', 'base_resp': {'status_code': 0}}
             elif '/assets/upload ' in lines[0]:
                 self.assertIn(self.data, body)
                 response = {
@@ -199,6 +200,14 @@ class MediaResolverTests(unittest.IsolatedAsyncioTestCase):
                     await db.commit()
 
     async def test_virtual_person_uses_registered_id_after_active(self):
+        # 先保留一次成功上传，再模拟它属于历史任务；注册证据必须另建当前任务调用。
+        self.mode = 'revoke_after_upload'
+        self.assertEqual((await self.worker.run_once())[0]['status'], 'handler_failed')
+        async with self.sessions() as db:
+            await db.execute(text("UPDATE sys_role SET status='0'"))
+            await db.execute(text("UPDATE hf_creation_job SET next_action_time=clock_timestamp()-interval '1 second'"))
+            await db.execute(text('UPDATE hf_provider_call SET job_id=job_id+10000'))
+            await db.commit()
         self.mode = 'person'
         async with self.sessions() as db:
             cap = await db.scalar(text('SELECT capabilities FROM hf_model_profile_version'))
@@ -216,6 +225,41 @@ class MediaResolverTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(self.errors, [])
         self.assertEqual([row[0].split(' ')[1] for row in self.requests],
             ['/v1/assets/upload', '/v1/mm/assets', '/v1/mm/assets/get', '/v1/chat/completions'])
+        async with self.sessions() as db:
+            calls = (await db.execute(text('SELECT job_id,operation,request_metadata FROM hf_provider_call ORDER BY call_id'))).mappings().all()
+            job_id = await db.scalar(text('SELECT job_id FROM hf_creation_job'))
+            self.assertNotEqual(calls[0]['job_id'], job_id)
+            self.assertEqual([row['operation'] for row in calls[1:]], ['register', 'asset_get', 'video_submit'])
+            self.assertTrue(all(row['job_id'] == job_id for row in calls[1:]))
+            self.assertTrue(all(row['request_metadata'].get('exchanges') for row in calls[1:]))
+
+    async def test_all_people_register_before_waiting_and_processing_rechecks_in_five_seconds(self):
+        self.mode = 'two_people'
+        async with self.sessions() as db:
+            other = await db.scalar(text('INSERT INTO hf_asset_version(asset_id,version_no,file_id,create_user_id,create_time,update_time) '
+                'SELECT asset_id,version_no+1,file_id,create_user_id,NOW(),NOW() FROM hf_asset_version LIMIT 1 RETURNING version_id'))
+            cap = await db.scalar(text('SELECT capabilities FROM hf_model_profile_version'))
+            cap['referenceRules'] = {'maxTotal': 2, 'roles': {'reference_person': {'mediaTypes': ['image'], 'maxCount': 2}}}
+            snapshot = await db.scalar(text('SELECT input_snapshot FROM hf_creation_job'))
+            first = snapshot['compiled']['media'][0]
+            first['mediaRole'] = 'reference_person'
+            snapshot['compiled']['media'].append({**first, 'ordinal': 1, 'assetVersionId': str(other)})
+            await db.execute(text("UPDATE hf_model_profile_version SET gateway_alias='mm-eva-sd-2.5',capabilities=CAST(:cap AS jsonb)"), {'cap': json.dumps(cap)})
+            await db.execute(text('UPDATE hf_creation_job SET input_snapshot=CAST(:snapshot AS jsonb)'), {'snapshot': json.dumps(snapshot)})
+            await db.commit()
+        policy = ProviderMediaPolicies(modelVersions={str(self.model_version_id): {
+            'roles': ['reference_person'], 'mimeLimits': {'image/png': 100000}, 'requiredSeconds': 60, 'evidenceRef': 'test-only'}})
+        self.worker.handlers['prepare'] = VideoPlusSubmitHandler(credential_crypto=self.crypto,
+            media_resolver=VideoPlusMediaResolver(credential_crypto=self.crypto, policies=policy, storage=self.storage))
+        self.assertEqual((await self.worker.run_once())[0]['status'], 'handler_failed')
+        self.assertEqual(self.errors, [])
+        self.assertEqual([r[0].split(' ')[1] for r in self.requests],
+            ['/v1/assets/upload', '/v1/assets/upload', '/v1/mm/assets', '/v1/mm/assets', '/v1/mm/assets/get'])
+        async with self.sessions() as db:
+            seconds = await db.scalar(text('SELECT EXTRACT(EPOCH FROM next_action_time-clock_timestamp()) FROM hf_creation_job'))
+            self.assertGreater(seconds, 0)
+            self.assertLessEqual(seconds, 5)
+            self.assertEqual(await db.scalar(text("SELECT count(*) FROM hf_provider_call WHERE operation='video_submit'")), 0)
 
     async def test_revocation_during_upload_blocks_generation_and_reuses_saved_upload(self):
         self.mode = 'revoke_after_upload'

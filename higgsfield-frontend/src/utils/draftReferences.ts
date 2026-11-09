@@ -2,12 +2,18 @@ import type { DraftReference, ModelCapability } from '@/api/creation'
 import type { ReferenceCandidate } from '@/api/references'
 
 /** 元素默认只选主图；显式多选按修订原顺序固定，拒绝混入其他来源。 */
-export function selectReferenceMedia(candidate: ReferenceCandidate, selected?: string[]): ReferenceCandidate {
+export function selectReferenceMedia(
+  candidate: ReferenceCandidate,
+  selected?: string[],
+): ReferenceCandidate {
   if (candidate.kind !== 'element') return candidate
   const ids = selected ?? [candidate.primaryAssetVersionId || candidate.assetVersionIds[0]!]
-  if (!ids.length || ids.some(id => !id || !candidate.assetVersionIds.includes(id)))
+  if (!ids.length || ids.some((id) => !id || !candidate.assetVersionIds.includes(id)))
     throw new Error('请选择当前元素修订中的有效图片')
-  return { ...candidate, assetVersionIds: candidate.assetVersionIds.filter(id => ids.includes(id)) }
+  return {
+    ...candidate,
+    assetVersionIds: candidate.assetVersionIds.filter((id) => ids.includes(id)),
+  }
 }
 
 /** 候选角色对应的媒体类型沿用引用检索接口契约。 */
@@ -22,11 +28,19 @@ export function compatibleReferenceRoles(
     last_frame: 'image',
     reference_video: 'video',
   }
-  return candidate.allowedMediaRoles.filter((role) => {
+  const roles = candidate.allowedMediaRoles.filter((role) => {
     if (!model) return true
     const rule = model.referenceRules.roles[role]
     return Boolean(rule && rule.maxCount > 0 && rule.mediaTypes.includes(mediaTypes[role] || ''))
   })
+  // 人物性质随元素固定修订返回，两个引用入口共用默认选择策略。
+  if (
+    candidate.kind === 'element' &&
+    candidate.isFictionalPerson &&
+    roles.includes('reference_person')
+  )
+    return ['reference_person', ...roles.filter((role) => role !== 'reference_person')]
+  return roles
 }
 
 export function appendCandidate(
@@ -37,12 +51,11 @@ export function appendCandidate(
 ): DraftReference[] {
   if (!compatibleReferenceRoles(candidate, model).includes(role))
     throw new Error('候选素材或当前模型不支持此引用角色')
-  const versions =
-    ['first_frame', 'last_frame'].includes(role)
-      ? [candidate.primaryAssetVersionId || candidate.assetVersionIds[0]].filter(
-          (id): id is string => !!id,
-        )
-      : candidate.assetVersionIds
+  const versions = ['first_frame', 'last_frame'].includes(role)
+    ? [candidate.primaryAssetVersionId || candidate.assetVersionIds[0]].filter(
+        (id): id is string => !!id,
+      )
+    : candidate.assetVersionIds
   const fresh = versions.filter(
     (id) =>
       !current.some(
@@ -80,17 +93,33 @@ export function appendCandidate(
 }
 
 /** 图片追加，视频替换；被提示词提及的视频不可静默替换。 */
-export function selectCandidate(current: DraftReference[], candidate: ReferenceCandidate, role: string,
-  model?: ModelCapability | null, protectedKeys: string[] = []): DraftReference[] {
+export function selectCandidate(
+  current: DraftReference[],
+  candidate: ReferenceCandidate,
+  role: string,
+  model?: ModelCapability | null,
+  protectedKeys: string[] = [],
+): DraftReference[] {
   if (role !== 'reference_video') return appendCandidate(current, candidate, role, model)
-  const videos = current.filter(item => item.mediaRole === 'reference_video')
-  if (videos.some(item => protectedKeys.includes(item.referenceKey)))
+  const videos = current.filter((item) => item.mediaRole === 'reference_video')
+  if (videos.some((item) => protectedKeys.includes(item.referenceKey)))
     throw new Error('提示词仍提及当前视频，请先编辑提示词再替换')
-  const remaining = current.filter(item => item.mediaRole !== 'reference_video')
-  const result = appendCandidate(remaining, { ...candidate, assetVersionIds: candidate.assetVersionIds.slice(0, 1) }, role, model)
-  const next = current.reduce((max, item) => BigInt(item.referenceKey) > max ? BigInt(item.referenceKey) : max, 0n) + 1n
+  const remaining = current.filter((item) => item.mediaRole !== 'reference_video')
+  const result = appendCandidate(
+    remaining,
+    { ...candidate, assetVersionIds: candidate.assetVersionIds.slice(0, 1) },
+    role,
+    model,
+  )
+  const next =
+    current.reduce(
+      (max, item) => (BigInt(item.referenceKey) > max ? BigInt(item.referenceKey) : max),
+      0n,
+    ) + 1n
   if (next > 9223372036854775807n) throw new Error('引用编号已达到上限，请新建草稿')
-  return result.map(item => item.mediaRole === 'reference_video' ? { ...item, referenceKey: String(next) } : item)
+  return result.map((item) =>
+    item.mediaRole === 'reference_video' ? { ...item, referenceKey: String(next) } : item,
+  )
 }
 
 export function moveReference(
@@ -106,25 +135,68 @@ export function moveReference(
 }
 
 /** 用户确认升级后替换同一提及的固定来源，提示词引用键保持不变。 */
-export function upgradeReferenceGroup(current: DraftReference[], key: string, oldRevision: string,
-  candidate: ReferenceCandidate, model?: ModelCapability | null): DraftReference[] {
-  const group = current.filter(item => item.referenceKey === key)
-  if (!group.length || group.some(item => item.elementRevisionId !== oldRevision) ||
-    candidate.kind !== 'element' || !candidate.elementRevisionId || candidate.elementRevisionId === oldRevision)
+export function upgradeReferenceGroup(
+  current: DraftReference[],
+  key: string,
+  oldRevision: string,
+  candidate: ReferenceCandidate,
+  model?: ModelCapability | null,
+): DraftReference[] {
+  const group = current.filter((item) => item.referenceKey === key)
+  if (
+    !group.length ||
+    group.some((item) => item.elementRevisionId !== oldRevision) ||
+    candidate.kind !== 'element' ||
+    !candidate.elementRevisionId ||
+    candidate.elementRevisionId === oldRevision
+  )
     throw new Error('引用已变化，请重新检查元素修订')
-  const roles = [...new Set(group.map(item => item.mediaRole))]
+  const compatible = compatibleReferenceRoles(candidate, model)
+  // 显式升级才采用新修订的人物性质；不改变仍引用旧修订的草稿。
+  const roles = [
+    ...new Set(
+      group.map((item) => {
+        if (['reference_image', 'reference_person'].includes(item.mediaRole)) {
+          if (candidate.isFictionalPerson && compatible.includes('reference_person'))
+            return 'reference_person'
+          if (candidate.isFictionalPerson === false) return 'reference_image'
+        }
+        return item.mediaRole
+      }),
+    ),
+  ]
   const replacements: DraftReference[] = []
   for (const role of roles) {
-    if (!compatibleReferenceRoles(candidate, model).includes(role)) throw new Error('新修订与当前模型引用角色不兼容')
-    const versions = ['first_frame', 'last_frame'].includes(role) ? [candidate.primaryAssetVersionId || candidate.assetVersionIds[0]] : candidate.assetVersionIds
-    if (!versions.length || versions.some(id => !id || !candidate.assetVersionIds.includes(id))) throw new Error('新修订没有可用图片')
-    for (const id of new Set(versions)) replacements.push({ referenceKey: key, assetVersionId: id!,
-      elementRevisionId: candidate.elementRevisionId, mediaRole: role, ordinal: 0 })
+    if (!compatibleReferenceRoles(candidate, model).includes(role))
+      throw new Error('新修订与当前模型引用角色不兼容')
+    const versions = ['first_frame', 'last_frame'].includes(role)
+      ? [candidate.primaryAssetVersionId || candidate.assetVersionIds[0]]
+      : candidate.assetVersionIds
+    if (!versions.length || versions.some((id) => !id || !candidate.assetVersionIds.includes(id)))
+      throw new Error('新修订没有可用图片')
+    for (const id of new Set(versions))
+      replacements.push({
+        referenceKey: key,
+        assetVersionId: id!,
+        elementRevisionId: candidate.elementRevisionId,
+        mediaRole: role,
+        ordinal: 0,
+      })
   }
-  const first = current.findIndex(item => item.referenceKey === key)
-  const result = current.flatMap((item, index) => item.referenceKey === key ? (index === first ? replacements : []) : [{ ...item }])
-  if (result.length > 200 || (model && result.length > model.referenceRules.maxTotal)) throw new Error('升级后引用数量超过限制，原引用已保留')
-  if (model && roles.some(role => result.filter(item => item.mediaRole === role).length > model.referenceRules.roles[role]!.maxCount))
+  const first = current.findIndex((item) => item.referenceKey === key)
+  const result = current.flatMap((item, index) =>
+    item.referenceKey === key ? (index === first ? replacements : []) : [{ ...item }],
+  )
+  if (result.length > 200 || (model && result.length > model.referenceRules.maxTotal))
+    throw new Error('升级后引用数量超过限制，原引用已保留')
+  if (
+    model &&
+    roles.some(
+      (role) =>
+        result.filter((item) => item.mediaRole === role).length >
+        model.referenceRules.roles[role]!.maxCount,
+    )
+  )
     throw new Error('升级后该角色图片数量超过当前模型限制，原引用已保留')
   return result.map((item, ordinal) => ({ ...item, ordinal }))
 }

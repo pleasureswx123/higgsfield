@@ -1,6 +1,6 @@
 """元素身份与不可变修订；业务关系由事务服务校验，不使用物理外键。"""
 
-from sqlalchemy import CHAR, BigInteger, CheckConstraint, Column, Index, Integer, String, Text, UniqueConstraint, text
+from sqlalchemy import CHAR, BigInteger, Boolean, CheckConstraint, Column, Index, Integer, String, Text, UniqueConstraint, text
 from sqlalchemy.dialects.postgresql import JSONB
 
 from module_higgsfield.entity.do.asset_do import ContentRecord
@@ -50,6 +50,7 @@ class HfElementRevision(ContentRecord):
     element_id = Column(BigInteger, nullable=False, comment='元素身份ID')
     revision_no = Column(Integer, nullable=False, comment='递增内部修订号')
     description = Column(Text, nullable=False, server_default='', comment='参与生成的描述')
+    is_fictional_person = Column(Boolean, nullable=False, server_default=text('false'), comment='是否虚构人物，固定修订中的人物素材注册策略')
     property_snapshot = Column(
         JSONB, nullable=False, server_default=text("'[]'::jsonb"), comment='属性定义版本和值的不可变快照'
     )

@@ -37,6 +37,7 @@ class ElementMedia(WorkspaceInput):
 
 
 class RevisionContent(WorkspaceInput):
+    is_fictional_person: StrictBool | None = None
     description: str = ''
     property_values: list[PropertyValue] = Field(default_factory=list)
     media: list[ElementMedia] = Field(default_factory=list)

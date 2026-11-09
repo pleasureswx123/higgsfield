@@ -28,6 +28,16 @@ test('模型容量、角色或来源变化阻止升级且保留原引用',()=>{
  assert.throws(()=>utils.upgradeReferenceGroup(input,'7','20',{...candidate,allowedMediaRoles:[]}),/不兼容/)
  assert.equal(JSON.stringify(input),before)
 })
+test('显式升级采用新修订的人物性质，保留引用键及旧输入',()=>{
+ const input=original(), before=JSON.stringify(input)
+ const person={...candidate,isFictionalPerson:true,allowedMediaRoles:['reference_image','reference_person']}
+ const enabled=utils.upgradeReferenceGroup(input,'7','20',person)
+ assert.ok(enabled.every(x=>x.mediaRole==='reference_person' && x.referenceKey==='7'))
+ const disabled=utils.upgradeReferenceGroup(enabled,'7','21',{...person,elementRevisionId:'22',isFictionalPerson:false})
+ assert.ok(disabled.every(x=>x.mediaRole==='reference_image' && x.referenceKey==='7'))
+ assert.equal(JSON.stringify(input),before)
+ assert.ok(enabled.every(x=>x.mediaRole==='reference_person'))
+})
 function setup(){
  const calls=[],hooks={},auth=vue.reactive({token:'one',user:{user:{userId:1},permissions:[]}}),refs=vue.ref(original())
  const exports=load('composables/useReferenceUpdates.ts',id=>id==='vue'?{...vue,onActivated:fn=>hooks.activate=fn,onDeactivated:fn=>hooks.stop=fn,onBeforeUnmount:fn=>hooks.close=fn}:id.includes('stores/auth')?{useAuthStore:()=>auth}:id.includes('draftReferences')?utils:{checkReferenceUpdates:(...args)=>new Promise(resolve=>calls.push({args,resolve}))})

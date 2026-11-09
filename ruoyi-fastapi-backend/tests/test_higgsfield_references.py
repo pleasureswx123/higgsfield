@@ -39,21 +39,23 @@ class ReferenceTests(unittest.IsolatedAsyncioTestCase):
                     migration.upgrade()
 
             await conn.run_sync(migrate)
-            self.assertEqual(
-                await conn.scalar(
-                    text("SELECT count(*) FROM hf_project_role_permission WHERE permission_code='generation:create'")
-                ),
-                0,
-            )
+            # 新基础夹具已为制作角色授予生成权限，不再假定迁移前没有授权。
             await conn.execute(
                 text(
-                    "INSERT INTO hf_project_role_permission(role_id,permission_code,data_scope) SELECT role_id,'generation:create','project' FROM hf_project_role WHERE code='owner'"
+                    "INSERT INTO hf_project_role_permission(role_id,permission_code,data_scope) SELECT role_id,'generation:create','project' FROM hf_project_role WHERE code='owner' ON CONFLICT DO NOTHING"
                 )
             )
 
     async def search(self, **options):
         async with self.sessions() as db:
             return await ReferenceService.search(db, self.owner, ReferenceQuery(projectId=self.project_id, **options))
+
+    async def use_member(self):
+        """撤权测试使用普通成员；所有者的内置完整权限不能被权限表撤销。"""
+        async with self.sessions() as db:
+            await db.execute(text("UPDATE hf_project_member SET role_id=(SELECT role_id FROM hf_project_role WHERE code='producer') WHERE user_id=:user"),
+                             {'user': self.owner.user.user_id})
+            await db.commit()
 
     async def test_fixed_revision_and_pagination(self):
         result = await self.search()
@@ -100,6 +102,7 @@ class ReferenceTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(video.rows[0]['allowedMediaRoles'], ['reference_video'])
 
     async def test_deleted_media_and_revoked_usage_remove_candidates(self):
+        await self.use_member()
         async with self.sessions() as db:
             await db.execute(text("DELETE FROM hf_project_role_permission WHERE permission_code='asset:reference'"))
             await db.commit()
@@ -107,7 +110,7 @@ class ReferenceTests(unittest.IsolatedAsyncioTestCase):
         async with self.sessions() as db:
             await db.execute(
                 text(
-                    "INSERT INTO hf_project_role_permission(role_id,permission_code,data_scope) SELECT role_id,'asset:reference','project' FROM hf_project_role WHERE code='owner'"
+                    "INSERT INTO hf_project_role_permission(role_id,permission_code,data_scope) SELECT role_id,'asset:reference','project' FROM hf_project_role WHERE code='producer'"
                 )
             )
             await db.execute(text("UPDATE hf_asset SET del_flag='2'"))
@@ -115,6 +118,7 @@ class ReferenceTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual((await self.search()).total, 0)
 
     async def test_system_permissions_and_own_scope(self):
+        await self.use_member()
         limited = SimpleNamespace(
             user=self.owner.user, permissions=['project:read', 'generation:create', 'element:read', 'asset:read']
         )
@@ -136,6 +140,7 @@ class ReferenceTests(unittest.IsolatedAsyncioTestCase):
 
 
     async def test_exact_element_filter_keeps_authorization_and_project_boundary(self):
+        await self.use_member()
         element_id = self.source['element']['id']
         result = await self.search(kind='element', elementId=element_id, pageSize=1)
         self.assertEqual(result.total, 1)

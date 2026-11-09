@@ -263,7 +263,8 @@ class GenerationWorkerService:
             await asyncio.gather(renew, return_exceptions=True)
             try:
                 # 若已持久进入提交阶段，释放后下一轮领取会转为提交未知，绝不自动重发。
-                await context.defer(30, diagnostic_code)
+                # 素材处理中属于正常的短等待；未知注册、异常和付费提交仍沿用原防重试策略。
+                await context.defer(5 if diagnostic_code == 'ASSET_PROCESSING' else 30, diagnostic_code)
             except Exception:
                 status = 'lease_lost'
         return {'jobId': str(lease.job_id), 'status': status}

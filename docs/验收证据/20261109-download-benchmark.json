@@ -1,0 +1,34 @@
+[
+  {
+    "outputId": 10,
+    "connectionsRequested": 1,
+    "matchesArchivedFile": true,
+    "sha256": "ebb4c6dda7550740cbb61454628a089651875dc743f1eb8ef44321577488389c",
+    "requests": 1,
+    "resumeCount": 0,
+    "receivedBytes": 6855033,
+    "connections": 1,
+    "dnsSeconds": 0.113,
+    "firstByteSeconds": 1.472,
+    "bytes": 6855033,
+    "totalBytes": 6855033,
+    "elapsedSeconds": 271.149,
+    "stage": "complete"
+  },
+  {
+    "outputId": 10,
+    "connectionsRequested": 4,
+    "matchesArchivedFile": true,
+    "sha256": "ebb4c6dda7550740cbb61454628a089651875dc743f1eb8ef44321577488389c",
+    "requests": 5,
+    "resumeCount": 0,
+    "receivedBytes": 6855033,
+    "connections": 4,
+    "dnsSeconds": 0.108,
+    "firstByteSeconds": 1.086,
+    "bytes": 6855033,
+    "totalBytes": 6855033,
+    "elapsedSeconds": 111.02,
+    "stage": "complete"
+  }
+]

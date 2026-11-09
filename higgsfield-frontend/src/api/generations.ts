@@ -102,6 +102,7 @@ export interface GenerationOutput {
     format?: string
     revisedPrompt?: string
   }
+  archiveProgress?: { stage?: 'downloading' | 'verifying' | 'complete' | 'failed'; bytes?: number; totalBytes?: number | null; elapsedSeconds?: number }
   archiveState:
     | 'not_started'
     | 'archiving'

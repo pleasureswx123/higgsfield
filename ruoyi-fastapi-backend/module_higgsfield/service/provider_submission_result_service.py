@@ -50,7 +50,7 @@ class ProviderSubmissionResultService:
                     or evidence.job_id != job.job_id
                     or evidence.http_status != result.http_status
                     or result.transport != 'response'
-                    or result.acceptance != 'accepted'
+                    or result.acceptance not in {'accepted', 'rejected'}
                 ):
                     WorkspaceService.conflict('RESPONSE_EVIDENCE_INVALID', '无法使用该响应证据恢复当前未知视频任务')
             job, now = await JobLeaseService.guard(db, lease)

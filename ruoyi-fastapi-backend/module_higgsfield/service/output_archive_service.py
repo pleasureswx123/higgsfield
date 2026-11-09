@@ -8,7 +8,7 @@ from module_higgsfield.dao.job_event_dao import JobEventDao
 from module_higgsfield.dao.job_lease_dao import JobLeaseDao
 from module_higgsfield.dao.provider_response_dao import ProviderResponseDao
 from module_higgsfield.entity.do.asset_do import HfStoredFile
-from module_higgsfield.entity.vo.archive_file_vo import ArchiveFileFacts
+from module_higgsfield.entity.vo.archive_file_vo import ArchiveFileFacts, ArchiveDownloadProgress
 from module_higgsfield.service.generated_asset_binding_service import GeneratedAssetBindingService
 from module_higgsfield.service.job_lease_service import JobLeaseService
 from module_higgsfield.service.project_workspace_service import WorkspaceService
@@ -16,6 +16,28 @@ from module_higgsfield.service.production_policy_service import ProductionPolicy
 
 
 class OutputArchiveService:
+    @classmethod
+    async def progress(cls, db, output_id, *, revision, worker, facts):
+        """沿用归档版本栅栏；进度不改变输出版本，以免使当前下载租约失效。"""
+        JobLeaseService.validate_worker(worker)
+        progress = ArchiveDownloadProgress.model_validate(facts).model_dump(exclude_none=True)
+        try:
+            job, output = await GeneratedOutputDao.locked(db, output_id)
+            now = await JobLeaseDao.now(db)
+            if (output is None or job is None or output.revision != revision or output.archive_state != '1'
+                    or output.next_retry_time is None or output.next_retry_time <= now):
+                WorkspaceService.conflict('OUTPUT_REVISION_CHANGED', '归档占用已变化，停止写入下载进度')
+            output.actual_metadata = {**output.actual_metadata, 'archiveDownload': progress}
+            output.update_time, output.update_by = now, worker
+            job.revision += 1
+            job.event_sequence += 1
+            job.update_time, job.update_by = now, worker
+            await JobEventDao.output(db, job, output, now, worker, progress=True)
+            await db.commit()
+        except Exception:
+            await db.rollback()
+            raise
+
     @classmethod
     async def register_download(cls, db, output_id, *, revision, worker, facts):
         """文件登记、输出绑定和事件同事务提交；失败不留下就绪文件记录。

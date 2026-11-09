@@ -69,6 +69,7 @@ class ElementContentService:
             element_id=element.element_id,
             revision_no=previous.revision_no + 1 if previous else 1,
             description=content.description,
+            is_fictional_person=bool(content.is_fictional_person),
             property_snapshot=snapshots,
             create_user_id=user.user.user_id,
             **audit,
@@ -105,6 +106,7 @@ class ElementContentService:
             'elementId': str(revision.element_id),
             'revisionNo': revision.revision_no,
             'description': revision.description,
+            'isFictionalPerson': revision.is_fictional_person,
             'propertyValues': [
                 {key: item[key] for key in ('definitionId', 'definitionVersion', 'value')}
                 for item in revision.property_snapshot

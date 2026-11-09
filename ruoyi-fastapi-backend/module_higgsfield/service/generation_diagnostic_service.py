@@ -37,7 +37,9 @@ class GenerationDiagnosticService:
         elif call.operation in {'image', 'video_submit'}:
             if job.upstream_state == '4' and call.acceptance == 'rejected':
                 code, message = 'SUBMISSION_REJECTED', '供应商提交结果明确拒绝本次请求。'
-                if call.http_status in {401, 403}:
+                if call.business_code == 'INPUT_REAL_PERSON_REJECTED':
+                    code, message = 'INPUT_REAL_PERSON_REJECTED', '供应商认为输入图片可能包含真人，已拒绝本次生成。请核对该模型的人物素材要求，或改用符合要求的素材后再提交。'
+                elif call.http_status in {401, 403}:
                     code, message = 'SUBMISSION_AUTH_REJECTED', '供应商在提交阶段拒绝了身份或访问授权，请管理员核查接入配置。'
                 elif call.http_status == 429:
                     code, message = 'SUBMISSION_RATE_REJECTED', '供应商在提交阶段明确拒绝请求，并返回请求频率或额度限制状态。'
@@ -55,9 +57,6 @@ class GenerationDiagnosticService:
 
     @classmethod
     async def read(cls, db, job):
-        if job.orchestration_state in {'3', '4'} and job.next_action_time is None:
-            return {'code': 'MEDIA_MANUAL_REVIEW_REQUIRED', 'phase': 'poll' if job.upstream_task_id else 'submit',
-                    'message': '自动核查已暂停，生成结果尚未确认，供应商名额暂保留。请管理员核查后继续查询或结束追踪并释放名额；不会自动重新生成。'}
         if job.orchestration_state == '3':
             actual = cls.project(job, await GenerationReadDao.latest_execution_call(db, job.job_id))
             if actual:
@@ -65,6 +64,9 @@ class GenerationDiagnosticService:
         if job.kind == 'image' and job.orchestration_state == '3' and job.next_action_time is None:
             return {'code': 'IMAGE_MANUAL_REVIEW_REQUIRED', 'phase': 'submit',
                     'message': '本次未取得可恢复的完整图片结果，自动恢复已停止。可展开执行过程查看实际请求与响应；系统不会自动重新生成。'}
+        if job.orchestration_state in {'3', '4'} and job.next_action_time is None:
+            return {'code': 'MEDIA_MANUAL_REVIEW_REQUIRED', 'phase': 'poll' if job.upstream_task_id else 'submit',
+                    'message': '自动核查已暂停，生成结果尚未确认，供应商名额暂保留。请管理员核查后继续查询或结束追踪并释放名额；不会自动重新生成。'}
         if job.orchestration_state in {'0', '1'}:
             return await PreparationDiagnosticService.read(db, job)
         if job.upstream_state not in {'4', '6'} and job.orchestration_state != '3':

@@ -12,8 +12,16 @@ import {
   ElPagination,
   type FormRules,
 } from 'element-plus'
-import { IconPhoto, IconPlus, IconRefresh, IconMaximize, IconMinimize, IconTrash } from '@tabler/icons-vue'
+import {
+  IconPhoto,
+  IconPlus,
+  IconRefresh,
+  IconMaximize,
+  IconMinimize,
+  IconTrash,
+} from '@tabler/icons-vue'
 import Button from '@/components/ui/Button.vue'
+import { Switch } from '@/components/ui/switch'
 import DialogHeading from '@/components/shared/DialogHeading.vue'
 import { useElementDownload } from '@/composables/useElementDownload'
 import { useElementEditor } from '@/composables/useElementEditor'
@@ -40,7 +48,9 @@ const copyOpen = ref(false),
 const previewExpanded = ref(false)
 const propertiesOpen = ref(false)
 function propertyChanged(definition: PropertyDefinition) {
-  const existing = properties.value.find(item => item.definition.propertyKey === definition.propertyKey)
+  const existing = properties.value.find(
+    (item) => item.definition.propertyKey === definition.propertyKey,
+  )
   if (existing) newerDefinitions.value[existing.definition.id] = definition
   else properties.value.push({ definition, value: null })
 }
@@ -93,7 +103,14 @@ const {
   save,
   remove,
   confirmClose,
-} = useElementEditor(props.projectId, props.elementId, toRef(props, 'actions'), () => emit('saved'), () => props.visible !== false, props.initialAsset)
+} = useElementEditor(
+  props.projectId,
+  props.elementId,
+  toRef(props, 'actions'),
+  () => emit('saved'),
+  () => props.visible !== false,
+  props.initialAsset,
+)
 const downloader = useElementDownload(
   () =>
     active.value &&
@@ -122,7 +139,14 @@ const rules: FormRules = {
   alias: [{ required: true, whitespace: true, message: '请输入项目内唯一别名', trigger: 'blur' }],
 }
 async function close() {
-  if (propertiesOpen.value || downloader.pending.value || props.using || mover.value?.locked || copier.value?.locked) return
+  if (
+    propertiesOpen.value ||
+    downloader.pending.value ||
+    props.using ||
+    mover.value?.locked ||
+    copier.value?.locked
+  )
+    return
   if (comments.value && !(await comments.value.confirmLeave())) return
   if (await confirmClose()) emit('close')
 }
@@ -158,7 +182,11 @@ async function removeSelectedImage() {
     "
   >
     <template #header="{ titleId, titleClass }">
-      <DialogHeading :title-id="titleId" :title-class="titleClass" :title="elementId ? '元素详情' : '新建元素'" />
+      <DialogHeading
+        :title-id="titleId"
+        :title-class="titleClass"
+        :title="elementId ? '元素详情' : '新建元素'"
+      />
     </template>
     <p v-if="useError" class="project-error" role="alert">{{ useError }}</p>
     <p v-if="uncertain && !saving" role="alert">
@@ -172,7 +200,13 @@ async function removeSelectedImage() {
     <div v-if="!loading" class="element-editor-layout">
       <section class="element-image-panel">
         <div class="element-image-stage">
-          <video v-if="previewUrl && previewKind === 'video'" :src="previewUrl" controls playsinline preload="metadata" />
+          <video
+            v-if="previewUrl && previewKind === 'video'"
+            :src="previewUrl"
+            controls
+            playsinline
+            preload="metadata"
+          />
           <img v-else-if="previewUrl" :src="previewUrl" :alt="fields.name || '元素素材'" />
           <p v-else-if="previewLoading" role="status">正在授权读取素材…</p>
           <p v-else-if="previewError" class="project-error" role="alert">{{ previewError }}</p>
@@ -183,15 +217,27 @@ async function removeSelectedImage() {
         </div>
         <div class="element-preview-toolbar">
           <div class="element-media-strip">
-            <button v-for="(media, index) in fields.media" :key="media.assetVersionId"
-              type="button" :class="{ active: selectedVersion === media.assetVersionId }"
+            <button
+              v-for="(media, index) in fields.media"
+              :key="media.assetVersionId"
+              type="button"
+              :class="{ active: selectedVersion === media.assetVersionId }"
               :aria-label="`素材 ${index + 1}${media.isPrimary ? '，主图' : ''}`"
               :title="`素材 ${index + 1}${media.isPrimary ? ' · 主图' : ''}`"
-              :aria-pressed="selectedVersion === media.assetVersionId" @click="selectImage(media.assetVersionId)">
+              :aria-pressed="selectedVersion === media.assetVersionId"
+              @click="selectImage(media.assetVersionId)"
+            >
               <ReferenceThumbnail :version-id="media.assetVersionId" fill passive allow-original />
             </button>
-            <button v-if="canEdit && allowed.includes('asset:read')" type="button" class="element-add-media"
-              title="添加素材" aria-label="添加素材" :disabled="downloader.pending.value || using || locked" @click="showPicker">
+            <button
+              v-if="canEdit && allowed.includes('asset:read')"
+              type="button"
+              class="element-add-media"
+              title="添加素材"
+              aria-label="添加素材"
+              :disabled="downloader.pending.value || using || locked"
+              @click="showPicker"
+            >
               <IconPlus :size="20" />
             </button>
           </div>
@@ -199,22 +245,74 @@ async function removeSelectedImage() {
             <details v-if="selectedVersion && canEdit" class="element-media-menu">
               <summary title="素材操作" aria-label="素材操作"><IconRefresh :size="22" /></summary>
               <div>
-                <button type="button" :disabled="locked || using || downloader.pending.value" @click="showPicker">添加其他素材</button>
-                <button type="button" :disabled="locked || using || downloader.pending.value" @click="primary(selectedVersion)">设为主图</button>
-                <button type="button" :disabled="locked || using || downloader.pending.value || fields.media[0]?.assetVersionId === selectedVersion" @click="moveMedia(selectedVersion, -1)">前移</button>
-                <button type="button" :disabled="locked || using || downloader.pending.value || fields.media.at(-1)?.assetVersionId === selectedVersion" @click="moveMedia(selectedVersion, 1)">后移</button>
+                <button
+                  type="button"
+                  :disabled="locked || using || downloader.pending.value"
+                  @click="showPicker"
+                >
+                  添加其他素材
+                </button>
+                <button
+                  type="button"
+                  :disabled="locked || using || downloader.pending.value"
+                  @click="primary(selectedVersion)"
+                >
+                  设为主图
+                </button>
+                <button
+                  type="button"
+                  :disabled="
+                    locked ||
+                    using ||
+                    downloader.pending.value ||
+                    fields.media[0]?.assetVersionId === selectedVersion
+                  "
+                  @click="moveMedia(selectedVersion, -1)"
+                >
+                  前移
+                </button>
+                <button
+                  type="button"
+                  :disabled="
+                    locked ||
+                    using ||
+                    downloader.pending.value ||
+                    fields.media.at(-1)?.assetVersionId === selectedVersion
+                  "
+                  @click="moveMedia(selectedVersion, 1)"
+                >
+                  后移
+                </button>
               </div>
             </details>
-            <button type="button" :title="previewExpanded ? '还原预览' : '放大预览'" :aria-label="previewExpanded ? '还原预览' : '放大预览'" @click="previewExpanded = !previewExpanded">
+            <button
+              type="button"
+              :title="previewExpanded ? '还原预览' : '放大预览'"
+              :aria-label="previewExpanded ? '还原预览' : '放大预览'"
+              @click="previewExpanded = !previewExpanded"
+            >
               <IconMinimize v-if="previewExpanded" :size="22" /><IconMaximize v-else :size="22" />
             </button>
-            <button v-if="selectedVersion && canEdit" type="button" title="移除引用，不删除原素材" aria-label="移除素材引用"
-              :disabled="downloader.pending.value || using || locked" @click="removeSelectedImage"><IconTrash :size="22" /></button>
+            <button
+              v-if="selectedVersion && canEdit"
+              type="button"
+              title="移除引用，不删除原素材"
+              aria-label="移除素材引用"
+              :disabled="downloader.pending.value || using || locked"
+              @click="removeSelectedImage"
+            >
+              <IconTrash :size="22" />
+            </button>
           </div>
         </div>
       </section>
       <section class="element-detail-panel">
-        <div v-if="detail && selectedVersion" class="element-detail-tabs" role="group" aria-label="元素详情视图">
+        <div
+          v-if="detail && selectedVersion"
+          class="element-detail-tabs"
+          role="group"
+          aria-label="元素详情视图"
+        >
           <Button variant="ghost" :aria-pressed="detailTab === 'info'" @click="detailTab = 'info'"
             >信息</Button
           >
@@ -239,9 +337,25 @@ async function removeSelectedImage() {
             ><ElSelect v-model="fields.category"
               ><ElOption v-for="item in categories" :key="item.value" v-bind="item" /></ElSelect
           ></ElFormItem>
+          <ElFormItem v-if="fields.category === 'character'" label="人物性质">
+            <div class="flex items-center gap-2">
+              <Switch
+                v-model="fields.isFictionalPerson"
+                aria-label="虚构人物"
+                :disabled="downloader.pending.value || using || locked || !canEdit"
+              />
+              <span>{{ fields.isFictionalPerson ? '虚构人物' : '不是虚构人物' }}</span>
+            </div>
+            <small class="muted"
+              >人物角色默认开启；动物等非人物角色请关闭。开启后，支持的模型会自动注册人物素材。</small
+            >
+          </ElFormItem>
           <ElFormItem label="名称" prop="name"
-            ><ElInput v-model="fields.name" maxlength="200" placeholder="元素名称"
-          /><small class="muted">用于展示的名称，例如：角色、场景或道具名称</small></ElFormItem>
+            ><ElInput v-model="fields.name" maxlength="200" placeholder="元素名称" /><small
+              class="muted"
+              >用于展示的名称，例如：角色、场景或道具名称</small
+            ></ElFormItem
+          >
           <ElFormItem label="版本"
             ><ElInput v-model="fields.label" maxlength="100" placeholder="例如：审核稿"
           /></ElFormItem>
@@ -261,7 +375,11 @@ async function removeSelectedImage() {
             >
           </ElFormItem>
           <ElFormItem label="描述"
-            ><ElInput v-model="fields.description" type="textarea" :rows="4" placeholder="描述此元素（可选）"
+            ><ElInput
+              v-model="fields.description"
+              type="textarea"
+              :rows="4"
+              placeholder="描述此元素（可选）"
           /></ElFormItem>
           <ElFormItem label="负责人"
             ><ElSelect
@@ -321,8 +439,14 @@ async function removeSelectedImage() {
               采用最新定义 v{{ newerDefinitions[property.definition.id]?.versionNo }}
             </button>
           </ElFormItem>
-          <Button v-if="canEdit && allowed.includes('element:configure')" variant="ghost" class="element-add-property"
-            :disabled="locked || using || downloader.pending.value" @click="propertiesOpen = true"><IconPlus :size="18" />添加自定义属性</Button>
+          <Button
+            v-if="canEdit && allowed.includes('element:configure')"
+            variant="ghost"
+            class="element-add-property"
+            :disabled="locked || using || downloader.pending.value"
+            @click="propertiesOpen = true"
+            ><IconPlus :size="18" />添加自定义属性</Button
+          >
           <p v-else-if="!properties.length" class="muted">暂无自定义属性</p>
           <p v-if="detail" class="muted">
             内部修订 #{{ detail.currentRevision.revisionNo }} · 并发版本
@@ -346,8 +470,13 @@ async function removeSelectedImage() {
         </div>
       </section>
     </div>
-    <PropertyDefinitionsDialog v-if="propertiesOpen" :project-id="projectId" :visible="active"
-      @close="propertiesOpen = false" @changed="propertyChanged" />
+    <PropertyDefinitionsDialog
+      v-if="propertiesOpen"
+      :project-id="projectId"
+      :visible="active"
+      @close="propertiesOpen = false"
+      @changed="propertyChanged"
+    />
     <DirectoryMoveDialog
       :visible="active"
       ref="mover"
@@ -442,7 +571,9 @@ async function removeSelectedImage() {
         <DialogHeading :title-id="titleId" :title-class="titleClass" title="选择项目素材" />
       </template>
       <div class="element-toolbar">
-        <ElSelect v-model="pickerKind" aria-label="素材类型" style="width:110px"><ElOption label="图片" value="image" /><ElOption label="视频" value="video" /></ElSelect>
+        <ElSelect v-model="pickerKind" aria-label="素材类型" style="width: 110px"
+          ><ElOption label="图片" value="image" /><ElOption label="视频" value="video"
+        /></ElSelect>
         <ElInput
           v-model="pickerSearch"
           placeholder="搜索项目素材"
@@ -505,4 +636,3 @@ async function removeSelectedImage() {
   padding: 8px 20px;
 }
 </style>
-

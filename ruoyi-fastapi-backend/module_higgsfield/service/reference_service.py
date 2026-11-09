@@ -31,6 +31,7 @@ class ReferenceService:
                 'displayName': row['name'],
                 'alias': row.get('alias'),
                 'category': row.get('category'),
+                'isFictionalPerson': bool(row.get('is_fictional_person')),
                 'byteSize': str(row['byte_size']) if row.get('byte_size') is not None else None,
                 'projectId': str(project_id),
                 'allowedMediaRoles': {

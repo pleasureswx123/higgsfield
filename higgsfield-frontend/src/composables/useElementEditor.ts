@@ -72,6 +72,7 @@ export function useElementEditor(
     name: '',
     alias: '',
     category: 'character',
+    isFictionalPerson: true,
     workStatus: 'none',
     performerId: null,
     description: '',
@@ -154,6 +155,7 @@ export function useElementEditor(
           name: element.name,
           alias: element.alias,
           category: element.category,
+          isFictionalPerson: currentRevision.isFictionalPerson,
           workStatus: element.workStatus,
           performerId: element.performerId,
           description: currentRevision.description,
@@ -524,7 +526,7 @@ export function useElementEditor(
     mountedActive = true
     resume()
   })
-  watch(visible, value => value ? resume() : suspend(), { flush: 'sync' })
+  watch(visible, (value) => (value ? resume() : suspend()), { flush: 'sync' })
   watch(
     () => [auth.token, auth.user?.user.userId, JSON.stringify(auth.user?.permissions ?? [])],
     () => {
@@ -538,6 +540,7 @@ export function useElementEditor(
         name: '',
         alias: '',
         category: 'character',
+        isFictionalPerson: true,
         workStatus: 'none',
         performerId: null,
         description: '',

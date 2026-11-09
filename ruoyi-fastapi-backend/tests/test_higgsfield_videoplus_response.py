@@ -8,6 +8,17 @@ from module_higgsfield.service.videoplus_response_service import VideoPlusRespon
 
 
 class VideoPlusResponseTests(unittest.TestCase):
+    def test_explicit_real_person_rejection_is_not_unknown(self):
+        body = {'error': {'code': '400', 'message':
+            "litellm.BadRequestError: The request failed because the input image 'content[1]' may contain real person."}}
+        result = Parser.submission(400, body)
+        self.assertEqual(result.acceptance, 'rejected')
+        self.assertEqual(result.business_code, 'INPUT_REAL_PERSON_REJECTED')
+        self.assertIsNone(result.upstream_task_id)
+        for status, response in [(500, body), (200, body), (400, {'error': {'code': '400', 'message': 'Bad gateway'}}),
+                                 (400, body | {'id': 'possibly-accepted-task'})]:
+            self.assertEqual(Parser.submission(status, response).acceptance, 'unknown')
+
     def test_h3_seconds_and_images_are_not_video_tokens(self):
         fact = Parser.polling(200, {'task': {'id': 'h3-task', 'status': 'succeeded',
             'content': {'url': 'https://example.com/video.mp4'}, 'resolution': '2K',

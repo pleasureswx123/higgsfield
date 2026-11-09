@@ -14,8 +14,9 @@ def video_download_policy():
         config = json.loads(os.environ.get('HF_OUTPUT_DOWNLOAD_POLICY', json.dumps({
             'allowed_hosts': ['ark-acg-ap-southeast-1.tos-ap-southeast-1.volces.com',
                               'ark-acg.tos-cn-beijing.volces.com'],
-            'max_bytes': 1_000_000_000, 'timeout_seconds': 240})))
-        if not isinstance(config, dict) or set(config) - {'allowed_hosts', 'max_bytes', 'timeout_seconds'}:
+            # 跨境媒体下载可能持续数分钟；保留读取停滞超时和字节上限，避免正常传输被过早中断。
+            'max_bytes': 1_000_000_000, 'timeout_seconds': 900})))
+        if not isinstance(config, dict) or set(config) - {'allowed_hosts', 'max_bytes', 'timeout_seconds', 'range_concurrency'}:
             raise ValueError
         hosts = config['allowed_hosts']
         if (
@@ -28,7 +29,8 @@ def video_download_policy():
         ):
             raise ValueError
         policy = OutputDownloadPolicy(
-            tuple(hosts), config['max_bytes'], timeout_seconds=config.get('timeout_seconds', 120)
+            tuple(hosts), config['max_bytes'], timeout_seconds=config.get('timeout_seconds', 120),
+            range_concurrency=config.get('range_concurrency', 4),
         )
     except (KeyError, TypeError, ValueError):
         raise ValueError('HF_OUTPUT_DOWNLOAD_POLICY必须提供精确主机白名单和正整数字节上限') from None

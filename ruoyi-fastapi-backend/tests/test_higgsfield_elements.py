@@ -72,6 +72,9 @@ class ElementDatabaseTests(unittest.IsolatedAsyncioTestCase):
     async def asyncSetUp(self):
         await assets.AssetDatabaseTests.asyncSetUp(self)
         async with self.engine.begin() as conn:
+            self.initial_element_permissions = await conn.scalar(
+                text("SELECT count(*) FROM hf_project_role_permission WHERE permission_code LIKE 'element:%'")
+            )
             path = Path(__file__).resolve().parents[1] / 'alembic/versions/20261027_07_elements.py'
             spec = importlib.util.spec_from_file_location('elements_migration_test', path)
             module = importlib.util.module_from_spec(spec)
@@ -81,6 +84,16 @@ class ElementDatabaseTests(unittest.IsolatedAsyncioTestCase):
                 with Operations.context(MigrationContext.configure(sync_conn)):
                     module.upgrade()
 
+            await conn.run_sync(migrate)
+            path = Path(__file__).resolve().parents[1] / 'alembic/versions/20261109_90_element_fictional_person.py'
+            spec = importlib.util.spec_from_file_location('fictional_person_migration_test', path)
+            module = importlib.util.module_from_spec(spec)
+            spec.loader.exec_module(module)
+            await conn.run_sync(migrate)
+            path = Path(__file__).resolve().parents[1] / 'alembic/versions/20261028_79_asset_status.py'
+            spec = importlib.util.spec_from_file_location('element_asset_status_test', path)
+            module = importlib.util.module_from_spec(spec)
+            spec.loader.exec_module(module)
             await conn.run_sync(migrate)
         async with self.sessions() as db:
             self.space_id = (await FolderDao.space(db, int(self.project_id))).space_id
@@ -106,7 +119,7 @@ class ElementDatabaseTests(unittest.IsolatedAsyncioTestCase):
                 await conn.scalar(
                     text("SELECT count(*) FROM hf_project_role_permission WHERE permission_code LIKE 'element:%'")
                 ),
-                0,
+                self.initial_element_permissions,
             )
 
     async def test_fixed_media_and_property_snapshots(self):

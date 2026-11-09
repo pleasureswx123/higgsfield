@@ -39,6 +39,7 @@ class ElementCopyService:
             content_data = await ElementContentService.result(db, revision)
             content = RevisionContent(
                 description=revision.description,
+                isFictionalPerson=revision.is_fictional_person,
                 propertyValues=content_data['propertyValues'],
                 media=content_data['media'],
             )

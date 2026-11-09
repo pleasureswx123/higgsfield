@@ -8,6 +8,7 @@ from module_higgsfield.dao.generated_output_dao import GeneratedOutputDao
 from module_higgsfield.dao.job_lease_dao import JobLeaseDao
 from module_higgsfield.service.job_lease_service import JobLeaseService
 from module_higgsfield.service.output_archive_service import OutputArchiveService
+from module_higgsfield.service.output_download_service import OutputDownloadService
 
 
 class OutputArchiveWorker:
@@ -49,7 +50,11 @@ class OutputArchiveWorker:
         if storage is not None:
             # NAS 挂载异常时先失败，避免每轮先下载完整视频再发现存储不可用。
             await asyncio.to_thread(storage.verify_root)
-        facts = await self.downloader.download(url, kind=kind)
+        async def progress(facts):
+            async with self.sessions() as db:
+                await OutputArchiveService.progress(db, identity, revision=revision, worker=self.worker, facts=facts)
+        options = {'progress': progress} if isinstance(self.downloader, OutputDownloadService) else {}
+        facts = await self.downloader.download(url, kind=kind, **options)
         async with self.sessions() as db:
             return await OutputArchiveService.register_download(
                 db,

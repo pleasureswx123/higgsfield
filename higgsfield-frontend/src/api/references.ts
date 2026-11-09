@@ -6,6 +6,7 @@ export interface ReferenceCandidate {
   displayName: string
   alias?: string | null
   category?: string | null
+  isFictionalPerson?: boolean
   byteSize?: string | null
   allowedMediaRoles: string[]
   assetVersionIds: string[]
@@ -18,9 +19,16 @@ export interface ReferenceUpdate {
   state: 'current' | 'updated' | 'unavailable'
   candidate?: ReferenceCandidate
 }
-export const checkReferenceUpdates = (projectId: string, elementRevisionIds: string[], signal: AbortSignal) =>
+export const checkReferenceUpdates = (
+  projectId: string,
+  elementRevisionIds: string[],
+  signal: AbortSignal,
+) =>
   request<{ code: number; data: { items: ReferenceUpdate[] } }>({
-    url: '/api/v1/references/updates', method: 'post', data: { projectId, elementRevisionIds }, signal,
+    url: '/api/v1/references/updates',
+    method: 'post',
+    data: { projectId, elementRevisionIds },
+    signal,
   })
 export const searchReferences = (
   params: {
