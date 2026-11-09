@@ -134,8 +134,17 @@ export function fromEditorDocument(
   const keys = new Set(references.map((item) => item.referenceKey))
   const content = (document.content || []).map((paragraph) => {
     const nodes: PromptNode[] = []
+    let pendingText = ''
+    let pendingMarks: Extract<PromptNode, { type: 'text' }>['marks']
+    // 换行和浏览器拆分出的相同格式文本属于同一正文，不应耗尽接口片段额度。
+    function flushText() {
+      for (const chunk of pendingText.match(/[\s\S]{1,20000}/gu) || [])
+        nodes.push({ type: 'text', text: chunk, ...(pendingMarks?.length ? { marks: pendingMarks } : {}) })
+      pendingText = ''
+    }
     for (const node of paragraph.content || []) {
       if (node.type === 'mention') {
+        flushText()
         const key = String(node.attrs?.id || '')
         nodes.push({ type: 'text', text: `@${String(node.attrs?.label || '已引用元素')} ` })
         if (keys.has(key)) nodes.push({ type: 'mention', referenceKey: key })
@@ -147,10 +156,12 @@ export function fromEditorDocument(
             type: mark.type as 'bold' | 'italic' | 'link',
             ...(mark.type === 'link' ? { href: mark.attrs?.href } : {}),
           }))
-        for (const chunk of [...text].join('').match(/[\s\S]{1,20000}/gu) || [])
-          nodes.push({ type: 'text', text: chunk, ...(marks?.length ? { marks } : {}) })
+        if (JSON.stringify(pendingMarks || []) !== JSON.stringify(marks || [])) flushText()
+        pendingMarks = marks
+        pendingText += text
       }
     }
+    flushText()
     return { type: 'paragraph' as const, content: nodes }
   })
   return editPrompt(

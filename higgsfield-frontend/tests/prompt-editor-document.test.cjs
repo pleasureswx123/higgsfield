@@ -25,6 +25,30 @@ const refs = [
   },
 ]
 
+test('长提示词的软换行合并为正文，保留换行、格式和引用边界', () => {
+  const lines = Array.from({ length: 160 }, (_, i) => `第${i}行镜头描述。`)
+  const content = lines.flatMap((text, i) => [
+    ...(i ? [{ type: 'hardBreak' }] : []), { type: 'text', text },
+  ])
+  content.push({ type: 'mention', attrs: { id: refs[0].referenceKey, label: 'woman' } },
+    { type: 'text', text: '粗体', marks: [{ type: 'bold' }] }, { type: 'text', text: '继续', marks: [{ type: 'bold' }] })
+  const result = fromEditorDocument({ type: 'doc', content: [{ type: 'paragraph', content }] }, refs)
+  assert.equal(result.content[0].content.length, 4)
+  assert.equal(result.content[0].content[0].text, lines.join('\n'))
+  assert.equal(result.content[0].content[3].text, '粗体继续')
+  assert.equal(toEditorDocument(result).content[0].content[1].attrs.label, 'woman')
+  assert.equal(result.content[0].content[3].marks[0].type, 'bold')
+})
+
+test('合并文本仍遵守单片段与正文总长度上限，完整保留非BMP字符', () => {
+  const convert = (size) => fromEditorDocument({ type: 'doc', content: [{ type: 'paragraph', content:
+    Array.from({ length: size }, () => ({ type: 'text', text: '🌊'.repeat(1000) })),
+  }] }, [])
+  const result = convert(45)
+  assert.deepEqual(Array.from(result.content[0].content, n => [...n.text].length), [20000, 20000, 5000])
+  assert.throws(() => convert(51), /50000/)
+})
+
 test('后加图片将手写编号绑定为固定版本引用，元素和视频不占图片编号', () => {
   const { Schema } = require('@tiptap/pm/model')
   const { EditorState } = require('@tiptap/pm/state')
