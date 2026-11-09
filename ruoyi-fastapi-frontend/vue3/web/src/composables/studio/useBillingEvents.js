@@ -1,12 +1,12 @@
 import { computed, onActivated, onBeforeUnmount, onDeactivated, onMounted, reactive, ref, watch } from 'vue'
 import useUserStore from '@/store/modules/user'
-import { listBillingEvents, getBillingEvent, getBillingSubject, getBillingSummary } from '@/api/studio/billing'
+import { listBillingEvents, listBillingConsumers, getBillingEvent, getBillingSubject, getBillingSummary } from '@/api/studio/billing'
 import { billingTimeWindow } from '@/utils/billingQuery'
 
 export function useBillingEvents() {
   const user = useUserStore()
   const allowed = computed(() => !!user.token && (user.permissions.includes('*:*:*') || user.permissions.includes('billing:read')))
-  const filters = reactive({
+  const defaultFilters = () => ({
     purpose: 'platform',
     scope: 'project',
     costCenterId: '',
@@ -20,11 +20,30 @@ export function useBillingEvents() {
     groupBy: 'project',
     costCenterGroupBy: 'cost_center',
   })
+  const filters = reactive(defaultFilters())
   const formRef = ref(),
     rows = ref([]),
     summary = ref(),
     total = ref(0),
     page = ref(1)
+  const consumers = ref([]), consumersLoading = ref(false), consumersError = ref('')
+  let consumersController
+  async function searchConsumers(keyword = '') {
+    consumersController?.abort()
+    if (!active || !allowed.value) return
+    const controller = new AbortController()
+    consumersController = controller
+    consumersLoading.value = true
+    consumersError.value = ''
+    try {
+      const result = await listBillingConsumers(keyword, controller.signal)
+      if (!controller.signal.aborted) consumers.value = result.data
+    } catch (cause) {
+      if (!controller.signal.aborted) consumersError.value = '用户列表读取失败，请重新展开重试'
+    } finally {
+      if (consumersController === controller) consumersLoading.value = false
+    }
+  }
   const loading = ref(false),
     error = ref(''),
     detail = ref(),
@@ -34,6 +53,7 @@ export function useBillingEvents() {
   let listController,
     detailController,
     active = false
+  let searchTimer, searchRevision = 0
   function closeDetail() {
     detailController?.abort()
     detailController = undefined
@@ -43,6 +63,8 @@ export function useBillingEvents() {
     detailError.value = ''
   }
   function clear() {
+    clearTimeout(searchTimer)
+    searchRevision += 1
     listController?.abort()
     listController = undefined
     rows.value = []
@@ -103,7 +125,16 @@ export function useBillingEvents() {
   }
   async function search() {
     clear()
+    const revision = searchRevision
     if (!(await formRef.value?.validate().catch(() => false))) return
+    if (revision !== searchRevision || !active) return
+    page.value = 1
+    await load()
+  }
+  async function reset() {
+    Object.assign(filters, defaultFilters())
+    clear()
+    formRef.value?.clearValidate()
     page.value = 1
     await load()
   }
@@ -132,10 +163,20 @@ export function useBillingEvents() {
   }
   function deactivate() {
     active = false
+    consumersController?.abort()
+    consumers.value = []
     clear()
   }
-  watch(filters, clear, { flush: 'sync' })
+  watch(filters, () => {
+    clear()
+    if (!active || !allowed.value) return
+    // 等待连续输入结束后查询；旧请求立即取消，避免返回过期筛选结果。
+    loading.value = true
+    searchTimer = setTimeout(() => { void search() }, 400)
+  }, { flush: 'sync' })
   watch(() => [user.token, user.id, JSON.stringify(user.permissions)], () => {
+    consumersController?.abort()
+    consumers.value = []
     clear()
     if (active && allowed.value) void load()
   }, { flush: 'sync' })
@@ -144,6 +185,7 @@ export function useBillingEvents() {
   onDeactivated(deactivate)
   onBeforeUnmount(deactivate)
   return {
+    consumers, consumersLoading, consumersError, searchConsumers,
     allowed,
     filters,
     formRef,
@@ -158,6 +200,7 @@ export function useBillingEvents() {
     detailLoading,
     detailError,
     search,
+    reset,
     load,
     select,
     closeDetail,

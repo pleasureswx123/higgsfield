@@ -48,5 +48,5 @@ router.beforeEach(async (to) => {
   if (to.path === '/login' && auth.isAuthenticated) return '/home'
 })
 router.afterEach((to) => {
-  document.title = `${to.meta.title || '登录'} · Higgsfield Studio`
+  document.title = `${to.meta.title || '登录'} · Nightmare Theatre`
 })

@@ -42,6 +42,7 @@ class OperationLogDao:
         query = (
             select(SysOperLog)
             .where(
+                SysOperLog.oper_name.is_distinct_from('admin'),
                 SysOperLog.title.like(f'%{query_object.title}%') if query_object.title else True,
                 SysOperLog.oper_name.like(f'%{query_object.oper_name}%') if query_object.oper_name else True,
                 SysOperLog.business_type == query_object.business_type if query_object.business_type else True,
@@ -128,6 +129,7 @@ class LoginLogDao:
         query = (
             select(SysLogininfor)
             .where(
+                SysLogininfor.user_name.is_distinct_from('admin'),
                 SysLogininfor.ipaddr.like(f'%{query_object.ipaddr}%') if query_object.ipaddr else True,
                 SysLogininfor.user_name.like(f'%{query_object.user_name}%') if query_object.user_name else True,
                 SysLogininfor.status == query_object.status if query_object.status else True,

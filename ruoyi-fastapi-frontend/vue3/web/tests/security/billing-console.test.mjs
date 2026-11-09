@@ -7,7 +7,12 @@ import { computed, reactive, ref, watch, effectScope } from 'vue'
 test('费用列表和明细隔离迟到结果，页面退出清除金额并重新鉴权', async () => {
   const hooks = {}, lists = [], details = [], summaries = []
   const user = reactive({ token: 'session-one', id: '1', permissions: ['billing:read'] })
-  const context = createContext({ AbortController })
+  const timers = new Map()
+  let timerId = 0
+  const context = createContext({ AbortController,
+    setTimeout: fn => { timers.set(++timerId, fn); return timerId },
+    clearTimeout: id => timers.delete(id),
+  })
   const mocks = {
     '@/store/modules/user': { default: () => user },
     '@/utils/billingQuery': { billingTimeWindow: range => range?.length ? { from: '2026-10-01T00:00:00+08:00', to: '2026-10-28T00:00:00+08:00' } : {} },
@@ -16,6 +21,7 @@ test('费用列表和明细隔离迟到结果，页面退出清除金额并重�
       onDeactivated: fn => { hooks.deactivate = fn }, onBeforeUnmount: fn => { hooks.unmount = fn },
     },
     '@/api/studio/billing': {
+      listBillingConsumers: async () => ({ data: [] }),
       getBillingSummary: (params, signal) => new Promise(resolve => summaries.push({ params, signal, resolve })),
       listBillingEvents: (params, signal) => new Promise((resolve, reject) => lists.push({ params, signal, resolve, reject })),
       getBillingSubject: (id, signal) => new Promise(resolve => details.push({ subjectId: id, signal, resolve })),
@@ -115,6 +121,25 @@ test('费用列表和明细隔离迟到结果，页面退出清除金额并重�
   lists.at(-1).resolve({ rows: [{ id: 'new', amount: '2' }], total: 1 })
   await flush()
   assert.equal(state.rows.value[0].id, 'new')
+  state.formRef.value = { validate: async () => true, clearValidate() {} }
+  state.filters.jobId = '2'
+  state.filters.jobId = '21'
+  assert.equal(timers.size, 1)
+  const beforeAuto = lists.length
+  Array.from(timers.values())[0]()
+  await flush()
+  assert.equal(lists.length, beforeAuto + 1)
+  assert.equal(lists.at(-1).params.jobId, '21')
+  lists.at(-1).resolve({ rows: [], total: 0 })
+  await flush()
+  state.filters.jobId = '22'
+  const resetting = state.reset()
+  assert.equal(timers.size, 0)
+  assert.equal(state.filters.jobId, '')
+  assert.equal(lists.at(-1).params.jobId, undefined)
+  assert.equal(lists.at(-1).params.purpose, 'platform')
+  lists.at(-1).resolve({ rows: [], total: 0 })
+  await resetting
   const oldDetail = state.select({ id: 'new' })
   const previousDetail = details.at(-1)
   user.id = '2'

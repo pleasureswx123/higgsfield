@@ -74,6 +74,8 @@ class WorkspaceService:
 
     @classmethod
     async def member_result(cls, db, member):
+        if int(member.user_id) == 1:
+            raise PermissionException(message='没有权限访问用户数据')
         user = await WorkspaceDao.user(db, member.user_id)
         return {
             'userId': str(member.user_id),
@@ -130,6 +132,8 @@ class WorkspaceService:
     @classmethod
     async def grant_member(cls, db, user, project_id, target_id, role_id, actor_role):
         """调用方须已锁定并授权项目；复用授予规则，不提交事务。"""
+        if int(target_id) == 1:
+            raise PermissionException(message='没有权限访问用户数据')
         if actor_role not in ('owner', 'admin'):
             raise PermissionException(message='仅项目负责人可以授予成员角色')
         role = next((item for item in await WorkspaceDao.roles(db) if item.role_id == int(role_id)), None)

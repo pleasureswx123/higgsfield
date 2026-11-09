@@ -1,5 +1,8 @@
 import request from '@/utils/request'
 
+export const listBillingConsumers = (keyword, signal) =>
+  request({ url: '/api/admin/v1/billing-consumers', params: { keyword }, signal })
+
 export const getBillingSummary = (params, signal) =>
   request({ url: '/api/admin/v1/usage/summary', params, signal })
 

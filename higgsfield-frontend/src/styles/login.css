@@ -14,7 +14,7 @@
 .login-showcase .intro-foot { margin-top:26px; gap:16px; font-size:11px; }
 .login-panel { display:flex; flex-direction:column; min-width:0; padding:28px 34px 20px; }
 .login-showcase .login-header { gap:16px; }
-.login-showcase .brand { font-size:20px; }
+.login-showcase .brand { font-size:clamp(16px, 2vw, 20px); gap:12px; }
 .login-showcase .login-card { width:100%; max-width:360px; padding:0; margin:auto; border:0; border-radius:0; box-shadow:none; background:transparent; }
 .login-showcase .login-card-header { text-align:center; }
 .login-showcase .login-card-header .eyebrow { font-size:11px; letter-spacing:1px; }

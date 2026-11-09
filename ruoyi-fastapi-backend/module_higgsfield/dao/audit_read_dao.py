@@ -26,7 +26,8 @@ class AuditReadDao:
         total = await db.scalar(text('SELECT count(*)' + sql), params)
         params.update(limit=query.page_size, offset=(query.page_num - 1) * query.page_size)
         rows = (await db.execute(text(
-            'SELECT a.audit_id,a.actor_id,a.actor_kind,a.object_type,a.object_id,a.action,'
+            "SELECT a.audit_id,NULLIF(a.actor_id,1) AS actor_id,"
+            "CASE WHEN a.actor_id=1 THEN 'system' ELSE a.actor_kind END AS actor_kind,a.object_type,a.object_id,a.action,"
             'a.reason,a.create_time,a.before_after' + sql +
             ' ORDER BY a.create_time DESC,a.audit_id DESC LIMIT :limit OFFSET :offset'
         ), params)).all()

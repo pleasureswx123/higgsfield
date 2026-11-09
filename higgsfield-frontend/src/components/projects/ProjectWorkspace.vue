@@ -112,7 +112,7 @@ watch(
       </DropdownMenuContent>
     </DropdownMenu>
       </div>
-      <SidebarMenu class="project-sidebar-menu">
+      <SidebarMenu class="project-sidebar-menu project-primary-menu">
       <SidebarMenuItem><SidebarMenuButton v-if="brief?.allowedActions.includes('generation:create')" class="nav-link" :class="{ active: tab === 'creation' }" @click="tab = 'creation'"><span class="project-nav-icon"><IconSparkles :size="17" aria-hidden="true" /></span><span>开始创作</span></SidebarMenuButton></SidebarMenuItem>
 
       <SidebarMenuItem><SidebarMenuButton v-if="brief?.allowedActions.includes('element:read')" class="nav-link" :class="{ active: tab === 'elements' }" @click="tab = 'elements'"><span class="project-nav-icon"><IconAt :size="17" aria-hidden="true" /></span><span>项目元素库</span></SidebarMenuButton></SidebarMenuItem>
@@ -224,4 +224,5 @@ watch(
 .project-sidebar-heading .project-management-trigger { flex:0 0 28px; width:28px; height:30px; min-height:0; padding:0; border-radius:7px; }
 .project-sidebar-menu { margin:0; padding:0; list-style:none; gap:0; }
 .project-sidebar-menu .nav-link { height:auto; min-height:45px; }
+.project-primary-menu .nav-link { min-height:40px; padding-top:8px; padding-bottom:8px; margin-bottom:0; }
 </style>

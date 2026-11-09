@@ -30,6 +30,7 @@ const quality = computed(() => ({ low: '低', medium: '中', high: '高', auto: 
       <IconInfoCircle :size="16" /><span>生成参数</span><IconChevronUp v-if="detailsOpen" :size="16" /><IconChevronDown v-else :size="16" />
     </button>
     <dl v-if="detailsOpen">
+      <template v-if="info.jobId"><dt>任务编号</dt><dd>{{ info.jobId }}</dd></template>
       <dt>模型</dt><dd>{{ info.modelName || '未记录' }}</dd>
       <template v-if="info.resolution"><dt>清晰度</dt><dd>{{ info.resolution }}</dd></template>
       <template v-if="quality"><dt>质量</dt><dd>{{ quality }}</dd></template>

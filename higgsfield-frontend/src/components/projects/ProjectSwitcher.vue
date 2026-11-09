@@ -29,7 +29,7 @@ async function choose(project: Project) {
   <Popover v-model:open="opened">
     <PopoverTrigger as-child>
       <Button variant="ghost" class="project-switcher" aria-label="切换项目" :disabled="switching">
-        <IconFolder :size="18" /><span class="project-switcher-name"><small>当前项目</small><strong :title="project.name">{{ project.name }}</strong></span><span class="project-switcher-status">{{ projectStatusLabels[project.status] }}</span><IconSelector :size="15" />
+        <IconFolder :size="18" /><span class="project-switcher-name"><small>当前项目编号: {{ project.id }}</small><strong :title="project.name">{{ project.name }}</strong></span><span class="project-switcher-status">{{ projectStatusLabels[project.status] }}</span><IconSelector :size="15" />
       </Button>
     </PopoverTrigger>
     <PopoverContent align="start" class="project-switcher-popover">
@@ -52,7 +52,7 @@ async function choose(project: Project) {
 <style scoped>
 .project-switcher.ui-button { width:100%; height:auto; min-height:54px; padding:8px; gap:8px; margin-bottom:8px; border:1px solid var(--border); border-radius:10px; background:var(--surface); }
 .project-switcher-name { flex:1; min-width:0; text-align:left; display:flex; flex-direction:column; gap:3px; }
-.project-switcher-name small { color:var(--muted-foreground); font-size:10px; font-weight:400; }
+.project-switcher-name small { color:var(--muted-foreground); font-size:10px; font-weight:400; white-space:normal; overflow-wrap:anywhere; }
 .project-switcher-name strong { overflow:hidden; text-overflow:ellipsis; font-size:13px; }
 .project-switcher-status { font-size:10px; color:var(--muted-foreground); font-weight:400; }
 </style>

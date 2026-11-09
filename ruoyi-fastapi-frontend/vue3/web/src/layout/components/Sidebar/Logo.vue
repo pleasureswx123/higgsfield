@@ -13,7 +13,7 @@
         <img
           v-if="logo"
           :src="logo"
-          class="sidebar-logo" alt="Higgsfield 管理平台"
+          class="sidebar-logo" alt="Nightmare Theatre 管理平台"
         />
         <h1
           v-else
@@ -31,7 +31,7 @@
         <img
           v-if="logo"
           :src="logo"
-          class="sidebar-logo" alt="Higgsfield 管理平台"
+          class="sidebar-logo" alt="Nightmare Theatre 管理平台"
         />
         <h1 class="sidebar-title">{{ title }}</h1>
       </router-link>
@@ -51,7 +51,7 @@ defineProps({
   },
 })
 
-const title = 'Higgsfield'
+const title = 'Nightmare Theatre'
 const settingsStore = useSettingsStore()
 const sideTheme = computed(() => settingsStore.sideTheme)
 
@@ -99,12 +99,20 @@ const getLogoTextColor = computed(() => {
   & .sidebar-logo-link {
     height: 100%;
     width: 100%;
+    // 覆盖框架 #app 侧栏链接的 inline-block，确保图标与标题间距生效。
+    display: flex !important;
+    align-items: center;
+    justify-content: center;
+    gap: 16px;
+    padding: 0 12px;
+    box-sizing: border-box;
 
     & .sidebar-logo {
       width: 32px;
       height: 32px;
       vertical-align: middle;
-      margin-right: 12px;
+      margin-right: 0;
+      flex-shrink: 0;
     }
 
     & .sidebar-title {
@@ -112,7 +120,11 @@ const getLogoTextColor = computed(() => {
       margin: 0;
       color: v-bind(getLogoTextColor);
       font-weight: 600;
-      line-height: 50px;
+      line-height: 17px;
+      max-width: 110px;
+      min-width: 0;
+      white-space: normal;
+      text-align: left;
       font-size: 14px;
       font-family:
         Avenir,
@@ -125,6 +137,10 @@ const getLogoTextColor = computed(() => {
   }
 
   &.collapse {
+    .sidebar-logo-link {
+      padding: 0;
+      gap: 0;
+    }
     .sidebar-logo {
       margin-right: 0px;
     }

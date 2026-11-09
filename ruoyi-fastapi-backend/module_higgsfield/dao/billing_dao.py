@@ -11,14 +11,35 @@ from module_higgsfield.entity.do.job_do import HfCreationJob
 
 class BillingDao:
     @staticmethod
+    async def consumers(db, actor, roles, keyword):
+        """按有效制作平台权限列出用户，不要求已有生成任务。"""
+        scope, params = BudgetDao.scope(actor, roles)
+        params['keyword'] = keyword.strip()
+        return (await db.execute(text(
+            'SELECT u.user_id AS actor_id,u.user_name,u.nick_name FROM sys_user u '
+            "WHERE u.user_id<>1 AND u.status='0' AND u.del_flag='0' AND " + scope +
+            " AND EXISTS (SELECT 1 FROM sys_user_role ur JOIN sys_role r ON r.role_id=ur.role_id "
+            "WHERE ur.user_id=u.user_id AND r.status='0' AND r.del_flag='0' "
+            "AND (r.role_id=1 OR EXISTS (SELECT 1 FROM sys_role_menu rm "
+            "JOIN sys_menu m ON m.menu_id=rm.menu_id WHERE rm.role_id=r.role_id "
+            "AND m.status='0' AND m.perms IN ('project:read','*:*:*')))) "
+            "AND (:keyword='' OR strpos(lower(coalesce(u.user_name,'')),lower(:keyword))>0 "
+            "OR strpos(lower(coalesce(u.nick_name,'')),lower(:keyword))>0) "
+            'ORDER BY u.user_id LIMIT 50'
+        ), params)).mappings().all()
+
+    @staticmethod
     async def page(db, actor, roles, query):
         scope, params = BudgetDao.scope(actor, roles)
+        consumer_id = 'j.actor_id'
         sql = (
             ' FROM hf_billing_event e JOIN hf_billing_subject s ON s.subject_id=e.subject_id '
             'JOIN hf_creation_job j ON j.job_id=s.job_id JOIN hf_project p ON p.project_id=j.project_id '
+            'LEFT JOIN sys_user consumer ON consumer.user_id=j.actor_id '
             "JOIN sys_user u ON u.user_id=p.create_user_id WHERE p.del_flag='0' AND u.del_flag='0' AND " + scope
         )
         if query.scope == 'cost_center':
+            consumer_id = 'origin.actor_id'
             # 未计价对象以只读投影参与同一次分页，不伪造费用事件或零金额。
             sql = (''' FROM (
                 SELECT event_id,subject_id,purpose,currency,amount,state,revision,create_time FROM hf_billing_event
@@ -30,6 +51,8 @@ class BillingDao:
                 WHERE s0.job_id IS NULL AND s0.cost_center_id IS NOT NULL
                 AND NOT EXISTS (SELECT 1 FROM hf_billing_event b WHERE b.subject_id=s0.subject_id AND b.purpose='procurement')
                 ) e JOIN hf_billing_subject s ON s.subject_id=e.subject_id '''
+                'LEFT JOIN hf_provider_call origin ON origin.call_id=s.origin_call_id '
+                'LEFT JOIN sys_user consumer ON consumer.user_id=origin.actor_id '
                 'WHERE s.job_id IS NULL AND s.cost_center_id IS NOT NULL AND '
                 + ('TRUE' if any(role['data_scope'] == '1' for role in roles) else 'FALSE'))
         params['purpose'] = query.purpose
@@ -63,6 +86,9 @@ class BillingDao:
                 await db.execute(
                     text(
                         'SELECT e.*,s.job_id,s.cost_center_id,'
+                        f'NULLIF({consumer_id},1) AS consumer_id,'
+                        f'CASE WHEN {consumer_id}=1 THEN NULL ELSE consumer.user_name END AS consumer_username,'
+                        f"CASE WHEN {consumer_id}=1 THEN '系统账号' ELSE consumer.nick_name END AS consumer_name,"
                         '(SELECT coalesce(sum(a.delta_amount),0) FROM hf_billing_adjustment a WHERE a.event_id=e.event_id) AS adjustment_total'
                         + sql
                         + ' ORDER BY e.create_time DESC,e.subject_id DESC OFFSET :offset LIMIT :limit'

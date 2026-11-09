@@ -22,6 +22,8 @@ class ProjectOwnershipService:
             if actor_role != 'owner' or project.owner_user_id != user.user.user_id:
                 raise PermissionException(message='仅当前Owner可转让项目所有权')
             target_id = int(payload.user_id)
+            if target_id == 1:
+                raise PermissionException(message='没有权限访问用户数据')
             if target_id == user.user.user_id:
                 WorkspaceService.conflict('SAME_OWNER', '请选择其他项目成员')
             target_user = await WorkspaceDao.user(db, target_id, lock=True)

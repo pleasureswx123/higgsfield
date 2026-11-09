@@ -96,10 +96,11 @@ const dateRules: FormRules = { dates: [{ trigger: 'change', validator: (_rule, v
     <div v-else class="generation-table-shell">
       <Table class="generation-table" aria-label="生成记录列表">
         <TableHeader><TableRow>
-          <TableHead class="content-column">生成内容</TableHead><TableHead>状态</TableHead><TableHead>结果</TableHead><TableHead>创建时间</TableHead><TableHead class="action-column">操作</TableHead>
+          <TableHead class="task-number-column">任务编号</TableHead><TableHead class="content-column">生成内容</TableHead><TableHead>状态</TableHead><TableHead>结果</TableHead><TableHead class="date-column">创建时间</TableHead><TableHead class="action-column">操作</TableHead>
         </TableRow></TableHeader>
         <TableBody>
           <TableRow v-for="row in rows" :key="row.id">
+            <TableCell class="task-number-column">{{ row.id }}</TableCell>
             <TableCell class="content-column">
               <div class="generation-content">
                 <div class="generation-thumbnail">
@@ -152,13 +153,14 @@ const dateRules: FormRules = { dates: [{ trigger: 'change', validator: (_rule, v
 .generation-date-filter :deep(.el-form-item) { margin-bottom: 0; }
 .generation-date-filter :deep(.el-date-editor) { width: 100%; min-width: 0; }
 .generation-table-shell { border:1px solid var(--border); border-radius:12px; overflow:hidden; background:var(--surface); }
-.generation-table-shell :deep(table) { width:100%; min-width:760px; table-layout:fixed; font-size:12px; }
+.generation-table-shell :deep(table) { width:100%; min-width:860px; table-layout:fixed; font-size:12px; }
 .generation-table-shell :deep(th) { height:40px; padding:0 16px; color:var(--muted-foreground); font-size:12px; font-weight:500; background:var(--surface-raised); }
 .generation-table-shell :deep(td) { height:80px; padding:12px 16px; border-top:1px solid var(--border); vertical-align:middle; }
 .generation-table-shell :deep(tbody tr:hover) { background:var(--surface-hover); }
-.generation-table-shell :deep(.content-column) { width:43%; }
+.generation-table-shell :deep(.task-number-column) { width:76px; padding-left:12px; padding-right:12px; text-align:center; overflow-wrap:anywhere; font-variant-numeric:tabular-nums; }
+.generation-table-shell :deep(.content-column) { width:36%; }
 .generation-table-shell :deep(.date-column) { color:var(--muted-foreground); font-size:12px; }
-.generation-table-shell :deep(th:nth-child(4)) { width:190px; }
+.generation-table-shell :deep(th.date-column) { width:190px; }
 .generation-table-shell :deep(.action-column) { width:106px; text-align:right; }
 .generation-content { display:flex; align-items:center; gap:12px; min-width:0; }
 .generation-thumbnail { display:flex; align-items:center; justify-content:center; width:52px; height:52px; flex:none; border-radius:8px; overflow:hidden; color:var(--muted-foreground); background:var(--surface-raised); }

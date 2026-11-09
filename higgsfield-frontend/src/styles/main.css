@@ -1498,3 +1498,8 @@ p {
 .project-studio-page:has(.creation-folder-landing) { padding-bottom:24px !important; }
 .project-studio-page:has(.creation-folder-landing) .folder-workspace:has(.asset-workspace) { min-height:0; }
 .creation-panel.creation-folder-landing { min-height:calc(100dvh - 160px); padding-top:24px; padding-bottom:56px; }
+
+/* 长品牌名固定分行，避免挤压侧栏主题开关和登录表单。 */
+.brand > img { flex-shrink:0; }
+.brand-name { min-width:0; line-height:1.15; }
+.brand-name > span { display:block; white-space:nowrap; }

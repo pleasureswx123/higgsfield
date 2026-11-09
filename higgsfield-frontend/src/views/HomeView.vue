@@ -10,7 +10,7 @@ const nickname = computed(() => auth.user?.user.nickName?.trim() || '')
   <div class="home-page project-home">
     <header class="project-home-heading">
       <div class="welcome-copy">
-        <span class="welcome-brand">HIGGSFIELD STUDIO</span>
+        <span class="welcome-brand">Nightmare Theatre</span>
         <h1>欢迎回来<span v-if="nickname">，{{ nickname }}</span></h1>
         <p>让你的下一个故事，从这里开始。</p>
       </div>

@@ -40,7 +40,8 @@ class UsageSummaryDao:
         day = "to_char(timezone(:timezone,e.create_time),'YYYY-MM-DD')"
         groups = {
             'project': ('CAST(p.project_id AS text)', 'p.project_name'),
-            'user': ('CAST(j.actor_id AS text)', "coalesce(v.nick_name,v.user_name,'已删除用户')"),
+            'user': ("CASE WHEN j.actor_id=1 THEN 'system' ELSE CAST(j.actor_id AS text) END",
+                     "CASE WHEN j.actor_id=1 THEN '系统账号' ELSE coalesce(v.nick_name,v.user_name,'已删除用户') END"),
             'department': (
                 "coalesce(j.department_snapshot->>'deptId','unknown')",
                 "coalesce(j.department_snapshot->>'deptName','未知部门')",

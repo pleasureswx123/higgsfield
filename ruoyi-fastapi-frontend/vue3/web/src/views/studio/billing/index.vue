@@ -1,5 +1,5 @@
 <script setup>
-import { ref } from 'vue'
+import { computed, ref } from 'vue'
 import { useBillingEvents } from '@/composables/studio/useBillingEvents'
 import BillingAdjustment from './BillingAdjustment.vue'
 import BillingSummary from './BillingSummary.vue'
@@ -10,6 +10,7 @@ function adjustmentSaved() {
   void load()
 }
 const {
+  consumers, consumersLoading, consumersError, searchConsumers,
   allowed,
   filters,
   formRef,
@@ -24,6 +25,7 @@ const {
   detailLoading,
   detailError,
   search,
+  reset,
   load,
   select,
   closeDetail,
@@ -37,6 +39,10 @@ const usageLabels = {
   outputSeconds: '输出秒数',
   referenceSeconds: '参考秒数',
 }
+// 空值不代表零；图片、视频及非项目费用共用实际已记录的用量展示。
+const recordedUsage = computed(() => Object.entries(usageLabels)
+  .filter(([key]) => detail.value?.usage?.[key] != null && detail.value.usage[key] !== '')
+  .map(([key, label]) => ({ key, label, value: detail.value.usage[key] })))
 const rules = {
   timeRange: [
     {
@@ -55,8 +61,8 @@ const rules = {
   ],
   userId: [{ pattern: /^[1-9]\d{0,18}$/, message: '请输入有效的用户ID', trigger: 'blur' }],
   currency: [{ pattern: /^[A-Z]{3}$/, message: '请输入三位大写币种代码', trigger: 'blur' }],
-  projectId: [{ pattern: /^[1-9]\d{0,18}$/, message: '请输入有效的项目ID', trigger: 'blur' }],
-  jobId: [{ pattern: /^[1-9]\d{0,18}$/, message: '请输入有效的任务ID', trigger: 'blur' }],
+  projectId: [{ pattern: /^[1-9]\d{0,18}$/, message: '请输入有效的项目编号', trigger: 'blur' }],
+  jobId: [{ pattern: /^[1-9]\d{0,18}$/, message: '请输入有效的任务编号', trigger: 'blur' }],
   costCenterId: [{ pattern: /^[1-9]\d{0,18}$/, message: '请输入有效的成本中心ID', trigger: 'blur' }],
 }
 // 保留十进制字符串，不经浮点数转换；未知金额不能显示为零。
@@ -139,7 +145,7 @@ const amount = (value) => (value == null ? '待核算' : String(value))
             :value="value" /></el-select
       ></el-form-item>
       <el-form-item
-        label="项目ID"
+        label="项目编号"
         v-if="filters.scope === 'project'"
         prop="projectId"
         ><el-input
@@ -147,7 +153,7 @@ const amount = (value) => (value == null ? '待核算' : String(value))
           clearable
       /></el-form-item>
       <el-form-item
-        label="任务ID"
+        label="任务编号"
         v-if="filters.mode === 'events' && filters.scope === 'project'"
         prop="jobId"
         ><el-input
@@ -155,13 +161,23 @@ const amount = (value) => (value == null ? '待核算' : String(value))
           clearable
       /></el-form-item>
       <el-form-item
-        label="发起人ID"
+        label="发起人"
         v-if="filters.scope === 'project'"
         prop="userId"
-        ><el-input
+        ><el-select
           v-model="filters.userId"
+          filterable
+          remote
+          :remote-method="searchConsumers"
+          :loading="consumersLoading"
+          :no-data-text="consumersError || '没有匹配的发起人'"
+          placeholder="全部发起人"
+          @visible-change="(visible) => visible && searchConsumers()"
           clearable
-      /></el-form-item>
+        >
+          <el-option v-for="person in consumers" :key="person.id" :value="person.id"
+            :label="person.username ? `${person.name || person.username}（${person.username}）` : (person.name || `用户 ${person.id}`)" />
+        </el-select></el-form-item>
       <el-form-item
         label="费用创建时间（上海时间，结束时刻不包含）"
         prop="timeRange"
@@ -179,8 +195,9 @@ const amount = (value) => (value == null ? '待核算' : String(value))
           type="primary"
           :loading="loading"
           @click="search"
-          >查询</el-button
-        ></el-form-item
+          >查询</el-button>
+          <el-button @click="reset">重置</el-button>
+        </el-form-item
       >
     </el-form>
     <p class="hint">
@@ -214,7 +231,7 @@ const amount = (value) => (value == null ? '待核算' : String(value))
       ><template #default="{ row }">{{ row.id ?? '尚未计价' }}</template></el-table-column>
       <el-table-column
         prop="jobId"
-        label="任务ID"
+        label="任务编号"
         min-width="100"
       />
       <el-table-column
@@ -222,7 +239,13 @@ const amount = (value) => (value == null ? '待核算' : String(value))
         label="币种"
         width="85"
       />
-      <el-table-column prop="costCenterId" label="成本中心ID" min-width="150" />
+      <el-table-column label="消耗人" min-width="190" show-overflow-tooltip>
+        <template #default="{ row }">
+          <div>{{ row.consumerName || row.consumerUsername || (row.consumerId ? `用户 ${row.consumerId}` : '未记录') }}</div>
+          <small v-if="row.consumerUsername" class="hint">{{ row.consumerUsername }}</small>
+        </template>
+      </el-table-column>
+      <el-table-column v-if="filters.scope === 'cost_center'" prop="costCenterId" label="成本中心ID" min-width="150" />
       <el-table-column
         label="原始金额"
         min-width="160"
@@ -299,18 +322,18 @@ const amount = (value) => (value == null ? '待核算' : String(value))
         </p>
         <h3>{{ detail.id ? '采用用量' : '实际记录用量' }}</h3>
         <p
-          v-if="!Object.keys(detail.usage).length"
+          v-if="!recordedUsage.length"
           class="hint"
         >
-          尚无采用用量。
+          暂无已记录的用量数据，费用是否已核算请查看上方费用状态。
         </p>
         <dl v-else>
           <div
-            v-for="(label, key) in usageLabels"
+            v-for="{ key, label, value } in recordedUsage"
             :key="key"
           >
             <dt>{{ label }}</dt>
-            <dd>{{ detail.usage[key] ?? '未提供' }}</dd>
+            <dd>{{ value }}</dd>
           </div>
         </dl>
         <h3>计价明细</h3>

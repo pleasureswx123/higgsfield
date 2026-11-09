@@ -132,7 +132,8 @@ class UserService:
         :param is_page: 是否开启分页
         :return: 用户列表信息对象
         """
-        query_result = await UserDao.get_user_list(query_db, query_object, data_scope_sql, is_page)
+        # 在分页前过滤，保证搜索、列表总数与导出一致；账号本身及内部权限校验不变。
+        query_result = await UserDao.get_user_list(query_db, query_object, data_scope_sql, is_page, hide_admin=True)
         if is_page:
             user_list_result = PageModel[UserRowModel](
                 **{
@@ -745,6 +746,7 @@ class UserService:
         :param page_object: 用户关联角色对象
         :return: 已分配角色列表
         """
+        await cls.check_user_allowed_services(UserModel(userId=page_object.user_id))
         query_user = await UserDao.get_user_detail_by_id(query_db, page_object.user_id)
         post_ids = ','.join([str(row.post_id) for row in query_user.get('user_post_info')])
         role_ids = ','.join([str(row.role_id) for row in query_user.get('user_role_info')])

@@ -292,7 +292,8 @@ class UserDao:
 
     @classmethod
     async def get_user_list(
-        cls, db: AsyncSession, query_object: UserPageQueryModel, data_scope_sql: ColumnElement, is_page: bool = False
+        cls, db: AsyncSession, query_object: UserPageQueryModel, data_scope_sql: ColumnElement, is_page: bool = False,
+        *, hide_admin: bool = False,
     ) -> PageModel | list[list[dict[str, Any]]]:
         """
         根据查询参数获取用户列表信息
@@ -301,6 +302,7 @@ class UserDao:
         :param query_object: 查询参数对象
         :param data_scope_sql: 数据权限对应的查询sql语句
         :param is_page: 是否开启分页
+        :param hide_admin: 用户管理展示时隐藏内置超级管理员，不影响内部数据权限校验
         :return: 用户列表信息对象
         """
         time_range = TimezoneUtil.local_date_strings_to_utc(
@@ -310,6 +312,7 @@ class UserDao:
             select(SysUser, SysDept)
             .where(
                 SysUser.del_flag == '0',
+                SysUser.user_id != 1 if hide_admin else True,
                 or_(
                     SysUser.dept_id == query_object.dept_id,
                     SysUser.dept_id.in_(
@@ -442,6 +445,7 @@ class UserDao:
             .join(SysRole, SysRole.role_id == SysUserRole.role_id, isouter=True)
             .where(
                 SysUser.del_flag == '0',
+                SysUser.user_id != 1,
                 SysUser.user_name == query_object.user_name if query_object.user_name else True,
                 SysUser.phonenumber == query_object.phonenumber if query_object.phonenumber else True,
                 SysRole.role_id == query_object.role_id,
@@ -479,6 +483,7 @@ class UserDao:
             .join(SysRole, SysRole.role_id == SysUserRole.role_id, isouter=True)
             .where(
                 SysUser.del_flag == '0',
+                SysUser.user_id != 1,
                 SysUser.user_name == query_object.user_name if query_object.user_name else True,
                 SysUser.phonenumber == query_object.phonenumber if query_object.phonenumber else True,
                 or_(SysRole.role_id != query_object.role_id, SysRole.role_id.is_(None)),

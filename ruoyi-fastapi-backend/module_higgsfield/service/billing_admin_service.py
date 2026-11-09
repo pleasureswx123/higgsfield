@@ -17,6 +17,13 @@ from module_higgsfield.service.write_service import WriteService
 
 class BillingAdminService:
     @staticmethod
+    async def consumers(db, user, keyword):
+        actor, roles = await AdminScopeService.context(db, user, 'billing:read')
+        rows = await BillingDao.consumers(db, actor, roles, keyword)
+        return [{'id': str(row['actor_id']), 'username': row['user_name'], 'name': row['nick_name']}
+                for row in rows]
+
+    @staticmethod
     async def listing(db, user, query):
         actor, roles = await AdminScopeService.context(db, user, 'billing:read')
         if query.scope == 'cost_center' and not any(role['data_scope'] == '1' for role in roles):
@@ -34,6 +41,9 @@ class BillingAdminService:
                         'rowKey': f"event:{row['event_id']}" if row['event_id'] is not None else f"subject:{row['subject_id']}",
                         'subjectId': str(row['subject_id']),
                         'jobId': str(row['job_id']) if row['job_id'] is not None else None,
+                        'consumerId': str(row['consumer_id']) if row['consumer_id'] is not None else None,
+                        'consumerUsername': row['consumer_username'],
+                        'consumerName': row['consumer_name'],
                         'costCenterId': str(row['cost_center_id']) if row['cost_center_id'] is not None else None,
                         'purpose': row['purpose'],
                         'currency': row['currency'],

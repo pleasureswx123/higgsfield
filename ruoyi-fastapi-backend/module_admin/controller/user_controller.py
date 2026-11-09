@@ -317,7 +317,6 @@ async def query_detail_system_user_profile(
     response_model=DynamicResponseModel[UserDetailModel],
     dependencies=[UserInterfaceAuthDependency('system:user:query')],
 )
-@ApiCache(namespace=ApiNamespace.SYSTEM_USER_DETAIL)
 async def query_detail_system_user(
     request: Request,
     query_db: Annotated[AsyncSession, DBSessionDependency()],
@@ -325,6 +324,8 @@ async def query_detail_system_user(
     data_scope_sql: Annotated[ColumnElement, DataScopeDependency(SysUser)],
     user_id: int | Literal[''] | None = '',
 ) -> Response:
+    if user_id:
+        await UserService.check_user_allowed_services(UserModel(userId=user_id))
     if user_id and not current_user.user.admin:
         await UserService.check_user_data_scope_services(query_db, user_id, data_scope_sql)
     detail_user_result = await UserService.user_detail_services(query_db, user_id)

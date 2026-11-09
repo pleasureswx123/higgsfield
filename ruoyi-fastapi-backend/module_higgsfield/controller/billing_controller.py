@@ -30,6 +30,11 @@ async def listing(request: Request, query: Annotated[BillingQuery, Query()], db:
     return ResponseUtil.success(model_content=await BillingAdminService.listing(db, user, query))
 
 
+@billing_controller.get('/billing-consumers', summary='搜索管理范围内的费用发起人')
+async def consumers(request: Request, db: Db, user: User, keyword: str = Query(default='', max_length=64)):
+    return ResponseUtil.success(data=await BillingAdminService.consumers(db, user, keyword))
+
+
 @billing_controller.get('/billing-events/{event_id}', summary='按费用管理范围读取计价明细与调整历史')
 async def detail(request: Request, event_id: ProjectId, db: Db, user: User):
     return ResponseUtil.success(data=await BillingAdminService.detail(db, user, event_id))

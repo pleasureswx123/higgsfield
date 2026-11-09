@@ -1,7 +1,7 @@
 <template>
   <main class="login" :class="{ 'is-dark': settings.isDark }">
     <header class="login-header">
-      <div class="brand"><img src="/brand-mark.svg" alt="Higgsfield Logo" /><strong>Higgsfield</strong><span>管理平台</span></div>
+      <div class="brand"><img src="/brand-mark.svg" alt="Nightmare Theatre Logo" /><strong>Nightmare Theatre</strong><span>管理平台</span></div>
       <el-button class="theme-toggle" text @click="settings.toggleTheme()">{{ settings.isDark ? '切换亮色' : '切换暗色' }}</el-button>
     </header>
     <section class="login-layout">
@@ -19,7 +19,7 @@
       label-position="top"
       @submit.prevent="handleLogin"
     >
-      <div class="form-heading"><h2>欢迎回来</h2><p>登录 Higgsfield 管理平台</p></div>
+      <div class="form-heading"><h2>欢迎回来</h2><p>登录 Nightmare Theatre 管理平台</p></div>
       <el-form-item prop="username" label="账号">
         <el-input
           v-model="loginForm.username"
@@ -111,7 +111,7 @@
       </el-form-item>
     </el-form>
     </section>
-    <footer class="login-footer">Higgsfield · AI 图片与视频制作平台</footer>
+    <footer class="login-footer">Nightmare Theatre · AI 图片与视频制作平台</footer>
   </main>
 </template>
 
@@ -239,9 +239,9 @@ getCookie()
 }
 .login-header { display: flex; align-items: center; justify-content: space-between; gap: 16px; }
 .brand { display: flex; align-items: center; gap: 12px; }
-.brand img { width: 38px; height: 38px; }
-.brand strong { font-size: 20px; letter-spacing: -.5px; }
-.brand span { border-left: 1px solid var(--login-line); padding-left: 14px; font-size: 13px; color: var(--login-muted); }
+.brand img { width: 38px; height: 38px; flex-shrink: 0; }
+.brand strong { font-size: clamp(16px, 3.5vw, 20px); line-height: 1.2; max-width: 200px; min-width: 0; }
+.brand span { flex-shrink: 0; border-left: 1px solid var(--login-line); padding-left: 14px; font-size: 13px; color: var(--login-muted); }
 .theme-toggle { color: var(--login-muted); }
 .login-layout { flex: 1; width: 100%; max-width: 1100px; margin: auto; display: grid; grid-template-columns: 1fr 420px; gap: 80px; align-items: center; padding: 64px 0; }
 .eyebrow { font-size: 12px; letter-spacing: 2px; color: var(--login-accent); font-weight: 600; }

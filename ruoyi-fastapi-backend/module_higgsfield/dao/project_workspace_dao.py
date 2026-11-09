@@ -83,6 +83,7 @@ class WorkspaceDao:
     async def members(db, project_id, query):
         condition = (
             HfProjectMember.project_id == project_id,
+            HfProjectMember.user_id != 1,
             HfProjectMember.status == ('0' if query.status == 'active' else '1'),
         )
         count = await db.scalar(select(func.count()).select_from(HfProjectMember).where(*condition))
@@ -119,7 +120,7 @@ class WorkspaceDao:
                 await db.execute(
                     text(
                         'SELECT user_id,nick_name,user_name FROM sys_user '
-                        "WHERE user_name=:name AND status='0' AND del_flag='0'"
+                        "WHERE user_id<>1 AND user_name=:name AND status='0' AND del_flag='0'"
                     ),
                     {'name': account},
                 )

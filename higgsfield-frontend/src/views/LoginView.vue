@@ -39,7 +39,7 @@ function trackValidation(field: string | string[], valid: boolean, message: stri
     <main class="login-main">
       <section class="login-intro" aria-label="创作灵感">
         <img class="login-scene" src="/images/login-cosmos.webp" alt="星空下的岩石峡谷，远处行星与暖色地平线" fetchpriority="high" />
-        <div class="login-art-heading"><span>想象，没有边界。</span><span class="login-art-caption">HIGGSFIELD STUDIO</span></div>
+        <div class="login-art-heading"><span>想象，没有边界。</span><span class="login-art-caption">Nightmare Theatre</span></div>
         <div class="login-art-copy">
           <span class="eyebrow">从灵感，到作品</span>
           <h1>让想象<br />成为画面<span class="accent">。</span></h1>
@@ -49,7 +49,7 @@ function trackValidation(field: string | string[], valid: boolean, message: stri
       </section>
       <section class="login-panel">
         <header class="login-header">
-          <a href="/" class="brand"><img src="/brand-mark.svg" width="32" height="32" alt="Higgsfield 制作平台" /><span>Higgsfield <small>STUDIO</small></span></a>
+          <a href="/" class="brand"><img src="/brand-mark.svg" width="32" height="32" alt="Nightmare Theatre 制作平台" /><span class="brand-name">Nightmare Theatre</span></a>
         </header>
       <Card class="login-card" aria-labelledby="login-title">
         <CardHeader class="login-card-header">

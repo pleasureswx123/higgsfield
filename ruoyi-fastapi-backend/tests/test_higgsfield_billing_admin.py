@@ -26,6 +26,44 @@ class BillingAdminTests(unittest.IsolatedAsyncioTestCase):
     seed = worker.BillingWorkerTests.seed
     create = projects.ProjectDatabaseTests.create
 
+    async def test_consumer_options_include_authorized_users_without_jobs(self):
+        async with self.sessions() as db:
+            options = await BillingAdminService.consumers(db, self.owner, '')
+            self.assertEqual({row['id'] for row in options}, {'2'})
+            self.assertEqual(await BillingAdminService.consumers(db, self.owner, 'owner'), [])
+            self.assertEqual(await db.scalar(text('SELECT count(*) FROM hf_creation_job WHERE actor_id=2')), 0)
+            await db.execute(text('DELETE FROM sys_user_role WHERE user_id=2'))
+            self.assertEqual(await BillingAdminService.consumers(db, self.owner, ''), [])
+            await db.execute(text('INSERT INTO sys_user_role VALUES (2,5)'))
+            await db.execute(text("UPDATE sys_user SET status='1' WHERE user_id=2"))
+            self.assertEqual(await BillingAdminService.consumers(db, self.owner, ''), [])
+
+    async def test_builtin_admin_identity_is_hidden_without_losing_cost(self):
+        async with self.sessions() as db:
+            result = await BillingAdminService.listing(db, self.owner, BillingQuery())
+            self.assertEqual(result.total, 1)
+            self.assertIsNone(result.rows[0]['consumerId'])
+            self.assertIsNone(result.rows[0]['consumerUsername'])
+            self.assertEqual(result.rows[0]['consumerName'], '系统账号')
+            self.assertIsNotNone(result.rows[0]['amount'])
+
+    async def test_listing_identifies_consumer_not_project_owner(self):
+        async with self.sessions() as db:
+            await db.execute(text('UPDATE hf_creation_job SET actor_id=2'))
+            await db.commit()
+            row = (await BillingAdminService.listing(db, self.owner, BillingQuery())).rows[0]
+            self.assertEqual(row['consumerId'], '2')
+            self.assertEqual(row['consumerUsername'], 'other')
+            self.assertEqual(row['consumerName'], '成员')
+            self.assertEqual(await BillingAdminService.consumers(db, self.owner, '成员'),
+                             [{'id': '2', 'username': 'other', 'name': '成员'}])
+            self.assertEqual(await BillingAdminService.consumers(db, self.owner, '不存在'), [])
+            self.assertEqual(await BillingAdminService.consumers(db, self.owner, '%'), [])
+            # 账号删除不应让历史消耗记录消失。
+            await db.execute(text("UPDATE sys_user SET del_flag='2' WHERE user_id=2"))
+            await db.commit()
+            self.assertEqual((await BillingAdminService.listing(db, self.owner, BillingQuery())).total, 1)
+
     async def test_list_time_window_is_timezone_aware_and_right_exclusive(self):
         async with self.sessions() as db:
             await db.execute(text("UPDATE hf_billing_event SET create_time='2026-10-31T16:00:00Z'"))
@@ -44,6 +82,9 @@ class BillingAdminTests(unittest.IsolatedAsyncioTestCase):
 
     async def test_cost_center_listing_and_detail_keep_project_scope_separate(self):
         async with self.sessions() as db:
+            # 此测试的费用夹具未加载调用模块，补齐列表查询所需的原始调用证据。
+            await db.execute(text('CREATE TABLE hf_provider_call (call_id bigint PRIMARY KEY, actor_id bigint, request_metadata jsonb)'))
+            await db.execute(text("INSERT INTO hf_provider_call SELECT DISTINCT origin_call_id,2,'{}'::jsonb FROM hf_billing_subject"))
             await db.execute(text('UPDATE hf_billing_subject SET job_id=NULL,cost_center_id=9007199254740993'))
             await db.commit()
             self.assertEqual((await BillingAdminService.listing(db, self.owner, BillingQuery())).total, 0)
@@ -51,6 +92,8 @@ class BillingAdminTests(unittest.IsolatedAsyncioTestCase):
                 BillingQuery(scope='cost_center', costCenterId='9007199254740993'))
             self.assertEqual(result.total, 1)
             self.assertIsNone(result.rows[0]['jobId'])
+            self.assertEqual(result.rows[0]['consumerId'], '2')
+            self.assertEqual(result.rows[0]['consumerUsername'], 'other')
             self.assertEqual(result.rows[0]['costCenterId'], '9007199254740993')
             detail = await BillingAdminService.detail(db, self.owner, self.event_id)
             self.assertIsNone(detail['jobId'])

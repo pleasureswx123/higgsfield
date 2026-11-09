@@ -36,6 +36,8 @@ class OnlineService:
             except AuthException:
                 # 单个过期或损坏的会话不应影响在线用户列表中的其他会话
                 continue
+            if str(payload.get('user_id')) == '1' or payload.get('user_name') == 'admin':
+                continue
             online_dict = {
                 'token_id': payload.get('session_id') if AppConfig.app_same_time_login else payload.get('user_id'),
                 'user_name': payload.get('user_name'),
