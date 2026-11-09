@@ -21,7 +21,9 @@ class IncidentReadService:
         fact = f'编排状态：{orchestration}；上游状态：{upstream}；归档失败或过期输出数：{summary["failed"]}'
         if call:
             fact += f'；最近调用受理事实：{call.acceptance}'
-        return {'jobId': str(row.job_id), 'projectId': str(row.project_id), 'actorId': str(row.actor_id),
+        return {'jobId': str(row.job_id), 'projectId': str(row.project_id),
+                'actorId': str(row.actor_id) if row.actor_id != 1 else None,
+                'actorUsername': row.actor_username, 'actorName': row.actor_name,
                 'revision': str(row.revision), 'orchestrationState': orchestration, 'upstreamState': upstream,
                 'archiveSummary': summary, 'billingState': ('pending', 'calculated', 'confirmed', 'disputed')[int(row.billing_state)],
                 'lastKnownFact': fact, 'nextActionAt': row.next_action_time.isoformat() if row.next_action_time else None,

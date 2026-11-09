@@ -217,12 +217,15 @@ watch(
 </template>
 
 <style scoped>
-.project-sidebar-heading { display:flex; align-items:center; gap:0; margin-bottom:8px; padding-right:4px; border:1px solid var(--border); border-radius:10px; background:var(--surface); }
+.project-sidebar-heading { display:flex; align-items:center; gap:0; margin-bottom:8px; padding-right:4px; border:1px solid var(--border); border-radius:10px; background:var(--surface); transition:background-color 150ms ease; }
+.project-sidebar-heading:hover, .project-sidebar-heading:focus-within { background:var(--surface-hover); }
 .project-sidebar-switcher { flex:1; min-width:0; }
 .project-sidebar-switcher :deep(.project-switcher) { margin-bottom:0; border:0; background:transparent; border-radius:9px; }
-.project-sidebar-switcher :deep(.project-switcher:hover) { background:var(--surface-hover); }
+.project-sidebar-switcher :deep(.project-switcher.ui-button:hover) { background:transparent; }
 .project-sidebar-heading .project-management-trigger { flex:0 0 28px; width:28px; height:30px; min-height:0; padding:0; border-radius:7px; }
+.project-sidebar-heading .project-management-trigger:hover { background:transparent; }
 .project-sidebar-menu { margin:0; padding:0; list-style:none; gap:0; }
 .project-sidebar-menu .nav-link { height:auto; min-height:45px; }
+.project-primary-menu { gap:1px; }
 .project-primary-menu .nav-link { min-height:40px; padding-top:8px; padding-bottom:8px; margin-bottom:0; }
 </style>

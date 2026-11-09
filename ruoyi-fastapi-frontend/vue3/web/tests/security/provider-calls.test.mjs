@@ -56,5 +56,21 @@ test('调用详情切换、筛选和撤权中止旧请求，大整数不转数�
   reads[2].resolve({ rows: [{ id: 'late' }], total: 1 })
   await flush()
   assert.equal(state.rows.value.length, 0)
+  hooks.mount()
+  Object.assign(state.filters, { jobId: '22', accountId: '3', state: 'completed', from: '2026-11-09 08:00:00', to: '2026-11-09 16:00:00' })
+  const ranged = state.search()
+  const rangedRead = reads.at(-1)
+  assert.equal(rangedRead.params.from, '2026-11-09T08:00:00.000+08:00')
+  assert.equal(rangedRead.params.to, '2026-11-09T16:00:00.000+08:00')
+  state.page.value = 3
+  const reset = state.reset()
+  assert.equal(rangedRead.signal.aborted, true)
+  assert.equal(JSON.stringify(reads.at(-1).params), JSON.stringify({ pageNum: 1, pageSize: 20 }))
+  assert.equal(Object.values(state.filters).every(value => value === ''), true)
+  reads.at(-1).resolve({ rows: [{ id: 'reset' }], total: 1 })
+  await reset
+  rangedRead.resolve({ rows: [{ id: 'stale' }], total: 1 })
+  await ranged
+  assert.equal(state.rows.value[0].id, 'reset')
   scope.stop()
 })

@@ -45,16 +45,20 @@ class IncidentReadTests(unittest.IsolatedAsyncioTestCase):
         page = await self.listing(projectId=str(self.project_id), state='submission_unknown')
         self.assertEqual(page.total, 1)
         row = page.rows[0]
+        self.assertIsNone(row['actorId'])
+        self.assertIsNone(row['actorUsername'])
+        self.assertEqual(row['actorName'], '系统账号')
         self.assertEqual(row['evidenceRefs'], [f'provider-call:{self.call_id}'])
         self.assertEqual(row['allowedActions'], [])
         self.assertEqual(row['archiveSummary']['total'], 0)
         self.assertNotIn('inputSnapshot', row)
         self.assertEqual((await self.listing(state='blocked')).total, 0)
         async with self.sessions() as db:
-            await db.execute(text("UPDATE hf_creation_job SET orchestration_state='5',upstream_state='3'"))
+            await db.execute(text("UPDATE hf_creation_job SET orchestration_state='5',upstream_state='3',actor_id=2"))
             await db.commit()
             detail = await IncidentReadService.detail(db, self.actor, self.job_id)
             self.assertEqual(detail['upstreamState'], 'succeeded')
+            self.assertEqual((detail['actorId'], detail['actorUsername'], detail['actorName']), ('2', 'other', '成员'))
         self.assertEqual((await self.listing()).total, 0)
 
     async def test_archive_failure_and_deleted_output_boundary(self):

@@ -38,7 +38,7 @@ export function useProviderCalls() {
       const params = { pageNum: page.value, pageSize: 20 }
       for (const field of ['jobId', 'accountId']) {
         const value = filters[field].trim()
-        if (value && !validRoutingId(value)) throw new Error('任务和账号ID须为有效的正整数标识')
+        if (value && !validRoutingId(value)) throw new Error('任务编号和账号ID须为有效的正整数')
         if (value) params[field] = value
       }
       if (filters.state) params.state = filters.state
@@ -71,6 +71,10 @@ export function useProviderCalls() {
     }
   }
   function search() { page.value = 1; return load() }
+  function reset() {
+    Object.assign(filters, { jobId: '', accountId: '', state: '', from: '', to: '' })
+    return search()
+  }
   function activate() { if (!active) { active = true; load() } }
   function deactivate() { active = false; clear() }
   watch(filters, () => { clear(); page.value = 1 }, { flush: 'sync' })
@@ -79,5 +83,5 @@ export function useProviderCalls() {
   onActivated(activate)
   onDeactivated(deactivate)
   onBeforeUnmount(deactivate)
-  return { allowed, filters, rows, page, total, loading, error, selectedId, detail, detailLoading, detailError, load, search, inspect, close }
+  return { allowed, filters, rows, page, total, loading, error, selectedId, detail, detailLoading, detailError, load, search, reset, inspect, close }
 }

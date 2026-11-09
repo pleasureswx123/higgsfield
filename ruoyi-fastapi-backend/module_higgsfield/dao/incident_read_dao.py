@@ -22,13 +22,16 @@ class IncidentReadDao:
         'billing_disputed': "j.billing_state='3'",
     }
     COLUMNS = ('j.job_id,j.project_id,j.actor_id,j.revision,j.orchestration_state,j.upstream_state,'
-               'j.billing_state,j.next_action_time,j.create_time,j.update_time,j.kind,j.lease_until,j.upstream_task_id,j.credential_version_id')
+               'j.billing_state,j.next_action_time,j.create_time,j.update_time,j.kind,j.lease_until,j.upstream_task_id,j.credential_version_id,'
+               "CASE WHEN j.actor_id=1 THEN NULL ELSE initiator.user_name END AS actor_username,"
+               "CASE WHEN j.actor_id=1 THEN '系统账号' ELSE initiator.nick_name END AS actor_name")
 
     @classmethod
     def scoped(cls, actor, roles):
         scope, params = BudgetDao.scope(actor, roles)
         return (' FROM hf_creation_job j JOIN hf_project p ON p.project_id=j.project_id'
-                ' LEFT JOIN sys_user u ON u.user_id=p.create_user_id WHERE ' + scope), params
+                ' LEFT JOIN sys_user u ON u.user_id=p.create_user_id'
+                ' LEFT JOIN sys_user initiator ON initiator.user_id=j.actor_id WHERE ' + scope), params
 
     @classmethod
     async def page(cls, db, query, actor, roles):

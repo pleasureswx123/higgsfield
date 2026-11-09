@@ -2,8 +2,10 @@
 import { computed } from 'vue'
 import { useIncidents } from '@/composables/studio/useIncidents'
 import { useIncidentRecovery } from '@/composables/studio/useIncidentRecovery'
+import { formatBusinessTime } from '@/utils/time'
 import useSettingsStore from '@/store/modules/settings'
 const settings = useSettingsStore()
+const displayTime = value => formatBusinessTime(value, 'YYYY-MM-DD HH:mm:ss', 'Asia/Shanghai') || '—'
 const { allowed, filters, rows, page, total, loading, error, selectedId, detail, detailLoading, detailError, load, search, inspect, close } = useIncidents()
 const { allowed: canRecover, target, pending, uncertain, error: actionError, form, formRef, start, close: closeRecovery, submit } = useIncidentRecovery(load)
 const open = computed({ get: () => !!selectedId.value, set: value => { if (!value) close() } })
@@ -16,28 +18,28 @@ const actionLabels = { retry_archive: '重试归档', requery: '重新查询', c
     <header><h2>异常任务</h2><el-button text @click="settings.toggleTheme()">切换主题</el-button></header>
     <p>依据已记录的任务、上游、归档与费用状态定位异常。未知受理不能直接视为失败或免费。</p>
     <el-form inline @submit.prevent>
-      <el-form-item label="项目ID"><el-input v-model="filters.projectId" clearable maxlength="19" /></el-form-item>
+      <el-form-item label="项目编号"><el-input v-model="filters.projectId" clearable maxlength="19" /></el-form-item>
       <el-form-item label="异常类型"><el-select v-model="filters.state" clearable style="width:180px"><el-option v-for="(label,value) in states" :key="value" :label="label" :value="value" /></el-select></el-form-item>
       <el-form-item><el-button :disabled="!allowed" :loading="loading" @click="search">查询</el-button></el-form-item>
     </el-form>
     <el-alert v-if="!allowed" title="没有运行治理读取权限" type="warning" :closable="false" />
     <el-alert v-if="error" :title="error" type="error" :closable="false" />
     <el-table v-loading="loading" :data="rows" empty-text="暂无符合条件的可见异常任务">
-      <el-table-column prop="jobId" label="任务ID" min-width="120" /><el-table-column prop="projectId" label="项目ID" min-width="120" />
-      <el-table-column prop="actorId" label="发起者ID" min-width="120" /><el-table-column prop="orchestrationState" label="编排阶段" min-width="150" />
+      <el-table-column prop="jobId" label="任务编号" min-width="120" /><el-table-column prop="projectId" label="项目编号" min-width="120" />
+      <el-table-column label="发起人" min-width="170"><template #default="{row}"><div>{{ row.actorName || row.actorUsername || (row.actorId ? `用户 ${row.actorId}` : '未记录') }}</div><div v-if="row.actorUsername" class="actor-account">{{ row.actorUsername }}</div></template></el-table-column><el-table-column prop="orchestrationState" label="编排阶段" min-width="150" />
       <el-table-column prop="upstreamState" label="上游状态" min-width="120" /><el-table-column prop="billingState" label="费用状态" min-width="120" />
       <el-table-column prop="lastKnownFact" label="最后已知事实" min-width="300" show-overflow-tooltip />
-      <el-table-column prop="nextActionAt" label="下次调度（含时区）" min-width="230" />
-      <el-table-column label="操作" width="100"><template #default="{row}"><el-button text @click="inspect(row.jobId)">查看详情</el-button></template></el-table-column>
+      <el-table-column label="下次调度（上海）" width="185"><template #default="{row}">{{ displayTime(row.nextActionAt) }}</template></el-table-column>
+      <el-table-column label="操作" fixed="right" width="100"><template #default="{row}"><el-button text @click="inspect(row.jobId)">查看详情</el-button></template></el-table-column>
     </el-table>
     <el-pagination v-model:current-page="page" :page-size="20" :total="total" layout="total, prev, pager, next" @current-change="load" />
     <el-dialog v-model="open" title="异常任务状态" width="min(900px, 92vw)" destroy-on-close>
       <div v-loading="detailLoading" class="details">
-        <p>任务ID：{{ selectedId }}</p>
+        <p>任务编号：{{ selectedId }}</p>
         <el-alert v-if="detailError" :title="detailError" type="error" :closable="false" />
         <el-button v-if="detailError" text @click="inspect(selectedId)">重新读取</el-button>
         <template v-if="detail">
-          <p>{{ detail.lastKnownFact }}</p><p>修订号：{{ detail.revision }} · 最近更新时间：{{ detail.updateTime }}</p>
+          <p>{{ detail.lastKnownFact }}</p><p>修订号：{{ detail.revision }} · 最近更新时间：{{ displayTime(detail.updateTime) }}（上海）</p>
           <p>归档：共 {{ detail.archiveSummary.total }} 项，已就绪 {{ detail.archiveSummary.ready }} 项，失败或过期 {{ detail.archiveSummary.failed }} 项，待处理 {{ detail.archiveSummary.pending }} 项。</p>
           <p>证据定位：{{ detail.evidenceRefs.join('、') || '暂无调用证据' }}</p>
           <el-button v-if="canRecover && detail.allowedActions.includes('retry_archive')" :disabled="pending || uncertain" @click="start(detail)">重试归档</el-button>
@@ -65,6 +67,7 @@ const actionLabels = { retry_archive: '重试归档', requery: '重新查询', c
   </div>
 </template>
 <style scoped>
+.actor-account { color:var(--el-text-color-secondary); font-size:12px; }
 .supplier-confirmation { height:auto; align-items:flex-start; }
 .supplier-confirmation :deep(.el-checkbox__label) { white-space:normal; line-height:1.5; }
 .supplier-confirmation :deep(.el-checkbox__input) { margin-top:3px; }

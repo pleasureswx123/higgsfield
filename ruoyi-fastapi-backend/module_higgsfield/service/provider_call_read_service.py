@@ -35,6 +35,8 @@ class ProviderCallReadService:
     @classmethod
     def summary(cls, row):
         return {'id': str(row.call_id), 'jobId': str(row.job_id) if row.job_id is not None else None,
+                'callerId': str(row.caller_id) if row.caller_id is not None else None,
+                'callerUsername': row.caller_username, 'callerName': row.caller_name,
                 'costCenterId': str(row.cost_center_id) if row.cost_center_id is not None else None,
                 'operation': row.operation, 'state': next(key for key, value in STATES.items() if value == row.state),
                 'acceptance': row.acceptance, 'httpStatus': row.http_status,
@@ -65,7 +67,7 @@ class ProviderCallReadService:
         if task:
             snapshot = task.input_snapshot or {}
             task_view = {'id': str(task.job_id), 'projectId': str(task.project_id),
-                         'actorId': str(task.actor_id), 'kind': task.kind,
+                         'actorId': str(task.actor_id) if task.actor_id != 1 else None, 'kind': task.kind,
                          'modelVersionId': str(task.model_version_id),
                          'createdAt': task.create_time.isoformat(),
                          'orchestrationState': task.orchestration_state, 'upstreamState': task.upstream_state,
