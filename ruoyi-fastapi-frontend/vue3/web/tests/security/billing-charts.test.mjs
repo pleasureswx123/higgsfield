@@ -1,6 +1,20 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { billingChartPoints, sumBillingAmounts } from '../../src/utils/billingCharts.js'
+import { billingChartPoints, sumBillingAmounts, billingAnalysisData } from '../../src/utils/billingCharts.js'
+
+test('饼图排除零费用，散点图排除未完整计价的人员', () => {
+  const rows = [
+    {displayName:'甲',userName:'a',totalKnownAmount:'12.5',unknownCount:'0',imageTaskCount:'3',videoTaskCount:'2'},
+    {displayName:'乙',totalKnownAmount:'0',unknownCount:'1',imageTaskCount:'1',videoTaskCount:'0'},
+    {displayName:'丙',totalKnownAmount:'2',unknownCount:'1',imageTaskCount:'1',videoTaskCount:'1'},
+  ]
+  assert.equal(billingAnalysisData(rows, 'share').length, 2)
+  const points = billingAnalysisData(rows, 'relationship')
+  assert.equal(points.length, 1)
+  assert.deepEqual(points[0].value, [5, 12.5])
+  assert.equal(points[0].name, '甲（a）')
+  assert.deepEqual(billingAnalysisData([], 'share'), [])
+})
 
 test('日期图表包含结束当天', () => {
   assert.deepEqual(billingChartPoints([], 'day', ['2026-11-08', '2026-11-09']).map(p => p.groupKey), ['2026-11-08', '2026-11-09'])

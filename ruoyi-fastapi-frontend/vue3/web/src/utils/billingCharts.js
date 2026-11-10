@@ -1,3 +1,12 @@
+// 占比仅使用正的已知费用；关系图排除费用尚未完整确认的人员。
+export function billingAnalysisData(rows, kind) {
+  return rows.filter(row => kind === 'share' ? Number(row.totalKnownAmount) > 0 :
+    Number(row.unknownCount || 0) === 0 && row.imageTaskCount != null && row.videoTaskCount != null)
+    .map(row => ({ name: row.userName ? `${row.displayName}（${row.userName}）` : row.displayName,
+      value: kind === 'share' ? Number(row.totalKnownAmount) :
+        [Number(row.imageTaskCount) + Number(row.videoTaskCount), Number(row.totalKnownAmount)], row }))
+}
+
 // 金额卡片使用十进制定点计算；浮点数只用于图表坐标。
 export function sumBillingAmounts(rows, field = 'totalKnownAmount') {
   const total = rows.reduce((sum, row) => {

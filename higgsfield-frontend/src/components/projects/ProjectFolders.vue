@@ -4,6 +4,7 @@ import DialogHeading from '@/components/shared/DialogHeading.vue'
 import { computed, ref, watch } from 'vue'
 import { useFolderPresentation } from '@/composables/useFolderPresentation'
 import ProjectTrash from './ProjectTrash.vue'
+import FolderDestinationTree from './FolderDestinationTree.vue'
 import ProjectAssets from './ProjectAssets.vue'
 import '@/styles/folders.css'
 import {
@@ -34,6 +35,7 @@ const props = defineProps<{
   canGenerate?: boolean
 }>()
 const emit = defineEmits<{ create: []; select: []; reference: [asset: Asset, kind: 'image' | 'video']; selectionChange: [count: number]; emptyChange: [state: { folderId: string | null; empty: boolean }] }>()
+const destinationTreeBusy = ref(false)
 const assetRefreshKey = ref(0)
 const assetPanel = ref<InstanceType<typeof ProjectAssets>>()
 const {
@@ -75,16 +77,11 @@ const {
   startEdit,
   save,
   remove,
+  destinationSource,
   destinationOpen,
   destinationMode,
   destinationCrumbs,
-  destinations,
-  destinationHasNext,
   destinationLoading,
-  destinationSearch,
-  destinationSort,
-  enterDestination,
-  loadDestinations,
   chooseDestination,
   startDestination,
   startDestinationCreate,
@@ -357,56 +354,16 @@ const rules: FormRules = {
       <template #header="{ titleId, titleClass }">
         <DialogHeading :title-id="titleId" :title-class="titleClass" :title="destinationMode === 'move' ? '移动到' : '复制到'" />
       </template>
-      <nav class="folder-breadcrumb">
-        <button :disabled="pending" @click="chooseDestination([])">项目根目录</button>
-        <span v-for="(folder, index) in destinationCrumbs" :key="folder.id">
-          /
-          <button
-            :disabled="pending"
-            @click="chooseDestination(destinationCrumbs.slice(0, index + 1))"
-          >
-            {{ folder.name }}
-          </button></span
-        >
-      </nav>
-      <div class="folder-destination-filters">
-        <ElInput v-model="destinationSearch" aria-label="搜索目标目录" placeholder="搜索项目内目标目录" clearable :disabled="pending" @keyup.enter="loadDestinations()" @clear="loadDestinations()" />
-        <ElSelect v-model="destinationSort" aria-label="目标目录排序" :disabled="pending" @change="loadDestinations()">
-          <ElOption label="名称 A–Z" value="nameAsc" />
-          <ElOption label="名称 Z–A" value="nameDesc" />
-          <ElOption label="最新创建" value="createdDesc" />
-          <ElOption label="最早创建" value="createdAsc" />
-          <ElOption label="最近更新" value="updatedDesc" />
-        </ElSelect>
-        <Button variant="ghost" :disabled="pending" @click="loadDestinations()">搜索目标</Button>
-      </div>
-      <p v-if="destinationSearch.trim()" class="muted">搜索结果来自项目内目录，请进入目标目录后确认。</p>
-      <Button v-if="canWrite" variant="outline" :disabled="pending || destinationLoading || Boolean(destinationSearch.trim())" @click="startDestinationCreate">在当前位置新建文件夹</Button>
-      <p v-if="destinationLoading" role="status">正在加载…</p>
-      <button
-        v-for="folder in destinations"
-        :key="folder.id"
-        class="folder-destination"
-        :disabled="pending || destinationLoading"
-        @click="enterDestination(folder)"
-      >
-        <IconFolder :size="20" />{{ folder.name }}
-      </button>
-      <button
-        v-if="destinationHasNext"
-        class="folder-text-button"
-        :disabled="destinationLoading || pending"
-        @click="loadDestinations(true)"
-      >
-        加载更多
-      </button>
+      <FolderDestinationTree v-if="active && destinationOpen" :project-id="projectId" :kind="destinationSource?.folderKind || 'media'" :path="destinationCrumbs" :operation="destinationMode" :exclude-id="destinationSource?.id" :disabled="pending" @select="chooseDestination" @busy="destinationTreeBusy = $event" />
+      <Button v-if="canWrite" variant="ghost" class="destination-create-link" :disabled="pending || destinationLoading || destinationTreeBusy" @click="startDestinationCreate">＋ 新建文件夹</Button>
+      <p v-if="destinationMode === 'move' && (destinationCrumbs.at(-1)?.id ?? null) === destinationSource?.parentId" class="muted">此文件夹已在所选位置。</p>
       <p v-if="transferUncertain" role="status">目录移动或复制结果尚未确认，请重试原请求；确认前暂不能更换目标或关闭。</p>
       <p v-if="saveUncertain" role="status">目录保存结果尚未确认，请重试原请求，确认前暂不能修改或关闭。</p>
       <p v-if="dialogError" class="project-error" role="alert">{{ dialogError }}</p>
       <template #footer
         ><Button variant="ghost" :disabled="pending" @click="destinationOpen = false">取消</Button>
-        <Button :disabled="writing || saveUncertain || destinationLoading || Boolean(destinationSearch.trim()) || !canWrite" @click="transfer">{{
-          writing ? '处理中…' : transferUncertain ? '重试确认原请求' : '选择当前位置'
+        <Button :disabled="writing || saveUncertain || destinationLoading || destinationTreeBusy || !canWrite || (!transferUncertain && destinationMode === 'move' && (destinationCrumbs.at(-1)?.id ?? null) === destinationSource?.parentId)" @click="transfer">{{
+          writing ? '处理中…' : transferUncertain ? '重试确认原请求' : destinationMode === 'move' ? '移动到此处' : '复制到此处'
         }}</Button></template
       >
     </ElDialog>

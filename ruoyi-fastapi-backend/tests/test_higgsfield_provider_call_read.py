@@ -27,7 +27,7 @@ class ProviderCallReadTests(unittest.IsolatedAsyncioTestCase):
         self.actor.permissions = ['operations:read']
         async with self.engine.begin() as conn:
             await conn.execute(text("UPDATE sys_menu SET perms='operations:read' WHERE menu_id=9001"))
-            for name in ('20261027_29_jobs_outbox.py', '20261027_35_provider_calls.py', '20261028_52_operations_read.py'):
+            for name in ('20261027_06_assets.py', '20261027_29_jobs_outbox.py', '20261027_35_provider_calls.py', '20261028_52_operations_read.py'):
                 spec = importlib.util.spec_from_file_location('call_read_migration', Path(__file__).resolve().parents[1] / 'alembic/versions' / name)
                 module = importlib.util.module_from_spec(spec)
                 spec.loader.exec_module(module)
@@ -53,6 +53,30 @@ class ProviderCallReadTests(unittest.IsolatedAsyncioTestCase):
     async def detail(self, identity):
         async with self.sessions() as db:
             return await ProviderCallReadService.detail(db, self.actor, identity)
+
+    async def test_task_paging_counts_complete_process_and_scope(self):
+        async with self.sessions() as db:
+            empty = await ProviderCallReadService.tasks(db, self.actor, ProviderCallQuery())
+            self.assertEqual(empty.total, 0)
+            with self.assertRaises(ServiceWarning):
+                await ProviderCallReadService.process(db, self.actor, self.job_id)
+        await self.scope('1')
+        async with self.sessions() as db:
+            await db.execute(text("UPDATE hf_provider_call SET operation='video_submit' WHERE call_id=:id"), {'id': self.call_id})
+            db.add_all([self.call(job_id=self.job_id, operation='video_poll', account_id=3) for _ in range(25)])
+            await db.commit()
+        async with self.sessions() as db:
+            result = await ProviderCallReadService.tasks(db, self.actor, ProviderCallQuery(accountId='3', pageSize=1))
+            self.assertEqual(result.total, 1)
+            self.assertEqual(result.rows[0]['callCount'], 26)
+            self.assertEqual(result.rows[0]['pollCount'], 25)
+            calls = await ProviderCallReadService.process(db, self.actor, self.job_id)
+            self.assertEqual(len(calls), 26)
+            self.assertEqual(calls[0]['id'], str(self.call_id))
+            self.assertNotIn('requestMetadata', calls[0])
+            empty = await ProviderCallReadService.tasks(db, self.actor, ProviderCallQuery(pageNum=2, pageSize=1))
+            self.assertEqual(empty.rows, [])
+            self.assertEqual(empty.total, 1)
 
     async def test_scope_detail_projection_and_revocation(self):
         self.assertEqual((await self.listing()).total, 0)
@@ -94,6 +118,38 @@ class ProviderCallReadTests(unittest.IsolatedAsyncioTestCase):
 
 
 class ProviderCallProjectionTests(unittest.TestCase):
+    def test_upload_and_registration_have_independent_results(self):
+        from types import SimpleNamespace
+        row = SimpleNamespace(operation='upload', state='2', acceptance='not_applicable', http_status=200,
+            asset_name='场景.png', asset_evidence={'byteSize': '12', 'mimeType': 'image/png'},
+            upload_result={'byteSize': 12, 'contentType': 'image/png', 'expiresAt': '2020-01-01T00:00:00Z'})
+        self.assertEqual(ProviderCallReadService.asset_query(row), {'name': '场景.png', 'state': 'Uploaded'})
+        row.upload_result = {}
+        self.assertIsNone(ProviderCallReadService.asset_query(row)['state'])
+        row.http_status = 500
+        self.assertEqual(ProviderCallReadService.asset_query(row)['state'], 'RequestFailed')
+        row.operation, row.http_status = 'register', 200
+        row.asset_evidence = {'exchanges': {'one': {'response': {'Id': 'asset-one', 'base_resp': {'status_code': 0}}}}}
+        self.assertEqual(ProviderCallReadService.asset_query(row)['state'], 'Registered')
+
+    def test_asset_query_uses_matching_saved_response_not_http_success(self):
+        from types import SimpleNamespace
+        row = SimpleNamespace(operation='asset_get', http_status=200, asset_name='woman.png', asset_evidence={
+            'exchanges': {'one': {'request': {'body': {'Id': 'asset-one'}}, 'httpStatus': 200,
+                'response': {'Id': 'asset-one', 'AssetType': 'Image', 'Status': 'Active',
+                    'URL': 'https://private.invalid', 'base_resp': {'status_code': 0}}}}})
+        self.assertEqual(ProviderCallReadService.asset_query(row), {'name': 'woman.png', 'state': 'Active'})
+        response = row.asset_evidence['exchanges']['one']['response']
+        for state in ('Processing', 'Failed', 'Expired', 'Deleted'):
+            response['Status'] = state
+            self.assertEqual(ProviderCallReadService.asset_query(row)['state'], state)
+        response['Id'] = 'asset-other'
+        self.assertIsNone(ProviderCallReadService.asset_query(row)['state'])
+        row.asset_evidence = {}
+        self.assertIsNone(ProviderCallReadService.asset_query(row)['state'])
+        row.asset_name = None
+        self.assertEqual(ProviderCallReadService.asset_query(row)['name'], '参考素材（名称未记录）')
+
     def test_nested_secrets_and_wrong_types_are_not_projected(self):
         self.assertEqual(ProviderCallReadService.metadata({
             'Authorization': 'Bearer secret', 'response': {'prompt': '正文'},

@@ -7,13 +7,15 @@ import { toRfc3339 } from '../../src/utils/time.js'
 import { validRoutingId } from '../../src/utils/routing.js'
 
 test('调用详情切换、筛选和撤权中止旧请求，大整数不转数字', async () => {
-  const reads = [], details = [], hooks = {}, user = reactive({ permissions: ['operations:read'] })
+  const reads = [], details = [], processes = [], hooks = {}, user = reactive({ permissions: ['operations:read'] })
   const context = createContext({ AbortController })
   const mocks = {
     vue: { computed, reactive, ref, watch, onMounted: fn => { hooks.mount = fn }, onActivated: () => {},
       onDeactivated: fn => { hooks.deactivate = fn }, onBeforeUnmount: () => {} },
     '@/store/modules/user': { default: () => user },
     '@/api/studio/providerCalls': {
+      listCallTasks: (params, signal) => new Promise(resolve => reads.push({ params, signal, resolve })),
+      getTaskCalls: (id, signal) => new Promise(resolve => processes.push({ id, signal, resolve })),
       listProviderCalls: (params, signal) => new Promise(resolve => reads.push({ params, signal, resolve })),
       getProviderCall: (id, signal) => new Promise(resolve => details.push({ id, signal, resolve })),
     },
@@ -26,6 +28,9 @@ test('调用详情切换、筛选和撤权中止旧请求，大整数不转数�
   await module.evaluate()
   const scope = effectScope(), state = scope.run(() => module.namespace.useProviderCalls())
   const flush = () => new Promise(resolve => setImmediate(resolve))
+  assert.equal(state.view.value, 'tasks')
+  state.view.value = 'calls'
+  await flush()
   hooks.mount()
   state.filters.jobId = '9007199254740993'
   const list = state.search()
@@ -72,5 +77,21 @@ test('调用详情切换、筛选和撤权中止旧请求，大整数不转数�
   rangedRead.resolve({ rows: [{ id: 'stale' }], total: 1 })
   await ranged
   assert.equal(state.rows.value[0].id, 'reset')
+  const processFirst = state.inspectProcess('9007199254740993')
+  const processSecond = state.inspectProcess('22')
+  assert.equal(processes[0].id, '9007199254740993')
+  assert.equal(processes[0].signal.aborted, true)
+  processes[1].resolve({ data: [{ id: '83' }] })
+  await processSecond
+  processes[0].resolve({ data: [{ id: 'old' }] })
+  await processFirst
+  assert.equal(state.processRows.value[0].id, '83')
+  const processDetail = state.inspect('83')
+  state.closeProcess()
+  assert.equal(details.at(-1).signal.aborted, true)
+  details.at(-1).resolve({ data: { id: '83' } })
+  await processDetail
+  assert.equal(state.detail.value, undefined)
+  assert.equal(state.processId.value, '')
   scope.stop()
 })

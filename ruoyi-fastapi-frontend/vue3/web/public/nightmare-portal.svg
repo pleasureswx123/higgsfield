@@ -1,0 +1,43 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="210 284 320 320"><title>Nightmare Theatre</title><rect x="210" y="284" width="320" height="320" rx="40" fill="#0A0C10"/><g
+     id="portal"
+     transform="translate(0,-8)">
+
+    <path
+       d="M256 568 V322 H484 V568"
+       fill="none"
+       stroke="#F0F0EA"
+       stroke-width="14"
+       stroke-linecap="square"
+       stroke-linejoin="miter"
+       id="path1" />
+    <path
+       d="M304 553 V374 H436 V553"
+       fill="none"
+       stroke="#F0F0EA"
+       stroke-width="9"
+       stroke-linecap="square"
+       id="path2" />
+
+    <path
+       d="M275 345 L290 360 V541 L275 555Z"
+       fill="#F0F0EA"
+       opacity=".25"
+       id="path3" />
+    <path
+       d="M465 345 L450 360 V541 L465 555Z"
+       fill="#F0F0EA"
+       opacity=".25"
+       id="path4" />
+    <rect
+       x="362"
+       y="388"
+       width="15"
+       height="164"
+       fill="#DB4E49"
+       id="rect4" />
+    <path
+       d="M332 584 H408"
+       stroke="#DB4E49"
+       stroke-width="8"
+       id="path5" />
+  </g></svg>

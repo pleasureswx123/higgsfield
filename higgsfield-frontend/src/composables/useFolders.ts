@@ -789,6 +789,7 @@ export function useFolders(projectId: string, visible: () => boolean = () => tru
     save,
     remove,
     restore,
+    destinationSource: source,
     destinationOpen,
     destinationMode,
     destinationCrumbs,
