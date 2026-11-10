@@ -180,7 +180,7 @@ textarea {
   width: 100%;
   min-height: 26px;
   max-height: 110px;
-  resize: vertical;
+  resize: none;
   background: none;
   border: 0;
   outline: none;

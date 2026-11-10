@@ -1,5 +1,8 @@
 <script setup lang="ts">
 import AssetGenerationInfo from './AssetGenerationInfo.vue'
+import { useRoute, useRouter } from 'vue-router'
+import { IconFolder } from '@tabler/icons-vue'
+import { useAssetLocation } from '@/composables/useAssetLocation'
 import { useAssetBatchStatus } from '@/composables/useAssetBatchStatus'
 import { assetStatuses, assetStatus } from '@/utils/assetStatus'
 import AssetHoverVideo from './AssetHoverVideo.vue'
@@ -148,6 +151,13 @@ function updateCommentCount(count: number) {
     ? { ...entry, asset: { ...entry.asset, commentCount: count } } : entry)
 }
 const previewEntry = computed(() => rows.value.find(entry => entry.asset.id === selected.value?.id))
+const previewLocation = useAssetLocation(() => previewEntry.value?.folderId)
+const locationRoute = useRoute(), locationRouter = useRouter()
+async function openAssetFolder() {
+  if (!previewLocation.ready.value || !previewEntry.value) return
+  if (comments.value && !(await comments.value.confirmLeave())) return
+  await locationRouter.push({ query: { ...locationRoute.query, tab: 'folders', folder: previewEntry.value.folderId || undefined, folderView: undefined, asset: undefined, assetVersion: undefined, previewFrom: undefined } })
+}
 watch(() => selected.value?.currentVersionId, () => {
   previewTab.value = 'info'
   void restorePreviewFullscreen()
@@ -543,7 +553,18 @@ defineExpose({ includeDescendants })
               <template v-if="selected.file.seconds"><dt>时长</dt><dd>{{ selected.file.seconds }} 秒</dd></template>
               <template v-if="previewEntry?.createTime"><dt>添加时间</dt><dd>{{ formatProjectDate(previewEntry.createTime) }}</dd></template>
             </dl>
-            <div class="asset-preview-location"><span>所在位置</span><div><slot name="breadcrumb">当前项目素材</slot></div></div>
+            <div class="asset-preview-location">
+              <span>所在文件夹</span>
+              <Button v-if="previewLocation.ready.value" variant="ghost" class="asset-location-link" @click="openAssetFolder">
+                <IconFolder :size="20" class="asset-location-icon" />
+                <span class="asset-location-text">
+                  <strong :title="previewLocation.name.value">{{ previewLocation.name.value }}</strong>
+                  <small v-if="previewEntry?.folderId" :title="previewLocation.parentPath.value.join(' / ')">{{ previewLocation.parentLabel.value }}</small>
+                </span>
+                <IconChevronRight :size="16" class="asset-location-arrow" />
+              </Button>
+              <p v-else class="muted">暂无法获取所在目录</p>
+            </div>
           </section>
           <div v-show="previewTab === 'comments'" id="asset-preview-comments" class="asset-preview-comments" role="tabpanel" aria-labelledby="asset-preview-comments-tab">
       <MediaComments @count="updateCommentCount" :timecode="previewTimecode" :playback-time="playbackTime" @seek="seekPlayback" @pause="previewPlayer?.pause()" @timeline="videoComments = $event" sidebar :project-id="projectId" :canvas-host="previewTab === 'comments' ? commentCanvasHost : undefined" :source-width="selected?.file.width || undefined" :source-height="selected?.file.height || undefined"

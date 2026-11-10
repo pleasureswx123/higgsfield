@@ -255,7 +255,7 @@
 .asset-preview-main--image { position: relative; }
 .asset-preview-main--image > .asset-preview-tools { position: absolute; z-index: 2; right: 16px; bottom: 16px; max-width: calc(100% - 32px); padding: 6px 8px; border: 1px solid var(--border); border-radius: 12px; background: color-mix(in srgb, var(--surface) 92%, transparent); backdrop-filter: blur(12px); box-shadow: 0 4px 16px #0002; }
 .asset-preview-status { display: flex; align-items: center; gap: 6px; font-size: 13px; }
-.asset-preview-sidebar { display: flex; flex-direction: column; min-height: 0; min-width: 0; padding: 72px 10px 10px; background: var(--comment-sidebar-surface); border: 1px solid var(--border); border-radius: 24px; }
+.asset-preview-sidebar { display: flex; flex-direction: column; min-height: 0; min-width: 0; padding: 72px 10px 10px; background: color-mix(in srgb, var(--comment-sidebar-surface) 94%, #000); border: 1px solid var(--border); border-radius: 24px; }
 .asset-preview-tabs { display: flex; flex-shrink: 0; gap: 4px; padding: 4px; border-radius: 12px; background: var(--comment-card-surface); margin-bottom: 8px; }
 .asset-preview-tabs button { display: flex; align-items: center; justify-content: center; gap: 8px; flex: 1; padding: 9px; color: var(--muted-foreground); background: transparent; border: 1px solid transparent; border-radius: 8px; cursor: pointer; }
 .asset-preview-tabs button[aria-selected='true'] { color: var(--foreground); background: var(--comment-card-selected); border-color: var(--comment-card-border); }
@@ -320,3 +320,10 @@
 /* 短暂强调新归档的素材，不改变原图颜色或打断当前选择。 */
 .asset-card.is-new-result { position:relative; outline:2px solid var(--el-color-success); outline-offset:2px; }
 .asset-new-result { position:absolute; top:8px; right:8px; z-index:2; padding:3px 7px; border:1px solid var(--el-color-success); border-radius:6px; color:var(--foreground); background:var(--surface); font-size:11px; pointer-events:none; }
+
+.asset-preview-location .asset-location-link { display: flex; width: 100%; height: auto; min-height: 52px; gap: 10px; margin-top: 6px; padding: 8px; text-align: left; justify-content: flex-start; }
+.asset-location-text { display: flex; flex: 1; min-width: 0; flex-direction: column; gap: 4px; }
+.asset-location-text strong, .asset-location-text small { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.asset-location-text strong { font-size: 13px; font-weight: 500; }
+.asset-location-text small { font-size: 12px; color: var(--muted-foreground); }
+.asset-location-icon, .asset-location-arrow { flex-shrink: 0; color: var(--muted-foreground); }
