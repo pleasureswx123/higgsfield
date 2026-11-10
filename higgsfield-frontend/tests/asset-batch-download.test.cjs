@@ -5,6 +5,20 @@ const { join } = require('node:path')
 const { runInNewContext } = require('node:vm')
 const ts = require('typescript'), vue = require('vue')
 const tick = () => new Promise(setImmediate)
+test('单个素材下载只读取目标文件并保留列表选择，重复点击不重复请求', async () => {
+  const h = setup(), before = [...h.selected.value]
+  const run = h.state.downloadOne(h.rows.value[1])
+  await h.state.downloadOne(h.rows.value[0])
+  assert.equal(h.calls.length, 1)
+  assert.equal(h.calls[0].args[0], '902')
+  assert.equal(h.calls[0].args[1], true)
+  h.calls[0].resolve({}); await run
+  assert.equal(h.anchors.length, 1)
+  assert.equal(h.anchors[0].download, '乙.png')
+  assert.equal(h.state.message.value, '')
+  assert.deepEqual([...h.selected.value], before)
+  h.close()
+})
 function setup() {
   const exports = {}, calls = [], anchors = [], revoked = [], timers = new Map(), hooks = {}
   const auth = vue.reactive({ token: 'one', user: { permissions: ['asset:download'] } }), allowed = vue.ref(true)
@@ -26,7 +40,7 @@ function setup() {
   return { state, rows, selected, auth, allowed, calls, anchors, revoked, timers, hooks, close() { hooks.close(); scope.stop() } }
 }
 
-test('批量下载顺序读取固定版本，失败保留选择，成功只报告交给浏览器', async () => {
+test('批量下载顺序读取固定版本，失败保留选择且只反馈失败原因', async () => {
   const h = setup(), run = h.state.download()
   assert.equal(h.calls.length, 1); assert.equal(h.calls[0].args[0], '901'); assert.equal(h.calls[0].args[1], true)
   assert.equal(h.hooks.leave(), false)
@@ -36,7 +50,7 @@ test('批量下载顺序读取固定版本，失败保留选择，成功只报�
   assert.equal(h.anchors[0].download, '甲.png'); assert.equal(h.calls[1].args[0], '902')
   h.calls[1].reject(new Error('没有下载权限')); await run
   assert.equal(h.selected.value.length, 1); assert.equal(h.selected.value[0], '2')
-  assert.match(h.state.message.value, /已交给浏览器 1 个文件/); assert.match(h.state.message.value, /乙.png：没有下载权限/)
+  assert.doesNotMatch(h.state.message.value, /已交给浏览器|确认保存|浏览器允许/); assert.match(h.state.message.value, /乙.png：没有下载权限/)
   assert.equal(h.hooks.leave(), true); assert.equal(h.revoked.length, 0)
   for (const callback of h.timers.values()) callback()
   assert.equal(h.revoked[0], 'blob:1'); h.close()
@@ -47,7 +61,7 @@ test('停止下载中断当前读取且不启动后续项，保持未完成选�
   h.state.stop(); assert.equal(h.calls[0].args[2].aborted, true)
   h.calls[0].resolve({}); await run
   assert.equal(h.calls.length, 1); assert.equal(h.anchors.length, 0); assert.equal(h.selected.value.length, 2)
-  assert.match(h.state.message.value, /剩余 2 项未完成/); h.close()
+  assert.equal(h.state.message.value, ''); h.close()
 })
 
 test('缓存停用和权限变化取消下载，账号切换阻断迟到文件触发', async () => {

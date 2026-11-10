@@ -11,8 +11,13 @@ function outside(event: PointerEvent) {
   if (menu.value && !event.composedPath().includes(menu.value)) close()
 }
 function action(event: MouseEvent) {
+  // 在按钮动作更新禁用状态前关闭菜单，避免下载开始后无法命中可用按钮。
   const target = event.target as HTMLElement
-  if (target.closest('button:not(:disabled)')) close()
+  if (target.closest('button:not(:disabled)')) {
+    // 将焦点移回始终可见的入口，避免折叠菜单后浏览器滚动追踪隐藏按钮。
+    menu.value?.querySelector('summary')?.focus({ preventScroll: true })
+    close()
+  }
 }
 function escape(event: KeyboardEvent) {
   if (event.key !== 'Escape' || !props.compact || !menu.value?.open) return
@@ -34,6 +39,6 @@ onBeforeUnmount(() => {
 <template>
   <details ref="menu" class="asset-card-actions" :open="!compact">
     <summary :aria-label="`素材操作 ${name}`"><IconDots :size="16" /></summary>
-    <div class="asset-card-action-menu" @click="action"><slot /></div>
+    <div class="asset-card-action-menu" @click.capture="action"><slot /></div>
   </details>
 </template>

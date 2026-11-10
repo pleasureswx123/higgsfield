@@ -95,6 +95,16 @@
 * {
   box-sizing: border-box;
 }
+/* 项目弹窗锁定滚动时保留滚动条占位，防止固定创作栏和底部操作栏横向跳动。 */
+@supports (scrollbar-gutter: stable) {
+  html:has(.project-studio-page) {
+    scrollbar-gutter: stable;
+  }
+  html:has(.project-studio-page) body.el-popup-parent--hidden {
+    /* 浏览器已保留占位，不再叠加 Element Plus 写入的滚动条宽度补偿。 */
+    width: auto !important;
+  }
+}
 body {
   margin: 0;
   background: var(--background);

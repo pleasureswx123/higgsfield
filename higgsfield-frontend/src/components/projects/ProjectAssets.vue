@@ -12,6 +12,7 @@ import DialogHeading from '@/components/shared/DialogHeading.vue'
 import { ref, toRef, watch, computed } from 'vue'
 import {
   ElDialog,
+  ElMessage,
   ElPopover,
   ElInput,
   ElSelect,
@@ -23,7 +24,7 @@ import {
   ElInputNumber,
   ElDatePicker,
 } from 'element-plus'
-import { IconInfoCircle, IconMessageCircle, IconMinimize, IconX, IconChevronRight, IconCircleDotted, IconMaximize, IconCheckbox, IconAt, IconPencil, IconFolderSymlink, IconFolderPlus, IconTrash, IconDownload, IconCloud, IconEye, IconPhoto, IconMovie, IconUpload, IconFileText, IconFilter, IconLayoutGrid, IconDots, IconRefresh, IconSearch } from '@tabler/icons-vue'
+import { IconLoader2, IconInfoCircle, IconMessageCircle, IconMinimize, IconX, IconChevronRight, IconCircleDotted, IconMaximize, IconCheckbox, IconAt, IconPencil, IconFolderSymlink, IconFolderPlus, IconTrash, IconDownload, IconCloud, IconEye, IconPhoto, IconMovie, IconUpload, IconFileText, IconFilter, IconLayoutGrid, IconDots, IconRefresh, IconSearch } from '@tabler/icons-vue'
 import { assetAccept, documentFormats } from '@/utils/assetFormats'
 import type { Asset } from '@/api/assets'
 import Button from '@/components/ui/Button.vue'
@@ -224,6 +225,12 @@ const deletable = computed(() => rows.value.some(entry => entry.asset.allowedAct
 const selection = useContentSelection(() => rows.value.map(entry => entry.asset), () => actionsLocked.value || loading.value || batchBusy.value)
 const batchDelete = useAssetBatchDelete(() => rows.value.map(entry => entry.asset), () => props.visible !== false && deletable.value && !actionsLocked.value && !loading.value && !editing.value && !selected.value && !batchDownload.pending.value && !mover.value?.locked, refreshContents, selection.selected)
 const batchDownload = useAssetBatchDownload(() => rows.value.map(entry => entry.asset), selection.selected, () => props.visible !== false && props.canDownload && !actionsLocked.value && !loading.value && !editing.value && !selected.value && !batchDelete.pending.value && !mover.value?.locked)
+// 下载失败使用浮动提示，不向素材列表插入状态段落。
+for (const downloadMessage of [batchDownload.message, previewDownload.message]) {
+  watch(downloadMessage, message => {
+    if (message && props.visible !== false) ElMessage.error({ message, showClose: true })
+  })
+}
 const videoCards = new Map<string, InstanceType<typeof AssetHoverVideo>>()
 watch(() => selection.selected.value.length, count => emit('selectionChange', count), { immediate: true })
 watch(() => props.folderId, () => { selection.selected.value = [] })
@@ -351,7 +358,7 @@ defineExpose({ includeDescendants })
     </header>
     <AssetUploadPanel v-if="items.length" v-model:open="uploadsOpen" :items="items" :running="running" :can-upload="canUpload" @pause="pause" @pause-item="pauseItem" @retry="retry" @clear="clearFinished" />
 
-    <div v-if="selection.selected.value.length || batchBusy" class="asset-toolbar asset-selection-toolbar" :class="{ 'asset-selection-dock': compact }">
+    <div v-if="selection.selected.value.length || batchDelete.pending.value || batchStatus.pending.value" class="asset-toolbar asset-selection-toolbar" :class="{ 'asset-selection-dock': compact }">
       <span class="asset-selection-count"><span v-if="firstSelected" class="asset-selection-thumbnail"><ReferenceThumbnail :version-id="firstSelected.currentVersionId" :alt="firstSelected.name" fill passive /></span><strong>已选 {{ selection.selected.value.length }} 项</strong></span>
       <Button variant="ghost" :disabled="!canDownload || loading || actionsLocked || batchBusy" :title="canDownload ? '下载所选' : '暂无下载权限'" @click="batchDownload.download"><IconDownload :size="18" />下载</Button>
       <Button variant="ghost" :disabled="!canMove || loading || actionsLocked || batchBusy" @click="mover?.openMany(rows.filter(entry => selection.selected.value.includes(entry.asset.id)))"><IconFolderSymlink :size="18" />移动到</Button>
@@ -368,11 +375,9 @@ defineExpose({ includeDescendants })
       <Button variant="ghost" class="asset-selection-close" aria-label="取消选择" :disabled="batchBusy" @click="selection.selectAll(false)"><IconX :size="20" /></Button>
       <Button v-if="batchDownload.pending.value" variant="ghost" @click="batchDownload.stop">停止下载</Button>
     </div>
-    <p v-if="batchDownload.pending.value" role="status">正在读取 {{ batchDownload.currentName.value }} · {{ size(batchDownload.loadedBytes.value) }}</p>
     <p v-if="moveMessage" role="status">{{ moveMessage }}</p>
     <p v-if="batchStatus.message.value" role="status">{{ batchStatus.message.value }}</p>
     <p v-if="batchDelete.message.value" role="status">{{ batchDelete.message.value }}</p>
-    <p v-if="batchDownload.message.value" role="status">{{ batchDownload.message.value }}</p>
     <p v-if="splitByDate" class="muted">按上海日期分组，仅展示当前页素材。</p>
     <p v-if="error" class="project-error" role="alert">{{ error }}</p>
     <p v-if="loading" class="muted" role="status">正在加载素材…</p>
@@ -402,7 +407,7 @@ defineExpose({ includeDescendants })
           <span v-if="lastViewedId === entry.asset.id && !selected" class="asset-last-viewed"><IconEye :size="14" />最近查看</span>
         </button>
         <div class="asset-hover-shortcuts">
-          <button type="button" class="asset-round-action" aria-label="下载素材" :disabled="!canDownload || mediaLoading" :title="canDownload ? '下载' : '暂无下载权限'" @click="canDownload && openMedia(entry.asset, true)"><IconDownload :size="19" /></button>
+          <button type="button" class="asset-round-action" aria-label="下载素材" :disabled="!canDownload || mediaLoading || batchBusy" :title="batchDownload.pending.value && batchDownload.currentId.value === entry.asset.id ? '下载中…' : canDownload ? '下载' : '暂无下载权限'" @click="canDownload && batchDownload.downloadOne(entry.asset)"><IconLoader2 v-if="batchDownload.pending.value && batchDownload.currentId.value === entry.asset.id" :size="19" class="animate-spin" /><IconDownload v-else :size="19" /></button>
         </div>
         <span v-if="entry.asset.uploaded" class="asset-upload-origin" title="上传来源" aria-label="上传来源"><IconCloud :size="15" /></span>
         <strong class="asset-name" :title="entry.name">{{ entry.name }}</strong>
@@ -412,7 +417,7 @@ defineExpose({ includeDescendants })
           <button class="asset-menu-item" :disabled="!canCreateElement || !['image', 'video'].includes(entry.asset.mediaType)" :title="!['image', 'video'].includes(entry.asset.mediaType) ? '元素支持图片和视频素材' : !canCreateElement ? '暂无创建元素权限' : '从当前素材创建元素'" @click="elementSource = entry.asset"><IconAt :size="18" />创建元素</button>
           <span class="asset-menu-divider" />
           <button class="asset-menu-item" :disabled="actionsLocked || !entry.asset.allowedActions?.includes('asset:edit')" :title="!entry.asset.allowedActions?.includes('asset:edit') ? '暂无重命名权限' : ''" @click="edit(entry.asset)"><IconPencil :size="18" />重命名</button>
-          <button class="asset-menu-item" :disabled="!canDownload || mediaLoading" :title="canDownload ? '' : '暂无下载权限'" @click="canDownload && openMedia(entry.asset, true)"><IconDownload :size="18" />下载</button>
+          <button class="asset-menu-item" :disabled="!canDownload || mediaLoading || batchBusy" :title="canDownload ? '' : '暂无下载权限'" @click="canDownload && batchDownload.downloadOne(entry.asset)"><IconDownload :size="18" />下载</button>
           <button class="asset-menu-item" :disabled="!canMove" :title="canMove ? '' : '暂无移动权限'" @click="mover?.open(entry)"><IconFolderSymlink :size="18" />移动到</button>
           <button class="asset-menu-item" :disabled="!canCopy" :title="canCopy ? '' : '需要目录写入、素材创建及引用权限'" @click="copier?.open(entry)"><IconFolderPlus :size="18" />复制到</button>
           <span class="asset-menu-divider" />
@@ -577,7 +582,6 @@ defineExpose({ includeDescendants })
       />
           </div>
           <div v-if="selected && previewTab === 'info'" class="asset-preview-actions">
-            <p v-if="previewDownload.message.value" role="status">{{ previewDownload.message.value }}</p>
             <p v-if="actionError" role="alert">{{ actionError }}</p>
             <div class="asset-preview-action-row">
               <Button :disabled="!canGenerate || !projectActions?.includes('asset:reference') || selected.mediaType === 'document'" :title="selected.mediaType === 'video' ? '将此视频添加为视频参考素材' : '将此图片添加为视频参考素材'" @click="usePreview('video')"><IconMovie :size="18" />用于视频创作</Button>
