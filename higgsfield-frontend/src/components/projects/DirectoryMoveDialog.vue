@@ -58,6 +58,8 @@ defineExpose({ open, openMany, locked })
 <template>
   <ElDialog
     append-to-body
+    class="folder-destination-dialog"
+    top="5vh"
     :model-value="active && allowed && Boolean(entry)"
     :title="`${actionLabel}${kind === 'element' ? '元素' : '素材'}：${entries.length > 1 ? `${entries.length} 项` : entry?.name || ''}`"
     width="min(520px,94vw)"

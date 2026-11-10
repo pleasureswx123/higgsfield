@@ -35,6 +35,13 @@
   --input: var(--border);
   --radius: 0.75rem;
 }
+/* 实心品牌按钮使用深色文字，避免 Element Plus 默认白字与青柠背景对比不足。 */
+.el-button.el-button--primary:not(.is-plain):not(.is-text):not(.is-link) {
+  --el-button-text-color: var(--primary-foreground);
+  --el-button-hover-text-color: var(--primary-foreground);
+  --el-button-active-text-color: var(--primary-foreground);
+  --el-button-disabled-text-color: var(--primary-foreground);
+}
 :root.dark {
   --background: #111213;
   --surface: #171819;

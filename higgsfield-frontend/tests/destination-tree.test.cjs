@@ -7,6 +7,32 @@ function harness(api) {
  return { s:exports.useDestinationTree('2','media',()=> '9',()=>false,p=>selected.push(p)),selected,close:()=>dispose() }
 }
 const folder=(id,parentId=null)=>({id,parentId,name:id,projectId:'2',folderKind:'media',hasChildren:true})
+
+test('新建子目录后清除旧叶节点缓存，展开完整路径并重新读取分支',async()=>{
+ const parent={...folder('20'),hasChildren:false},child={...folder('21','20'),hasChildren:false}
+ const h=harness({listFolders:async()=>({rows:[child],hasNext:false})})
+ h.s.query.value='旧搜索';h.s.searching.value=true
+ h.s.reveal([parent,child])
+ assert.equal(h.s.query.value,'');assert.equal(h.s.searching.value,false)
+ assert.deepEqual(Array.from(h.s.expanded.value),['root','20','21']);assert.equal(h.s.treeKey.value,1)
+ let rows
+ await h.s.load({level:2,data:{id:'20',path:[parent]}},value=>rows=value,()=>assert.fail())
+ assert.equal(rows[0].id,'21');assert.equal(rows[0].path.length,2);h.close()
+})
+
+test('刷新目标分支后，旧搜索和旧懒加载响应不能覆盖新目录树',async()=>{
+ const pending=[]
+ const h=harness({listFolders:(_project,_params,signal)=>new Promise(resolve=>pending.push({resolve,signal}))})
+ let applied=false
+ const loading=h.s.load({level:1,data:{id:'root',path:[]}},()=>applied=true,()=>assert.fail())
+ h.s.query.value='旧搜索';const searching=h.s.search()
+ h.s.reveal([folder('20')])
+ assert.ok(pending.every(request=>request.signal.aborted))
+ pending.forEach(request=>request.resolve({rows:[],hasNext:false}))
+ await Promise.all([loading,searching])
+ assert.equal(applied,false);assert.equal(h.s.searching.value,false);assert.equal(h.s.busy.value,false)
+ assert.deepEqual(Array.from(h.s.expanded.value),['root','20']);h.close()
+})
 test('展开读取所有分页，源目录不可选择；展开本身不选择目标',async()=>{
  let calls=0; const h=harness({listFolders:async()=>({rows:[folder(String(++calls))],hasNext:calls===1})});let rows
  await h.s.load({level:1,data:{id:'root',path:[]}},x=>rows=x,()=>assert.fail())

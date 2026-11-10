@@ -345,8 +345,10 @@ const rules: FormRules = {
     <ElDialog
       append-to-body
       :model-value="active && destinationOpen" @update:model-value="active && (destinationOpen = $event)"
+      class="folder-destination-dialog"
+      top="5vh"
       :title="destinationMode === 'move' ? '移动到' : '复制到'"
-      width="500px"
+      width="min(500px,94vw)"
       :close-on-click-modal="!pending"
       :close-on-press-escape="!pending"
       :show-close="!pending"

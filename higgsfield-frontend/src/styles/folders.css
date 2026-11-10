@@ -297,3 +297,9 @@
 /* 目标选择中的新建操作保持次要层级。 */
 .destination-create-link { height:auto; min-height:32px; padding:4px 8px; font-size:12px; color:var(--el-text-color-secondary); background:transparent; border-color:transparent; box-shadow:none; }
 .destination-create-link:hover { color:var(--el-text-color-primary); background:var(--el-fill-color-light); }
+
+/* 长目录树在内部滚动，短窗口下仍保留确认和取消入口。 */
+.folder-destination-dialog { display:flex; flex-direction:column; max-height:90dvh; }
+.folder-destination-dialog > .el-dialog__header,
+.folder-destination-dialog > .el-dialog__footer { flex-shrink:0; }
+.folder-destination-dialog > .el-dialog__body { min-height:0; overflow:auto; overscroll-behavior:contain; }

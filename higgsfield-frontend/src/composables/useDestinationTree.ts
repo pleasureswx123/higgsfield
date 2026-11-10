@@ -1,4 +1,4 @@
-import { computed, onBeforeUnmount, ref } from 'vue'
+import { onBeforeUnmount, ref } from 'vue'
 import type { LoadFunction } from 'element-plus/es/components/tree/src/tree.type'
 import { listFolders, readFolder, type Folder, type FolderKind, type FolderSort } from '@/api/folders'
 
@@ -14,6 +14,7 @@ export interface DestinationNode {
 export function useDestinationTree(projectId: string, kind: FolderKind, excluded: () => string | undefined, locked: () => boolean, select: (path: Folder[]) => void) {
   const query = ref(''), sort = ref<FolderSort>('nameAsc'), searching = ref(false), busy = ref(false), error = ref('')
   const results = ref<DestinationNode[]>([]), treeKey = ref(0)
+  const expanded = ref(['root'])
   const controllers = new Set<AbortController>()
   let sequence = 0, alive = true
   const node = (path: Folder[]): DestinationNode => ({ id: path.at(-1)?.id || 'root', name: path.at(-1)?.name || '项目根目录', path,
@@ -82,6 +83,14 @@ export function useDestinationTree(projectId: string, kind: FolderKind, excluded
     if (query.value.trim() || searching.value) await search()
     else treeKey.value++
   }
+  function reveal(path: Folder[]) {
+    // 新建目录或选择搜索结果时，重新读取真实分支，不能沿用空目录的叶节点缓存。
+    sequence++
+    controllers.forEach(controller => controller.abort())
+    query.value = ''; searching.value = false; busy.value = false; error.value = ''
+    expanded.value = ['root', ...path.map(folder => folder.id)]
+    treeKey.value++
+  }
   onBeforeUnmount(() => { alive = false; sequence++; controllers.forEach(controller => controller.abort()) })
-  return { query, sort, searching, busy, error, results, treeKey, load, search, choose, reload, expanded: computed(() => ['root']) }
+  return { query, sort, searching, busy, error, results, treeKey, load, search, choose, reload, reveal, expanded }
 }
