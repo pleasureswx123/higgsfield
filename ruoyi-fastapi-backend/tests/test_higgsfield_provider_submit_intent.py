@@ -59,6 +59,7 @@ class SubmitIntentTests(unittest.IsolatedAsyncioTestCase):
 
     async def test_sending_and_task_commit_together_no_duplicate(self) -> None:
         async with self.sessions() as db:
+            before_events = await db.scalar(text('SELECT count(*) FROM hf_task_event'))
             updated, identity = await ProviderSubmitIntentService.begin(db, self.lease, 'a' * 64)
             self.assertFalse(db.in_transaction())
             self.assertGreater(identity, 0)
@@ -68,7 +69,7 @@ class SubmitIntentTests(unittest.IsolatedAsyncioTestCase):
             self.assertEqual(call[0:2], ('1', 'unknown'))
             self.assertNotIn('secret', str(call[2]))
             self.assertEqual(await db.scalar(text('SELECT orchestration_state FROM hf_creation_job')), '2')
-            self.assertEqual(await db.scalar(text('SELECT count(*) FROM hf_task_event')), 3)
+            self.assertEqual(await db.scalar(text('SELECT count(*) FROM hf_task_event')), before_events + 1)
 
     async def test_event_failure_rolls_back_intent_and_revoked_key_rejected(self) -> None:
         async with self.sessions() as db:
@@ -123,6 +124,9 @@ class SubmitIntentTests(unittest.IsolatedAsyncioTestCase):
 
     async def test_disabled_removed_and_demoted_actor_cannot_create_submission(self):
         async with self.sessions() as db:
+            # Owner 权限固定完整；撤销角色权限必须使用普通制作成员验证。
+            await db.execute(text("UPDATE hf_project_member SET role_id=(SELECT role_id FROM hf_project_role WHERE code='producer') WHERE user_id=:actor"), {'actor': self.owner.user.user_id})
+            await db.commit()
             original = await db.scalar(text('SELECT to_jsonb(j) FROM hf_creation_job j WHERE job_id=:id'), {'id': self.lease.job_id})
             actor = original['actor_id']
             role = await db.scalar(text('SELECT role_id FROM hf_project_member WHERE user_id=:actor AND project_id=:project'), {'actor': actor, 'project': original['project_id']})
@@ -151,6 +155,11 @@ class SubmitIntentTests(unittest.IsolatedAsyncioTestCase):
     async def test_system_role_and_menu_revocation_are_checked_before_sending(self):
         from module_higgsfield.dao.generation_actor_dao import GenerationActorDao
         actor = self.owner.user.user_id
+        async with self.sessions() as db:
+            # 隔离系统授权来源，避免基础夹具的制作端角色继续提供权限。
+            await db.execute(text('DELETE FROM sys_user_role WHERE user_id=:actor AND role_id<>2'), {'actor': actor})
+            await db.execute(text("UPDATE hf_project_member SET role_id=(SELECT role_id FROM hf_project_role WHERE code='producer') WHERE user_id=:actor"), {'actor': actor})
+            await db.commit()
         mutations = (
             ("UPDATE sys_role SET status='1' WHERE role_id=2", "UPDATE sys_role SET status='0' WHERE role_id=2"),
             ("UPDATE sys_role SET del_flag='2' WHERE role_id=2", "UPDATE sys_role SET del_flag='0' WHERE role_id=2"),
@@ -179,7 +188,7 @@ class SubmitIntentTests(unittest.IsolatedAsyncioTestCase):
             await db.execute(text("UPDATE sys_role SET status='1' WHERE role_id=2"))
             self.assertFalse(await GenerationActorDao.system_access(db, actor))
             # 管理员来自有效角色1，不从用户编号或历史快照推断。
-            await db.execute(text("INSERT INTO sys_role VALUES(1,'1','0')"))
+            await db.execute(text("INSERT INTO sys_role(role_id,role_key,status,del_flag) VALUES(1,'admin','1','0')"))
             await db.execute(text('INSERT INTO sys_user_role VALUES(:actor,1)'), {'actor': actor})
             self.assertFalse(await GenerationActorDao.system_access(db, actor))
             await db.execute(text("UPDATE sys_role SET status='0' WHERE role_id=1")); await db.commit()
