@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import AssetGenerationInfo from './AssetGenerationInfo.vue'
 import { useRoute, useRouter } from 'vue-router'
-import { IconFolder } from '@tabler/icons-vue'
+import FolderIcon from './FolderIcon.vue'
 import { useAssetLocation } from '@/composables/useAssetLocation'
 import { useAssetBatchStatus } from '@/composables/useAssetBatchStatus'
 import { assetStatuses, assetStatus } from '@/utils/assetStatus'
@@ -154,10 +154,10 @@ function updateCommentCount(count: number) {
 const previewEntry = computed(() => rows.value.find(entry => entry.asset.id === selected.value?.id))
 const previewLocation = useAssetLocation(() => previewEntry.value?.folderId)
 const locationRoute = useRoute(), locationRouter = useRouter()
-async function openAssetFolder() {
+async function openAssetFolder(folderId: string | null) {
   if (!previewLocation.ready.value || !previewEntry.value) return
   if (comments.value && !(await comments.value.confirmLeave())) return
-  await locationRouter.push({ query: { ...locationRoute.query, tab: 'folders', folder: previewEntry.value.folderId || undefined, folderView: undefined, asset: undefined, assetVersion: undefined, previewFrom: undefined } })
+  await locationRouter.push({ query: { ...locationRoute.query, tab: 'folders', folder: folderId || undefined, folderView: undefined, asset: undefined, assetVersion: undefined, previewFrom: undefined } })
 }
 watch(() => selected.value?.currentVersionId, () => {
   previewTab.value = 'info'
@@ -566,14 +566,16 @@ defineExpose({ includeDescendants })
             </dl>
             <div class="asset-preview-location">
               <span>所在文件夹</span>
-              <Button v-if="previewLocation.ready.value" variant="ghost" class="asset-location-link" @click="openAssetFolder">
-                <IconFolder :size="20" class="asset-location-icon" />
-                <span class="asset-location-text">
-                  <strong :title="previewLocation.name.value">{{ previewLocation.name.value }}</strong>
-                  <small v-if="previewEntry?.folderId" :title="previewLocation.parentPath.value.join(' / ')">{{ previewLocation.parentLabel.value }}</small>
-                </span>
-                <IconChevronRight :size="16" class="asset-location-arrow" />
-              </Button>
+              <div v-if="previewLocation.ready.value" class="asset-location-path" aria-label="所在文件夹路径">
+                <Button v-for="folder in previewLocation.path.value" :key="folder.id" variant="ghost" class="asset-location-chip" :title="folder.name" @click="openAssetFolder(folder.id)">
+                  <FolderIcon :size="16" :class="'folder-color-' + folder.color" />
+                  <span>{{ folder.name }}</span>
+                </Button>
+                <Button v-if="!previewLocation.path.value.length" variant="ghost" class="asset-location-chip" @click="openAssetFolder(null)">
+                  <FolderIcon :size="16" class="folder-color-lime" />
+                  <span>项目根目录</span>
+                </Button>
+              </div>
               <p v-else class="muted">暂无法获取所在目录</p>
             </div>
           </section>

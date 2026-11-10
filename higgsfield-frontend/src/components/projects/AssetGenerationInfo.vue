@@ -42,17 +42,18 @@ const quality = computed(() => ({ low: '低', medium: '中', high: '高', auto: 
 </template>
 
 <style scoped>
-.generation-info { margin-bottom:20px; }
-.prompt-heading { display:flex; align-items:center; justify-content:space-between; gap:8px; }
-.prompt-heading .restore-input { display:inline-flex; align-items:center; gap:5px; font-size:12px; padding:6px 10px; min-height:32px; height:auto; color:var(--foreground); background:var(--surface-raised); border:1px solid var(--border); border-radius:8px; white-space:nowrap; }
+.generation-info { margin-bottom:14px; }
+.prompt-heading { display:flex; align-items:center; justify-content:space-between; gap:8px; margin-bottom:8px; }
+.prompt-heading .restore-input { display:inline-flex; align-items:center; gap:5px; font-size:12px; padding:4px 8px; min-height:26px; height:auto; color:var(--foreground); background:transparent; border:1px solid var(--border); border-radius:6px; white-space:nowrap; box-shadow:none; }
+.prompt-heading .generation-heading { margin:0; }
 .prompt-heading .restore-input:hover { background:var(--surface-hover); }
 .generation-heading { display:flex; align-items:center; gap:8px; color:var(--muted-foreground); font-size:12px; }
-.prompt-card { padding:14px; background:var(--surface-raised); border-radius:12px; }
-.prompt-card p { margin:0; color:var(--foreground); font-size:14px; font-weight:500; line-height:1.6; white-space:pre-wrap; overflow-wrap:anywhere; }
+.prompt-card { padding:10px 12px; background:var(--surface-raised); border-radius:12px; }
+.prompt-card p { margin:0; color:var(--foreground); font-size:12px; font-weight:400; line-height:1.5; white-space:pre-wrap; overflow-wrap:anywhere; }
 .prompt-card p.clamped { display:-webkit-box; -webkit-box-orient:vertical; -webkit-line-clamp:6; overflow:hidden; mask-image:linear-gradient(to bottom, #000 60%, transparent); }
 button { font:inherit; border:0; background:transparent; cursor:pointer; }
 button:focus-visible { outline:2px solid var(--focus); outline-offset:3px; border-radius:4px; }
-.prompt-card button { display:flex; align-items:center; gap:4px; padding:0; margin-top:12px; color:var(--muted-foreground); font-size:13px; }
-.details-toggle { width:100%; padding:0 4px; margin:18px 0 12px; text-align:left; }
+.prompt-card button { display:flex; align-items:center; gap:4px; padding:0; margin-top:8px; color:var(--muted-foreground); font-size:12px; }
+.details-toggle { width:100%; padding:0; margin:14px 0 10px; line-height:18px; text-align:left; }
 .details-toggle span { flex:1; }
 </style>

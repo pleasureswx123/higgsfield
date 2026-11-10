@@ -24,5 +24,5 @@ export function useAssetLocation(folderId: () => string | null | undefined) {
   const parentLabel = computed(() => parentPath.value.length > 3
     ? `${parentPath.value[0]} / … / ${parentPath.value.slice(-2).join(' / ')}`
     : parentPath.value.join(' / '))
-  return { ready, name, parentPath, parentLabel }
+  return { ready, path, name, parentPath, parentLabel }
 }
