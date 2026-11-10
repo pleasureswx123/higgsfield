@@ -265,10 +265,10 @@ class ResetPasswordModel(BaseModel):
     重置密码模型
     """
 
-    model_config = ConfigDict(alias_generator=to_camel)
+    model_config = ConfigDict(alias_generator=to_camel, extra='forbid')
 
-    old_password: str | None = Field(default=None, description='旧密码')
-    new_password: str | None = Field(default=None, description='新密码')
+    old_password: str = Field(min_length=1, description='旧密码')
+    new_password: str = Field(min_length=1, description='新密码')
 
     @model_validator(mode='after')
     def check_new_password(self) -> 'ResetPasswordModel':

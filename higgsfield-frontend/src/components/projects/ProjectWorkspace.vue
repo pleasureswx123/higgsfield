@@ -127,6 +127,7 @@ watch(
     </DropdownMenu>
       </div>
       <SidebarMenu class="project-sidebar-menu project-primary-menu">
+      <SidebarMenuItem><SidebarMenuButton class="nav-link" :class="{ active: tab === 'brief' || tab === 'members' || tab === 'permissions' }" :aria-current="tab === 'brief' || tab === 'members' || tab === 'permissions' ? 'page' : undefined" @click="tab = ['members', 'permissions'].includes(tab) ? tab : 'brief'"><span class="project-nav-icon"><IconAdjustmentsHorizontal :size="17" aria-hidden="true" /></span><span>项目设置<span v-if="dirty"> ·</span></span></SidebarMenuButton></SidebarMenuItem>
       <SidebarMenuItem><SidebarMenuButton v-if="brief?.allowedActions.includes('generation:create')" class="nav-link" :class="{ active: tab === 'creation' }" @click="tab = 'creation'"><span class="project-nav-icon"><IconSparkles :size="17" aria-hidden="true" /></span><span>开始创作</span></SidebarMenuButton></SidebarMenuItem>
 
       <SidebarMenuItem><SidebarMenuButton v-if="brief?.allowedActions.includes('element:read')" class="nav-link" :class="{ active: tab === 'elements' }" @click="tab = 'elements'"><span class="project-nav-icon"><IconAt :size="17" aria-hidden="true" /></span><span>项目元素库</span></SidebarMenuButton></SidebarMenuItem>
@@ -135,7 +136,7 @@ watch(
       </SidebarMenu>
     </div>
   </Teleport>
-  <Teleport to="#project-sidebar-management"><div v-if="route.params.id === projectId" class="project-local-navigation"><SidebarMenu class="project-sidebar-menu"><SidebarMenuItem><SidebarMenuButton class="nav-link" :class="{ active: tab === 'brief' || tab === 'members' || tab === 'permissions' }" :aria-current="tab === 'brief' || tab === 'members' || tab === 'permissions' ? 'page' : undefined" @click="tab = ['members', 'permissions'].includes(tab) ? tab : 'brief'"><span class="project-nav-icon"><IconAdjustmentsHorizontal :size="17" aria-hidden="true" /></span><span>项目设置<span v-if="dirty"> ·</span></span></SidebarMenuButton></SidebarMenuItem></SidebarMenu></div></Teleport>
+
   <Tabs :model-value="tab" @update:model-value="value => { if (value === 'brief' || value === 'members' || value === 'permissions') tab = value }">
     <div v-show="['brief', 'members', 'permissions'].includes(tab)" class="project-settings-toolbar">
     <TabsList class="workspace-tabs studio-tabs studio-pill-tabs" aria-label="项目设置子导航">

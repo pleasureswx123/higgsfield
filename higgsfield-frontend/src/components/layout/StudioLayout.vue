@@ -7,9 +7,11 @@ import { useRoute, useRouter } from 'vue-router'
 import { storeToRefs } from 'pinia'
 import {
   IconHome,
+  IconDotsVertical,
+  IconUser,
+  IconLogout,
   IconFolder,
   IconMenu2,
-  IconLogout,
 } from '@tabler/icons-vue'
 import { ElMessage } from 'element-plus'
 import { useSidebarProjects } from '@/composables/useSidebarProjects'
@@ -19,12 +21,19 @@ import { useAuthStore } from '@/stores/auth'
 import ThemeToggle from '@/components/shared/ThemeToggle.vue'
 import NightmareLogo from '@/components/shared/NightmareLogo.vue'
 import Button from '@/components/ui/Button.vue'
+import { Dialog, DialogContent, DialogTitle, DialogDescription } from '@/components/ui/dialog'
+import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator } from '@/components/ui/dropdown-menu'
 const auth = useAuthStore(),
   router = useRouter(),
   route = useRoute()
 const { user } = storeToRefs(auth)
 const sidebarProjects = useSidebarProjects()
 const projectOrder = useProjectOrder(sidebarProjects.projects)
+const logoutOpen = ref(false)
+function showPersonalCenter(tab: 'profile' | 'password' = 'profile') {
+  mobileOpen.value = false
+  void router.push({ path: '/profile', query: { tab, from: route.path === '/profile' ? route.query.from : route.fullPath } })
+}
 const mobileOpen = ref(false),
   leaving = ref(false)
 const desktopHost = useTemplateRef<HTMLElement>('desktopHost')
@@ -38,6 +47,7 @@ const links = [
   { path: '/home', label: '首页', icon: IconHome },
 ]
 async function signOut() {
+  logoutOpen.value = false
   leaving.value = true
   try {
     await auth.signOut()
@@ -102,23 +112,20 @@ async function signOut() {
       <div v-show="route.params.id" id="project-sidebar-management"></div>
       </SidebarContent>
       <SidebarFooter class="sidebar-bottom">
-        <div class="account-row">
-          <span class="avatar">{{
-            (user?.user.nickName || user?.user.userName || 'U').slice(0, 1)
-          }}</span>
-          <div class="account-name">
-            <strong>{{ user?.user.nickName || user?.user.userName }}</strong
-            ><small>制作工作空间</small>
-          </div>
-          <Button
-            variant="ghost"
-            class="icon-button"
-            aria-label="退出登录"
-            :disabled="leaving"
-            @click="signOut"
-            ><IconLogout :size="19"
-          /></Button>
-        </div>
+        <DropdownMenu :modal="false">
+          <DropdownMenuTrigger as-child>
+            <button class="account-row account-trigger" aria-label="账号菜单" :disabled="leaving">
+              <span class="avatar">{{ (user?.user.nickName || user?.user.userName || 'U').slice(0, 1) }}</span>
+              <span class="account-name"><strong>{{ user?.user.nickName || user?.user.userName }}</strong><small>制作工作空间</small></span>
+              <IconDotsVertical class="account-menu-hint" :size="16" aria-hidden="true" />
+            </button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent side="right" align="end" :side-offset="8">
+            <DropdownMenuItem @select="showPersonalCenter()"><IconUser :size="16" aria-hidden="true" />个人中心</DropdownMenuItem>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem :disabled="leaving" @select="logoutOpen = true"><IconLogout :size="16" aria-hidden="true" />退出登录</DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
       </SidebarFooter>
     </Sidebar>
     </Teleport>
@@ -134,12 +141,19 @@ async function signOut() {
         ><span class="workspace-label">制作工作空间</span>
       </header>
       <div v-if="user?.isDefaultModifyPwd || user?.isPasswordExpired" class="password-notice">
-        请前往管理平台个人中心修改初始或过期密码。
+        请修改初始或过期密码。<Button variant="ghost" @click="showPersonalCenter('password')">修改密码</Button>
       </div>
       <RouterView v-slot="{ Component }"
-        ><KeepAlive><component :is="Component" :key="route.path" /></KeepAlive
+        ><KeepAlive exclude="PersonalCenter"><component :is="Component" :key="route.path" /></KeepAlive
       ></RouterView>
     </main>
+    <Dialog v-model:open="logoutOpen">
+      <DialogContent class="studio-dialog logout-confirm">
+        <DialogTitle>退出登录？</DialogTitle>
+        <DialogDescription>退出后需要重新登录。请先保存未提交的修改。</DialogDescription>
+        <div class="logout-actions"><Button variant="outline" @click="logoutOpen = false">取消</Button><Button :disabled="leaving" @click="signOut">确认退出</Button></div>
+      </DialogContent>
+    </Dialog>
   </SidebarProvider>
 </template>
 
@@ -152,7 +166,15 @@ async function signOut() {
 .sidebar-projects { padding:0; }
 .sidebar-projects:not(.in-project) { flex-shrink:0; }
 .sidebar-projects .section-label { height:auto; flex-shrink:0; padding:0 12px 12px; }
-.sidebar-bottom { padding:0; gap:0; border-top:1px solid var(--border); }
+.account-trigger { display:grid; grid-template-columns:18px minmax(0, 1fr) 16px; align-items:center; gap:12px; width:100%; min-height:56px; border:0; background:transparent; color:var(--foreground); text-align:left; border-radius:10px; padding:8px 12px; margin-top:6px; transition:background-color .15s; }
+.account-trigger .avatar { width:28px; height:28px; justify-self:center; font-size:11px; border:1px solid var(--border); background:linear-gradient(145deg, var(--surface-hover), var(--surface)); box-shadow:inset 0 1px 0 var(--border), 0 2px 3px #0002; }
+.account-trigger .account-name strong { font-size:13px; font-weight:550; }
+.account-trigger .account-name small { display:block; margin-top:2px; }
+.account-trigger:hover, .account-trigger[data-state="open"] { background:var(--surface-raised); }
+.account-trigger:focus-visible { outline:2px solid var(--focus); outline-offset:-2px; }
+.account-menu-hint { margin-left:auto; color:var(--muted-foreground); }
+.sidebar { padding-bottom:12px; }
+.sidebar-bottom { padding:0; gap:0; border-top:1px solid var(--border); margin-top:6px; }
 .sidebar [data-sidebar="menu"] { margin:0; padding:0; list-style:none; gap:0; }
 .sidebar .nav-link { height:auto; min-height:42px; }
 
@@ -168,8 +190,13 @@ async function signOut() {
 </style>
 
 <style scoped>
-.studio-sidebar-content > nav { flex-shrink:0; margin-bottom:8px; }
+.studio-sidebar-content > nav { flex-shrink:0; margin-bottom:4px; }
 #project-sidebar-navigation { flex-shrink:0; }
-.sidebar-projects.in-project { margin-top:14px; }
-#project-sidebar-management { flex-shrink:0; padding-top:4px; }
+.sidebar-projects.in-project { margin-top:0; }
+#project-sidebar-management { flex-shrink:0; padding-top:1px; }
+</style>
+
+<style scoped>
+:global(.logout-confirm) { max-width:400px; }
+.logout-actions { display:flex; justify-content:flex-end; gap:10px; margin-top:8px; }
 </style>

@@ -1,0 +1,89 @@
+/* 制作端共享控件外观；定位、键盘和焦点行为继续由组件库负责。 */
+:root {
+  --control-height: 36px;
+  --control-radius: 8px;
+  --control-hover-border: var(--muted-foreground);
+}
+
+.studio-input,
+.studio-select-trigger {
+  height: var(--control-height);
+  border-radius: var(--control-radius);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  color: var(--foreground);
+  box-shadow: none;
+  font-size: 13px;
+  transition: border-color .15s, background-color .15s;
+}
+.studio-input::placeholder,
+.studio-select-trigger[data-placeholder] { color: var(--muted-foreground); }
+.studio-input:hover:not(:disabled):not(:focus),
+.studio-select-trigger:hover:not(:disabled) { border-color: var(--control-hover-border); }
+.studio-input:focus-visible,
+.studio-select-trigger:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: 2px;
+  box-shadow: none;
+}
+.studio-input[aria-invalid="true"] { border-color: var(--destructive); }
+.studio-input:disabled,
+.studio-select-trigger:disabled { background: var(--surface-raised); color: var(--muted-foreground); opacity: .6; }
+
+/* Element Plus 复杂表单与基础组件使用同一组表面、边框和尺寸。 */
+.el-input,
+.el-select,
+.el-textarea {
+  --el-input-height: var(--control-height);
+  --el-border-radius-base: var(--control-radius);
+  --el-input-bg-color: var(--surface);
+  --el-fill-color-blank: var(--surface);
+  --el-border-color: var(--border);
+  --el-border-color-hover: var(--control-hover-border);
+  --el-input-focus-border-color: var(--focus);
+  --el-select-input-focus-border-color: var(--focus);
+  --el-text-color-regular: var(--foreground);
+  --el-text-color-placeholder: var(--muted-foreground);
+  --el-font-size-base: 13px;
+}
+.el-select__wrapper { min-height: var(--control-height); border-radius: var(--control-radius); }
+.el-form-item__label { color: var(--foreground); font-size: 13px; }
+.el-select__wrapper.is-focused { box-shadow: 0 0 0 1px var(--focus) inset; }
+.el-select__popper.el-popper { border-radius: var(--control-radius); overflow: hidden; }
+.el-select-dropdown__item { margin: 2px 6px; border-radius: 5px; }
+
+/* 悬停只轻微提亮，持续选中保持更强的背景，避免同时选中的错觉。 */
+.sidebar .nav-link:not(:disabled):not([aria-disabled="true"]):hover { background: var(--surface); }
+.sidebar .nav-link.active,
+.sidebar .nav-link.active:hover,
+.sidebar .nav-link.router-link-active,
+.sidebar .nav-link.router-link-active:hover { background: var(--surface-raised); }
+.folder-trash-entry:not(.active):hover { background: var(--surface); }
+.folder-trash-entry.active { background: var(--surface-raised); }
+
+/* 底部两个功能入口共享同一行规格，不继承目录行或主导航的差异。 */
+#project-sidebar-tree .sidebar-utility,
+#project-sidebar-management .sidebar-utility {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  height: 40px;
+  min-height: 40px;
+  padding: 0 12px;
+  margin-bottom: 0;
+  border: 0;
+  border-radius: 10px;
+  background: transparent;
+  color: var(--foreground);
+  font-size: 13px;
+  font-weight: 550;
+  transition: background-color .15s;
+}
+#project-sidebar-tree .sidebar-utility.active .project-nav-icon { color: var(--focus); }
+#project-sidebar-tree .sidebar-utility:hover,
+#project-sidebar-management .sidebar-utility:hover { background: var(--surface-raised); }
+#project-sidebar-tree .sidebar-utility.active,
+#project-sidebar-management .sidebar-utility.active { background: var(--surface-hover); }
+#project-sidebar-tree .sidebar-utility:focus-visible,
+#project-sidebar-management .sidebar-utility:focus-visible { outline: 2px solid var(--focus); outline-offset: -2px; }

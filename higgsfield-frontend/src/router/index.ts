@@ -10,6 +10,7 @@ export const router = createRouter({
       meta: { requiresAuth: true },
       children: [
         { path: 'usage', redirect: '/home' },
+        { path: 'profile', component: () => import('@/components/account/PersonalCenter.vue'), meta: { title: '个人中心' } },
         { path: '', redirect: '/home' },
         { path: 'home', component: () => import('@/views/HomeView.vue'), meta: { title: '首页' } },
         {

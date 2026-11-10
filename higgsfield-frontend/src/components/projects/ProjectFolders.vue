@@ -174,11 +174,11 @@ const rules: FormRules = {
       </div>
       <button
         v-if="canWrite || projectActions?.includes('asset:remove') || projectActions?.includes('element:remove')"
-        class="folder-tree-label folder-root folder-trash-entry"
+        class="folder-tree-label folder-root folder-trash-entry sidebar-utility"
         :class="{ active: navigationActive !== false && trash }"
         @click="showTrash"
       >
-        <IconTrash :size="18" />回收站
+        <span class="project-nav-icon"><IconTrash :size="17" aria-hidden="true" /></span><span>回收站</span>
       </button>
     </aside>
     </Teleport>
@@ -375,7 +375,7 @@ const rules: FormRules = {
 
 
 <style scoped>
-.folder-heading { margin:0 0 12px; padding:4px 8px; gap:6px; border-radius:9px; transition:background-color .15s; }
+.folder-heading { margin:0 0 4px; padding:4px 8px; gap:6px; border-radius:9px; transition:background-color .15s; }
 .folder-heading:hover,.folder-heading:focus-within,.folder-heading.active { background:var(--surface-hover); }
 .all-assets-icon { display:grid; place-items:center; flex-shrink:0; width:28px; height:28px; border-radius:9px; color:var(--foreground); border:1px solid color-mix(in srgb, var(--foreground) 22%, transparent); background:linear-gradient(145deg, color-mix(in srgb, var(--foreground) 20%, var(--surface-raised)), var(--surface-raised)); box-shadow:inset 0 1px 3px color-mix(in srgb, var(--foreground) 14%, transparent); }
 .folder-total-button { display:flex; align-items:center; gap:8px; flex:1; min-width:0; padding:2px 0; border:0; border-radius:6px; background:transparent; color:var(--foreground); font:inherit; font-variant-numeric:tabular-nums; cursor:pointer; }
