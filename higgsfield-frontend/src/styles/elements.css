@@ -338,7 +338,7 @@
 .element-media-actions button:disabled, .element-media-strip button:disabled { opacity: .4; cursor: not-allowed; }
 .element-media-menu { position: relative; }
 .element-media-menu > summary { list-style: none; }
-.element-media-menu > div { position: absolute; right: 0; bottom: 40px; z-index: 2; width: 160px; padding: 6px; background: var(--editor-panel); border: 1px solid var(--border); border-radius: 12px; box-shadow: 0 8px 24px #0003; }
+.element-media-menu > div { position: absolute; right: 0; bottom: 40px; z-index: 2; width: 160px; }
 .element-media-menu button { display: block; width: 100%; text-align: left; border: 0; background: transparent; color: var(--foreground); padding: 10px; cursor: pointer; }
 .element-preview-expanded .element-editor-layout { grid-template-columns: 1fr; }
 .element-preview-expanded .element-detail-panel { display: none; }

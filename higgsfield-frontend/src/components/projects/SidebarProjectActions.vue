@@ -50,9 +50,6 @@ async function selectHidden() {
 .sidebar-project-more.is-pinned[data-state="open"] .sidebar-project-pin { display:none; }
 .sidebar-project-list [data-sidebar="menu-item"]:is(:hover, :focus-within) .sidebar-project-more.is-pinned .sidebar-project-dots,
 .sidebar-project-more.is-pinned[data-state="open"] .sidebar-project-dots { display:block; }
-.sidebar-project-actions { width:208px; padding:8px; border-radius:14px; background:var(--surface); color:var(--foreground); border:1px solid var(--border); }
-.sidebar-project-actions [role="menuitem"] { gap:10px; min-height:38px; padding:8px; font-size:13px; border-radius:7px; }
-.sidebar-project-actions [role="menuitem"][data-highlighted] { background:var(--surface-hover); }
 .sidebar-project-actions .project-action-delete { color:var(--destructive); }
 .project-action-message { margin:4px 8px; font-size:11px; line-height:1.5; color:var(--muted-foreground); }
 </style>

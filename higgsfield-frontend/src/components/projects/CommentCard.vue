@@ -70,7 +70,7 @@ const time = computed(() =>
             @click="emit('resolve')"
           >
             <IconCheck :size="14" /></button
-          ><ElPopover trigger="click" placement="bottom-end" :width="150"
+          ><ElPopover trigger="click" placement="bottom-end" :width="160" popper-class="studio-comment-menu"
             ><template #reference
               ><button type="button" aria-label="评论更多操作" :disabled="disabled">
                 <IconDotsVertical :size="16" /></button

@@ -148,7 +148,7 @@
 .asset-workspace .asset-card-actions > summary { display:grid; place-items:center; width:26px; height:26px; cursor:pointer; border-radius:5px; color:var(--muted-foreground); list-style:none; }
 .asset-workspace .asset-card-actions > summary::-webkit-details-marker { display:none; }
 .asset-workspace .asset-card-actions > summary:hover { background:var(--surface-hover); color:var(--foreground); }
-.asset-workspace .asset-card-actions .asset-card-action-menu { position:absolute; right:0; top:100%; width:180px; max-height:260px; overflow:auto; padding:12px; border:1px solid var(--border); border-radius:10px; background:var(--surface-raised); box-shadow:0 8px 24px #0003; }
+.asset-workspace .asset-card-actions .asset-card-action-menu { position:absolute; right:0; top:100%; overflow:auto; }
 .asset-workspace .asset-card:has(.asset-card-actions[open]) { z-index:3; }
 .asset-workspace-toolbar { margin-bottom:10px; }
 
@@ -173,7 +173,7 @@
 .asset-hover-status { position:absolute; left:10px; bottom:42px; border:1px solid #ffffff38; background:#25272599; color:#ddd; padding:3px 9px; border-radius:16px; font-size:11px; opacity:0; pointer-events:none; }
 .asset-card:hover .asset-hover-shortcuts,.asset-card:focus-within .asset-hover-shortcuts,.asset-card:hover .asset-hover-status { opacity:1; }
 .asset-workspace .asset-card .asset-card-actions { top:94px; right:10px; bottom:auto; }
-.asset-workspace .asset-card-actions .asset-card-action-menu { width:210px; max-height:360px; padding:10px; align-items:stretch; gap:3px; }
+.asset-workspace .asset-card-actions .asset-card-action-menu { align-items:stretch; }
 .asset-card-action-menu > .folder-text-button { text-align:left; padding:10px; border-radius:7px; }
 .asset-card-action-menu > .folder-text-button:hover { background:var(--surface-hover); }
 .asset-workspace .asset-card > .el-checkbox { top:10px; left:10px; padding:0; height:20px; background:transparent; z-index:3; }
@@ -190,7 +190,7 @@
 .asset-workspace .asset-card:has(.asset-upload-origin) .asset-card-actions { right:10px; }
 .asset-workspace .asset-card .asset-card-actions { top:52px; }
 .asset-round-action:disabled { opacity:.55; cursor:not-allowed; }
-.asset-workspace .asset-card-actions .asset-card-action-menu { width:240px; max-height:calc(100dvh - 200px); gap:0; padding:9px; border-radius:14px; }
+.asset-workspace .asset-card-actions .asset-card-action-menu { width:240px; max-height:calc(100dvh - 200px); gap:0; }
 .asset-menu-item { display:flex; align-items:center; gap:12px; width:100%; padding:10px 9px; border:0; border-radius:6px; background:transparent; color:var(--foreground); font-size:14px; font-weight:500; line-height:20px; text-align:left; cursor:pointer; }
 .asset-menu-item:hover:not(:disabled) { background:var(--surface-hover); }
 .asset-menu-item:disabled { opacity:.4; cursor:not-allowed; }
@@ -289,8 +289,6 @@
 .asset-preview-action-row > .ui-button { min-width:0; padding-inline:8px; white-space:nowrap; }
 .asset-preview-action-row > .asset-preview-delete { color:var(--destructive); }
 
-.asset-menu-popper.el-popover { border-radius:16px; padding:10px; background:var(--surface-raised); color:var(--foreground); box-shadow:0 8px 24px #0003; }
-.asset-menu-popper .asset-menu-item { width:100%; border-radius:9px; padding:10px 12px; }
 
 .asset-preview-dialog > .el-dialog__header .el-dialog__headerbtn { width: 36px; height: 36px; top: -4px; right: -4px; border-radius: 50%; background: var(--comment-card-surface); }
 .asset-preview-dialog .dialog-heading { padding-right: 40px; min-height: 36px; }

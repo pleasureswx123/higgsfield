@@ -20,10 +20,6 @@ const editingMember = ref<Member>()
 const editOpen = ref(false), selectedRole = ref('')
 const roleName = (role?: ProjectRole) => role?.code === 'owner' ? '项目所有者' : role?.name || '未知角色'
 const roleOptions = computed(() => grantable.value.map(role => ({ value: role.id, label: roleName(role) })))
-const roleHint = (id: string) => {
-  const role = roles.value.find(item => item.id === id)
-  return role?.code === 'admin' ? '负责项目管理，可管理制作人和查看者。' : role?.code === 'producer' ? '参与项目制作，具体操作权限见“角色和权限”。' : role?.code === 'viewer' ? '查看项目内容，具体操作权限见“角色和权限”。' : ''
-}
 function editRole(member: Member) {
   editingMember.value = member
   selectedRole.value = member.roleId
@@ -124,7 +120,6 @@ const rules = {
             <ElOption v-for="option in roleOptions" :key="option.value" :value="option.value" :label="option.label" />
           </ElSelect>
         </ElFormItem>
-        <p v-if="roleHint(roleId)" class="muted role-help">{{ roleHint(roleId) }}</p>
         <p v-if="dialogError" class="project-error" role="alert">{{ dialogError }}</p>
       </ElForm>
       <template #footer>
@@ -136,7 +131,6 @@ const rules = {
       <div class="member-candidate"><strong>{{ editingMember?.displayName }}</strong><small>{{ editingMember?.userName }}</small></div>
       <p class="muted">当前角色：{{ roleName(roles.find(role => role.id === editingMember?.roleId)) }}</p>
       <StudioSelect v-model="selectedRole" aria-label="新的项目角色" :options="roleOptions" :disabled="pending" style="width:100%" />
-      <p v-if="roleHint(selectedRole)" class="muted role-help">{{ roleHint(selectedRole) }}</p>
       <template #footer>
         <Button variant="ghost" :disabled="pending" @click="editOpen = false">取消</Button>
         <Button :disabled="pending || !selectedRole || selectedRole === editingMember?.roleId" @click="saveRole">{{ pending ? '保存中…' : '保存角色' }}</Button>
@@ -153,7 +147,6 @@ const rules = {
 .member-candidate { display:flex; flex-direction:column; gap:6px; padding:14px 16px; border:1px solid var(--border); border-radius:10px; background:var(--surface); margin:0 0 18px; }
 .member-candidate small { color:var(--muted-foreground); }
 .member-empty { text-align:center; padding:32px; }
-.role-help { line-height:1.7; font-size:13px; }
 .member-table td { vertical-align:middle; }
 .member-table th:last-child { min-width:160px; }
 </style>

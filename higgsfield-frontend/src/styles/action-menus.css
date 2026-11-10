@@ -1,0 +1,60 @@
+/* 制作端操作菜单统一采用文件夹菜单的密度与主题，不影响选择器和表单弹层。 */
+:root {
+  --action-menu-radius: 10px;
+  --action-item-radius: 5px;
+  --action-menu-shadow: 0 8px 24px #0003;
+}
+.studio-action-menu,
+.asset-menu-popper.el-popover,
+.studio-comment-menu.el-popover,
+.asset-workspace .asset-card-actions .asset-card-action-menu,
+.element-media-menu > div {
+  box-sizing: border-box;
+  min-width: 160px;
+  padding: 5px;
+  border: 1px solid var(--border);
+  border-radius: var(--action-menu-radius);
+  background: var(--popover);
+  color: var(--popover-foreground);
+  box-shadow: var(--action-menu-shadow);
+}
+.studio-action-menu {
+  z-index: 3100;
+  max-width: calc(100vw - 16px);
+  max-height: var(--reka-dropdown-menu-content-available-height, calc(100dvh - 16px));
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+.studio-action-menu :is([role="menuitem"], [role="menuitemcheckbox"], [role="menuitemradio"]),
+.asset-card-action-menu > .asset-menu-item,
+.asset-menu-popper .asset-menu-item,
+.studio-comment-menu .comment-card-menu button,
+.element-media-menu > div button {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  box-sizing: border-box;
+  min-height: 32px;
+  padding: 8px 10px;
+  border: 0;
+  border-radius: var(--action-item-radius);
+  background: transparent;
+  font-size: 12px;
+  line-height: 16px;
+  font-weight: 400;
+  text-align: left;
+  cursor: pointer;
+}
+.studio-action-menu :is([role="menuitem"], [role="menuitemcheckbox"], [role="menuitemradio"]):is([data-highlighted], :focus-visible):not([data-disabled]),
+.asset-card-action-menu > .asset-menu-item:is(:hover, :focus-visible):not(:disabled),
+.asset-menu-popper .asset-menu-item:is(:hover, :focus-visible):not(:disabled),
+.studio-comment-menu .comment-card-menu button:is(:hover, :focus-visible):not(:disabled),
+.element-media-menu > div button:is(:hover, :focus-visible):not(:disabled) {
+  background: var(--surface-hover);
+  outline: none;
+}
+.studio-action-menu [data-disabled] { opacity: .45; cursor: not-allowed; }
+.studio-action-menu :is([role="menuitemcheckbox"], [role="menuitemradio"]) { padding-left:32px; }
+.studio-action-menu [role="separator"] { height:1px; margin:5px 0; background:var(--border); }
+.studio-comment-menu .comment-card-menu { gap:0; }
+.studio-action-menu [role="menuitem"] svg { width:16px; height:16px; flex-shrink:0; }
