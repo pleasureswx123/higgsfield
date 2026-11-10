@@ -8,7 +8,7 @@ class ApiError extends Error { constructor(message, code, errorCode) { super(mes
 function harness(initialVisible = true) {
   const route=vue.reactive({query:{}}), visible=vue.ref(initialVisible)
   const exports = {}, auth = vue.reactive({ token: 'one' }), calls = [], actions = [], confirmations = [], reads = []
-  let unmount, activate, deactivate, mount, keys = 0
+  let unmount, activate, deactivate, mount, routeGuard, keys = 0
   const api = { readFolderAssetCounts: async () => ({ data: { total: 0, folders: {} } }), listFolders: (...args) => new Promise((resolve, reject) => calls.push({ args, resolve, reject })),
     readFolder: (...args) => new Promise((resolve, reject) => reads.push({ args, resolve, reject })),
     actOnFolder: (...args) => { actions.push(args); return Promise.resolve({ data: {} }) } }
@@ -16,7 +16,7 @@ function harness(initialVisible = true) {
     exports, Error, AbortController, crypto: { randomUUID: () => `test-key-${++keys}` },
     require(name) {
       if (name === 'vue') return { ...vue, onMounted: fn => {mount=fn}, onActivated: fn => { activate=fn }, onDeactivated: fn => { deactivate=fn }, onBeforeUnmount: fn => { unmount = fn } }
-      if (name === 'vue-router') return { onBeforeRouteLeave(){}, onBeforeRouteUpdate(){}, useRoute: () => route, useRouter: () => ({ push() {} }) }
+      if (name === 'vue-router') return { onBeforeRouteLeave(){}, onBeforeRouteUpdate(fn){routeGuard=fn}, useRoute: () => route, useRouter: () => ({ async push(to) { if (await routeGuard({...to,fullPath:JSON.stringify(to)}, {fullPath:JSON.stringify(route)}) === false) return; route.query=to.query } }) }
       if (name === 'element-plus') return { ElMessageBox: { confirm: () => new Promise(resolve => confirmations.push(resolve)) } }
       if (name==='@/api/client') return {ApiError}
       if (name.includes('stores/auth')) return { useAuthStore: () => auth }
@@ -293,4 +293,49 @@ test('仅刷新素材数量不读取目录树，账号变化后拒绝迟到计�
   h.auth.token = ''; pending[2]({ data: { total: 99 } }); await last
   assert.equal(h.state.assetCounts.value, undefined)
   h.close()
+})
+
+test('删除当前目录后返回父目录，不再读取已删除目录', async () => {
+  const h=harness(), parent={id:'20',name:'父目录',projectId:'9007199254740993'}, child={id:'21',name:'子目录',revision:'1'}
+  const loaded=[]
+  h.api.listFolders=async (_id,params)=>{loaded.push(params.parentId);return {rows:[],total:0,hasNext:false}}
+  h.api.readFolder=async id=>({data:{ancestors:[],folder:parent}})
+  h.state.crumbs.value=[parent,child]
+  h.state.expanded.add('21')
+  const removing=h.state.remove(child)
+  h.confirmations[0]();await removing;await new Promise(setImmediate)
+  assert.equal(h.route.query.folder,'20');assert.equal(h.state.currentId.value,'20')
+  assert.equal(h.state.pending.value,false);assert.equal(h.state.expanded.has('21'),false)
+  assert.equal(loaded.includes('21'),false);assert.equal(h.state.error.value,'')
+  h.close()
+})
+
+test('删除当前根目录返回全部素材，移动当前目录也不被写入锁拦截', async () => {
+  for (const operation of ['delete','move']) {
+    const h=harness(), folder={id:'21',name:'目录',revision:'1',folderKind:'media'}
+    h.api.listFolders=async ()=>({rows:[],total:0,hasNext:false})
+    h.state.crumbs.value=[folder]
+    if (operation==='delete') {
+      const removing=h.state.remove(folder);h.confirmations[0]();await removing
+    } else {
+      h.state.startDestination(folder,'move');await new Promise(setImmediate)
+      await h.state.transfer()
+    }
+    await new Promise(setImmediate)
+    assert.equal(h.route.query.tab,'folders');assert.equal(h.route.query.folder,undefined)
+    assert.equal(h.state.currentId.value,null);assert.equal(h.state.pending.value,false)
+    assert.equal(h.actions.length,1);h.close()
+  }
+})
+
+test('成功跳转后的刷新仍保持写入锁，阻止重复删除', async () => {
+  const h=harness(), folder={id:'21',name:'目录',revision:'1'}
+  h.state.crumbs.value=[folder]
+  const removing=h.state.remove(folder);h.confirmations[0]()
+  await new Promise(setImmediate)
+  assert.equal(h.route.query.tab,'folders');assert.equal(h.state.pending.value,true)
+  await h.state.remove(folder);assert.equal(h.actions.length,1)
+  h.close()
+  for (const call of h.calls) call.resolve({rows:[],total:0,hasNext:false})
+  await removing
 })

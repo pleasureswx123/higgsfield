@@ -226,9 +226,16 @@ export function useFolders(projectId: string, visible: () => boolean = () => tru
   }
   function navigate(path: Folder[]) {
     if (!active.value || !auth.token) return
-    void router.push({
+    return router.push({
       query: { ...route.query, tab: 'folders', folder: path.at(-1)?.id, folderView: undefined },
     })
+  }
+  let completedWriteTarget: string | undefined
+  async function navigateAfterWrite(path: Folder[]) {
+    // 仅放行写入成功后的指定跳转；刷新结束前仍锁定其他写入和用户导航。
+    completedWriteTarget = path.at(-1)?.id ?? ''
+    try { await navigate(path) }
+    finally { completedWriteTarget = undefined }
   }
   function showTrash() {
     void router.push({ query: { ...route.query, tab: 'folders', folder: undefined, folderView: 'trash' } })
@@ -421,10 +428,18 @@ export function useFolders(projectId: string, visible: () => boolean = () => tru
       if (!current(epoch)) return
       const index = crumbs.value.findIndex((item) => item.id === snapshot.id)
       if (index >= 0) {
-        if (active.value) navigate([])
+        // 删除已确认后先更新当前位置，防止刷新再次请求已删除目录。
+        const parentPath = crumbs.value.slice(0, index)
+        navigationSequence++
+        sequence++
+        crumbs.value = parentPath
+        if (active.value) await navigateAfterWrite(parentPath)
         else returnToRoot = true
       }
+      if (!current(epoch)) return
       expanded.delete(snapshot.id)
+      delete children[snapshot.id]
+      delete treeNext[snapshot.id]
       await refresh()
     } catch (cause) {
       if (current(epoch)) error.value = message(cause)
@@ -592,9 +607,13 @@ export function useFolders(projectId: string, visible: () => boolean = () => tru
       transferIntent = undefined
       transferUncertain.value = false
       if (request.mode === 'move' && crumbs.value.some((crumb) => crumb.id === request.id)) {
-        if (active.value) navigate([])
+        navigationSequence++
+        sequence++
+        crumbs.value = []
+        if (active.value) await navigateAfterWrite([])
         else returnToRoot = true
       }
+      if (!current(epoch)) return
       destinationOpen.value = false
       await refresh()
     } catch (cause) {
@@ -746,7 +765,12 @@ export function useFolders(projectId: string, visible: () => boolean = () => tru
     dialog.value = false
   }
   onBeforeRouteLeave(confirmLeave)
-  onBeforeRouteUpdate((to, from) => to.fullPath === from.fullPath || confirmLeave())
+  onBeforeRouteUpdate((to, from) => {
+    if (completedWriteTarget !== undefined && to.path === route.path &&
+      to.query.tab === 'folders' && !to.query.folderView &&
+      (to.query.folder ?? '') === completedWriteTarget) return true
+    return to.fullPath === from.fullPath || confirmLeave()
+  })
   return {
     active,
     rows,
