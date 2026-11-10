@@ -6,6 +6,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import Button from '@/components/ui/Button.vue'
+import NightmareLogo from '@/components/shared/NightmareLogo.vue'
 import { IconArrowRight, IconRefresh, IconEye, IconEyeOff, IconLoader2, IconAlertCircle } from '@tabler/icons-vue'
 import '@/styles/login.css'
 import { useLogin } from '@/composables/useLogin'
@@ -49,7 +50,7 @@ function trackValidation(field: string | string[], valid: boolean, message: stri
       </section>
       <section class="login-panel">
         <header class="login-header">
-          <a href="/" class="brand"><img src="/brand-mark.svg" width="32" height="32" alt="Nightmare Theatre 制作平台" /><span class="brand-name">Nightmare Theatre</span></a>
+          <a href="/" class="brand"><NightmareLogo class="login-brand-logo" /><span class="login-platform-label">制作平台</span></a>
         </header>
       <Card class="login-card" aria-labelledby="login-title">
         <CardHeader class="login-card-header">

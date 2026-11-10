@@ -1,7 +1,7 @@
 <template>
   <main class="login" :class="{ 'is-dark': settings.isDark }">
     <header class="login-header">
-      <div class="brand"><img src="/brand-mark.svg" alt="Nightmare Theatre Logo" /><strong>Nightmare Theatre</strong><span>管理平台</span></div>
+      <div class="brand"><NightmareLogo class="login-brand-logo" /><span>管理平台</span></div>
       <el-button class="theme-toggle" text @click="settings.toggleTheme()">{{ settings.isDark ? '切换亮色' : '切换暗色' }}</el-button>
     </header>
     <section class="login-layout">
@@ -116,6 +116,7 @@
 </template>
 
 <script setup>
+import NightmareLogo from '@/layout/components/Sidebar/NightmareLogo.vue'
 import { getCodeImg } from '@/api/login'
 import Cookies from 'js-cookie'
 import { encrypt, decrypt } from '@/utils/jsencrypt'
@@ -239,8 +240,7 @@ getCookie()
 }
 .login-header { display: flex; align-items: center; justify-content: space-between; gap: 16px; }
 .brand { display: flex; align-items: center; gap: 12px; }
-.brand img { width: 38px; height: 38px; flex-shrink: 0; }
-.brand strong { font-size: clamp(16px, 3.5vw, 20px); line-height: 1.2; max-width: 200px; min-width: 0; }
+.brand .login-brand-logo { display:block; width:clamp(150px, 20vw, 220px); height:auto; flex-shrink:1; }
 .brand span { flex-shrink: 0; border-left: 1px solid var(--login-line); padding-left: 14px; font-size: 13px; color: var(--login-muted); }
 .theme-toggle { color: var(--login-muted); }
 .login-layout { flex: 1; width: 100%; max-width: 1100px; margin: auto; display: grid; grid-template-columns: 1fr 420px; gap: 80px; align-items: center; padding: 64px 0; }

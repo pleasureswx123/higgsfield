@@ -10,17 +10,7 @@
         class="sidebar-logo-link"
         to="/"
       >
-        <img
-          v-if="logo"
-          :src="logo"
-          class="sidebar-logo" alt="Nightmare Theatre 管理平台"
-        />
-        <h1
-          v-else
-          class="sidebar-title"
-        >
-          {{ title }}
-        </h1>
+        <NightmareLogo :compact="collapse" class="sidebar-logo" />
       </router-link>
       <router-link
         v-else
@@ -28,19 +18,14 @@
         class="sidebar-logo-link"
         to="/"
       >
-        <img
-          v-if="logo"
-          :src="logo"
-          class="sidebar-logo" alt="Nightmare Theatre 管理平台"
-        />
-        <h1 class="sidebar-title">{{ title }}</h1>
+        <NightmareLogo :compact="collapse" class="sidebar-logo" />
       </router-link>
     </transition>
   </div>
 </template>
 
 <script setup>
-const logo = `${import.meta.env.BASE_URL}brand-mark.svg`
+import NightmareLogo from './NightmareLogo.vue'
 import useSettingsStore from '@/store/modules/settings'
 import variables from '@/assets/styles/variables.module.scss'
 
@@ -51,7 +36,7 @@ defineProps({
   },
 })
 
-const title = 'Nightmare Theatre'
+
 const settingsStore = useSettingsStore()
 const sideTheme = computed(() => settingsStore.sideTheme)
 
@@ -108,32 +93,16 @@ const getLogoTextColor = computed(() => {
     box-sizing: border-box;
 
     & .sidebar-logo {
-      width: 32px;
-      height: 32px;
+      width: 100%;
+      max-width: 168px;
+      height: 44px;
+      color: v-bind(getLogoTextColor);
       vertical-align: middle;
       margin-right: 0;
       flex-shrink: 0;
     }
 
-    & .sidebar-title {
-      display: inline-block;
-      margin: 0;
-      color: v-bind(getLogoTextColor);
-      font-weight: 600;
-      line-height: 17px;
-      max-width: 110px;
-      min-width: 0;
-      white-space: normal;
-      text-align: left;
-      font-size: 14px;
-      font-family:
-        Avenir,
-        Helvetica Neue,
-        Arial,
-        Helvetica,
-        sans-serif;
-      vertical-align: middle;
-    }
+
   }
 
   &.collapse {
@@ -142,7 +111,8 @@ const getLogoTextColor = computed(() => {
       gap: 0;
     }
     .sidebar-logo {
-      margin-right: 0px;
+      width: 28px;
+      height: 34px;
     }
   }
 }

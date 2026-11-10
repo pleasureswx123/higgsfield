@@ -17,6 +17,7 @@ import SidebarProjectActions from '@/components/projects/SidebarProjectActions.v
 import { useProjectOrder } from '@/composables/useProjectOrder'
 import { useAuthStore } from '@/stores/auth'
 import ThemeToggle from '@/components/shared/ThemeToggle.vue'
+import NightmareLogo from '@/components/shared/NightmareLogo.vue'
 import Button from '@/components/ui/Button.vue'
 const auth = useAuthStore(),
   router = useRouter(),
@@ -63,7 +64,7 @@ async function signOut() {
     <Sidebar collapsible="none" class="sidebar" :class="{ 'is-open': mobileOpen }" aria-label="工作空间侧栏" @click="closeMobileNavigation">
       <SidebarHeader class="studio-sidebar-header">
       <RouterLink to="/home" class="brand" @click="mobileOpen = false"
-        ><img src="/brand-mark.svg" width="32" height="32" alt="Nightmare Theatre 制作平台" /><span class="brand-name"><span>Nightmare</span><span>Theatre</span></span></RouterLink
+        ><NightmareLogo class="sidebar-brand-logo" /></RouterLink
       >
       <ThemeToggle class="sidebar-theme-toggle" />
       </SidebarHeader>
@@ -145,6 +146,7 @@ async function signOut() {
 <style scoped>
 .studio-sidebar-header { flex-direction:row; align-items:center; padding:1px 7px 18px; gap:8px; }
 .studio-sidebar-header .brand { flex:1; min-width:0; padding:0; font-size:14px; gap:8px; }
+.studio-sidebar-header .sidebar-brand-logo { display:block; width:100%; max-width:172px; height:auto; flex-shrink:1; color:var(--foreground); }
 .studio-sidebar-header .sidebar-theme-toggle { flex:0 0 30px; width:30px; height:30px; min-height:0; padding:0; color:var(--muted-foreground); }
 .studio-sidebar-content { gap:0; overflow:hidden; }
 .sidebar-projects { padding:0; }
