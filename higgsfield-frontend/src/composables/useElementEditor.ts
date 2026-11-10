@@ -24,6 +24,7 @@ import { listAssets, readMedia, type Asset, type LibraryEntry } from '@/api/asse
 import { readMembers, type Member } from '@/api/projectWorkspace'
 import { useAuthStore } from '@/stores/auth'
 import { ApiError } from '@/api/client'
+import type { ReferenceCandidate } from '@/api/references'
 
 const clone = <T>(value: T): T => JSON.parse(JSON.stringify(value))
 const message = (error: unknown) => (error instanceof Error ? error.message : '操作失败，请重试')
@@ -184,8 +185,7 @@ export function useElementEditor(
           const existing = properties.value.find(
             (item) => item.definition.propertyKey === definition.propertyKey,
           )
-          if (!existing) properties.value.push({ definition, value: null })
-          else if (existing.definition.id !== definition.id)
+          if (existing && existing.definition.id !== definition.id)
             newerDefinitions.value[existing.definition.id] = definition
         }
         more = result.hasNext
@@ -255,6 +255,11 @@ export function useElementEditor(
     property.definition = next
     delete newerDefinitions.value[id]
   }
+  function removeProperty(definitionId: string) {
+    if (!canEdit.value || locked.value) return
+    properties.value = properties.value.filter(item => item.definition.id !== definitionId)
+    delete newerDefinitions.value[definitionId]
+  }
   async function loadPreview(version: string) {
     releasePreview()
     previewError.value = ''
@@ -320,11 +325,13 @@ export function useElementEditor(
   function addMedia(asset: Asset) {
     if (
       !['image', 'video'].includes(asset.mediaType) ||
+      (fields.media.length > 0 && asset.mediaType !== previewKind.value) ||
       !canEdit.value ||
       locked.value ||
       fields.media.some((item) => item.assetVersionId === asset.currentVersionId)
     )
       return
+    previewKind.value = asset.mediaType as 'image' | 'video'
     fields.media.push({
       assetVersionId: asset.currentVersionId,
       ordinal: fields.media.length,
@@ -338,6 +345,17 @@ export function useElementEditor(
         ...item,
         isPrimary: item.assetVersionId === version,
       }))
+  }
+  function addReferenceMedia(candidate: ReferenceCandidate) {
+    if (!canEdit.value || locked.value || candidate.projectId !== projectId || !candidate.allowedMediaRoles.some(role => ['reference_image', 'reference_person', 'reference_video', 'first_frame', 'last_frame'].includes(role))) return
+    const candidateKind = candidate.allowedMediaRoles.includes('reference_video') ? 'video' : 'image'
+    if (fields.media.length && candidateKind !== previewKind.value) return
+    previewKind.value = candidateKind
+    const fresh = Array.from(new Set(candidate.assetVersionIds)).filter(version => version && !fields.media.some(item => item.assetVersionId === version))
+    for (const assetVersionId of fresh) {
+      fields.media.push({ assetVersionId, ordinal: fields.media.length, isPrimary: fields.media.length === 0 })
+    }
+    if (fresh.length) selectedVersion.value = fresh[0]!
   }
   function removeMedia(version: string) {
     if (!canEdit.value || locked.value) return
@@ -372,15 +390,9 @@ export function useElementEditor(
     if (loadController.signal.aborted || ticket !== lifecycle || saving.value || !canEdit.value)
       return
     if (!saveIntent) {
-      const existingDefinitions = new Set(
-        detail.value?.currentRevision.propertySnapshot.map((item) => item.propertyKey) || [],
-      )
       const payload: ElementFields = clone({
         ...fields,
         propertyValues: properties.value
-          .filter(
-            (item) => item.value !== null || existingDefinitions.has(item.definition.propertyKey),
-          )
           .map((item) => ({
             definitionId: item.definition.id,
             definitionVersion: item.definition.versionNo,
@@ -582,6 +594,7 @@ export function useElementEditor(
     active,
     newerDefinitions,
     adoptDefinition,
+    removeProperty,
     form,
     fields,
     properties,
@@ -620,6 +633,7 @@ export function useElementEditor(
     showPicker,
     searchCandidates,
     addMedia,
+    addReferenceMedia,
     primary,
     removeMedia,
     moveMedia,

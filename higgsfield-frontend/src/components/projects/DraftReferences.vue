@@ -21,6 +21,10 @@ import ReferenceThumbnail from './ReferenceThumbnail.vue'
 import Button from '@/components/ui/Button.vue'
 const props = defineProps<{
   pickerOnly?: boolean
+  elementMedia?: boolean
+  requiredMediaType?: 'image' | 'video'
+  selectedVersionIds?: string[]
+  appendTo?: HTMLElement
   linkPrompt?: boolean
   projectId: string
   folderId?: string | null
@@ -28,7 +32,7 @@ const props = defineProps<{
   protectedKeys: string[]
   model?: ModelCapability | null
 }>()
-const emit = defineEmits<{ uploaded: []; pickerOpen: [value: boolean]; elementSelect: [candidate: ReferenceCandidate, role: string] }>()
+const emit = defineEmits<{ uploaded: []; pickerOpen: [value: boolean]; elementSelect: [candidate: ReferenceCandidate, role: string]; mediaSelect: [candidate: ReferenceCandidate]; mediaDeselect: [versionIds: string[]] }>()
 const references = defineModel<DraftReference[]>({ required: true })
 const revisionUpdates = useReferenceUpdates(() => props.projectId, references, () => props.disabled, () => props.model)
 const firstForKey = (index: number) => references.value.findIndex(item => item.referenceKey === references.value[index]?.referenceKey) === index
@@ -39,6 +43,10 @@ function upgrade(key: string) {
 }
 const { elementScope, mediaType, category, source, recent, sort, open, q, kind, rows, page, total, loading, error, load, search, show: openPicker, close, canSelect, contextRevision } =
   useReferencePicker(() => props.projectId, () => props.disabled, () => props.folderId ?? null)
+watch(() => props.requiredMediaType, value => {
+  mediaType.value = value || ''
+  if (open.value) search()
+})
 const elementCopy = usePickerElementCopy(() => props.projectId)
 const scopeLabel = useReferenceScopeLabel(() => props.projectId, () => props.folderId ?? null, () => open.value)
 const copiedCandidates = reactive<Record<string, ReferenceCandidate>>({})
@@ -48,13 +56,24 @@ const newElement = useReferenceElementCreate(() => props.projectId, () => open.v
 watch(open, value => emit('pickerOpen', value), { flush: 'sync' })
 const preview = useReferencePreview(() => open.value && !props.disabled)
 const deletion = useReferenceAssetDelete(props.projectId, () => open.value && !props.disabled, canSelect, () => { preview.close(); search(); emit('uploaded') })
+const deleteNoticeOpen = shallowRef(false)
+watch([deletion.error, deletion.actions.error, deletion.actions.pending, deletion.actions.lifecycleUncertain, open], ([permissionError, actionError, pending, uncertain, visible]) => {
+  if (!visible) { deleteNoticeOpen.value = false; return }
+  if (!pending) deleteNoticeOpen.value = Boolean(permissionError || actionError || uncertain)
+})
+function closeDeleteNotice() {
+  if (deletion.actions.pending.value || deletion.actions.lifecycleUncertain.value) return
+  deleteNoticeOpen.value = false
+  deletion.error.value = ''
+  deletion.actions.error.value = ''
+}
 const cropSource = shallowRef<ReferenceCandidate | null>(null)
 function showCrop(row: ReferenceCandidate) {
   if (canSelect(row) && row.kind === 'asset' && !row.allowedMediaRoles.includes('reference_video')) cropSource.value = row
 }
 function cropped() {
   cropSource.value = null
-  kind.value = 'asset'; source.value = 'uploaded'; mediaType.value = ''; recent.value = false; sort.value = 'newest'; q.value = ''
+  kind.value = 'asset'; source.value = 'uploaded'; mediaType.value = props.requiredMediaType || ''; recent.value = false; sort.value = 'newest'; q.value = ''
   search(); emit('uploaded')
 }
 watch(contextRevision, () => { cropSource.value = null })
@@ -93,6 +112,7 @@ function uploaded() {
 }
 async function add(row: ReferenceCandidate) {
   if (!canSelect(row) || elementCopy.pending.value) return
+  if (props.requiredMediaType && (row.allowedMediaRoles.includes('reference_video') ? 'video' : 'image') !== props.requiredMediaType) return
   const role = selectedRole(row)
   if (!role || !options(row).includes(role)) return
   try {
@@ -102,7 +122,8 @@ async function add(row: ReferenceCandidate) {
     copiedCandidates[mediaIdentity(row)] = resolved
     const media = selectedMedia(row).map(id => resolved.assetVersionIds[row.assetVersionIds.indexOf(id)]).filter((id): id is string => !!id)
     const candidate = ['reference_image', 'reference_person'].includes(role) ? selectReferenceMedia(resolved, media) : resolved
-    if (props.linkPrompt && candidate.kind === 'element') { emit('elementSelect', candidate, role); close() }
+    if (props.elementMedia) emit('mediaSelect', candidate)
+    else if (props.linkPrompt && candidate.kind === 'element') { emit('elementSelect', candidate, role); close() }
     else references.value = selectCandidate(references.value, candidate, role, props.model, props.protectedKeys)
     error.value = ''
   } catch (cause) {
@@ -130,29 +151,40 @@ watch(anchor, target => {
 }, { flush: 'post' })
 onBeforeUnmount(() => anchorObserver?.disconnect())
 function show(tabKind?: 'asset' | 'element', target?: HTMLElement) {
+  if (props.elementMedia) tabKind = 'asset'
   if (target) anchor.value = target
   if (open.value && kind.value === tabKind) { close(); return }
-  mediaType.value = ''; recent.value = false
+  mediaType.value = props.requiredMediaType || ''; recent.value = false
   if (tabKind === 'asset') source.value = 'uploaded'
   openPicker(tabKind)
 }
 function switchTab(tab: 'asset' | 'element' | 'generated') {
+  if (props.elementMedia && tab === 'element') return
   kind.value = tab === 'element' ? 'element' : 'asset'
   source.value = tab === 'generated' ? 'generated' : tab === 'asset' ? 'uploaded' : ''
-  mediaType.value = ''; recent.value = false
+  mediaType.value = props.requiredMediaType || ''; recent.value = false
   search()
 }
 function filterMedia(value: '' | 'image' | 'video' | 'recent') {
   recent.value = value === 'recent'
-  mediaType.value = value === 'recent' ? '' : value
+  mediaType.value = props.requiredMediaType || (value === 'recent' ? '' : value)
   search()
 }
 function isSelected(row: ReferenceCandidate) {
   row = copiedCandidates[mediaIdentity(row)] || row
+  if (props.elementMedia) return row.assetVersionIds.some(id => props.selectedVersionIds?.includes(id))
   return references.value.some(item => item.elementRevisionId === (row.elementRevisionId || null) && row.assetVersionIds.includes(item.assetVersionId))
 }
 function toggleCandidate(row: ReferenceCandidate) {
   if (!canSelect(row) || elementCopy.pending.value) return
+  if (props.requiredMediaType && (row.allowedMediaRoles.includes('reference_video') ? 'video' : 'image') !== props.requiredMediaType) return
+  if (props.elementMedia) {
+    if (isSelected(row)) {
+      const resolved = copiedCandidates[mediaIdentity(row)] || row
+      emit('mediaDeselect', resolved.assetVersionIds.filter(id => props.selectedVersionIds?.includes(id)))
+    } else void add(row)
+    return
+  }
   if (props.linkPrompt && row.kind === 'element') { void add(row); return }
   if (!isSelected(row)) { add(row); return }
   row = copiedCandidates[mediaIdentity(row)] || row
@@ -235,11 +267,11 @@ defineExpose({ show })
       </li>
     </ul>
     </template>
-    <ElPopover ref="popover" :visible="open" :virtual-ref="anchor" virtual-triggering placement="top-start" :width="800" :show-arrow="false" popper-class="creation-reference-popover" :popper-options="{ modifiers: [{ name: 'flip', options: { fallbackPlacements: ['bottom-start', 'top-end'] } }] }">
+    <ElPopover ref="popover" :visible="open" :virtual-ref="anchor" :append-to="appendTo" virtual-triggering placement="top-start" :width="800" :show-arrow="false" popper-class="creation-reference-popover" :popper-options="{ modifiers: [{ name: 'flip', options: { fallbackPlacements: ['bottom-start', 'top-end'] } }] }">
       <section class="reference-picker-panel" role="dialog" aria-label="选择参考素材" @keydown.esc.stop="close">
       <header class="reference-picker-tabs">
         <button type="button" :aria-pressed="kind !== 'element' && source !== 'generated'" @click="switchTab('asset')">上传素材</button>
-        <button type="button" :aria-pressed="kind === 'element'" @click="switchTab('element')">元素</button>
+        <button v-if="!elementMedia" type="button" :aria-pressed="kind === 'element'" @click="switchTab('element')">元素</button>
         <button type="button" :aria-pressed="kind !== 'element' && source === 'generated'" title="已归档到项目素材库的生成结果" @click="switchTab('generated')">生成素材</button>
         <button type="button" class="reference-picker-close" aria-label="关闭素材面板" @click="close"><IconX :size="18" /></button>
       </header>
@@ -247,9 +279,9 @@ defineExpose({ show })
         <div class="reference-picker-filters">
           <template v-if="kind !== 'element'">
             <button :aria-pressed="recent" title="最近七天添加的素材" @click="filterMedia('recent')">最近</button>
-            <button :aria-pressed="!recent && !mediaType" @click="filterMedia('')">全部</button>
-            <button :aria-pressed="mediaType === 'image'" @click="filterMedia('image')">图片</button>
-            <button :aria-pressed="mediaType === 'video'" @click="filterMedia('video')">视频</button>
+            <button v-if="!requiredMediaType" :aria-pressed="!recent && !mediaType" @click="filterMedia('')">全部</button>
+            <button v-if="requiredMediaType !== 'video'" :aria-pressed="mediaType === 'image'" @click="filterMedia('image')">图片</button>
+            <button v-if="requiredMediaType !== 'image'" :aria-pressed="mediaType === 'video'" @click="filterMedia('video')">视频</button>
           </template>
           <ElPopover v-else trigger="click" placement="bottom-start" :width="260">
             <template #reference><button class="reference-scope-trigger" aria-label="选择元素范围"><IconAt v-if="elementScope === 'mine'" :size="20" /><IconFolder v-else :size="20" /><span>{{ elementScope === 'mine' ? '我的元素' : scopeLabel.projectName.value }}</span><IconChevronDown :size="12" /></button></template>
@@ -271,14 +303,12 @@ defineExpose({ show })
           </nav>
       <div class="reference-picker-content">
       <p v-if="error" class="project-error" role="alert">{{ error }}</p>
-      <p v-if="deletion.error.value || deletion.actions.error.value" class="project-error" role="alert">{{ deletion.error.value || deletion.actions.error.value }}</p>
-      <p v-if="deletion.actions.lifecycleUncertain.value" role="status">删除结果尚未确认。<Button :disabled="deletion.actions.pending.value" @click="deletion.actions.retryLifecycle">重试确认</Button></p>
       <p v-if="elementCopy.pending.value" role="status">正在复制元素到当前项目…</p><p v-if="elementCopy.error.value" class="project-error" role="alert">{{ elementCopy.error.value }}</p>
       <p v-if="loading" role="status">正在读取可引用内容…</p>
       <p v-if="newElement.error.value" class="project-error" role="alert">{{ newElement.error.value }}</p>
       <ul class="reference-candidates">
         <li v-if="kind === 'element'"><button class="reference-new-element" :disabled="disabled || newElement.loading.value" @click="newElement.show"><span class="reference-new-element-icon"><IconPlus :size="24" /></span>新建元素</button></li>
-        <li v-show="kind !== 'element' && source !== 'generated'" class="reference-upload-cell"><ReferenceUploads :project-id="projectId" :folder-id="folderId ?? null" :disabled="disabled || !open" compact @uploaded="uploaded" /></li>
+        <li v-show="kind !== 'element' && source !== 'generated'" class="reference-upload-cell"><ReferenceUploads :required-media-type="requiredMediaType" :project-id="projectId" :folder-id="folderId ?? null" :disabled="disabled || !open" compact @uploaded="uploaded" /></li>
         <li v-for="row in rows" :key="identity(row)" class="reference-candidate" :class="{ selected: isSelected(row), 'empty-element': !row.assetVersionIds.length }">
           <div class="reference-candidate-media">
             <button type="button" class="reference-candidate-select" :aria-label="`选择引用 ${row.displayName}`" :aria-pressed="isSelected(row)" :disabled="disabled || elementCopy.pending.value || (!isSelected(row) && !options(row).length)" @click="toggleCandidate(row)">
@@ -321,6 +351,13 @@ defineExpose({ show })
       </div>
       </section>
     </ElPopover>
+    <ElDialog :model-value="deleteNoticeOpen" :title="deletion.actions.lifecycleUncertain.value ? '删除结果待确认' : '无法删除素材'" width="min(400px, 92vw)" class="reference-delete-notice" append-to-body :close-on-click-modal="false" :close-on-press-escape="!deletion.actions.lifecycleUncertain.value" :show-close="!deletion.actions.lifecycleUncertain.value" :before-close="closeDeleteNotice">
+      <p role="alert">{{ deletion.error.value || deletion.actions.error.value || '请求已发送，正在确认删除结果。' }}</p>
+      <template #footer>
+        <Button v-if="deletion.actions.lifecycleUncertain.value" :disabled="deletion.actions.pending.value" @click="deletion.actions.retryLifecycle">{{ deletion.actions.pending.value ? '确认中…' : '重试确认' }}</Button>
+        <Button v-else variant="outline" @click="closeDeleteNotice">知道了</Button>
+      </template>
+    </ElDialog>
     <ReferenceCropDialog v-if="cropSource" :candidate="cropSource" :project-id="projectId" :folder-id="folderId ?? null" :visible="open && !disabled" @close="cropSource = null" @saved="cropped" />
     <Teleport to="body"><ElementEditor v-if="newElement.open.value" :project-id="projectId" :element-id="null" :actions="newElement.actions.value" :visible="open" @close="newElement.open.value = false" @saved="newElement.open.value = false; search(); emit('uploaded')" /></Teleport>
     <ElDialog :model-value="Boolean(preview.candidate.value)" width="min(1000px, 94vw)" append-to-body :before-close="preview.close" :close-on-click-modal="false">
@@ -333,6 +370,13 @@ defineExpose({ show })
   </section>
 </template>
 <style>
+.reference-delete-confirm.el-message-box, .reference-delete-notice.el-dialog { padding: 20px; border: 1px solid var(--border); border-radius: 20px; background: var(--surface); color: var(--foreground); }
+.reference-delete-confirm .el-message-box__title, .reference-delete-notice .el-dialog__title { color: var(--foreground); font-size: 18px; font-weight: 600; }
+.reference-delete-confirm .el-message-box__message, .reference-delete-notice p { color: var(--muted-foreground); font-size: 14px; line-height: 1.6; }
+.reference-delete-notice p { margin: 8px 0; }
+.reference-delete-confirm .el-message-box__btns { padding-top: 16px; gap: 8px; }
+.reference-delete-confirm .el-button, .reference-delete-notice .ui-button { height: 36px; padding: 0 18px; border-radius: 10px; }
+.reference-delete-confirm .reference-delete-danger { background: var(--el-color-danger); border-color: var(--el-color-danger); color: #fff; }
 .creation-reference-popover.el-popover { --picker-shell:#f0f1ef; --picker-surface:#fafaf9; --picker-tile:#e8e9e7; --picker-line:#dedfdd; --picker-muted:#777b76; padding:0; max-width:calc(100vw - 24px); border-radius:24px 24px 20px 20px; background:var(--picker-shell); color:var(--foreground); border:0; box-shadow:0 3px 0 var(--picker-shell),0 16px 48px #0003; }
 .dark .creation-reference-popover.el-popover { --picker-shell:#1d1f20; --picker-surface:#262829; --picker-tile:#303233; --picker-line:#363839; --picker-muted:#909192; }
 </style>

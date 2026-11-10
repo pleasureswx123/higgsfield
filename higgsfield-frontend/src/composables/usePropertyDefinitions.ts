@@ -15,6 +15,8 @@ export function usePropertyDefinitions(
   projectId: string,
   changed: (definition: PropertyDefinition) => void,
   visible: () => boolean = () => true,
+  loadList = true,
+  attachedDefinitions?: () => PropertyDefinition[],
 ) {
   const auth = useAuthStore()
   let mountedActive = true
@@ -46,7 +48,7 @@ export function usePropertyDefinitions(
     controller: AbortController | undefined
   const dirty = computed(() => JSON.stringify(fields) !== baseline)
   async function load() {
-    if (!editable.value) return
+    if (!editable.value || !loadList) return
     controller?.abort()
     const active = new AbortController()
     controller = active
@@ -105,6 +107,19 @@ export function usePropertyDefinitions(
     const stamp = epoch
     if (!intent && !(await form.value?.validate().catch(() => false))) return
     if (stamp !== epoch || !editable.value || saving.value) return
+    if (!intent) {
+      const normalized = fields.name.normalize('NFKC').replace(/\s+/g, '').toLowerCase()
+      const builtins = ['分类', '人物性质', '虚构人物', '名称', '版本', '元素id', '描述', '负责人', '状态']
+      if (builtins.includes(normalized)) {
+        error.value = '此名称与内置字段重复，请换一个属性名称'
+        return
+      }
+      const namesToCheck = attachedDefinitions ? attachedDefinitions() : rows.value
+      if (namesToCheck.some(item => item.propertyKey !== editing.value?.propertyKey && item.name.normalize('NFKC').replace(/\s+/g, '').toLowerCase() === normalized)) {
+        error.value = '已存在同名属性，请换一个属性名称'
+        return
+      }
+    }
     const content: PropertyDefinitionFields = {
       name: fields.name.trim(),
       valueType: fields.valueType,
@@ -117,6 +132,7 @@ export function usePropertyDefinitions(
               .filter(Boolean),
     }
     const payload = { ...content, propertyKey: fields.propertyKey }
+    const retrying = Boolean(intent)
     intent ??= {
       id: editing.value?.id,
       payload: JSON.parse(JSON.stringify(payload)),
@@ -127,9 +143,31 @@ export function usePropertyDefinitions(
     uncertain.value = true
     error.value = ''
     notice.value = ''
+    let writeStarted = retrying
     try {
+      let existing: PropertyDefinition | undefined
+      if (attachedDefinitions && !request.id && !retrying) {
+        controller?.abort()
+        const lookupController = new AbortController()
+        controller = lookupController
+        let lookupPage = 1
+        while (true) {
+          const result = await listProperties(projectId, lookupPage, lookupController.signal)
+          if (stamp !== epoch || !editable.value) return
+          existing = result.rows.find(item => item.name.normalize('NFKC').replace(/\s+/g, '').toLowerCase() === request.payload.name.normalize('NFKC').replace(/\s+/g, '').toLowerCase())
+          if (existing || !result.hasNext) break
+          lookupPage++
+        }
+        if (existing && attachedDefinitions().some(item => item.propertyKey === existing!.propertyKey)) {
+          throw new Error('当前元素已存在此属性，请勿重复添加')
+        }
+        if (existing && existing.valueType !== request.payload.valueType) {
+          throw new Error('已有同名属性的类型不是文本，请使用其他名称')
+        }
+      }
       const { propertyKey: _propertyKey, ...versionFields } = request.payload
-      const response = request.id
+      writeStarted = !existing
+      const response = existing ? { data: existing } : request.id
         ? await versionProperty(request.id, versionFields, request.key)
         : await createProperty(projectId, request.payload, request.key)
       if (stamp !== epoch) return
@@ -149,9 +187,9 @@ export function usePropertyDefinitions(
     } catch (cause) {
       if (stamp !== epoch) return
       if (
-        cause instanceof ApiError &&
+        !writeStarted || (cause instanceof ApiError &&
         cause.errorCode !== 'IDEMPOTENCY_IN_PROGRESS' &&
-        (cause.code === 601 || (cause.code >= 400 && cause.code < 500 && cause.code !== 408))
+        (cause.code === 601 || (cause.code >= 400 && cause.code < 500 && cause.code !== 408)))
       ) {
         intent = undefined
         uncertain.value = false

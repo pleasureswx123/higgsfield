@@ -7,6 +7,75 @@ const { randomUUID } = require('node:crypto')
 const ts = require('typescript'), vue = require('vue')
 class ApiError extends Error { constructor(message, code, errorCode) { super(message); this.code = code; this.errorCode = errorCode } }
 const tick = () => new Promise(resolve => setImmediate(resolve))
+test('共享选择器加入固定素材版本，去重并保留主图及已填表单', async () => {
+  const c = setup(); await tick()
+  assert.equal(c.state.canEdit.value, true, c.state.error.value)
+  c.state.fields.name = '保留名称'; c.state.fields.description = '保留描述'
+  const candidate = { kind: 'asset', projectId: '99', assetVersionIds: ['v1'], allowedMediaRoles: ['reference_image'] }
+  c.state.addReferenceMedia(candidate)
+  c.state.addReferenceMedia({ ...candidate, assetVersionIds: ['v1', 'v2', 'v2'] })
+  c.state.addReferenceMedia({ ...candidate, assetVersionIds: ['v3'] })
+  c.state.addReferenceMedia({ ...candidate, assetVersionIds: ['video'], allowedMediaRoles: ['reference_video'] })
+  assert.equal(c.state.fields.media.length, 3)
+  assert.equal(c.state.fields.media[0].isPrimary, true)
+  assert.equal(c.state.fields.media[1].isPrimary, false)
+  assert.deepEqual(Array.from(c.state.fields.media, item => item.ordinal), [0, 1, 2])
+  assert.equal(c.state.fields.name, '保留名称'); assert.equal(c.state.fields.description, '保留描述')
+  c.state.addReferenceMedia({ ...candidate, projectId: 'other', assetVersionIds: ['bad'] })
+  c.state.addReferenceMedia({ ...candidate, allowedMediaRoles: [], assetVersionIds: ['bad'] })
+  assert.equal(c.state.fields.media.length, 3)
+  c.state.removeMedia('v3')
+  assert.equal(c.state.selectedVersion.value, 'v1')
+  c.state.removeMedia('v1')
+  assert.equal(c.state.fields.media.length, 1)
+  assert.equal(c.state.fields.media[0].assetVersionId, 'v2')
+  assert.equal(c.state.fields.media[0].isPrimary, true)
+  assert.equal(c.state.fields.media[0].ordinal, 0)
+  c.state.removeMedia('v2')
+  assert.equal(c.state.fields.media.length, 0)
+  assert.equal(c.state.selectedVersion.value, '')
+  c.state.addReferenceMedia({ ...candidate, assetVersionIds: ['video'], allowedMediaRoles: ['reference_video'] })
+  c.state.addReferenceMedia(candidate)
+  assert.equal(c.state.fields.media.length, 1)
+  assert.equal(c.state.fields.media[0].assetVersionId, 'video')
+  c.state.removeMedia('video')
+  c.visible.value = false
+  c.state.addReferenceMedia({ ...candidate, assetVersionIds: ['hidden'] })
+  assert.equal(c.state.fields.media.length, 0); c.close()
+})
+test('新建元素不自动带入项目定义，移除后重新新建也不会出现', async () => {
+  const api = { listProperties: async () => ({ rows: [{ id: 'p1', propertyKey: 'note', name: '备注', versionNo: 1 }], hasNext: false }) }
+  const first = setup(api); await tick()
+  assert.equal(first.state.properties.value.length, 0)
+  first.state.properties.value.push({ definition: (await api.listProperties()).rows[0], value: null })
+  first.state.removeProperty('p1'); assert.equal(first.state.properties.value.length, 0); first.close()
+  const next = setup(api); await tick()
+  assert.equal(next.state.properties.value.length, 0); next.close()
+})
+test('移除属性仅改变当前元素，保存后再打开不会从项目定义补回，空属性仍可保留', async () => {
+  const definition = { id: 'p1', propertyKey: 'note', versionNo: 1, name: '备注', valueType: 'text', options: [] }
+  let snapshot = [{ ...definition, definitionId: 'p1', definitionVersion: 1, value: null }]
+  const api = {
+    listProperties: async () => ({ rows: [definition], hasNext: false }),
+    readElement: async () => ({ data: {
+      element: { projectId: '99', name: '角色', alias: 'role', category: 'character', workStatus: 'none', revision: '7', allowedActions: ['element:edit'] },
+      currentRevision: { description: '', label: '', media: [], propertyValues: [], propertySnapshot: snapshot },
+    } }),
+    saveElement: async (_id, _revision, payload) => {
+      snapshot = payload.propertyValues.map(value => ({ ...definition, ...value }))
+    },
+  }
+  const c = setup(api, async () => {}, '5'); await tick()
+  await c.state.save(); assert.equal(snapshot.length, 1)
+  assert.equal(snapshot[0].value, null)
+  c.state.removeProperty('p1')
+  assert.equal(c.state.properties.value.length, 0)
+  await c.state.save(); assert.equal(snapshot.length, 0); c.close()
+  const reopened = setup(api, async () => {}, '5'); await tick()
+  assert.equal(reopened.state.properties.value.length, 0)
+  assert.equal((await api.listProperties()).rows.length, 1)
+  reopened.close()
+})
 function setup(overrides = {}, confirm = async () => {}, elementId = null) {
   const exports = {}, hooks = {}, auth = vue.reactive({ token: 'one' }), visible = vue.ref(true)
   let writes = 0, completed = 0

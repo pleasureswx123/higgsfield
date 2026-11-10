@@ -11,7 +11,7 @@ import {
   type RecycledAsset,
 } from '@/api/assets'
 
-export function useAssetActions(projectId: string, changed: () => void, visible: () => boolean = () => true) {
+export function useAssetActions(projectId: string, changed: () => void, visible: () => boolean = () => true, confirmClass?: string) {
   const auth = useAuthStore()
   let epoch = 0,
     interaction = 0,
@@ -165,7 +165,7 @@ export function useAssetActions(projectId: string, changed: () => void, visible:
             ? `恢复“${snapshot.name}”到原目录。`
             : `将“${snapshot.name}”移入回收站。该素材将停止预览和新引用，历史版本及文件保留，可在30天内恢复。`,
           restore ? '恢复素材' : '删除素材',
-          { confirmButtonText: restore ? '恢复' : '删除', cancelButtonText: '取消' },
+          { confirmButtonText: restore ? '恢复' : '删除', cancelButtonText: '取消', customClass: confirmClass, confirmButtonClass: !restore && confirmClass ? 'reference-delete-danger' : undefined },
         )
       } catch {
         return

@@ -8,7 +8,20 @@ const ts = require('typescript'), vue = require('vue')
 class ApiError extends Error { constructor(message, code, errorCode) { super(message); this.code = code; this.errorCode = errorCode } }
 const tick = () => new Promise(resolve => setImmediate(resolve))
 const definition = { id: '5', propertyKey: 'color', name: '颜色', valueType: 'text', options: [], versionNo: 1 }
-async function setup(overrides = {}, confirm = async () => {}) {
+test('内置字段及同名属性禁止创建，改名也不能绕过', async () => {
+  const c = await setup()
+  for (const name of ['描述', ' 描 述 ', '元素 ＩＤ', '颜色']) {
+    c.state.fields.name = name
+    await c.state.save()
+    assert.equal(c.calls.length, 0)
+    assert.match(c.state.error.value, /重复|同名/)
+  }
+  await c.state.edit(definition)
+  c.state.fields.name = '描述'; await c.state.save()
+  assert.equal(c.calls.length, 0)
+  c.close()
+})
+async function setup(overrides = {}, confirm = async () => {}, attachedDefinitions) {
   const exports = {}, hooks = {}, auth = vue.reactive({ token: 'one' }), calls = [], visible = vue.ref(true)
   let changed = 0
   const api = {
@@ -27,11 +40,46 @@ async function setup(overrides = {}, confirm = async () => {}) {
       return api
     },
   })
-  const scope = vue.effectScope(), state = scope.run(() => exports.usePropertyDefinitions('99', () => { changed++ }, () => visible.value))
+  const scope = vue.effectScope(), state = scope.run(() => exports.usePropertyDefinitions('99', () => { changed++ }, () => visible.value, true, attachedDefinitions))
   state.form.value = { validate: async () => true, clearValidate() {} }
   await tick()
   return { state, hooks, auth, calls, visible, changed: () => changed, close: () => { hooks.unmount(); scope.stop() } }
 }
+
+test('移除后再次添加复用项目定义，当前元素已有同名属性仍阻止重复', async () => {
+  const attached = []
+  const c = await setup({}, async () => {}, () => attached)
+  c.state.fields.name = '颜色'
+  await c.state.save()
+  assert.equal(c.changed(), 1)
+  assert.equal(c.calls.length, 0)
+  assert.equal(c.state.editing.value.id, definition.id)
+  await c.state.edit()
+  attached.push(definition)
+  c.state.fields.name = '颜色'
+  await c.state.save()
+  assert.equal(c.changed(), 1)
+  assert.match(c.state.error.value, /同名/)
+  c.close()
+})
+
+test('复用检查读取后续页，读取失败保留输入且允许再次尝试', async () => {
+  let fail = true
+  const c = await setup({ listProperties: async (_project, page) => {
+    if (fail) throw new Error('读取失败')
+    return page === 1 ? { rows: [], hasNext: true } : { rows: [definition], hasNext: false }
+  } }, async () => {}, () => [])
+  c.state.fields.name = '颜色'
+  await c.state.save()
+  assert.equal(c.state.locked.value, false)
+  assert.equal(c.state.fields.name, '颜色')
+  assert.equal(c.calls.length, 0)
+  fail = false
+  await c.state.save()
+  assert.equal(c.changed(), 1)
+  assert.equal(c.calls.length, 0)
+  c.close()
+})
 
 test('创建响应未知锁定编辑与关闭，重试冻结原正文和幂等键', async () => {
   const calls = []

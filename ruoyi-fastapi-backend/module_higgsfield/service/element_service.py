@@ -2,6 +2,7 @@
 
 from datetime import timedelta
 from math import ceil
+import unicodedata
 
 from common.vo import PageModel
 from exceptions.exception import PermissionException
@@ -466,6 +467,21 @@ class ElementService:
                 cls.fail('PROPERTY_KEY_CONFLICT', '属性键已存在，请创建定义的新版本')
             if previous and latest.property_id != previous.property_id:
                 cls.fail('VERSION_CONFLICT', '属性定义已有新版本，请重新加载')
+            def normalized_name(value):
+                return ''.join(unicodedata.normalize('NFKC', value).split()).lower()
+
+            name = normalized_name(payload.name)
+            if name in {'分类', '人物性质', '虚构人物', '名称', '版本', '元素id', '描述', '负责人', '状态'}:
+                cls.fail('PROPERTY_NAME_CONFLICT', '此名称与内置字段重复，请换一个属性名称')
+            # 在项目空间锁内检查最新定义，避免并发创建同名属性。
+            page = 1
+            while True:
+                definitions, total = await ElementDao.definitions(db, space.space_id, page, 100)
+                if any(item.property_key != property_key and normalized_name(item.property_name) == name for item in definitions):
+                    cls.fail('PROPERTY_NAME_CONFLICT', '已存在同名属性，请换一个属性名称')
+                if page * 100 >= total:
+                    break
+                page += 1
             row = await ElementDao.add(
                 db,
                 HfPropertyDefinition,

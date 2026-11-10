@@ -1,7 +1,8 @@
 <script setup lang="ts">
 import type { Asset } from '@/api/assets'
 import type { PropertyDefinition, ElementRecord } from '@/api/elements'
-import { ref, toRef } from 'vue'
+import { ref, toRef, defineAsyncComponent } from 'vue'
+import type { DraftReference } from '@/api/creation'
 import {
   ElDialog,
   ElForm,
@@ -9,11 +10,12 @@ import {
   ElInput,
   ElSelect,
   ElOption,
-  ElPagination,
   type FormRules,
 } from 'element-plus'
 import {
   IconPhoto,
+  IconStar,
+  IconStarFilled,
   IconPlus,
   IconRefresh,
   IconMaximize,
@@ -35,7 +37,7 @@ import ElementCopyDialog from './ElementCopyDialog.vue'
 import ElementHistoryDialog from './ElementHistoryDialog.vue'
 import MediaComments from './MediaComments.vue'
 import ReferenceThumbnail from './ReferenceThumbnail.vue'
-import PropertyDefinitionsDialog from './PropertyDefinitionsDialog.vue'
+import ElementPropertyPopover from './ElementPropertyPopover.vue'
 const props = defineProps<{
   initialAsset?: Asset
   projectId: string
@@ -51,7 +53,28 @@ const copier = ref<InstanceType<typeof ElementCopyDialog>>()
 const copyOpen = ref(false),
   historyOpen = ref(false)
 const previewExpanded = ref(false)
-const propertiesOpen = ref(false)
+const ElementMediaPicker = defineAsyncComponent(() => import('./DraftReferences.vue'))
+const referencePicker = ref<{ show: (kind: 'asset', anchor: HTMLElement) => void }>()
+const referencePickerOpen = ref(false)
+const pickerContainer = ref<HTMLElement>()
+const pickerReferences = ref<DraftReference[]>([])
+function showReferencePicker(event: MouseEvent) {
+  if (!canEdit.value || locked.value || previewLoading.value || previewError.value || downloader.pending.value || props.using) return
+  const target = event.currentTarget as HTMLElement
+  pickerContainer.value = target.closest<HTMLElement>('.el-dialog') || undefined
+  const anchor = pickerContainer.value?.querySelector<HTMLElement>('.element-add-media') || target
+  target.closest('details')?.removeAttribute('open')
+  referencePicker.value?.show('asset', anchor)
+}
+const propertyPopover = ref<InstanceType<typeof ElementPropertyPopover>>()
+const propertyEditBusy = ref<Record<string, boolean>>({})
+function propertyRenamed(definition: PropertyDefinition) {
+  const item = properties.value.find(item => item.definition.propertyKey === definition.propertyKey)
+  if (item) {
+    delete newerDefinitions.value[item.definition.id]
+    item.definition = definition
+  }
+}
 function propertyChanged(definition: PropertyDefinition) {
   const existing = properties.value.find(
     (item) => item.definition.propertyKey === definition.propertyKey,
@@ -68,6 +91,7 @@ const {
   properties,
   newerDefinitions,
   adoptDefinition,
+  removeProperty,
   members,
   detail,
   loading,
@@ -89,19 +113,9 @@ const {
   selectedVersion,
   previewUrl,
   previewKind,
-  pickerKind,
   previewLoading,
   previewError,
-  pickerOpen,
-  candidates,
-  pickerPage,
-  pickerTotal,
-  pickerSearch,
-  pickerLoading,
-  pickerError,
-  showPicker,
-  searchCandidates,
-  addMedia,
+  addReferenceMedia,
   primary,
   removeMedia,
   moveMedia,
@@ -145,7 +159,10 @@ const rules: FormRules = {
 }
 async function close() {
   if (
-    propertiesOpen.value ||
+    propertyPopover.value?.locked ||
+    propertyPopover.value?.open ||
+    referencePickerOpen.value ||
+    Object.values(propertyEditBusy.value).some(Boolean) ||
     downloader.pending.value ||
     props.using ||
     mover.value?.locked ||
@@ -222,9 +239,12 @@ async function removeSelectedImage() {
         </div>
         <div class="element-preview-toolbar">
           <div class="element-media-strip">
-            <button
+            <div
               v-for="(media, index) in fields.media"
               :key="media.assetVersionId"
+              class="element-media-item"
+            >
+            <button
               type="button"
               :class="{ active: selectedVersion === media.assetVersionId }"
               :aria-label="`素材 ${index + 1}${media.isPrimary ? '，主图' : ''}`"
@@ -235,13 +255,28 @@ async function removeSelectedImage() {
               <ReferenceThumbnail :version-id="media.assetVersionId" fill passive allow-original />
             </button>
             <button
+              v-if="fields.media.length > 1 && (media.isPrimary || (canEdit && selectedVersion === media.assetVersionId))"
+              type="button"
+              class="element-media-primary"
+              :class="{ 'is-primary': media.isPrimary }"
+              :aria-label="media.isPrimary ? `素材 ${index + 1}，当前主图` : `将素材 ${index + 1}设为主图`"
+              :title="media.isPrimary ? '当前主图' : '设为主图'"
+              :aria-pressed="media.isPrimary"
+              :disabled="!canEdit || locked || using || downloader.pending.value"
+              @click.stop="primary(media.assetVersionId)"
+            >
+              <IconStarFilled v-if="media.isPrimary" :size="12" />
+              <IconStar v-else :size="12" />
+            </button>
+            </div>
+            <button
               v-if="canEdit && allowed.includes('asset:read')"
               type="button"
               class="element-add-media"
               title="添加素材"
               aria-label="添加素材"
               :disabled="downloader.pending.value || using || locked"
-              @click="showPicker"
+              @click="showReferencePicker"
             >
               <IconPlus :size="20" />
             </button>
@@ -253,7 +288,7 @@ async function removeSelectedImage() {
                 <button
                   type="button"
                   :disabled="locked || using || downloader.pending.value"
-                  @click="showPicker"
+                  @click="showReferencePicker"
                 >
                   添加其他素材
                 </button>
@@ -336,6 +371,7 @@ async function removeSelectedImage() {
           :rules="rules"
           label-position="top"
           class="element-fields"
+          @submit.prevent
           :disabled="downloader.pending.value || using || locked || !canEdit"
         >
           <ElFormItem label="分类"
@@ -409,6 +445,7 @@ async function removeSelectedImage() {
             >
             <Button
               v-if="!elementId && aliasManual"
+              type="button"
               variant="ghost"
               :disabled="locked || !canEdit"
               @click="resetAliasSuggestion"
@@ -451,11 +488,20 @@ async function removeSelectedImage() {
           <h4 class="element-properties-heading">自定义属性</h4>
           <ElFormItem
             v-for="property in properties"
-            :key="property.definition.id"
+            :key="property.definition.propertyKey"
             :label="property.definition.name"
+            class="element-custom-property"
           >
+            <template #label>
+              <span class="element-property-name">{{ property.definition.name }}</span>
+              <span v-if="canEdit" class="element-property-actions">
+                <ElementPropertyPopover v-if="allowed.includes('element:configure')" :project-id="projectId" :visible="active" :definition="property.definition" :attached-definitions="properties.map(item => item.definition)" :disabled="locked || using || downloader.pending.value" @changed="propertyRenamed" @busy="propertyEditBusy[property.definition.propertyKey] = $event" />
+                <Button type="button" variant="ghost" class="element-property-icon" :aria-label="`移除当前元素属性 ${property.definition.name}`" :disabled="locked || using || downloader.pending.value || propertyEditBusy[property.definition.propertyKey]" @click="removeProperty(property.definition.id)"><IconTrash :size="16" /></Button>
+              </span>
+            </template>
             <ElInput
               v-if="property.definition.valueType === 'text'"
+              placeholder="未填写"
               :model-value="typeof property.value === 'string' ? property.value : ''"
               @update:model-value="property.value = $event"
             />
@@ -471,7 +517,6 @@ async function removeSelectedImage() {
                 :value="option"
                 :label="option"
             /></ElSelect>
-            <small class="muted">定义版本 {{ property.definition.versionNo }}</small>
             <button
               v-if="canEdit && newerDefinitions[property.definition.id]"
               type="button"
@@ -482,14 +527,15 @@ async function removeSelectedImage() {
               采用最新定义 v{{ newerDefinitions[property.definition.id]?.versionNo }}
             </button>
           </ElFormItem>
-          <Button
+          <ElementPropertyPopover
+            ref="propertyPopover"
             v-if="canEdit && allowed.includes('element:configure')"
-            variant="ghost"
-            class="element-add-property"
+            :project-id="projectId"
+            :attached-definitions="properties.map(item => item.definition)"
+            :visible="active"
             :disabled="locked || using || downloader.pending.value"
-            @click="propertiesOpen = true"
-            ><IconPlus :size="18" />添加自定义属性</Button
-          >
+            @changed="propertyChanged"
+          />
           <p v-else-if="!properties.length" class="muted">暂无自定义属性</p>
           <p v-if="detail" class="muted">
             内部修订 #{{ detail.currentRevision.revisionNo }} · 并发版本
@@ -513,13 +559,6 @@ async function removeSelectedImage() {
         </div>
       </section>
     </div>
-    <PropertyDefinitionsDialog
-      v-if="propertiesOpen"
-      :project-id="projectId"
-      :visible="active"
-      @close="propertiesOpen = false"
-      @changed="propertyChanged"
-    />
     <DirectoryMoveDialog
       :visible="active"
       ref="mover"
@@ -603,61 +642,21 @@ async function removeSelectedImage() {
         saving ? '正在确认…' : '重试确认原请求'
       }}</Button></template
     >
-    <ElDialog
-      v-model="pickerOpen"
-      title="选择项目素材"
-      width="min(760px, 92vw)"
-      append-to-body
-      :close-on-click-modal="false"
-    >
-      <template #header="{ titleId, titleClass }">
-        <DialogHeading :title-id="titleId" :title-class="titleClass" title="选择项目素材" />
-      </template>
-      <div class="element-toolbar">
-        <ElSelect v-model="pickerKind" aria-label="素材类型" style="width: 110px"
-          ><ElOption label="图片" value="image" /><ElOption label="视频" value="video"
-        /></ElSelect>
-        <ElInput
-          v-model="pickerSearch"
-          placeholder="搜索项目素材"
-          clearable
-          @keyup.enter="searchCandidates"
-          @clear="searchCandidates"
-        /><Button variant="ghost" @click="searchCandidates">搜索</Button>
-      </div>
-      <p v-if="pickerLoading" role="status">正在加载素材…</p>
-      <p v-if="pickerError" class="project-error" role="alert">{{ pickerError }}</p>
-      <div v-for="entry in candidates" :key="entry.id" class="element-picker-row">
-        <IconPhoto :size="24" /><span
-          >{{ entry.name
-          }}<small class="muted">
-            · {{ entry.asset.file.width }} × {{ entry.asset.file.height }}</small
-          ></span
-        ><Button
-          variant="ghost"
-          :disabled="
-            fields.media.some((media) => media.assetVersionId === entry.asset.currentVersionId)
-          "
-          @click="addMedia(entry.asset)"
-          >{{
-            fields.media.some((media) => media.assetVersionId === entry.asset.currentVersionId)
-              ? '已选择'
-              : '添加'
-          }}</Button
-        >
-      </div>
-      <p v-if="!pickerLoading && !candidates.length" class="muted">
-        暂无匹配素材，请先到素材目录上传。
-      </p>
-      <ElPagination
-        v-if="pickerTotal > 30"
-        v-model:current-page="pickerPage"
-        :page-size="30"
-        :total="pickerTotal"
-        layout="prev, pager, next"
-      />
-      <template #footer><Button @click="pickerOpen = false">完成选择</Button></template>
-    </ElDialog>
+    <ElementMediaPicker
+      ref="referencePicker"
+      v-model="pickerReferences"
+      picker-only
+      element-media
+      :required-media-type="fields.media.length ? previewKind : undefined"
+      :project-id="projectId"
+      :disabled="!active || !canEdit || locked || using || downloader.pending.value"
+      :protected-keys="[]"
+      :selected-version-ids="fields.media.map(item => item.assetVersionId)"
+      :append-to="pickerContainer"
+      @picker-open="referencePickerOpen = $event"
+      @media-select="addReferenceMedia"
+      @media-deselect="versions => versions.forEach(removeMedia)"
+    />
   </ElDialog>
 </template>
 <style scoped>

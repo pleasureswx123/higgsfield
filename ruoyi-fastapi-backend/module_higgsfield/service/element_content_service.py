@@ -57,6 +57,8 @@ class ElementContentService:
             if (asset.media_type not in ('image', 'video') or file.state != '1'
                     or not file.mime_type.startswith(asset.media_type + '/')):
                 cls.fail('REFERENCE_MEDIA_INVALID', '元素素材必须是归档就绪的图片或视频版本')
+        if len({asset.media_type for _, asset, _ in sources}) > 1:
+            cls.fail('ELEMENT_MEDIA_TYPE_MIXED', '同一元素只能包含图片或视频，不能混合添加')
         return sorted(snapshots, key=lambda item: item['propertyKey'])
 
     @staticmethod

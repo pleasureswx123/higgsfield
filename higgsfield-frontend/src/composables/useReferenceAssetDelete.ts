@@ -7,7 +7,7 @@ import { useAssetActions } from './useAssetActions'
 export function useReferenceAssetDelete(projectId: string, visible: () => boolean,
   canSelect: (row: ReferenceCandidate) => boolean, changed: () => void) {
   const checking = ref(false), error = ref('')
-  const actions = useAssetActions(projectId, changed, visible)
+  const actions = useAssetActions(projectId, changed, visible, 'reference-delete-confirm')
   let controller: AbortController | undefined
   function cancelRead() { controller?.abort(); checking.value = false; error.value = '' }
   async function remove(row: ReferenceCandidate) {

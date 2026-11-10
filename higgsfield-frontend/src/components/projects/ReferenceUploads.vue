@@ -1,9 +1,10 @@
 <script setup lang="ts">
 import { ref } from 'vue'
+import { ElMessage } from 'element-plus'
 import { IconCloudUpload } from '@tabler/icons-vue'
 import Button from '@/components/ui/Button.vue'
 import { useReferenceUploads } from '@/composables/useReferenceUploads'
-const props = defineProps<{ projectId: string; folderId: string | null; disabled: boolean; compact?: boolean }>()
+const props = defineProps<{ projectId: string; folderId: string | null; disabled: boolean; compact?: boolean; requiredMediaType?: 'image' | 'video' }>()
 const emit = defineEmits<{ uploaded: [] }>()
 const input = ref<HTMLInputElement>()
 const { items, running, checking, error, enqueue, pause, retry } = useReferenceUploads(
@@ -11,7 +12,13 @@ const { items, running, checking, error, enqueue, pause, retry } = useReferenceU
 )
 function choose(event: Event) {
   const control = event.target as HTMLInputElement
-  void enqueue(Array.from(control.files ?? []))
+  const files = Array.from(control.files ?? [])
+  if (props.requiredMediaType && files.some(file => !file.type.startsWith(props.requiredMediaType + '/'))) {
+    ElMessage.warning(props.requiredMediaType === 'image' ? '图片元素只能添加图片' : '视频元素只能添加视频')
+    control.value = ''
+    return
+  }
+  void enqueue(files)
   control.value = ''
 }
 const stages = { queued: '等待上传', hashing: '计算校验值', uploading: '上传中', verifying: '校验并归档', binding: '绑定素材', done: '已上传，可从下方加入引用', paused: '已暂停', failed: '上传失败' }
@@ -23,7 +30,7 @@ defineExpose({ pause })
       <Button class="reference-upload-card" variant="outline" :disabled="disabled || checking" aria-label="从电脑上传图片 / 视频" @click="input?.click()"><IconCloudUpload :size="28" /><span>{{ checking ? '核验权限…' : '上传素材' }}</span></Button>
       <span v-if="!compact" class="muted">保存到{{ folderId ? `当前草稿目录 #${folderId}` : '项目根目录' }}</span>
       <Button v-if="running" variant="ghost" @click="pause">暂停上传</Button>
-      <input ref="input" type="file" accept="image/*,video/*" multiple hidden aria-label="上传参考图片或视频" @change="choose" />
+      <input ref="input" type="file" :accept="requiredMediaType ? `${requiredMediaType}/*` : 'image/*,video/*'" multiple hidden aria-label="上传参考图片或视频" @change="choose" />
     </div>
     <p v-if="error" class="project-error" role="alert">{{ error }}</p>
     <ul v-if="items.length" class="reference-upload-list">
