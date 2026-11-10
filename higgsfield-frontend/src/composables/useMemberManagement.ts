@@ -1,6 +1,6 @@
 import { computed, ref, watch, onBeforeUnmount } from 'vue'
 import { ElMessage, ElMessageBox, type FormInstance } from 'element-plus'
-import { transferOwnership, addMember, changeMember, findCandidate, removeMember, type Candidate, type Member } from '@/api/projectWorkspace'
+import { transferOwnership, addMember, changeMember, removeMember, type Candidate, type Member } from '@/api/projectWorkspace'
 import { useProjectMembers } from './useProjectWorkspace'
 import { useAuthStore } from '@/stores/auth'
 
@@ -10,32 +10,21 @@ export function useMemberManagement(projectId: string, changed: () => void = () 
   const isOwner = computed(() => list.roles.value.some((role) => role.code === 'owner' && role.isCurrentRole))
   const canEditMember = (member: Member) => grantable.value.some((role) => role.id === member.roleId)
   const canManage = computed(() => grantable.value.length > 0)
-  const open = ref(false), pending = ref(false), searching = ref(false), dialogError = ref('')
-  const account = ref(''), roleId = ref(''), candidate = ref<Candidate>()
+  const open = ref(false), pending = ref(false), dialogError = ref('')
+  const roleId = ref(''), candidate = ref<Candidate>()
   const formRef = ref<FormInstance>()
-  let lookupSequence = 0, epoch = 0, alive = true, lastPayload = '', mutationKey = ''
-  watch(account, () => { candidate.value = undefined; lookupSequence++; searching.value = false }, { flush: 'sync' })
+  let epoch = 0, alive = true, lastPayload = '', mutationKey = ''
   watch(() => useAuthStore().token, () => {
-    epoch++; lookupSequence++; candidate.value = undefined; open.value = false
-    searching.value = false; pending.value = false; lastPayload = ''; mutationKey = ''
+    epoch++; candidate.value = undefined; open.value = false
+    pending.value = false; lastPayload = ''; mutationKey = ''
   }, { flush: 'sync' })
-  onBeforeUnmount(() => { alive = false; lookupSequence++ })
+  onBeforeUnmount(() => { alive = false })
+  watch(canManage, value => {
+    if (!value) { open.value = false; candidate.value = undefined }
+  }, { flush: 'sync' })
   function startAdd() {
-    account.value = ''; candidate.value = undefined; roleId.value = ''
+    candidate.value = undefined; roleId.value = ''
     dialogError.value = ''; open.value = true
-  }
-  async function lookup() {
-    if (!account.value.trim() || !canManage.value) return
-    const sequence = ++lookupSequence
-    searching.value = true; dialogError.value = ''; candidate.value = undefined
-    try {
-      const result = await findCandidate(projectId, account.value.trim())
-      if (!alive || sequence !== lookupSequence) return
-      candidate.value = result.data.items[0]
-      if (!candidate.value) dialogError.value = '未找到该账号，请输入完整登录账号。'
-    } catch (cause) {
-      if (alive && sequence === lookupSequence) dialogError.value = cause instanceof Error ? cause.message : '查找失败'
-    } finally { if (sequence === lookupSequence) searching.value = false }
   }
   async function mutate(action: 'add' | 'role' | 'remove' | 'transfer', member?: Member, nextRole?: string) {
     if (pending.value || !canManage.value) return
@@ -53,8 +42,10 @@ export function useMemberManagement(projectId: string, changed: () => void = () 
       lastPayload = ''; mutationKey = ''
       open.value = false
       ElMessage.success(action === 'transfer' ? '所有权已转让，你已成为项目负责人' : action === 'add' ? '成员已添加' : action === 'role' ? '角色已更新' : '成员已移除')
+      if (action === 'add') { list.status.value = 'active'; list.page.value = 1 }
       await list.load()
       changed()
+      return true
     } catch (cause) {
       if (!alive || stamp !== epoch) return
       const message = cause instanceof Error ? cause.message : '操作失败'
@@ -64,15 +55,16 @@ export function useMemberManagement(projectId: string, changed: () => void = () 
   }
   async function add() {
     if (pending.value || !await formRef.value?.validate().catch(() => false)) return
-    if (!candidate.value) { dialogError.value = '请先查找并确认要添加的账号。'; return }
+    if (!candidate.value || candidate.value.alreadyMember) { dialogError.value = '请选择要添加的人员。'; return }
     await mutate('add')
   }
-  async function modify(member: Member, nextRole?: string) {
-    if (pending.value || nextRole === member.roleId) return
-    try {
+  async function modify(member: Member, nextRole?: string, confirmed = false) {
+    if (pending.value || !canEditMember(member) || nextRole === member.roleId) return
+    if (nextRole && !grantable.value.some(role => role.id === nextRole)) return
+    if (!confirmed) try {
       await ElMessageBox.confirm(nextRole ? `将“${member.displayName}”的角色改为“${grantable.value.find((r) => r.id === nextRole)?.name}”？` : `将“${member.displayName}”移出本项目？`, nextRole ? '修改项目角色' : '移除成员', { confirmButtonText: '确认', cancelButtonText: '取消' })
     } catch { return }
-    await mutate(nextRole ? 'role' : 'remove', member, nextRole)
+    return await mutate(nextRole ? 'role' : 'remove', member, nextRole)
   }
   async function transfer(member: Member) {
     if (!isOwner.value || pending.value || !canEditMember(member)) return
@@ -81,5 +73,5 @@ export function useMemberManagement(projectId: string, changed: () => void = () 
     } catch { return }
     await mutate('transfer', member)
   }
-  return { ...list, isOwner, canEditMember, transfer, grantable, canManage, open, pending, searching, dialogError, account, roleId, candidate, formRef, startAdd, lookup, add, modify }
+  return { ...list, isOwner, canEditMember, transfer, grantable, canManage, open, pending, dialogError, roleId, candidate, formRef, startAdd, add, modify }
 }

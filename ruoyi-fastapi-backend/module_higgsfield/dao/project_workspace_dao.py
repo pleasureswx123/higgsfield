@@ -130,6 +130,26 @@ class WorkspaceDao:
         )
 
     @staticmethod
+    async def eligible_users(db, project_id, keyword='', page=1, size=20, user_id=None):
+        """只返回有效制作平台使用者；使用 EXISTS 避免多角色造成重复。"""
+        conditions = """u.user_id <> 1 AND u.status='0' AND u.del_flag='0'
+            AND EXISTS (SELECT 1 FROM sys_user_role ur JOIN sys_role r ON r.role_id=ur.role_id
+                WHERE ur.user_id=u.user_id AND r.role_key='hf_studio_user'
+                AND r.status='0' AND r.del_flag='0')
+            AND (:keyword='' OR strpos(lower(u.user_name), lower(:keyword))>0
+                OR strpos(lower(coalesce(u.nick_name,'')), lower(:keyword))>0)"""
+        params = {'keyword': keyword, 'project': project_id, 'limit': size, 'offset': (page-1)*size}
+        if user_id is not None:
+            conditions += ' AND u.user_id=:user_id'
+            params['user_id'] = user_id
+        total = await db.scalar(text('SELECT count(*) FROM sys_user u WHERE ' + conditions), params)
+        rows = (await db.execute(text("""SELECT u.user_id,u.user_name,u.nick_name,
+            EXISTS(SELECT 1 FROM hf_project_member m WHERE m.project_id=:project
+                AND m.user_id=u.user_id AND m.status='0') AS already_member
+            FROM sys_user u WHERE """ + conditions + ' ORDER BY u.user_name,u.user_id LIMIT :limit OFFSET :offset'), params)).mappings().all()
+        return rows, total
+
+    @staticmethod
     async def roles(db):
         return (await db.scalars(select(HfProjectRole).order_by(HfProjectRole.role_id))).all()
 

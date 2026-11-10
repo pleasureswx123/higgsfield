@@ -80,6 +80,7 @@ class WorkspaceService:
         return {
             'userId': str(member.user_id),
             'displayName': (user['nick_name'] or user['user_name']) if user else '已删除用户',
+            'userName': user['user_name'] if user else None,
             'roleId': str(member.role_id),
             'status': 'active' if member.status == '0' else 'removed',
             'revision': str(member.revision),
@@ -121,13 +122,26 @@ class WorkspaceService:
     async def candidate(cls, db, user, project_id, account):
         await cls.authorize(db, user, project_id, 'member:manage', write=True)
         candidate = await WorkspaceDao.find_user(db, account.strip())
+        if candidate:
+            eligible, _ = await WorkspaceDao.eligible_users(db, project_id, user_id=candidate["user_id"])
+            if not eligible:
+                candidate = None
         return {
             'items': [
-                {'userId': str(candidate['user_id']), 'displayName': candidate['nick_name'] or candidate['user_name']}
+                {'userId': str(candidate['user_id']), 'displayName': candidate['nick_name'] or candidate['user_name'], 'userName': candidate['user_name']}
             ]
             if candidate
             else []
         }
+
+    @classmethod
+    async def candidate_page(cls, db, user, project_id, keyword, page, size):
+        await cls.authorize(db, user, project_id, 'member:manage', write=True)
+        rows, total = await WorkspaceDao.eligible_users(db, project_id, keyword.strip(), page, size)
+        return PageModel(rows=[{'userId': str(row['user_id']),
+            'displayName': row['nick_name'] or row['user_name'], 'userName': row['user_name'],
+            'alreadyMember': row['already_member']} for row in rows],
+            total=total, pageNum=page, pageSize=size, hasNext=page*size < total)
 
     @classmethod
     async def grant_member(cls, db, user, project_id, target_id, role_id, actor_role):
@@ -142,6 +156,9 @@ class WorkspaceService:
         target = await WorkspaceDao.user(db, target_id, lock=True)
         if target is None or target['status'] != '0' or target['del_flag'] != '0':
             cls.conflict('USER_UNAVAILABLE', '用户不存在或已停用')
+        eligible, _ = await WorkspaceDao.eligible_users(db, project_id, user_id=target_id)
+        if not eligible:
+            cls.conflict('STUDIO_ACCESS_REQUIRED', '该用户不再是有效的制作平台使用者，请重新选择人员')
         member = await WorkspaceDao.member(db, project_id, target_id)
         if member and member.status == '0':
             cls.conflict('MEMBER_EXISTS', '该用户已经是项目成员')

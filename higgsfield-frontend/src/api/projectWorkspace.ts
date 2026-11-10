@@ -27,6 +27,7 @@ export interface Brief {
 export interface Member {
   userId: string
   displayName: string
+  userName?: string | null
   roleId: string
   status: 'active' | 'removed'
   revision: string
@@ -41,8 +42,10 @@ export interface ProjectRole {
   isCurrentRole?: boolean
 }
 export interface Candidate {
+  alreadyMember?: boolean
   userId: string
   displayName: string
+  userName?: string | null
 }
 interface Result<T> {
   code: number
@@ -96,3 +99,8 @@ export const removeMember = (id: string, member: Member, key: string) =>
 
 export const transferOwnership = (id: string, data: { userId: string; revision: string; targetRevision: string }, key: string) =>
   request<Result<{ projectId: string; ownerUserId: string }>>({ url: `${root(id)}/ownership`, method: 'PUT', data, headers: { 'Idempotency-Key': key } })
+
+export const readMemberCandidates = (id: string, keyword: string, pageNum: number) =>
+  request<{ code: number; rows: Candidate[]; total: number; hasNext: boolean }>({
+    url: `${root(id)}/member-candidates`, params: { keyword, pageNum, pageSize: 20 },
+  })

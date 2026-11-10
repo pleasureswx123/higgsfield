@@ -10,7 +10,7 @@ function setup(api = {}, grant = true) {
   runInNewContext(code, { exports, crypto: require('node:crypto'), require(id) {
     if (id === 'vue') return { ...vue, onBeforeUnmount() {} }
     if (id === '@/stores/auth') return { useAuthStore: () => auth }
-    if (id === './useProjectWorkspace') return { useProjectMembers: () => ({ roles, ownershipRevision: vue.ref('7'), load: async () => {} }) }
+    if (id === './useProjectWorkspace') return { useProjectMembers: () => ({ roles, status: vue.ref('removed'), page: vue.ref(3), ownershipRevision: vue.ref('7'), load: async () => {} }) }
     if (id === 'element-plus') return { ElMessage: { success() {}, error() {} }, ElMessageBox: { confirm: async () => {} } }
     return api
   } })
@@ -18,16 +18,6 @@ function setup(api = {}, grant = true) {
   state.formRef.value = { validate: async () => true }
   return { state, auth, close: () => scope.stop() }
 }
-test('修改查询账号后忽略旧候选响应', async () => {
-  let resolve
-  const c = setup({ findCandidate: () => new Promise(done => { resolve = done }) })
-  c.state.account.value = 'first'
-  const request = c.state.lookup()
-  c.state.account.value = 'second'
-  resolve({ data: { items: [{ userId: '1' }] } }); await request
-  assert.equal(c.state.candidate.value, undefined)
-  c.close()
-})
 test('添加失败重试保留幂等键并提交选定角色', async () => {
   const calls = []
   const c = setup({ addMember: async (...args) => { calls.push(args); if (calls.length === 1) throw Error('网络错误') } })
@@ -38,6 +28,8 @@ test('添加失败重试保留幂等键并提交选定角色', async () => {
   assert.equal(calls[0][2], calls[1][2])
   assert.equal(calls[0][1].roleId, '2')
   assert.equal(calls[0][1].userId, '104')
+  assert.equal(c.state.status.value, 'active')
+  assert.equal(c.state.page.value, 1)
   c.close()
 })
 test('无管理权限不提交角色变更，切换账号清除候选', async () => {
@@ -62,5 +54,24 @@ test('Owner转让提交双版本且不能直接转让给Owner', async () => {
   assert.equal(calls.length, 1)
   assert.equal(calls[0][1].revision, '7')
   assert.equal(calls[0][1].targetRevision, '3')
+  c.close()
+})
+
+test('已加入候选不能再次添加', async () => {
+  let calls = 0
+  const c = setup({ addMember: async () => { calls++ } })
+  c.state.candidate.value = { userId: '104', alreadyMember: true }
+  await c.state.add()
+  assert.equal(calls, 0)
+  c.close()
+})
+
+test('管理权限撤销时关闭添加窗口并清除候选', async () => {
+  const c = setup()
+  c.state.open.value = true
+  c.state.candidate.value = { userId: '104' }
+  c.state.roles.value = []
+  assert.equal(c.state.open.value, false)
+  assert.equal(c.state.candidate.value, undefined)
   c.close()
 })

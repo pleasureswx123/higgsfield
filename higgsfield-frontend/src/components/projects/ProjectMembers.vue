@@ -1,17 +1,42 @@
 <script setup lang="ts">
+import { computed, ref, watch } from 'vue'
+import { useAuthStore } from '@/stores/auth'
+import type { Member, ProjectRole } from '@/api/projectWorkspace'
+import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem } from '@/components/ui/dropdown-menu'
+import MemberPicker from './MemberPicker.vue'
 import StudioSelect from '@/components/ui/StudioSelect.vue'
 import StudioPagination from '@/components/ui/StudioPagination.vue'
-import { ElDialog, ElForm, ElFormItem, ElInput } from 'element-plus'
+import { ElDialog, ElForm, ElFormItem, ElSelect, ElOption } from 'element-plus'
 import { useMemberManagement } from '@/composables/useMemberManagement'
 import { formatProjectDate } from '@/utils/projects'
 import Button from '@/components/ui/Button.vue'
 const props = defineProps<{ projectId: string }>()
 const emit = defineEmits<{ changed: [] }>()
 const { members, roles, total, page, status, loading, error, load, changeStatus, changePage,
-  grantable, canManage, open, pending, searching, dialogError, account, roleId, candidate, formRef,
-  isOwner, canEditMember, transfer, startAdd, lookup, add, modify } = useMemberManagement(props.projectId, () => emit('changed'))
+  grantable, canManage, open, pending, dialogError, roleId, candidate, formRef,
+  isOwner, canEditMember, transfer, startAdd, add, modify } = useMemberManagement(props.projectId, () => emit('changed'))
+const auth = useAuthStore()
+const editingMember = ref<Member>()
+const editOpen = ref(false), selectedRole = ref('')
+const roleName = (role?: ProjectRole) => role?.code === 'owner' ? '项目所有者' : role?.name || '未知角色'
+const roleOptions = computed(() => grantable.value.map(role => ({ value: role.id, label: roleName(role) })))
+const roleHint = (id: string) => {
+  const role = roles.value.find(item => item.id === id)
+  return role?.code === 'admin' ? '负责项目管理，可管理制作人和查看者。' : role?.code === 'producer' ? '参与项目制作，具体操作权限见“角色和权限”。' : role?.code === 'viewer' ? '查看项目内容，具体操作权限见“角色和权限”。' : ''
+}
+function editRole(member: Member) {
+  editingMember.value = member
+  selectedRole.value = member.roleId
+  editOpen.value = true
+}
+async function saveRole() {
+  if (!editingMember.value || !canEditMember(editingMember.value) || !grantable.value.some(role => role.id === selectedRole.value)) return
+  if (await modify(editingMember.value, selectedRole.value, true)) editOpen.value = false
+}
+watch(() => auth.token, () => { editOpen.value = false; editingMember.value = undefined })
+watch(canManage, value => { if (!value) editOpen.value = false })
 const rules = {
-  account: [{ required: true, whitespace: true, message: '请输入完整登录账号', trigger: 'blur' }],
+  candidate: [{ required: true, message: '请选择人员', trigger: 'change' }],
   roleId: [{ required: true, message: '请选择项目角色', trigger: 'change' }],
 }
 </script>
@@ -19,17 +44,17 @@ const rules = {
   <section class="members-panel">
     <div class="workspace-section-heading">
       <h2>
-        成员 <span class="muted">{{ total }}</span>
+        项目成员
       </h2>
       <Button v-if="canManage" :disabled="pending" @click="startAdd">添加成员</Button>
     </div>
-    <p class="muted">创建者自动成为唯一 Owner，拥有本项目全部业务权限；Owner 可转让所有权，负责人可管理制作人和查看者。</p>
+
     <div class="member-status-tabs">
       <button :class="{ active: status === 'active' }" @click="changeStatus('active')">
-        当前成员
+        当前成员 <span v-if="status === 'active' && !loading">{{ total }}</span>
       </button>
       <button :class="{ active: status === 'removed' }" @click="changeStatus('removed')">
-        已移除
+        已移除 <span v-if="status === 'removed' && !loading">{{ total }}</span>
       </button>
     </div>
     <div v-if="error" class="project-error" role="alert">
@@ -41,7 +66,7 @@ const rules = {
         <thead>
           <tr>
             <th>成员</th>
-            <th>角色</th>
+            <th>项目角色</th>
             <th>加入时间</th>
             <th v-if="canManage && status === 'active'">操作</th>
           </tr>
@@ -52,22 +77,31 @@ const rules = {
               <div class="member-identity">
                 <span class="member-avatar">{{ member.displayName.slice(0, 1) }}</span>
                 <div>
-                  <strong>{{ member.displayName }}</strong
-                  ><small>用户编号 {{ member.userId }}</small>
+                  <strong>{{ member.displayName }}</strong><span v-if="String(auth.user?.user.userId) === member.userId" class="member-self">我</span>
+                  <small>{{ member.userName || '账号不可用' }}</small>
                 </div>
               </div>
             </td>
             <td>
-              <StudioSelect v-if="canEditMember(member) && status === 'active'" :model-value="member.roleId" :disabled="pending" aria-label="项目角色" style="width: 130px" @change="value => modify(member, value)" :options="[...grantable.map(role => ({ value: role.id, label: role.name }))]" />
-              <span v-else class="role-pill">{{
-                roles.find((r) => r.id === member.roleId)?.name || '未知角色'
-              }}</span>
+              <span class="role-pill">{{ roleName(roles.find(role => role.id === member.roleId)) }}</span>
             </td>
             <td class="muted">{{ formatProjectDate(member.joinedAt) }}</td>
-            <td v-if="canManage && status === 'active'"><Button v-if="canEditMember(member)" variant="ghost" :disabled="pending" @click="modify(member)">移除</Button><Button v-if="isOwner && canEditMember(member)" variant="ghost" :disabled="pending" @click="transfer(member)">转让所有权</Button></td>
+            <td v-if="canManage && status === 'active'">
+              <div v-if="canEditMember(member)" class="member-actions">
+                <Button variant="ghost" :disabled="pending" @click="editRole(member)">修改角色</Button>
+                <DropdownMenu>
+                  <DropdownMenuTrigger as-child><Button variant="ghost" :disabled="pending" :aria-label="`${member.displayName}的更多操作`">更多</Button></DropdownMenuTrigger>
+                  <DropdownMenuContent align="end">
+                    <DropdownMenuItem @select="modify(member)">移除成员</DropdownMenuItem>
+                    <DropdownMenuItem v-if="isOwner" @select="transfer(member)">转让所有权</DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              </div>
+              <span v-else class="muted">—</span>
+            </td>
           </tr>
           <tr v-if="!members.length">
-            <td :colspan="canManage && status === 'active' ? 4 : 3" class="muted">暂无成员</td>
+            <td :colspan="canManage && status === 'active' ? 4 : 3" class="muted member-empty">{{ status === 'removed' ? '暂无已移除成员' : '暂无当前成员' }}</td>
           </tr>
         </tbody>
       </table>
@@ -80,24 +114,46 @@ const rules = {
       layout="prev,pager,next"
       @current-change="changePage"
     />
-    <ElDialog v-model="open" title="添加项目成员" width="480px" :close-on-click-modal="false" :close-on-press-escape="!pending" :show-close="!pending">
-      <ElForm ref="formRef" :model="{ account, roleId }" :rules="rules" label-position="top" :disabled="pending" @submit.prevent>
-        <ElFormItem label="登录账号" prop="account">
-          <ElInput v-model="account" placeholder="例如 hf_test_maker_a" @keyup.enter="lookup">
-            <template #append><button type="button" :disabled="searching || pending || !account.trim()" @click="lookup">{{ searching ? '查找中…' : '查找' }}</button></template>
-          </ElInput>
+    <ElDialog v-model="open" destroy-on-close title="添加项目成员" width="480px" :close-on-click-modal="false" :close-on-press-escape="!pending" :show-close="!pending">
+      <ElForm ref="formRef" :model="{ candidate, roleId }" :rules="rules" label-position="top" :disabled="pending" @submit.prevent>
+        <ElFormItem label="1. 选择人员" prop="candidate">
+          <MemberPicker v-model="candidate" :project-id="projectId" :disabled="pending" />
         </ElFormItem>
-        <p v-if="candidate">已找到：{{ candidate.displayName }}（用户编号 {{ candidate.userId }}）</p>
-        <ElFormItem label="项目角色" prop="roleId">
-          <StudioSelect v-model="roleId" placeholder="选择项目角色" style="width: 100%" :options="[...grantable.map(role => ({ value: role.id, label: role.name }))]" />
+        <ElFormItem label="2. 选择项目角色" prop="roleId">
+          <ElSelect v-model="roleId" placeholder="选择项目角色" style="width:100%" :disabled="!candidate || pending">
+            <ElOption v-for="option in roleOptions" :key="option.value" :value="option.value" :label="option.label" />
+          </ElSelect>
         </ElFormItem>
-        <p class="muted">负责人管理成员和项目；制作成员参与制作；只读成员浏览项目。已移除的成员可在此重新添加。</p>
+        <p v-if="roleHint(roleId)" class="muted role-help">{{ roleHint(roleId) }}</p>
         <p v-if="dialogError" class="project-error" role="alert">{{ dialogError }}</p>
       </ElForm>
       <template #footer>
         <Button variant="ghost" :disabled="pending" @click="open = false">取消</Button>
-        <Button :disabled="pending || searching || !candidate" @click="add">{{ pending ? '添加中…' : '添加成员' }}</Button>
+        <Button :disabled="pending || !candidate || !roleId" @click="add">{{ pending ? '添加中…' : '添加成员' }}</Button>
+      </template>
+    </ElDialog>
+    <ElDialog v-model="editOpen" title="修改项目角色" width="480px" :close-on-click-modal="false" :close-on-press-escape="!pending" :show-close="!pending">
+      <div class="member-candidate"><strong>{{ editingMember?.displayName }}</strong><small>{{ editingMember?.userName }}</small></div>
+      <p class="muted">当前角色：{{ roleName(roles.find(role => role.id === editingMember?.roleId)) }}</p>
+      <StudioSelect v-model="selectedRole" aria-label="新的项目角色" :options="roleOptions" :disabled="pending" style="width:100%" />
+      <p v-if="roleHint(selectedRole)" class="muted role-help">{{ roleHint(selectedRole) }}</p>
+      <template #footer>
+        <Button variant="ghost" :disabled="pending" @click="editOpen = false">取消</Button>
+        <Button :disabled="pending || !selectedRole || selectedRole === editingMember?.roleId" @click="saveRole">{{ pending ? '保存中…' : '保存角色' }}</Button>
       </template>
     </ElDialog>
   </section>
 </template>
+<style scoped>
+.member-status-tabs { margin:20px 0 0; }
+.member-status-tabs button span { margin-left:6px; color:var(--muted-foreground); }
+.member-self { display:inline-block; margin-left:8px; font-size:11px; color:var(--muted-foreground); }
+.member-actions { display:flex; align-items:center; gap:4px; white-space:nowrap; }
+.member-actions button { padding:6px 8px; }
+.member-candidate { display:flex; flex-direction:column; gap:6px; padding:14px 16px; border:1px solid var(--border); border-radius:10px; background:var(--surface); margin:0 0 18px; }
+.member-candidate small { color:var(--muted-foreground); }
+.member-empty { text-align:center; padding:32px; }
+.role-help { line-height:1.7; font-size:13px; }
+.member-table td { vertical-align:middle; }
+.member-table th:last-child { min-width:160px; }
+</style>

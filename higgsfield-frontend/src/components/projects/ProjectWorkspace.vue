@@ -59,7 +59,11 @@ const tab = ref<
           ? 'folders'
           : useRoute().query.tab === 'creation'
             ? 'creation'
-            : 'brief',
+            : useRoute().query.tab === 'members'
+              ? 'members'
+              : useRoute().query.tab === 'permissions'
+                ? 'permissions'
+                : 'brief',
   ),
   editing = ref(false)
 const hasDescription = computed(() => !!brief.value && hasBriefText(brief.value.body))

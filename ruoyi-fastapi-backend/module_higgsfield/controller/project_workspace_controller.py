@@ -57,15 +57,20 @@ async def roles(request: Request, project_id: ProjectId, db: Db, user: User):
     return ResponseUtil.success(data=await WorkspaceService.roles(db, user, project_id))
 
 
-@project_workspace_controller.get('/{project_id}/member-candidates', summary='精确账号查找可添加成员')
+@project_workspace_controller.get('/{project_id}/member-candidates', summary='查询可添加的制作平台使用者')
 async def candidates(
     request: Request,
     project_id: ProjectId,
     db: Db,
     user: User,
-    account: Annotated[str, Query(min_length=1, max_length=30)],
+    account: Annotated[str | None, Query(min_length=1, max_length=30)] = None,
+    keyword: Annotated[str, Query(max_length=100)] = "",
+    pageNum: Annotated[int, Query(ge=1)] = 1,
+    pageSize: Annotated[int, Query(ge=1, le=100)] = 20,
 ):
-    return ResponseUtil.success(data=await WorkspaceService.candidate(db, user, project_id, account))
+    if account is not None:
+        return ResponseUtil.success(data=await WorkspaceService.candidate(db, user, project_id, account))
+    return ResponseUtil.success(model_content=await WorkspaceService.candidate_page(db, user, project_id, keyword, pageNum, pageSize))
 
 
 @project_workspace_controller.post('/{project_id}/members', summary='添加或恢复项目成员')
