@@ -485,7 +485,7 @@ defineExpose({ includeDescendants })
         <DialogHeading :title-id="titleId" :title-class="titleClass" :title="selected?.name || '素材预览'" />
       </template>
       <div class="asset-preview-layout">
-        <section class="asset-preview-main" aria-label="素材预览区">
+        <section class="asset-preview-main" :class="{ 'asset-preview-main--image': selected?.mediaType === 'image' }" aria-label="素材预览区">
           <div ref="commentCanvasHost" class="asset-preview-stage" style="position:relative">
       <p v-if="mediaLoading" role="status">
         正在授权读取 {{ size(loadedBytes) }} /

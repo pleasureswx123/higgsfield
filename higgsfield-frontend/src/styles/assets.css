@@ -251,6 +251,9 @@
 .asset-preview-stage > .asset-document-text { width: 100%; max-height: none; }
 .asset-preview-stage > [role='alert'], .asset-preview-stage > [role='status'] { z-index: 1; padding: 12px; background: var(--surface); border-radius: 12px; }
 .asset-preview-tools { display: flex; justify-content: flex-end; align-items: center; gap: 8px; flex-shrink: 0; padding: 12px; }
+/* 图片使用完整预览区域，工具条悬浮显示，不挤占图片高度。 */
+.asset-preview-main--image { position: relative; }
+.asset-preview-main--image > .asset-preview-tools { position: absolute; z-index: 2; right: 16px; bottom: 16px; max-width: calc(100% - 32px); padding: 6px 8px; border: 1px solid var(--border); border-radius: 12px; background: color-mix(in srgb, var(--surface) 92%, transparent); backdrop-filter: blur(12px); box-shadow: 0 4px 16px #0002; }
 .asset-preview-status { display: flex; align-items: center; gap: 6px; font-size: 13px; }
 .asset-preview-sidebar { display: flex; flex-direction: column; min-height: 0; min-width: 0; padding: 72px 10px 10px; background: var(--comment-sidebar-surface); border: 1px solid var(--border); border-radius: 24px; }
 .asset-preview-tabs { display: flex; flex-shrink: 0; gap: 4px; padding: 4px; border-radius: 12px; background: var(--comment-card-surface); margin-bottom: 8px; }
