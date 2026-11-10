@@ -42,7 +42,7 @@ export function useMemberManagement(projectId: string, changed: () => void = () 
       lastPayload = ''; mutationKey = ''
       open.value = false
       ElMessage.success(action === 'transfer' ? '所有权已转让，你已成为项目负责人' : action === 'add' ? '成员已添加' : action === 'role' ? '角色已更新' : '成员已移除')
-      if (action === 'add') { list.status.value = 'active'; list.page.value = 1 }
+      if (action === 'add') list.page.value = 1
       await list.load()
       changed()
       return true

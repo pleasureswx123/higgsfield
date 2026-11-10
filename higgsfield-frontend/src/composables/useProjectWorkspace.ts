@@ -208,8 +208,7 @@ export function useProjectMembers(id: string) {
     roles = ref<ProjectRole[]>([]),
     total = ref(0),
     page = ref(1)
-  const status = ref<'active' | 'removed'>('active'),
-    loading = ref(false),
+  const loading = ref(false),
     error = ref('')
   let sequence = 0,
     alive = true,
@@ -231,7 +230,6 @@ export function useProjectMembers(id: string) {
     const current = new AbortController()
     controller = current
     const ticket = ++sequence
-    const requestedStatus = status.value
     let requestedPage = page.value
     loading.value = true
     error.value = ''
@@ -240,7 +238,7 @@ export function useProjectMembers(id: string) {
     total.value = 0
     try {
       const [firstList, roleList] = await Promise.all([
-        readMembers(id, requestedPage, requestedStatus, current.signal),
+        readMembers(id, requestedPage, 'active', current.signal),
         readRoles(id, current.signal),
       ])
       if (!alive || ticket !== sequence || current.signal.aborted) return
@@ -250,7 +248,7 @@ export function useProjectMembers(id: string) {
         requestedPage = Math.max(1, Math.ceil(list.total / 20))
         page.value = requestedPage
         if (list.total === 0) break
-        list = await readMembers(id, requestedPage, requestedStatus, current.signal)
+        list = await readMembers(id, requestedPage, 'active', current.signal)
         if (!alive || ticket !== sequence || current.signal.aborted) return
       }
       members.value = list.rows
@@ -266,11 +264,6 @@ export function useProjectMembers(id: string) {
     } finally {
       if (alive && ticket === sequence) loading.value = false
     }
-  }
-  function changeStatus(value: 'active' | 'removed') {
-    status.value = value
-    page.value = 1
-    void load()
   }
   function changePage(value: number) {
     if (!Number.isSafeInteger(value) || value < 1 || value === page.value) return
@@ -292,5 +285,5 @@ export function useProjectMembers(id: string) {
     alive = false
     clear()
   })
-  return { ownershipRevision, members, roles, total, page, status, loading, error, load, changeStatus, changePage }
+  return { ownershipRevision, members, roles, total, page, loading, error, load, changePage }
 }

@@ -12,7 +12,7 @@ import { formatProjectDate } from '@/utils/projects'
 import Button from '@/components/ui/Button.vue'
 const props = defineProps<{ projectId: string }>()
 const emit = defineEmits<{ changed: [] }>()
-const { members, roles, total, page, status, loading, error, load, changeStatus, changePage,
+const { members, roles, total, page, loading, error, load, changePage,
   grantable, canManage, open, pending, dialogError, roleId, candidate, formRef,
   isOwner, canEditMember, transfer, startAdd, add, modify } = useMemberManagement(props.projectId, () => emit('changed'))
 const auth = useAuthStore()
@@ -41,18 +41,11 @@ const rules = {
     <div class="workspace-section-heading">
       <h2>
         项目成员
+        <span v-if="!loading && !error" class="member-count">{{ total }} 人</span>
       </h2>
       <Button v-if="canManage" :disabled="pending" @click="startAdd">添加成员</Button>
     </div>
 
-    <div class="member-status-tabs">
-      <button :class="{ active: status === 'active' }" @click="changeStatus('active')">
-        当前成员 <span v-if="status === 'active' && !loading">{{ total }}</span>
-      </button>
-      <button :class="{ active: status === 'removed' }" @click="changeStatus('removed')">
-        已移除 <span v-if="status === 'removed' && !loading">{{ total }}</span>
-      </button>
-    </div>
     <div v-if="error" class="project-error" role="alert">
       {{ error }} <Button variant="ghost" @click="load">重新加载</Button>
     </div>
@@ -64,7 +57,7 @@ const rules = {
             <th>成员</th>
             <th>项目角色</th>
             <th>加入时间</th>
-            <th v-if="canManage && status === 'active'">操作</th>
+            <th v-if="canManage">操作</th>
           </tr>
         </thead>
         <tbody>
@@ -82,7 +75,7 @@ const rules = {
               <span class="role-pill">{{ roleName(roles.find(role => role.id === member.roleId)) }}</span>
             </td>
             <td class="muted">{{ formatProjectDate(member.joinedAt) }}</td>
-            <td v-if="canManage && status === 'active'">
+            <td v-if="canManage">
               <div v-if="canEditMember(member)" class="member-actions">
                 <Button variant="ghost" :disabled="pending" @click="editRole(member)">修改角色</Button>
                 <DropdownMenu>
@@ -97,7 +90,7 @@ const rules = {
             </td>
           </tr>
           <tr v-if="!members.length">
-            <td :colspan="canManage && status === 'active' ? 4 : 3" class="muted member-empty">{{ status === 'removed' ? '暂无已移除成员' : '暂无当前成员' }}</td>
+            <td :colspan="canManage ? 4 : 3" class="muted member-empty">暂无当前成员</td>
           </tr>
         </tbody>
       </table>
@@ -139,8 +132,8 @@ const rules = {
   </section>
 </template>
 <style scoped>
-.member-status-tabs { margin:20px 0 0; }
-.member-status-tabs button span { margin-left:6px; color:var(--muted-foreground); }
+.workspace-section-heading h2 { display:flex; align-items:center; gap:10px; }
+.member-count { padding:3px 8px; border-radius:999px; background:var(--surface-hover); color:var(--muted-foreground); font-size:12px; line-height:18px; font-weight:400; white-space:nowrap; }
 .member-self { display:inline-block; margin-left:8px; font-size:11px; color:var(--muted-foreground); }
 .member-actions { display:flex; align-items:center; gap:4px; white-space:nowrap; }
 .member-actions button { padding:6px 8px; }

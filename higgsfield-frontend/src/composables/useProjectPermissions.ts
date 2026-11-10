@@ -24,7 +24,7 @@ export function useProjectPermissions(id: string, changed: () => void) {
     loading.value = true; error.value = ''
     try {
       const result = await readProjectPermissions(id, current.signal)
-      if (alive && !current.signal.aborted) apply(result.data)
+      if (alive && !current.signal.aborted) { apply(result.data); notice.value = '' }
     } catch (cause) { if (!current.signal.aborted) error.value = cause instanceof Error ? cause.message : '加载失败' }
     finally { if (!current.signal.aborted) loading.value = false }
   }
@@ -34,7 +34,7 @@ export function useProjectPermissions(id: string, changed: () => void) {
       if (role.code === 'owner') continue
       for (const row of matrix.value.rows.filter(row => row.editable)) draft.value[role.code]![row.code] = role.defaults[row.code] ?? 'none'
     }
-    notice.value = '已恢复默认值，点击保存后生效。'
+    notice.value = dirty.value ? '已恢复默认设置，尚未保存' : '当前权限已是默认设置，无需保存'
   }
   function changePermission(role: string, code: string, value: PermissionScope) {
     if (!matrix.value?.canEdit || saving.value) return
@@ -47,7 +47,7 @@ export function useProjectPermissions(id: string, changed: () => void) {
     for (const higher of roles.slice(index + 1)) {
       if (ranks[draft.value[higher]?.[code] ?? 'none'] < ranks[value]) draft.value[higher]![code] = value
     }
-    notice.value = '高级角色已同步继承，点击保存后生效。'
+    notice.value = dirty.value ? '权限已调整，尚未保存' : ''
   }
   async function save() {
     if (!matrix.value?.canEdit || saving.value || !dirty.value) return
