@@ -297,7 +297,13 @@ class AssetService:
         await WorkspaceService.authorize(db, user, project_id, 'asset:read', owner_id=asset.create_user_id)
         if asset.del_flag != '0':
             cls.fail('RESOURCE_NOT_FOUND', '素材不存在或已删除')
-        return await cls.result(db, asset, user=user)
+        result = await cls.result(db, asset, user=user)
+        author = await WorkspaceDao.user(db, asset.create_user_id)
+        result['author'] = {
+            'displayName': (author['nick_name'] or author['user_name'])
+            if author and author['del_flag'] == '0' else '已删除用户',
+        }
+        return result
 
     @classmethod
     async def get_version(cls, db, user, version_id):
@@ -305,9 +311,11 @@ class AssetService:
         version = await AssetDao.version(db, version_id)
         if version is None:
             cls.fail('RESOURCE_NOT_FOUND', '素材版本不存在或无权访问')
-        await cls.get(db, user, version.asset_id)
+        detail = await cls.get(db, user, version.asset_id)
         asset = await AssetDao.asset(db, version.asset_id)
-        return await cls.result(db, asset, version, user=user)
+        result = await cls.result(db, asset, version, user=user)
+        result['author'] = detail.get('author')
+        return result
 
     @classmethod
     async def bind(cls, db, user, payload, key, asset_id=None):

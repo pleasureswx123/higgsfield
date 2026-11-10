@@ -298,40 +298,42 @@
 /* 元素编辑器使用共享布局和主题表面色。 */
 .element-dialog {
   --editor-bg: #f6f6f3; --editor-stage: #e9eae7; --editor-panel: #f0f1ee; --editor-input: #e3e5e1;
-  height: 90dvh; max-height: none; padding: 0 10px; border-radius: 28px; background: var(--editor-bg);
+  height: 84dvh; max-height: none; padding: 0 10px; border-radius: 22px; background: var(--editor-bg);
 }
-.dark .element-dialog { --editor-bg: #1d2022; --editor-stage: #26292b; --editor-panel: #2b2d2e; --editor-input: #363839; }
-.element-dialog > .el-dialog__header { flex: none; margin: 0; padding: 24px 10px; }
-.element-dialog .el-dialog__title { font-size: 20px; font-weight: 600; }
-.element-dialog > .el-dialog__header .el-dialog__headerbtn { top: 18px; right: 18px; width: 40px; height: 40px; border-radius: 50%; background: var(--editor-input); }
+.dark .element-dialog { --editor-bg: #202223; --editor-stage: #27292a; --editor-panel: #292b2c; --editor-input: #353738; }
+.element-dialog > .el-dialog__header { flex: none; margin: 0; padding: 14px 10px; }
+.element-dialog .el-dialog__title { font-size: 14px; font-weight: 600; }
+.element-dialog > .el-dialog__header .el-dialog__headerbtn { top: 12px; right: 16px; width: 32px; height: 32px; border-radius: 50%; background: var(--editor-input); }
 .element-dialog > .el-dialog__body { flex: 1; min-height: 0; display: flex; flex-direction: column; overflow: hidden; }
 .element-dialog > .el-dialog__body > [role='alert'] { flex: none; margin: 4px 12px; }
-.element-dialog > .el-dialog__footer { flex: none; padding: 16px 6px; display: flex; justify-content: flex-end; align-items: center; flex-wrap: wrap; gap: 8px; }
-.element-dialog > .el-dialog__footer .ui-button { min-height: 44px; border-radius: 12px; padding: 10px 20px; }
+.element-dialog > .el-dialog__footer { flex: none; padding: 12px 6px; display: flex; justify-content: flex-end; align-items: center; flex-wrap: wrap; gap: 8px; }
+.element-dialog > .el-dialog__footer .ui-button { min-height: 36px; border-radius: 10px; padding: 7px 16px; font-size: 14px; }
+.element-dialog > .el-dialog__footer .ui-button { background: var(--editor-input); color: var(--foreground); }
 .element-dialog > .el-dialog__footer .ui-button:last-child { background: var(--foreground); color: var(--background); }
-.element-dialog .element-editor-layout { flex: 1; height: auto; grid-template-columns: minmax(0, 1fr) clamp(330px, 28%, 440px); overflow: hidden; border-radius: 20px; }
+.element-dialog .element-editor-layout { flex: 1; height: auto; grid-template-columns: minmax(0, 1fr) clamp(300px, 28%, 360px); overflow: hidden; border-radius: 20px; }
 .element-dialog .element-image-panel { padding: 10px; overflow: hidden; background: var(--editor-stage); border-radius: 0; }
 .element-dialog .element-image-stage { min-height: 0; }
 .element-dialog .element-image-stage img, .element-dialog .element-image-stage video { max-height: 100%; }
 .element-dialog .element-detail-panel { background: var(--editor-panel); border-left: 2px solid var(--editor-bg); }
-.element-dialog .element-fields { padding: 20px; border: 0; }
-.element-fields .el-form-item { margin-bottom: 16px; }
-.element-fields .el-form-item__label { color: var(--foreground); font-size: 14px; font-weight: 600; margin-bottom: 7px; }
-.element-fields .el-input__wrapper, .element-fields .el-select__wrapper { min-height: 48px; border-radius: 16px; background: var(--editor-input); box-shadow: none; padding: 0 16px; }
-.element-fields .el-input__inner, .element-fields .el-select__selected-item { font-size: 16px; }
-.element-fields .el-textarea__inner { background: var(--editor-input); border-radius: 16px; box-shadow: none; padding: 12px 16px; font-size: 16px; resize: vertical; }
-.element-fields .el-input-group__prepend { background: var(--editor-input); border-radius: 16px 0 0 16px; box-shadow: none; padding: 0 14px; }
-.element-fields .el-input-group--prepend .el-input__wrapper { border-radius: 0 16px 16px 0; padding-left: 0; }
+.element-dialog .element-fields { padding: 16px; border: 0; }
+.element-fields .el-form-item { margin-bottom: 10px; }
+.element-fields .el-form-item__label { height:20px; line-height:20px; padding:0; color: var(--foreground); font-size: 12px; font-weight: 600; margin-bottom: 4px; }
+.element-fields .el-form-item__content { line-height:20px; }
+.element-fields .el-input__wrapper, .element-fields .el-select__wrapper { min-height: 36px; border-radius: 10px; background: var(--editor-input); box-shadow: none; padding: 0 12px; }
+.element-fields .el-input__inner, .element-fields .el-select__selected-item { font-size: 14px; }
+.element-fields .el-textarea__inner { background: var(--editor-input); border-radius: 10px; box-shadow: none; padding: 10px 12px; font-size: 14px; resize: vertical; }
+.element-fields .el-input-group__prepend { background: var(--editor-input); border-radius: 10px 0 0 10px; box-shadow: none; padding: 0 14px; }
+.element-fields .el-input-group--prepend .el-input__wrapper { border-radius: 0 10px 10px 0; padding-left: 0; }
 .element-fields .el-input__wrapper.is-focus, .element-fields .el-select__wrapper.is-focused, .element-fields .el-textarea__inner:focus { box-shadow: 0 0 0 1px var(--focus); }
 .element-fields .is-error .el-input__wrapper { box-shadow: 0 0 0 1px var(--el-color-danger); }
-.element-fields small { line-height: 1.5; margin-top: 5px; }
-.element-properties-heading { border-top: 1px solid var(--border); padding-top: 18px; font-size: 13px; color: var(--muted-foreground); font-weight: 500; }
+.element-fields small { font-size: 12px; line-height: 16px; margin-top: 4px; }
+.element-properties-heading { border-top: 1px solid var(--border); padding-top: 12px; font-size: 13px; color: var(--muted-foreground); font-weight: 500; }
 .element-add-property { color: var(--muted-foreground); }
-.element-preview-toolbar { flex: none; min-height: 78px; display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; gap: 12px; padding: 12px 14px; }
+.element-preview-toolbar { flex: none; min-height: 54px; display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; gap: 8px; padding: 8px 10px; }
 .element-dialog .element-media-strip { grid-column: 2; flex-wrap: nowrap; align-items: center; overflow-x: auto; max-width: min(45vw, 540px); padding: 3px; margin: 0; }
-.element-dialog .element-media-strip > button { width: 68px; height: 40px; flex: none; padding: 0; border: 2px solid transparent; border-radius: 6px; overflow: hidden; background: var(--editor-input); }
+.element-dialog .element-media-strip > button { width: 32px; height: 32px; flex: none; padding: 0; border: 2px solid transparent; border-radius: 6px; overflow: hidden; background: var(--editor-input); }
 .element-dialog .element-media-strip > button.active { border-color: var(--focus); outline: 0; }
-.element-dialog .element-media-strip > button.element-add-media { width: 40px; display: grid; place-items: center; }
+.element-dialog .element-media-strip > button.element-add-media { width: 32px; display: grid; place-items: center; }
 .element-dialog .element-media-actions { margin: 0; flex-wrap: nowrap; justify-content: flex-end; gap: 12px; }
 .element-media-actions > button, .element-media-menu > summary { border: 0; padding: 5px; display: grid; place-items: center; background: transparent; color: var(--foreground); cursor: pointer; border-radius: 8px; }
 .element-media-actions button:hover, .element-media-menu > summary:hover { background: var(--editor-input); }
@@ -429,3 +431,17 @@ button.element-empty-media { border:0; background:transparent; cursor:pointer; }
 .element-view-menu .ui-button { width:100%; min-height:32px; height:32px; padding:6px 10px; justify-content:flex-start; gap:10px; border-radius:7px; font-size:12px; font-weight:400; }
 .element-view-menu .ui-button svg { color:var(--muted-foreground); flex-shrink:0; }
 .element-view-menu [data-orientation="horizontal"] { margin:5px 6px; width:calc(100% - 12px); }
+
+/* 表单提示复用 Tooltip，长说明不挤占字段空间。 */
+.element-field-label { display:inline-flex; align-items:center; gap:6px; }
+.element-field-help { display:inline-flex; align-items:center; justify-content:center; padding:0; width:20px; height:20px; border:0; border-radius:50%; background:transparent; color:var(--muted-foreground); cursor:help; }
+.element-field-help:focus-visible { outline:2px solid var(--focus); outline-offset:2px; }
+.element-field-tooltip { max-width:280px; font-size:12px; line-height:1.6; }
+.element-dialog .element-fields .el-textarea__inner { min-height:72px!important; height:72px; line-height:20px; }
+/* 覆盖通用下拉框的强制底色，保持本弹窗所有表单控件视觉一致。 */
+.element-dialog .element-fields .el-select__wrapper { background:var(--editor-input)!important; }
+/* 保留 Switch 的键盘与无障碍行为，仅收紧本表单开关的尺寸。 */
+.element-fields .element-fictional-switch { width:32px; height:18px; min-width:32px; min-height:18px; padding:0; border:2px solid transparent; box-shadow:none; }
+.element-fields .element-fictional-switch > span { width:14px; height:14px; translate:none; background:#fff; box-shadow:0 1px 3px #0003; }
+.element-fields .element-fictional-switch > span[data-state='checked'] { transform:translateX(14px); }
+.element-fields .element-fictional-switch > span[data-state='unchecked'] { transform:translateX(0); }

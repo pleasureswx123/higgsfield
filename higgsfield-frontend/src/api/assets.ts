@@ -20,6 +20,7 @@ export interface AssetGenerationInfo {
   createTime: string
 }
 export interface Asset {
+  author?: { displayName: string } | null
   generation?: AssetGenerationInfo | null
   commentCount?: number | null
   workStatus?: AssetWorkStatus

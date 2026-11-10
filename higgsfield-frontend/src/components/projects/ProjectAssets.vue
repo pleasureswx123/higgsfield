@@ -497,7 +497,13 @@ defineExpose({ includeDescendants })
       :before-close="closeMediaPreview"
     >
       <template #header="{ titleId, titleClass }">
-        <DialogHeading :title-id="titleId" :title-class="titleClass" :title="selected?.name || '素材预览'" />
+        <div class="asset-preview-author">
+          <span class="asset-preview-author-avatar" aria-hidden="true">{{ selected?.author?.displayName?.slice(0, 1) || '作' }}</span>
+          <div class="asset-preview-author-text">
+            <h2 :id="titleId" :class="titleClass" :title="selected?.author?.displayName">{{ selected?.author?.displayName || '作者信息暂不可用' }}</h2>
+            <span>作者</span>
+          </div>
+        </div>
       </template>
       <div class="asset-preview-layout">
         <section class="asset-preview-main" :class="{ 'asset-preview-main--image': selected?.mediaType === 'image' }" aria-label="素材预览区">

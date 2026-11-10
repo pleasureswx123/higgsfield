@@ -13,12 +13,13 @@ class AssetVersionPreviewTests(unittest.IsolatedAsyncioTestCase):
         asset = SimpleNamespace(asset_id=42, current_version_id=99)
         with patch.object(AssetDao, 'version', AsyncMock(return_value=version)), \
              patch.object(AssetDao, 'asset', AsyncMock(return_value=asset)), \
-             patch.object(AssetService, 'get', AsyncMock()) as authorize, \
+             patch.object(AssetService, 'get', AsyncMock(return_value={'author': {'displayName': '制作人'}})) as authorize, \
              patch.object(AssetService, 'result', AsyncMock(return_value={'currentVersionId': '13'})) as serialize:
             result = await AssetService.get_version(db, user, 13)
             authorize.assert_awaited_once_with(db, user, 42)
-            serialize.assert_awaited_once_with(db, asset, version)
+            serialize.assert_awaited_once_with(db, asset, version, user=user)
             self.assertEqual(result['currentVersionId'], '13')
+            self.assertEqual(result['author']['displayName'], '制作人')
 
     async def test_denied_asset_cannot_preview_version(self):
         with patch.object(AssetDao, 'version', AsyncMock(return_value=SimpleNamespace(asset_id=42))), \

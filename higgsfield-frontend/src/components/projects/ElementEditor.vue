@@ -19,9 +19,14 @@ import {
   IconMaximize,
   IconMinimize,
   IconTrash,
+  IconInfoCircle,
+  IconCategory,
+  IconUserCheck,
+  IconCircleDashed,
 } from '@tabler/icons-vue'
 import Button from '@/components/ui/Button.vue'
 import { Switch } from '@/components/ui/switch'
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
 import DialogHeading from '@/components/shared/DialogHeading.vue'
 import { useElementDownload } from '@/composables/useElementDownload'
 import { useElementEditor } from '@/composables/useElementEditor'
@@ -171,8 +176,8 @@ async function removeSelectedImage() {
   <ElDialog
     :model-value="active"
     :title="elementId ? '元素详情' : '新建元素'"
-    width="min(1600px, 90vw)"
-    top="5dvh"
+    width="min(1280px, calc(100vw - 48px))"
+    top="8dvh"
     class="element-dialog"
     :class="{ 'element-preview-expanded': previewExpanded }"
     :before-close="close"
@@ -335,20 +340,29 @@ async function removeSelectedImage() {
         >
           <ElFormItem label="分类"
             ><ElSelect v-model="fields.category"
+              ><template #prefix><IconCategory :size="18" /></template
               ><ElOption v-for="item in categories" :key="item.value" v-bind="item" /></ElSelect
           ></ElFormItem>
           <ElFormItem v-if="fields.category === 'character'" label="人物性质">
             <div class="flex items-center gap-2">
               <Switch
                 v-model="fields.isFictionalPerson"
+                class="element-fictional-switch"
                 aria-label="虚构人物"
                 :disabled="downloader.pending.value || using || locked || !canEdit"
               />
               <span>{{ fields.isFictionalPerson ? '虚构人物' : '不是虚构人物' }}</span>
+              <TooltipProvider
+                ><Tooltip
+                  ><TooltipTrigger as-child
+                    ><button type="button" class="element-field-help" aria-label="人物性质说明">
+                      <IconInfoCircle :size="15" /></button></TooltipTrigger
+                  ><TooltipContent class="element-field-tooltip"
+                    >人物角色默认开启；动物等非人物角色请关闭。开启后，支持的模型会自动注册人物素材。</TooltipContent
+                  ></Tooltip
+                ></TooltipProvider
+              >
             </div>
-            <small class="muted"
-              >人物角色默认开启；动物等非人物角色请关闭。开启后，支持的模型会自动注册人物素材。</small
-            >
           </ElFormItem>
           <ElFormItem label="名称" prop="name"
             ><ElInput v-model="fields.name" maxlength="200" placeholder="元素名称" /><small
@@ -357,14 +371,41 @@ async function removeSelectedImage() {
             ></ElFormItem
           >
           <ElFormItem label="版本"
-            ><ElInput v-model="fields.label" maxlength="100" placeholder="例如：审核稿"
+            ><template #label
+              ><span class="element-field-label"
+                >版本
+                <TooltipProvider
+                  ><Tooltip
+                    ><TooltipTrigger as-child
+                      ><button type="button" class="element-field-help" aria-label="版本说明">
+                        <IconInfoCircle :size="15" /></button></TooltipTrigger
+                    ><TooltipContent class="element-field-tooltip"
+                      >用于区分元素版本，例如 v1 或审核稿，可不填写。</TooltipContent
+                    ></Tooltip
+                  ></TooltipProvider
+                ></span
+              ></template
+            ><ElInput v-model="fields.label" maxlength="100" placeholder="例如：v1"
           /></ElFormItem>
           <ElFormItem label="元素 ID" prop="alias" :error="aliasError"
+            ><template #label
+              ><span class="element-field-label"
+                >元素 ID
+                <TooltipProvider
+                  ><Tooltip
+                    ><TooltipTrigger as-child
+                      ><button type="button" class="element-field-help" aria-label="元素 ID 说明">
+                        <IconInfoCircle :size="15" /></button></TooltipTrigger
+                    ><TooltipContent class="element-field-tooltip">{{
+                      elementId
+                        ? '修改名称不会自动改写已有别名。'
+                        : '根据名称、分类和版本建议别名；手动修改后保留你的输入。唯一性以保存结果为准。'
+                    }}</TooltipContent></Tooltip
+                  ></TooltipProvider
+                ></span
+              ></template
             ><ElInput v-model="fields.alias" maxlength="100" @input="markAliasManual"
               ><template #prepend>@</template></ElInput
-            ><small v-if="elementId" class="muted">修改名称不会自动改写已有别名。</small>
-            <small v-else class="muted"
-              >根据名称、分类和版本建议别名；手动修改后保留你的输入。唯一性以保存结果为准。</small
             >
             <Button
               v-if="!elementId && aliasManual"
@@ -388,6 +429,7 @@ async function removeSelectedImage() {
               :value-on-clear="null"
               :disabled="!allowed.includes('member:read')"
               placeholder="未分配"
+              ><template #prefix><IconUserCheck :size="18" /></template
               ><ElOption
                 v-if="
                   fields.performerId &&
@@ -403,6 +445,7 @@ async function removeSelectedImage() {
           ></ElFormItem>
           <ElFormItem label="状态"
             ><ElSelect v-model="fields.workStatus" :disabled="!canReview"
+              ><template #prefix><IconCircleDashed :size="18" /></template
               ><ElOption v-for="item in statuses" :key="item.value" v-bind="item" /></ElSelect
           ></ElFormItem>
           <h4 class="element-properties-heading">自定义属性</h4>
