@@ -233,3 +233,18 @@ test('切换项目复用页面仍提示未保存简报，保存中拒绝切换',
   resolve(brief('未保存', '2')); await saving
   assert.equal(await c.hooks.update(next, old), true); c.close()
 })
+
+test('取消说明编辑可继续保留或确认丢弃，不触发保存', async () => {
+  let reject = true, saves = 0
+  const c = setup({ readBrief: async () => brief('原文'), saveBrief: async () => { saves++; return brief('新文') } }, 'useProjectWorkspace', async () => { if (reject) throw new Error('继续编辑') })
+  await c.state.load()
+  c.state.draft.value = body('未保存内容')
+  assert.equal(await c.state.discard(), false)
+  assert.equal(c.state.dirty.value, true)
+  reject = false
+  assert.equal(await c.state.discard(), true)
+  assert.equal(c.state.draft.value.content[0].content[0].text, '原文')
+  assert.equal(c.state.dirty.value, false)
+  assert.equal(saves, 0)
+  c.close()
+})

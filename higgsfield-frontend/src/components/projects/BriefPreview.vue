@@ -16,7 +16,7 @@ function safeHref(node: TextNode) {
 </script>
 <template>
   <div class="brief-preview">
-    <p v-if="!body.content.length" class="muted">尚未填写项目简报。</p>
+    <p v-if="!body.content.length" class="muted">尚未填写项目说明。</p>
     <p v-for="(paragraph, index) in body.content" :key="index">
       <component
         :is="safeHref(node) ? 'a' : 'span'"

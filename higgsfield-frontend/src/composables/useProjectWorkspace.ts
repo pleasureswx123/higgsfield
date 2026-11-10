@@ -89,7 +89,7 @@ export function useProjectWorkspace(id: string) {
     if (saving.value) return
     if (dirty.value) {
       try {
-        await ElMessageBox.confirm('重新加载会丢弃未保存修改。是否继续？', '重新加载简报', {
+        await ElMessageBox.confirm('重新加载会丢弃未保存修改。是否继续？', '重新加载项目说明', {
           confirmButtonText: '重新加载',
           cancelButtonText: '保留草稿',
         })
@@ -120,7 +120,7 @@ export function useProjectWorkspace(id: string) {
       if (stamp !== epoch || current.signal.aborted) return
       brief.value = result.data
       if (JSON.stringify(draft.value) === JSON.stringify(payload.body)) draft.value = copy(result.data.body)
-      notice.value = dirty.value ? '简报已保存；后续修改尚未保存' : '简报已保存'
+      notice.value = dirty.value ? '项目说明已保存；后续修改尚未保存' : '项目说明已保存'
     } catch (cause) {
       if (stamp !== epoch || current.signal.aborted) return
       if (cause instanceof ApiError && [401, 403].includes(cause.code)) invalidate(true)
@@ -128,6 +128,21 @@ export function useProjectWorkspace(id: string) {
     } finally {
       if (stamp === epoch) saving.value = false
     }
+  }
+  async function discard() {
+    if (saving.value || !brief.value) return false
+    const stamp = epoch
+    if (dirty.value) {
+      try {
+        await ElMessageBox.confirm('未保存的项目说明将被丢弃，已保存内容不变。', '取消编辑', {
+          confirmButtonText: '放弃修改', cancelButtonText: '继续编辑',
+        })
+      } catch { return false }
+    }
+    if (stamp !== epoch || saving.value || !brief.value) return false
+    draft.value = copy(brief.value.body)
+    error.value = ''; notice.value = ''
+    return true
   }
   const unload = (event: BeforeUnloadEvent) => {
     if (dirty.value || saving.value) {
@@ -158,7 +173,7 @@ export function useProjectWorkspace(id: string) {
     if (!dirty.value) return true
     try {
       await ElMessageBox.confirm(
-        '简报尚未保存，请先保存需要保留的内容。是否离开？',
+        '项目说明尚未保存，请先保存需要保留的内容。是否离开？',
         '未保存的修改',
         { confirmButtonText: '离开', cancelButtonText: '继续编辑' },
       )
@@ -183,6 +198,7 @@ export function useProjectWorkspace(id: string) {
     load,
     reload,
     save,
+    discard,
   }
 }
 

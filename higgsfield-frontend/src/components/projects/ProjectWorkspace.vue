@@ -12,6 +12,7 @@ import { IconDotsVertical, IconAdjustmentsHorizontal, IconAt, IconPhotoVideo, Ic
 import { useRoute, useRouter } from 'vue-router'
 import { useProjectWorkspace } from '@/composables/useProjectWorkspace'
 import { formatProjectDate } from '@/utils/projects'
+import { hasBriefText } from '@/utils/briefDocument'
 import BriefEditor from './BriefEditor.vue'
 import BriefPreview from './BriefPreview.vue'
 import ProjectMembers from './ProjectMembers.vue'
@@ -38,6 +39,7 @@ const {
   reload,
   load,
   save,
+  discard,
 } = useProjectWorkspace(props.projectId)
 const activity = useGenerationActivity(() => props.projectId, () => Boolean(brief.value?.allowedActions.some(action => ['generation:read', 'generation:create'].includes(action))))
 const canManageProject = computed(() => Boolean(brief.value?.allowedActions.includes('project:manage') && ['active', 'paused'].includes(props.project.status)))
@@ -60,6 +62,14 @@ const tab = ref<
             : 'brief',
   ),
   editing = ref(false)
+const hasDescription = computed(() => !!brief.value && hasBriefText(brief.value.body))
+async function saveDescription() {
+  await save()
+  if (!error.value && !dirty.value) editing.value = false
+}
+async function cancelDescription() {
+  if (await discard()) editing.value = false
+}
 const creation = ref<InstanceType<typeof ProjectCreation>>()
 const permissionEpoch = ref(0)
 function memberChanged() { permissionEpoch.value++; void load() }
@@ -125,7 +135,7 @@ watch(
   <Tabs :model-value="tab" @update:model-value="value => { if (value === 'brief' || value === 'members' || value === 'permissions') tab = value }">
     <div v-show="['brief', 'members', 'permissions'].includes(tab)" class="project-settings-toolbar">
     <TabsList class="workspace-tabs studio-tabs studio-pill-tabs" aria-label="项目设置子导航">
-      <TabsTrigger value="brief">项目简报 <span v-if="dirty">·</span></TabsTrigger>
+      <TabsTrigger value="brief">项目说明 <span v-if="dirty">·</span></TabsTrigger>
       <TabsTrigger v-if="canReadMembers" value="members">项目成员</TabsTrigger>
       <TabsTrigger v-if="canReadMembers" value="permissions">角色和权限</TabsTrigger>
     </TabsList>
@@ -148,27 +158,33 @@ watch(
     <p v-if="dirty" class="muted">未保存正文仍保留在编辑区，请先复制需要保留的内容。</p>
   </div>
   <TabsContent v-if="brief" v-show="tab === 'brief'" value="brief" force-mount class="project-brief-panel">
-    <div class="workspace-section-heading">
+    <div class="workspace-section-heading description-heading">
       <div>
-        <h2>项目简报</h2>
-        <p class="muted">
-          更新于 {{ formatProjectDate(brief.updateTime) }} <span v-if="dirty">· 有未保存修改</span>
-        </p>
+        <h2>项目说明</h2>
+        <p class="muted">记录制作要求，帮助团队统一理解。</p>
+        <p v-if="hasDescription" class="muted">更新于 {{ formatProjectDate(brief.updateTime) }}</p>
       </div>
-      <div class="brief-actions">
-        <Button v-if="canEdit" variant="outline" :disabled="saving" @click="editing = !editing">{{
-          editing ? '预览' : '编辑简报'
-        }}</Button
-        ><Button v-if="canEdit && dirty" :disabled="saving" @click="save">{{
-          saving ? '正在保存…' : '保存简报'
-        }}</Button>
-      </div>
+      <Button v-if="canEdit && hasDescription && !editing" variant="outline" @click="editing = true">编辑说明</Button>
     </div>
-    <p v-if="notice && !dirty" role="status" class="muted">{{ notice }}</p>
-    <BriefEditor v-if="editing" v-model="draft" :disabled="saving || !canEdit" /><BriefPreview
-      v-else
-      :body="draft"
-    />
+    <p v-if="notice && !dirty" role="status" class="description-notice">{{ notice }}</p>
+    <template v-if="editing">
+      <BriefEditor v-model="draft" :disabled="saving || !canEdit" />
+      <div class="description-footer">
+        <span role="status" class="muted">{{ !canEdit ? '当前为只读，无法保存修改' : dirty ? '有未保存修改' : '内容与已保存版本一致' }}</span>
+        <Button variant="outline" :disabled="saving" @click="cancelDescription">取消</Button>
+        <Button v-if="canEdit" :disabled="saving || !dirty" @click="saveDescription">{{ saving ? '正在保存…' : '保存说明' }}</Button>
+      </div>
+    </template>
+    <section v-else-if="!hasDescription" class="description-empty">
+      <IconAdjustmentsHorizontal :size="28" aria-hidden="true" />
+      <h3>让团队了解这个项目</h3>
+      <p>记录制作目标、视觉风格、交付要求和注意事项，方便成员统一理解。</p>
+      <Button v-if="canEdit" @click="editing = true">填写项目说明</Button>
+      <p v-else class="muted">负责人尚未填写项目说明，你可以联系负责人补充。</p>
+    </section>
+    <section v-else class="description-reading" aria-label="项目说明内容">
+      <BriefPreview :body="brief.body" />
+    </section>
   </TabsContent>
   <TabsContent v-show="tab === 'permissions'" value="permissions" force-mount>
   <ProjectPermissions v-if="brief && canReadMembers" v-show="tab === 'permissions'" :key="permissionEpoch" :project-id="projectId" @changed="load()" />
@@ -228,4 +244,18 @@ watch(
 .project-sidebar-menu .nav-link { height:auto; min-height:45px; }
 .project-primary-menu { gap:1px; }
 .project-primary-menu .nav-link { min-height:40px; padding-top:8px; padding-bottom:8px; margin-bottom:0; }
+.description-heading { align-items:flex-start; margin-bottom:20px; }
+.description-heading p { margin:6px 0 0; }
+.description-empty { padding:36px 28px; border:1px dashed var(--border); border-radius:14px; background:var(--surface); }
+.description-empty > svg { color:var(--muted-foreground); margin-bottom:12px; }
+.description-empty h3 { font-size:20px; margin:0 0 12px; }
+.description-empty p { line-height:1.8; max-width:620px; margin:0 0 14px; }
+.description-empty button { margin-top:8px; }
+.description-reading { padding:24px 28px; border:1px solid var(--border); border-radius:14px; background:var(--surface); }
+.description-reading :deep(.brief-preview) { min-height:0; }
+.description-reading :deep(.brief-preview p) { margin-bottom:18px; }
+.description-footer { display:flex; align-items:center; gap:10px; padding:16px 0; flex-wrap:wrap; }
+.description-footer > span { margin-right:auto; font-size:12px; }
+.description-notice { color:var(--foreground); padding:10px 14px; background:var(--surface-hover); border-radius:8px; }
+@media (max-width:640px) { .description-empty, .description-reading { padding:22px 18px; } }
 </style>
