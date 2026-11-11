@@ -154,7 +154,7 @@ async function removeSelectedImage() {
 <template>
   <ElDialog
     :model-value="active"
-    :title="elementId ? '编辑元素' : '新建元素'"
+    :title="elementId ? '元素详情' : '新建元素'"
     width="min(1280px, calc(100vw - 48px))"
     top="8dvh"
     class="element-dialog"
@@ -168,7 +168,7 @@ async function removeSelectedImage() {
       <DialogHeading
         :title-id="titleId"
         :title-class="titleClass"
-        :title="elementId ? '编辑元素' : '新建元素'"
+        :title="elementId ? '元素详情' : '新建元素'"
       />
     </template>
     <p v-if="useError" class="project-error" role="alert">{{ useError }}</p>
@@ -407,7 +407,7 @@ async function removeSelectedImage() {
         variant="ghost"
         :disabled="using || locked"
         @click="close"
-        >取消</Button
+        >{{ canEdit ? '取消' : '关闭' }}</Button
       ><Button
         v-if="canEdit && !uncertain"
         :disabled="using || locked || loading || conflict"

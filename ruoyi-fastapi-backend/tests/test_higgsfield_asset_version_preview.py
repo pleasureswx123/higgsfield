@@ -13,7 +13,7 @@ class AssetVersionPreviewTests(unittest.IsolatedAsyncioTestCase):
         asset = SimpleNamespace(asset_id=42, current_version_id=99)
         with patch.object(AssetDao, 'version', AsyncMock(return_value=version)), \
              patch.object(AssetDao, 'asset', AsyncMock(return_value=asset)), \
-             patch.object(AssetService, 'get', AsyncMock(return_value={'author': {'displayName': '制作人'}})) as authorize, \
+             patch.object(AssetService, 'get', AsyncMock(return_value={'author': {'displayName': '制作人'}, 'allowedActions': ['asset:edit']})) as authorize, \
              patch.object(AssetService, 'result', AsyncMock(return_value={'currentVersionId': '13'})) as serialize:
             result = await AssetService.get_version(db, user, 13)
             authorize.assert_awaited_once_with(db, user, 42)
@@ -21,6 +21,17 @@ class AssetVersionPreviewTests(unittest.IsolatedAsyncioTestCase):
             self.assertEqual(result['currentVersionId'], '13')
             self.assertEqual(result['latestVersionId'], '99')
             self.assertEqual(result['author']['displayName'], '制作人')
+            self.assertEqual(result['allowedActions'], [])
+
+    async def test_current_version_preserves_object_actions(self):
+        version = SimpleNamespace(version_id=99, asset_id=42)
+        asset = SimpleNamespace(asset_id=42, current_version_id=99)
+        with patch.object(AssetDao, 'version', AsyncMock(return_value=version)), \
+             patch.object(AssetDao, 'asset', AsyncMock(return_value=asset)), \
+             patch.object(AssetService, 'get', AsyncMock(return_value={'allowedActions': ['asset:edit']})), \
+             patch.object(AssetService, 'result', AsyncMock(return_value={'currentVersionId': '99'})):
+            result = await AssetService.get_version(object(), object(), 99)
+            self.assertEqual(result['allowedActions'], ['asset:edit'])
 
     async def test_denied_asset_cannot_preview_version(self):
         with patch.object(AssetDao, 'version', AsyncMock(return_value=SimpleNamespace(asset_id=42))), \

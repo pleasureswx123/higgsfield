@@ -72,13 +72,14 @@ const tableWidth = computed(() => 328 + textColumns.value.reduce((sum, column) =
                     <ReferenceThumbnail :version-id="media.assetVersionId" fill passive allow-original :alt="row.name" />
                   </button>
                 </template>
-                <button v-else type="button" class="element-empty-media" :aria-label="`为 ${row.name} 添加素材`" @click="emit('open', row)"><span>＋</span>添加元素图片</button>
+                <button v-else-if="row.media === undefined" type="button" class="element-empty-media" :aria-label="`查看元素素材 ${row.name}`" @click="emit('open', row)"><IconPhoto :size="20" />查看元素素材</button>
+                <button v-else type="button" class="element-empty-media" :aria-label="`查看元素 ${row.name}`" @click="emit('open', row)"><span v-if="row.allowedActions?.includes('element:edit')">＋</span>{{ row.allowedActions?.includes('element:edit') ? '添加元素图片' : '暂无参考素材' }}</button>
               </div>
             </TableCell>
             <TableCell v-for="column in textColumns" :key="column.key" :class="{ 'cursor-pointer': column.key === 'name' }" @click="column.key === 'name' && emit('open', row)">
               <Tooltip v-if="column.value(row)">
                 <TooltipTrigger as-child>
-                  <button v-if="column.key === 'name'" type="button" class="folder-text-button element-cell-text" :aria-label="`编辑元素 ${row.name}`" title="打开元素编辑器" @click.stop="emit('open', row)">{{ column.value(row) }}</button>
+                  <button v-if="column.key === 'name'" type="button" class="folder-text-button element-cell-text" :aria-label="`查看元素 ${row.name}`" title="查看元素详情" @click.stop="emit('open', row)">{{ column.value(row) }}</button>
                   <span v-else class="element-cell-text" tabindex="0">{{ column.value(row) }}</span>
                 </TooltipTrigger>
                 <TooltipContent class="element-cell-tooltip">{{ column.value(row) }}</TooltipContent>

@@ -352,10 +352,26 @@ function moved(ids: string[], summary: string) {
 const deleteCount = computed(() => new Set(rows.value.filter(entry => selection.selected.value.includes(entry.asset.id) && entry.asset.allowedActions?.includes('asset:remove')).map(entry => entry.asset.id)).size)
 const { items, running, enqueue, pause, pauseItem, retry, clearFinished } = useAssetUploads(
   props.projectId,
-  () => {
+  (assetId, versionId) => {
     void refreshContents()
+    // 只更新仍在查看此次上传目标的详情，不打断用户已切换的内容。
+    if (assetId && versionId && selected.value?.id === assetId && selected.value.currentVersionId === previewUploadOrigin.value && props.visible !== false) {
+      void locationRouter.replace({ query: { ...locationRoute.query, asset: undefined, assetVersion: versionId } })
+    }
   },
 )
+const productionBusy = ref(false)
+const previewUploadOrigin = ref<string | null>(null)
+const previewUploads = computed(() => items.filter(item => item.target?.id === selected.value?.id))
+const canUploadPreviewVersion = computed(() => props.canUpload && selected.value?.allowedActions?.includes('asset:edit') && (!selected.value.latestVersionId || selected.value.latestVersionId === selected.value.currentVersionId) && ['none', 'working', 'rejected'].includes(selected.value.workStatus || 'none'))
+async function choosePreviewVersion() {
+  const asset = selected.value
+  if (!asset || !canUploadPreviewVersion.value || productionBusy.value || actionsLocked.value || running.value) return
+  if (comments.value && !(await comments.value.confirmLeave())) return
+  if (selected.value?.currentVersionId !== asset.currentVersionId) return
+  previewUploadOrigin.value = asset.currentVersionId
+  chooseVersionTarget(asset)
+}
 const input = ref<HTMLInputElement>()
 const versionInput = ref<HTMLInputElement>(), versionTarget = ref<Asset | null>(null)
 function chooseVersionTarget(asset: Asset) {
@@ -422,7 +438,7 @@ defineExpose({ includeDescendants })
       />
       <input ref="versionInput" class="asset-file-input" type="file" :accept="assetAccept" aria-label="选择素材新版本" @change="chooseVersion" />
     </header>
-    <AssetUploadPanel v-if="items.length" v-model:open="uploadsOpen" :items="items" :running="running" :can-upload="canUpload" @pause="pause" @pause-item="pauseItem" @retry="retry" @clear="clearFinished" />
+    <AssetUploadPanel v-if="items.length && !selected" v-model:open="uploadsOpen" :items="items" :running="running" :can-upload="canUpload" @pause="pause" @pause-item="pauseItem" @retry="retry" @clear="clearFinished" />
 
     <div v-if="selection.selected.value.length || batchDelete.pending.value" class="asset-toolbar asset-selection-toolbar" :class="{ 'asset-selection-dock': compact }">
       <span class="asset-selection-count"><span v-if="firstSelected" class="asset-selection-thumbnail"><ReferenceThumbnail :version-id="firstSelected.currentVersionId" :alt="firstSelected.name" fill passive /></span><strong>已选 {{ selection.selected.value.length }} 项</strong></span>
@@ -623,7 +639,9 @@ defineExpose({ includeDescendants })
             <button id="asset-preview-comments-tab" role="tab" :aria-selected="previewTab === 'comments'" aria-controls="asset-preview-comments" @click="previewTab = 'comments'"><IconMessageCircle :size="16" />评论</button>
           </div>
           <section v-show="previewTab === 'info'" id="asset-preview-info" class="asset-preview-info" role="tabpanel" aria-labelledby="asset-preview-info-tab">
-            <ProductionPanel v-if="selected" kind="asset" :id="selected.id" :project-id="projectId" :version-id="selected.currentVersionId" :disabled="actionsLocked" @changed="productionChanged" @version="locationRouter.push({ query: { ...locationRoute.query, asset: undefined, assetVersion: $event } })" />
+            <ProductionPanel v-if="selected" kind="asset" :id="selected.id" :project-id="projectId" :version-id="selected.currentVersionId" :disabled="actionsLocked || running" @busy="productionBusy = $event" @changed="productionChanged" @version="locationRouter.push({ query: { ...locationRoute.query, asset: undefined, assetVersion: $event } })" />
+            <Button v-if="canUploadPreviewVersion" variant="outline" :disabled="actionsLocked || running || productionBusy" @click="choosePreviewVersion"><IconUpload :size="18" />上传新版本</Button>
+            <AssetUploadPanel v-if="previewUploads.length" inline v-model:open="uploadsOpen" :items="previewUploads" :running="running" :can-upload="canUpload" @pause="pause" @pause-item="pauseItem" @retry="retry" @clear="clearFinished" />
             <AssetGenerationInfo v-if="selected?.generation" :key="selected.currentVersionId" :info="selected.generation" :file="selected.file" :can-load="canGenerate" />
             <h3>详细信息</h3>
             <dl v-if="selected">

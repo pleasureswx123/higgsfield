@@ -2,7 +2,7 @@
 import { computed, ref } from 'vue'
 import { IconCheck, IconChevronUp, IconChevronDown, IconX } from '@tabler/icons-vue'
 import type { UploadItem } from '@/composables/useAssetUploads'
-const props = defineProps<{ items: UploadItem[]; running: boolean; canUpload: boolean }>()
+const props = defineProps<{ items: UploadItem[]; running: boolean; canUpload: boolean; inline?: boolean }>()
 const open = defineModel<boolean>('open', { required: true })
 const emit = defineEmits<{ pause: []; pauseItem: [item: UploadItem]; retry: [item: UploadItem]; clear: [] }>()
 const collapsed = ref(false)
@@ -19,7 +19,7 @@ function bytes(value: number) {
 </script>
 
 <template>
-  <aside v-if="open" class="upload-popover" aria-label="上传队列">
+  <aside v-if="open" class="upload-popover" :class="{ 'upload-inline': inline }" aria-label="上传队列">
     <header>
       <button type="button" class="upload-panel-title" :aria-expanded="!collapsed" @click="collapsed = !collapsed">
         <IconChevronDown v-if="collapsed" :size="16" /><IconChevronUp v-else :size="16" />上传
@@ -27,7 +27,7 @@ function bytes(value: number) {
       <button type="button" class="upload-panel-close" aria-label="关闭上传队列" @click="open = false"><IconX :size="16" /></button>
     </header>
     <div v-show="!collapsed" class="upload-panel-list">
-      <p class="upload-destination">上传至各文件选择时所在目录</p>
+      <p class="upload-destination">{{ inline ? '新版本保留原素材的历史版本与审核记录' : '上传至各文件选择时所在目录' }}</p>
       <div v-for="item in items" :key="item.id" class="upload-panel-item">
         <span v-if="item.stage === 'done'" class="upload-complete"><IconCheck :size="12" /></span>
         <span v-else class="upload-progress-ring" :class="{ spinning: active(item), failed: item.stage === 'failed' }" :style="{ '--progress': `${item.stage === 'uploading' ? item.progress : 0}%` }" :aria-label="`${item.name} ${stages[item.stage]}`"></span>
@@ -52,6 +52,7 @@ function bytes(value: number) {
 
 <style scoped>
 .upload-popover { position:fixed; z-index:45; top:68px; right:24px; width:min(360px, calc(100vw - 32px)); border:1px solid var(--border); border-radius:20px; background:var(--surface-raised); color:var(--foreground); box-shadow:0 12px 32px #0003; padding:5px; font-size:12px; }
+.upload-popover.upload-inline { position:static; width:100%; box-shadow:none; border-radius:12px; }
 .upload-popover header { display:flex; align-items:center; justify-content:space-between; padding:6px 8px; }
 .upload-popover button { border:0; cursor:pointer; color:inherit; background:var(--surface-hover); border-radius:7px; padding:5px 8px; font-size:12px; white-space:nowrap; }
 .upload-popover .upload-panel-title { display:flex; gap:8px; align-items:center; font-weight:650; font-size:14px; background:transparent; }

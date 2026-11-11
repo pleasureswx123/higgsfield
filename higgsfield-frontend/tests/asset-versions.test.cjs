@@ -8,6 +8,7 @@ const tick = async () => { await vue.nextTick(); await new Promise(resolve => se
 function harness(deferCreate = false) {
   const exports = {}, hooks = {}, bindings = [], creates = [], normal = [], auth = vue.reactive({ token: 'one', user: { permissions: ['asset:create'] } })
   let changed = 0, keys = 0
+  const changes = []
   const api = {
     createUpload: (...args) => { creates.push(args); return deferCreate ? new Promise(resolve => { api.resolveCreate = resolve }) : Promise.resolve({ data: { id: '99' } }) },
     readUpload: async () => ({ data: { id: '99', state: 'ready' } }),
@@ -23,8 +24,8 @@ function harness(deferCreate = false) {
       return api
     },
   })
-  const scope = vue.effectScope(), state = scope.run(() => exports.useAssetUploads('1', () => changed++))
-  return { state, bindings, creates, normal, api, auth, hooks, changed: () => changed, close: () => { hooks.unmount(); scope.stop() } }
+  const scope = vue.effectScope(), state = scope.run(() => exports.useAssetUploads('1', (...args) => { changed++; changes.push(args) }))
+  return { state, bindings, creates, normal, api, auth, hooks, changes, changed: () => changed, close: () => { hooks.unmount(); scope.stop() } }
 }
 test('追加版本冻结目标和修订，绑定失败后重用上传与原幂等键', async () => {
   const h = harness(), asset = { id: '9007199254740993', revision: '7', mediaType: 'image', name: '素材' }
@@ -36,8 +37,9 @@ test('追加版本冻结目标和修订，绑定失败后重用上传与原幂�
   h.state.retry(h.state.items[0]); await tick()
   assert.equal(h.creates.length, 1); assert.equal(h.normal.length, 0)
   assert.equal(h.bindings[1].args[3], h.bindings[0].args[3]); assert.equal(h.bindings[1].args[2], '99')
-  h.bindings[1].resolve({ data: {} }); await tick()
+  h.bindings[1].resolve({ data: { id: 'new-version' } }); await tick()
   assert.equal(h.state.items[0].stage, 'done'); assert.equal(h.changed(), 1)
+  assert.equal(h.changes[0][0], asset.id); assert.equal(h.changes[0][1], 'new-version')
   h.close()
 })
 test('跨类别在上传前拒绝，暂停后的迟到创建响应不会继续绑定', async () => {

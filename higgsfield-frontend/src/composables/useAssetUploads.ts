@@ -23,7 +23,7 @@ export interface UploadItem {
   completeKey: string
   bindKey: string
 }
-export function useAssetUploads(projectId: string, changed: () => void) {
+export function useAssetUploads(projectId: string, changed: (assetId?: string, versionId?: string) => void) {
   const auth = useAuthStore()
   let active = true, alive = true
   const available = () => active && alive && !!auth.token
@@ -142,13 +142,14 @@ export function useAssetUploads(projectId: string, changed: () => void) {
           }
           signal.throwIfAborted()
           item.stage = 'binding'
-          if (item.target) await bindAssetVersion(item.target.id, item.target.revision, item.uploadId, item.bindKey, signal)
+          let versionId: string | undefined
+          if (item.target) versionId = (await bindAssetVersion(item.target.id, item.target.revision, item.uploadId, item.bindKey, signal)).data.id
           else await bindAsset(projectId, item.uploadId, item.name, item.folderId, item.bindKey, signal)
           signal.throwIfAborted()
           item.uploadedBytes = item.file.size
           item.stage = 'done'
           item.progress = 100
-          changed()
+          changed(item.target?.id, versionId)
         } catch (error) {
           item.stage = signal.aborted ? 'paused' : 'failed'
           item.error = signal.aborted

@@ -27,6 +27,18 @@ class AssetService:
 
     fail = WorkspaceService.conflict
 
+    @staticmethod
+    def allowed_actions(project, role, scopes, user, asset):
+        """列表与详情复用对象操作权限；制作责任不扩大删除权限。"""
+        return sorted(
+            code for code in ('asset:edit', 'asset:remove', 'content:review')
+            if project.status == '0' and code in scopes
+            and (scopes[code] == 'project' or (
+                (asset.performer_id or asset.create_user_id) if code == 'asset:edit' else asset.create_user_id
+            ) == user.user.user_id)
+            and (role == 'owner' or '*:*:*' in user.permissions or code in user.permissions)
+        )
+
     @classmethod
     async def document_text(cls, db, user, version_id, storage=None):
         """只返回正文字符串，不解析HTML，也不执行Office内容。"""
@@ -84,16 +96,7 @@ class AssetService:
         for asset, entry in rows:
             result = await cls.result(db, asset)
             result['commentCount'] = comment_counts.get(asset.current_version_id, 0) if can_read_comments else None
-            result['allowedActions'] = sorted(
-                code
-                for code in ('asset:edit', 'asset:remove', 'content:review')
-                if project.status == '0'
-                and code in scopes
-                and (scopes[code] == 'project' or (
-                    (asset.performer_id or asset.create_user_id) if code == 'asset:edit' else asset.create_user_id
-                ) == user.user.user_id)
-                and (role == 'owner' or '*:*:*' in user.permissions or code in user.permissions)
-            )
+            result['allowedActions'] = cls.allowed_actions(project, role, scopes, user, asset)
             items.append(
                 {
                     'id': str(entry.entry_id),
@@ -297,10 +300,12 @@ class AssetService:
         if project_id is None:
             cls.fail('RESOURCE_NOT_FOUND', '素材不存在或无权访问')
         asset = await AssetDao.asset(db, asset_id)
-        await WorkspaceService.authorize(db, user, project_id, 'asset:read', owner_id=asset.create_user_id)
+        project, role, _ = await WorkspaceService.authorize(db, user, project_id, 'asset:read', owner_id=asset.create_user_id)
         if asset.del_flag != '0':
             cls.fail('RESOURCE_NOT_FOUND', '素材不存在或已删除')
         result = await cls.result(db, asset, user=user)
+        scopes = await WorkspaceDao.permission_scopes(db, role, project_id)
+        result['allowedActions'] = cls.allowed_actions(project, role, scopes, user, asset)
         author = await WorkspaceDao.user(db, asset.create_user_id)
         result['author'] = {
             'displayName': (author['nick_name'] or author['user_name'])
@@ -319,6 +324,7 @@ class AssetService:
         result = await cls.result(db, asset, version, user=user)
         result['latestVersionId'] = str(asset.current_version_id)
         result['author'] = detail.get('author')
+        result['allowedActions'] = detail.get('allowedActions', []) if version.version_id == asset.current_version_id else []
         return result
 
     @classmethod

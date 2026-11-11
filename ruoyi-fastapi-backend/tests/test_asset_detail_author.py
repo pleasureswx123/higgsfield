@@ -8,7 +8,8 @@ from module_higgsfield.service.asset_service import AssetService, AssetDao, Work
 
 class AssetDetailAuthorTests(unittest.IsolatedAsyncioTestCase):
     async def test_author_projection_and_fallback(self):
-        asset = SimpleNamespace(create_user_id=31, del_flag='0')
+        asset = SimpleNamespace(create_user_id=31, performer_id=32, del_flag='0')
+        user = SimpleNamespace(user=SimpleNamespace(user_id=32), permissions={'asset:edit', 'asset:remove'})
         for author, name in [
             ({'nick_name': '制作人', 'user_name': 'maker', 'del_flag': '0'}, '制作人'),
             ({'nick_name': '', 'user_name': 'maker', 'del_flag': '0'}, 'maker'),
@@ -18,12 +19,14 @@ class AssetDetailAuthorTests(unittest.IsolatedAsyncioTestCase):
             with self.subTest(name=name), \
                  patch.object(AssetDao, 'project_id', AsyncMock(return_value=2)), \
                  patch.object(AssetDao, 'asset', AsyncMock(return_value=asset)), \
-                 patch.object(WorkspaceService, 'authorize', AsyncMock()), \
+                 patch.object(WorkspaceService, 'authorize', AsyncMock(return_value=(SimpleNamespace(status='0'), 'producer', set()))), \
+                 patch.object(WorkspaceDao, 'permission_scopes', AsyncMock(return_value={'asset:edit': 'own', 'asset:remove': 'own'})), \
                  patch.object(AssetService, 'result', AsyncMock(return_value={'id': '23'})), \
                  patch.object(WorkspaceDao, 'user', AsyncMock(return_value=author)) as lookup:
-                result = await AssetService.get(None, object(), 23)
+                result = await AssetService.get(None, user, 23)
                 lookup.assert_awaited_once_with(None, 31)
                 self.assertEqual(result['author'], {'displayName': name})
+                self.assertEqual(result.get('allowedActions'), ['asset:edit'])
 
     async def test_denied_asset_does_not_read_author(self):
         with patch.object(AssetDao, 'project_id', AsyncMock(return_value=2)), \

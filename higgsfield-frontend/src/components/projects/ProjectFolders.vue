@@ -34,7 +34,7 @@ const props = defineProps<{
   canDownload: boolean
   canGenerate?: boolean
 }>()
-const emit = defineEmits<{ create: []; select: []; reference: [asset: Asset, kind: 'image' | 'video']; selectionChange: [count: number]; emptyChange: [state: { folderId: string | null; empty: boolean }] }>()
+const emit = defineEmits<{ create: []; reference: [asset: Asset, kind: 'image' | 'video']; selectionChange: [count: number]; emptyChange: [state: { folderId: string | null; empty: boolean }] }>()
 const destinationTreeBusy = ref(false)
 const assetRefreshKey = ref(0)
 const assetPanel = ref<InstanceType<typeof ProjectAssets>>()
@@ -88,8 +88,9 @@ const {
   createInDestination,
   transfer,
 } = useFolders(props.projectId, () => props.visible !== false)
-function navigate(path: import('@/api/folders').Folder[]) { emit('select'); navigateFolder(path) }
-function showTrash() { emit('select'); navigateTrash() }
+// 目录和页签在同一次路由跳转中更新，避免页签监听覆盖目标目录。
+function navigate(path: import('@/api/folders').Folder[]) { return navigateFolder(path) }
+function showTrash() { navigateTrash() }
 const personal = useFolderPresentation(expanded, loadTree)
 const orderedRoots = computed(() => personal.arrange(roots.value))
 const orderedChildren = computed(() => Object.fromEntries(Object.entries(children).map(([id, values]) => [id, personal.arrange(values)])))
