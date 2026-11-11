@@ -2,9 +2,10 @@
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { IconX } from '@tabler/icons-vue'
 import type { Annotation, MediaComment } from '@/api/comments'
-import { imagePoint, buildAnnotation, type AnnotationPoint } from '@/utils/commentAnnotation'
+import { imagePoint, buildAnnotation, annotationBounds, type AnnotationPoint } from '@/utils/commentAnnotation'
 const props = defineProps<{
   host: HTMLElement
+  transform?: { scale: number; x: number; y: number }
   width: number
   height: number
   drawing: boolean
@@ -38,17 +39,9 @@ onBeforeUnmount(() => {
   observer?.disconnect()
   props.host.removeEventListener('pointerdown', outside)
 })
-const bounds = computed(() => {
-  const scale = Math.min(rect.value.width / props.width, rect.value.height / props.height)
-  const width = props.width * scale,
-    height = props.height * scale
-  return {
-    left: `${(rect.value.width - width) / 2}px`,
-    top: `${(rect.value.height - height) / 2}px`,
-    width: `${width}px`,
-    height: `${height}px`,
-  }
-})
+const frame = computed(() => annotationBounds(rect.value.width, rect.value.height, props.width, props.height,
+  props.transform?.scale, props.transform?.x, props.transform?.y))
+const bounds = computed(() => ({ left: `${frame.value.left}px`, top: `${frame.value.top}px`, width: `${frame.value.width}px`, height: `${frame.value.height}px` }))
 const draft = computed(() =>
   buildAnnotation(props.tool, points.value, props.color, props.width, props.height),
 )
@@ -70,9 +63,12 @@ const popup = computed(() => {
   const items = annotations.value.length ? annotations.value : selected.value?.annotations || []
   const p = anchor(items)
   const right = Math.max(p.x, ...items.flatMap(item => item.shape === 'path' ? (item.geometry.points as AnnotationPoint[]).map(point => point.x) : [Number(item.geometry.x || 0) + Number(item.geometry.width || 0)]))
+  const f = frame.value
+  const leftLimit = Math.max(0, -f.left) + 8
+  const topLimit = Math.max(0, -f.top) + 8
   return {
-    left: `clamp(8px, ${right * 100}% + 12px, calc(100% - 372px))`,
-    top: `clamp(8px, ${p.y * 100}%, calc(100% - 240px))`,
+    left: `${Math.max(leftLimit, Math.min(right * f.width + 12, Math.min(f.width, rect.value.width - f.left) - 332))}px`,
+    top: `${Math.max(topLimit, Math.min(p.y * f.height, Math.min(f.height, rect.value.height - f.top) - 240))}px`,
   }
 })
 function clear() {
@@ -111,7 +107,7 @@ function path(item: Annotation) {
 </script>
 <template>
   <Teleport :to="host"
-    ><div class="comment-canvas" :style="bounds">
+    ><div class="comment-canvas" :style="bounds" @dblclick.stop @wheel="pointer !== undefined && $event.stopPropagation()">
       <svg
         ref="svg"
         class="comment-drawing"
@@ -174,6 +170,7 @@ function path(item: Annotation) {
         class="comment-canvas-popup"
         :style="popup"
         @pointerdown.stop
+        @wheel.stop
       >
         <slot v-if="annotations.length" name="draft" />
         <template v-else-if="selected"
@@ -233,11 +230,11 @@ function path(item: Annotation) {
 }
 .comment-canvas-popup {
   position: absolute;
-  width: min(360px, calc(100% - 16px));
+  width: min(320px, calc(100% - 16px));
   box-sizing: border-box;
-  padding: 12px 14px;
+  padding: 10px 12px;
   border: 1px solid var(--border);
-  border-radius: 24px;
+  border-radius: 16px;
   background: var(--comment-floating-surface);
   color: var(--foreground);
   box-shadow: 0 8px 20px #0003;
@@ -247,9 +244,9 @@ header {
   display: flex;
   align-items: center;
   gap: 6px;
-  padding: 0 0 8px;
-  font-size: 16px;
-  line-height: 32px;
+  padding: 0 0 6px;
+  font-size: 14px;
+  line-height: 28px;
 }
 header strong {
   margin-right: auto;
@@ -257,8 +254,8 @@ header strong {
 header :deep(button) {
   border: 0;
   border-radius: 50%;
-  width: 32px;
-  height: 32px;
+  width: 28px;
+  height: 28px;
   flex-shrink: 0;
   padding: 0;
   display: grid;
@@ -271,13 +268,13 @@ header :deep(button) {
 
 <style scoped>
 .comment-canvas-popup :deep(.comment-emoji-pop) {bottom:auto;top:calc(100% + 8px)}
-.comment-canvas-popup :deep(.comment-card) {background:transparent;border:0;padding:10px 0 14px;margin:0;gap:12px;font-size:14px;line-height:1.5}
-.comment-canvas-popup :deep(.comment-card-avatar) {width:34px;height:34px;border:1px solid var(--border);background:var(--comment-floating-control);font-size:14px}
-.comment-canvas-popup :deep(.comment-card header) {min-height:26px;gap:5px}
-.comment-canvas-popup :deep(.comment-card header strong) {font-size:14px;font-weight:500;max-width:140px}
+.comment-canvas-popup :deep(.comment-card) {background:transparent;border:0;padding:6px 0 8px;margin:0;gap:8px;font-size:13px;line-height:1.45}
+.comment-canvas-popup :deep(.comment-card-avatar) {width:28px;height:28px;border:1px solid var(--border);background:var(--comment-floating-control);font-size:12px}
+.comment-canvas-popup :deep(.comment-card header) {min-height:20px;gap:5px}
+.comment-canvas-popup :deep(.comment-card header strong) {font-size:12px;font-weight:500;max-width:125px}
 .comment-canvas-popup :deep(.comment-card time) {font-size:11px}
-.comment-canvas-popup :deep(.comment-card-body) {margin:5px 0 8px}
+.comment-canvas-popup :deep(.comment-card-body) {margin:3px 0 4px}
 .comment-canvas-popup :deep(.comment-card-reactions button) {padding:2px 9px;min-height:25px;border-radius:8px;font-size:13px;line-height:18px}
 .comment-canvas-popup :deep(.comment-card-body svg) {padding:2px;box-sizing:content-box;background:#358cff20;border-radius:5px}
-.comment-canvas-popup :deep(.comment-card:not(:last-child)::after) {left:16px;top:48px;bottom:4px;width:4px;border-radius:4px;background:var(--comment-floating-control);}
+.comment-canvas-popup :deep(.comment-card:not(:last-child)::after) {left:13px;top:36px;bottom:4px;width:2px;border-radius:4px;background:var(--comment-floating-control);}
 </style>

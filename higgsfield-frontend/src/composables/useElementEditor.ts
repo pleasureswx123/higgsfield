@@ -161,7 +161,9 @@ export function useElementEditor(
           performerId: element.performerId,
           description: currentRevision.description,
           label: currentRevision.label,
-          media: clone(currentRevision.media),
+          media: clone(currentRevision.media)
+            .sort((a, b) => Number(b.isPrimary) - Number(a.isPrimary) || a.ordinal - b.ordinal)
+            .map((item, ordinal) => ({ ...item, ordinal })),
           propertyValues: clone(currentRevision.propertyValues),
         })
         properties.value = currentRevision.propertySnapshot.map((item) => ({
@@ -340,11 +342,11 @@ export function useElementEditor(
     selectedVersion.value = asset.currentVersionId
   }
   function primary(version: string) {
-    if (canEdit.value && !locked.value)
-      fields.media = fields.media.map((item) => ({
-        ...item,
-        isPrimary: item.assetVersionId === version,
-      }))
+    if (!canEdit.value || locked.value) return
+    const selected = fields.media.find(item => item.assetVersionId === version)
+    if (!selected) return
+    fields.media = [selected, ...fields.media.filter(item => item.assetVersionId !== version)]
+      .map((item, ordinal) => ({ ...item, ordinal, isPrimary: ordinal === 0 }))
   }
   function addReferenceMedia(candidate: ReferenceCandidate) {
     if (!canEdit.value || locked.value || candidate.projectId !== projectId || !candidate.allowedMediaRoles.some(role => ['reference_image', 'reference_person', 'reference_video', 'first_frame', 'last_frame'].includes(role))) return
@@ -371,7 +373,7 @@ export function useElementEditor(
     if (!canEdit.value || locked.value) return
     const index = fields.media.findIndex((item) => item.assetVersionId === version),
       target = index + direction
-    if (index < 0 || target < 0 || target >= fields.media.length) return
+    if (index <= 0 || target <= 0 || target >= fields.media.length) return
     const next = [...fields.media]
     ;[next[index], next[target]] = [next[target]!, next[index]!]
     fields.media = next.map((item, ordinal) => ({ ...item, ordinal }))

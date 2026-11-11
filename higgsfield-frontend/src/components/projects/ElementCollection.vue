@@ -68,17 +68,17 @@ const tableWidth = computed(() => 328 + textColumns.value.reduce((sum, column) =
             <TableCell class="element-media-cell">
               <div class="element-table-media">
                 <template v-if="row.media?.length">
-                  <button v-for="media in row.media.slice(0, 3)" :key="media.assetVersionId" type="button" class="element-media-preview" :aria-label="`预览素材 ${row.name}`" @click.stop="emit('preview', media.assetVersionId)">
+                  <button v-for="media in row.media.slice(0, 3)" :key="media.assetVersionId" type="button" class="element-media-preview" :aria-label="`查看素材详情 ${row.name}`" title="查看素材详情" @click.stop="emit('preview', media.assetVersionId)">
                     <ReferenceThumbnail :version-id="media.assetVersionId" fill passive allow-original :alt="row.name" />
                   </button>
                 </template>
                 <button v-else type="button" class="element-empty-media" :aria-label="`为 ${row.name} 添加素材`" @click="emit('open', row)"><span>＋</span>添加元素图片</button>
               </div>
             </TableCell>
-            <TableCell v-for="column in textColumns" :key="column.key">
+            <TableCell v-for="column in textColumns" :key="column.key" :class="{ 'cursor-pointer': column.key === 'name' }" @click="column.key === 'name' && emit('open', row)">
               <Tooltip v-if="column.value(row)">
                 <TooltipTrigger as-child>
-                  <button v-if="column.key === 'name'" type="button" class="folder-text-button element-cell-text" @click="emit('open', row)">{{ column.value(row) }}</button>
+                  <button v-if="column.key === 'name'" type="button" class="folder-text-button element-cell-text" :aria-label="`编辑元素 ${row.name}`" title="打开元素编辑器" @click.stop="emit('open', row)">{{ column.value(row) }}</button>
                   <span v-else class="element-cell-text" tabindex="0">{{ column.value(row) }}</span>
                 </TooltipTrigger>
                 <TooltipContent class="element-cell-tooltip">{{ column.value(row) }}</TooltipContent>

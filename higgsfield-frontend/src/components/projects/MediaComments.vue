@@ -5,6 +5,8 @@ import {
   IconSearch,
   IconCheck,
   IconMessageCircle,
+  IconHandStop,
+  IconPencil,
 } from '@tabler/icons-vue'
 import { computed, reactive, ref, watch } from 'vue'
 import CommentCanvas from './CommentCanvas.vue'
@@ -36,6 +38,8 @@ const props = defineProps<{
   sidebar?: boolean
   projectId?: string
   canvasHost?: HTMLElement
+  fullscreen?: boolean
+  canvasTransform?: { scale: number; x: number; y: number }
   sourceWidth?: number
   timecode?: boolean
   playbackTime?: number
@@ -199,9 +203,21 @@ function selectVideoComment(id: string) {
   if (props.mediaKind === 'video' && root?.videoTime != null) emit('seek', Number(root.videoTime))
 }
 function toggleDrawing() {
+  if (busy.value || blocked.value) return
   drawing.value = !drawing.value
   if (drawing.value && props.mediaKind === 'video') emit('pause')
 }
+function setCanvasMode(paint: boolean) {
+  if (busy.value || (paint && (blocked.value || annotations.value.length))) return
+  drawing.value = paint
+  if (paint && props.mediaKind === 'video') emit('pause')
+}
+function toggleVideoAnnotation() {
+  if (busy.value || (!drawing.value && (blocked.value || annotations.value.length))) return
+  emit('pause')
+  drawing.value = !drawing.value
+}
+const canvasColors = ['#ffffff', '#fa551e', '#f39c20', '#f4d42a', '#7bd65b', '#4798fa', '#8257ef']
 function captureDraft() {
   selectedId.value = ''
   if (props.mediaKind === 'video') {
@@ -210,7 +226,8 @@ function captureDraft() {
   }
 }
 const canvasRows = computed(() => props.mediaKind !== 'video' ? overview.rows.value : overview.rows.value.filter(row => row.videoTime != null && Math.abs(Number(row.videoTime) - (props.playbackTime || 0)) < .1))
-defineExpose({ confirmLeave, selectVideoComment })
+const hasAnnotationDraft = computed(() => annotations.value.length > 0)
+defineExpose({ confirmLeave, selectVideoComment, hasAnnotationDraft })
 async function selectThread(value: string) {
   if (value === threadId.value) return
   await runConfirmed(() => {
@@ -365,9 +382,24 @@ async function remove(row: MediaComment) {
         /></ElFormItem>
 
       </ElForm>
+      <Teleport v-if="fullscreen && canvasHost && sourceWidth && sourceHeight && (mediaKind === 'image' || mediaKind === 'video')" :to="canvasHost">
+        <div class="fullscreen-annotation-tools" role="toolbar" aria-label="全屏标注工具" @pointerdown.stop @dblclick.stop @wheel.stop>
+          <template v-if="mediaKind === 'video'">
+            <button type="button" class="video-annotation-toggle" :aria-label="drawing ? '结束标注' : '标注当前帧'" :title="!canCreate ? '暂无评论权限' : drawing ? '结束标注，保持暂停' : '暂停视频并标注当前帧'" :aria-pressed="drawing" :disabled="busy || (!drawing && (blocked || !!annotations.length))" @click="toggleVideoAnnotation"><IconPencil :size="18" /><span>{{ drawing ? '结束标注' : '标注当前帧' }}</span></button>
+          </template>
+          <template v-else>
+            <button type="button" aria-label="拖动画面" title="拖动画面" :aria-pressed="!drawing" :disabled="busy" @click="setCanvasMode(false)"><IconHandStop :size="19" /></button>
+            <button type="button" aria-label="画笔标注" :title="!canCreate ? '暂无评论权限' : annotations.length ? '请先发送或取消当前标注' : '画笔标注'" :aria-pressed="drawing" :disabled="busy || blocked || !!annotations.length" @click="setCanvasMode(true)"><IconPencil :size="19" /></button>
+          </template>
+          <div v-if="drawing" class="fullscreen-annotation-colors" role="group" aria-label="画笔颜色">
+            <button v-for="value in canvasColors" :key="value" type="button" :aria-label="`全屏画笔颜色 ${value}`" :aria-pressed="color === value" :disabled="busy || !!annotations.length" :style="{ '--swatch': value }" @click="color = value" />
+          </div>
+        </div>
+      </Teleport>
       <CommentCanvas
         v-if="canvasHost && sourceWidth && sourceHeight && (mediaKind === 'image' || mediaKind === 'video')"
         :host="canvasHost"
+        :transform="canvasTransform"
         :width="sourceWidth"
         :height="sourceHeight"
         :drawing="drawing && !annotations.length"
@@ -834,18 +866,32 @@ async function remove(row: MediaComment) {
 .sidebar-comment-topbar :deep(input),
 .sidebar-comment-topbar :deep(.el-select__placeholder) { font-size: 14px; }
 .sidebar-comment-list { padding: 0 1px; }
-.sidebar-comment-list .comment-discussion { background: var(--comment-card-surface); border: 1px solid transparent; border-radius: 16px; padding: 4px 0; margin-bottom: 10px; }
+.sidebar-comment-list .comment-discussion { background: var(--comment-card-surface); border: 1px solid transparent; border-radius: 12px; padding: 0; margin-bottom: 8px; }
 .sidebar-comment-list .comment-discussion.selected { background: var(--comment-card-selected); border-color: var(--comment-card-border); }
-.sidebar-comment-list :deep(.comment-card) { gap: 10px; padding: 8px 10px 10px; font-size: 14px; line-height: 1.5; }
-.sidebar-comment-list :deep(.comment-card-avatar) { width: 34px; height: 34px; flex-shrink: 0; font-size: 14px; border: 1px solid var(--comment-card-border); background: var(--comment-sidebar-surface); }
-.sidebar-comment-list :deep(.comment-card header) { min-height: 24px; gap: 5px; }
-.sidebar-comment-list :deep(.comment-card header strong) { font-size: 14px; font-weight: 500; max-width: 115px; }
+.sidebar-comment-list :deep(.comment-card) { gap: 8px; padding: 9px 10px; font-size: 13px; line-height: 1.45; }
+.sidebar-comment-list :deep(.comment-card-avatar) { width: 28px; height: 28px; flex-shrink: 0; font-size: 12px; border: 1px solid var(--comment-card-border); background: var(--comment-sidebar-surface); }
+.sidebar-comment-list :deep(.comment-card header) { min-height: 20px; gap: 5px; }
+.sidebar-comment-list :deep(.comment-card header strong) { font-size: 12px; font-weight: 500; max-width: 115px; }
 .sidebar-comment-list :deep(.comment-card time) { font-size: 10px; white-space: nowrap; }
 .sidebar-comment-list :deep(.comment-card-body) { margin: 3px 0 5px; }
 .sidebar-comment-list :deep(.comment-card-body svg) { padding: 2px; border-radius: 5px; background: #009fff20; color: #009fff; box-sizing: content-box; }
 .sidebar-comment-list :deep(.comment-card-reactions button) { min-height: 25px; padding: 1px 8px; border-radius: 8px; }
-.sidebar-comment-list :deep(.comment-card footer) { margin-top: 5px; font-size: 12px; }
-.sidebar-comment-list :deep(.comment-card:not(:last-child)::after) { left: 25px; top: 49px; bottom: 2px; width: 4px; border-radius: 4px; background: var(--comment-card-border); opacity: .5; }
+.sidebar-comment-list :deep(.comment-card footer) { margin-top: 2px; font-size: 11px; }
+.sidebar-comment-list :deep(.comment-card:not(:last-child)::after) { left: 23px; top: 39px; bottom: 2px; width: 2px; border-radius: 4px; background: var(--comment-card-border); opacity: .5; }
 .comment-sidebar-form :deep(.comment-compose-box) { min-height: 80px; padding: 10px; border: 1px solid var(--border); background: var(--comment-card-surface); border-radius: 16px; }
 .comment-sidebar-form :deep(textarea) { font-size: 14px; line-height: 22px; }
+</style>
+
+<style scoped>
+.fullscreen-annotation-tools { position: absolute; z-index: 6; bottom: 24px; left: 50%; transform: translateX(-50%); display: flex; align-items: center; gap: 6px; padding: 6px; border: 1px solid var(--border); border-radius: 16px; background: var(--comment-floating-surface); color: var(--foreground); box-shadow: 0 4px 20px #0003; pointer-events: auto; }
+.fullscreen-annotation-tools button { display: grid; place-items: center; width: 36px; height: 36px; border: 0; border-radius: 10px; background: transparent; color: inherit; cursor: pointer; }
+.fullscreen-annotation-tools button:hover { background: var(--comment-floating-control); }
+.fullscreen-annotation-tools button[aria-pressed='true'] { background: var(--primary); color: var(--primary-foreground); }
+.fullscreen-annotation-tools button:disabled { opacity: .4; cursor: default; }
+.fullscreen-annotation-tools button:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
+.fullscreen-annotation-tools .video-annotation-toggle { display: flex; align-items: center; gap: 6px; width: auto; padding: 0 10px; font-size: 13px; white-space: nowrap; }
+.fullscreen-annotation-colors { display: flex; gap: 4px; padding: 0 6px; border-left: 1px solid var(--border); border-right: 1px solid var(--border); }
+.fullscreen-annotation-colors button { width: 24px; height: 24px; border-radius: 50%; background: var(--swatch) !important; border: 2px solid transparent; box-shadow: inset 0 0 0 1px #0002; }
+.fullscreen-annotation-colors button[aria-pressed='true'] { outline: 2px solid var(--primary); outline-offset: 2px; }
+@media (max-width: 600px) { .fullscreen-annotation-tools { bottom: 76px; gap: 3px; } .fullscreen-annotation-colors { gap: 3px; padding: 0 3px; } .fullscreen-annotation-colors button { width: 20px; height: 20px; } }
 </style>

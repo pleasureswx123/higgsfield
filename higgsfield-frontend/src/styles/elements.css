@@ -458,7 +458,20 @@ button.element-empty-media { border:0; background:transparent; cursor:pointer; }
 .element-fields .element-fictional-switch > span[data-state='unchecked'] { transform:translateX(0); }
 
 .element-media-item { position: relative; width: 32px; height: 32px; flex: none; }
-.element-media-primary { position: absolute; top: 1px; left: 1px; display: grid; place-items: center; width: 16px; height: 16px; padding: 0; border: 0; border-radius: 4px; color: #fff; background: rgb(0 0 0 / 70%); cursor: pointer; }
+.element-media-primary { position: absolute; top: 1px; left: 1px; display: grid; place-items: center; width: 16px; height: 16px; padding: 0; border: 0; border-radius: 4px; color: #fff; background: rgb(0 0 0 / 70%); pointer-events: none; }
 .element-media-primary.is-primary { color: var(--focus); }
-.element-media-primary:hover { background: rgb(0 0 0 / 90%); }
-.element-media-primary:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
+
+/* 看图层统一采用深色遮罩，媒体原色不随页面主题变化。 */
+.el-image-viewer__wrapper:has(.element-lightbox-tools) .el-image-viewer__mask { background: #000; opacity: .94; backdrop-filter: blur(8px); }
+.el-image-viewer__wrapper:has(.element-lightbox-tools) .el-image-viewer__close { display: none; }
+.el-image-viewer__wrapper:has(.element-lightbox-tools) .el-image-viewer__actions { top: 16px; right: 16px; bottom: auto; left: auto; transform: none; padding: 0; background: transparent; border-radius: 0; }
+.el-image-viewer__wrapper:has(.element-lightbox-tools) .el-image-viewer__actions__inner { gap: 8px; }
+.el-image-viewer__wrapper:has(.element-lightbox-tools) .el-image-viewer__actions button { display: grid; place-items: center; width: 40px; height: 40px; padding: 0; border: 1px solid #ffffff08; border-radius: 12px; background: #181818; color: #bdbdbd; cursor: pointer; }
+.el-image-viewer__wrapper:has(.element-lightbox-tools) .el-image-viewer__actions button:hover { color: #fff; background: #292929; }
+.el-image-viewer__wrapper:has(.element-lightbox-tools) .el-image-viewer__actions button:disabled { opacity: .35; cursor: not-allowed; }
+.el-image-viewer__wrapper:has(.element-lightbox-tools) .el-image-viewer__actions button:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
+.el-image-viewer__wrapper:has(.element-lightbox-tools) .el-image-viewer__img { max-width: calc(100vw - 96px) !important; max-height: calc(100vh - 96px) !important; border-radius: 6px; }
+.element-video-lightbox.el-dialog { background: #080808; }
+.element-video-lightbox video { display: block; width: 100%; height: calc(100vh - 100px); object-fit: contain; }
+
+.element-lightbox-tools { display: flex; align-items: center; gap: 8px; }

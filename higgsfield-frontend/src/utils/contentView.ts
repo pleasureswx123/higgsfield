@@ -17,3 +17,36 @@ export function contentCardWidth(size = 4) {
   const value = Number.isFinite(size) ? Math.max(1, Math.min(8, Math.round(size))) : 4
   return 120 + value * 20
 }
+
+// 完整行按比例铺满；尾行最多使用目标高度，避免少量素材被无限放大。
+export function galleryCardWidths(ratios: number[], width: number, targetHeight: number, gap = 6) {
+  const result: number[] = []
+  if (width <= 0) return result
+  let row: number[] = []
+  const flush = (last: boolean) => {
+    const sum = row.reduce((total, ratio) => total + ratio, 0)
+    const fitHeight = Math.max(0, width - gap * (row.length - 1) - row.length * 2) / sum
+    const height = last ? Math.min(targetHeight, fitHeight) : fitHeight
+    result.push(...row.map(ratio => ratio * height + 2))
+    row = []
+  }
+  for (const value of ratios) {
+    const ratio = Number.isFinite(value) && value > 0 ? value : 0.8
+    const nextWidth = (row.reduce((sum, item) => sum + item, 0) + ratio) * targetHeight + (row.length + 1) * 2 + row.length * gap
+    if (row.length && nextWidth > width) {
+      const sum = row.reduce((total, item) => total + item, 0)
+      const before = (width - gap * (row.length - 1) - row.length * 2) / sum
+      const after = (width - gap * row.length - (row.length + 1) * 2) / (sum + ratio)
+      // 选择更接近目标高度的分行点，避免前一行也被过度放大。
+      if (Math.abs(after - targetHeight) < Math.abs(before - targetHeight)) {
+        row.push(ratio)
+        flush(false)
+        continue
+      }
+      flush(false)
+    }
+    row.push(ratio)
+  }
+  if (row.length) flush(true)
+  return result
+}

@@ -25,3 +25,18 @@ test('路径点数限制为2至256且复制坐标，不能通过副本修改输�
   assert.equal(geometry.buildAnnotation('path', points.slice(0, 1), '#ff0000', 100, 100), undefined)
   assert.equal(geometry.buildAnnotation('path', Array(257).fill(points[0]), '#ff0000', 100, 100), undefined)
 })
+
+// 缩放和平移不能改变同一原图位置对应的归一化坐标。
+test('横图与竖图在缩放、拖动、复位后标注仍对应同一个原图位置', () => {
+  for (const [w, h] of [[2048, 1152], [1152, 2048]]) {
+    for (const [zoom, x, y] of [[1, 0, 0], [1.6, -150, 90], [.6, 0, 0], [1, 0, 0]]) {
+      const box = geometry.annotationBounds(1543, 1004, w, h, zoom, x, y)
+      const point = geometry.imagePoint(box.left + box.width * .32, box.top + box.height * .74, box)
+      assert.ok(Math.abs(point.x - .32) < 1e-12)
+      assert.ok(Math.abs(point.y - .74) < 1e-12)
+      assert.ok(Math.abs(box.width / box.height - w / h) < 1e-12)
+    }
+  }
+  const moved = geometry.annotationBounds(1600, 1000, 2000, 1000, 2, 100, -50)
+  assert.equal(JSON.stringify(moved), JSON.stringify({ left: -700, top: -350, width: 3200, height: 1600 }))
+})

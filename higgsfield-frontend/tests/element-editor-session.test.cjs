@@ -7,6 +7,49 @@ const { randomUUID } = require('node:crypto')
 const ts = require('typescript'), vue = require('vue')
 class ApiError extends Error { constructor(message, code, errorCode) { super(message); this.code = code; this.errorCode = errorCode } }
 const tick = () => new Promise(resolve => setImmediate(resolve))
+
+test('设置主图移到首位，保留其余顺序、选中状态及连续序号', async () => {
+  const c = setup(); await tick()
+  c.state.addReferenceMedia({ kind: 'asset', projectId: '99', assetVersionIds: ['v1', 'v2', 'v3'], allowedMediaRoles: ['reference_image'] })
+  c.state.selectedVersion.value = 'v3'
+  c.state.primary('v3')
+  assert.deepEqual(Array.from(c.state.fields.media, item => item.assetVersionId), ['v3', 'v1', 'v2'])
+  assert.deepEqual(Array.from(c.state.fields.media, item => item.ordinal), [0, 1, 2])
+  assert.deepEqual(Array.from(c.state.fields.media, item => item.isPrimary), [true, false, false])
+  assert.equal(c.state.selectedVersion.value, 'v3')
+  const snapshot = JSON.stringify(c.state.fields.media)
+  c.state.primary('missing')
+  assert.equal(JSON.stringify(c.state.fields.media), snapshot)
+  c.close()
+})
+test('旧修订主图加载即置顶，移动不越过主图，保存重开顺序不变', async () => {
+  let media = [
+    { assetVersionId: 'a', ordinal: 0, isPrimary: false },
+    { assetVersionId: 'b', ordinal: 1, isPrimary: true },
+    { assetVersionId: 'c', ordinal: 2, isPrimary: false },
+  ]
+  const api = {
+    readElement: async () => ({ data: {
+      element: { projectId: '99', name: '角色', alias: 'role', category: 'character', workStatus: 'none', revision: '7', allowedActions: ['element:edit'] },
+      currentRevision: { description: '', label: '', media, propertyValues: [], propertySnapshot: [] },
+    } }),
+    saveElement: async (_id, _revision, payload) => { media = payload.media },
+  }
+  const c = setup(api, async () => {}, '5'); await tick()
+  const ids = () => Array.from(c.state.fields.media, item => item.assetVersionId)
+  assert.deepEqual(ids(), ['b', 'a', 'c'])
+  assert.equal(c.state.dirty.value, false)
+  c.state.moveMedia('b', 1); c.state.moveMedia('a', -1)
+  assert.deepEqual(ids(), ['b', 'a', 'c'])
+  c.state.moveMedia('c', -1)
+  assert.deepEqual(ids(), ['b', 'c', 'a'])
+  await c.state.save(); c.close()
+  const reopened = setup(api, async () => {}, '5'); await tick()
+  assert.deepEqual(Array.from(reopened.state.fields.media, item => item.assetVersionId), ['b', 'c', 'a'])
+  assert.deepEqual(Array.from(reopened.state.fields.media, item => item.ordinal), [0, 1, 2])
+  reopened.close()
+})
+
 test('共享选择器加入固定素材版本，去重并保留主图及已填表单', async () => {
   const c = setup(); await tick()
   assert.equal(c.state.canEdit.value, true, c.state.error.value)

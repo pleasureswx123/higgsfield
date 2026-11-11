@@ -31,3 +31,11 @@ test('卡片尺寸有界递增且默认值保留原200像素基线', () => {
   assert.equal(output.contentCardWidth(99), output.contentCardWidth(8))
   for (let size = 2; size <= 8; size++) assert.ok(output.contentCardWidth(size) > output.contentCardWidth(size - 1))
 })
+
+ test('画廊完整行铺满，单张及不足尾行不放大', () => {
+  const widths = output.galleryCardWidths([1.78, 1, 2.35, 1.5], 1224, 260)
+  assert.ok(Math.abs(widths.slice(0, 3).reduce((a, b) => a + b, 0) + 12 - 1224) < 0.01)
+  assert.equal(widths[3], 392)
+  assert.equal(output.galleryCardWidths([1.5], 1700, 260)[0], 392)
+  assert.ok(output.galleryCardWidths([2], 300, 260)[0] <= 300)
+ })

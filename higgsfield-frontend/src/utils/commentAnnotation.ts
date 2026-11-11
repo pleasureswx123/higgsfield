@@ -3,6 +3,12 @@ export interface AnnotationPoint {
   x: number
   y: number
 }
+/** 与图片适应窗口后的缩放、平移使用同一坐标系。 */
+export function annotationBounds(hostWidth: number, hostHeight: number, sourceWidth: number, sourceHeight: number, zoom = 1, x = 0, y = 0) {
+  const fit = Math.min(hostWidth / sourceWidth, hostHeight / sourceHeight)
+  const width = sourceWidth * fit * zoom, height = sourceHeight * fit * zoom
+  return { left: (hostWidth - width) / 2 + x, top: (hostHeight - height) / 2 + y, width, height }
+}
 export function imagePoint(
   x: number,
   y: number,

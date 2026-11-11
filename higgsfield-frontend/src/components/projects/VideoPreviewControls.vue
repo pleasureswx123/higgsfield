@@ -1,9 +1,10 @@
 <script setup lang="ts">
 import { ref, computed } from 'vue'
+import { useEventListener } from '@vueuse/core'
 import { IconPlayerPlayFilled, IconPlayerPauseFilled, IconVolume, IconVolumeOff, IconChevronDown } from '@tabler/icons-vue'
 import { formatVideoTime } from '@/utils/videoTime'
 import type { MediaComment } from '@/api/comments'
-const props = defineProps<{ player?: HTMLVideoElement; time: number; duration: number; playing: boolean; comments: MediaComment[] }>()
+const props = defineProps<{ player?: HTMLVideoElement; time: number; duration: number; playing: boolean; comments: MediaComment[]; fullscreen?: boolean }>()
 const emit = defineEmits<{ select: [id: string]; seek: [time: number] }>()
 const timecode = defineModel<boolean>('timecode', { default: false })
 const rate = ref('1'), muted = ref(false), error = ref('')
@@ -16,6 +17,17 @@ async function toggle() {
 }
 function changeRate() { if (props.player) props.player.playbackRate = Number(rate.value) }
 function toggleMute() { if (props.player) { props.player.muted = !props.player.muted; muted.value = props.player.muted } }
+useEventListener(document, 'keydown', (event: KeyboardEvent) => {
+  if (!props.fullscreen || event.code !== 'Space' || event.isComposing || event.altKey || event.ctrlKey || event.metaKey || event.shiftKey) return
+  const target = event.target instanceof Element ? event.target : null
+  // 输入文字、操作下拉框和弹出菜单时保留空格原有行为。
+  if (target?.closest('input, textarea, select, [contenteditable]:not([contenteditable="false"]), [role="textbox"], [role="combobox"], [role="menu"], [role="listbox"]')) return
+  const dialog = props.player?.closest('.asset-preview-dialog')
+  if (!dialog || (target && target !== document.body && !dialog.contains(target))) return
+  event.preventDefault()
+  event.stopPropagation()
+  if (!event.repeat) void toggle()
+}, { capture: true })
 </script>
 <template>
   <section class="video-controls" aria-label="视频播放控制">
@@ -25,7 +37,7 @@ function toggleMute() { if (props.player) { props.player.muted = !props.player.m
     </div>
     <div class="video-control-row">
       <div class="video-play-actions">
-        <button type="button" :aria-label="playing ? '暂停视频' : '播放视频'" @click="toggle"><IconPlayerPauseFilled v-if="playing" :size="19"/><IconPlayerPlayFilled v-else :size="19"/></button>
+        <button type="button" :aria-label="playing ? '暂停视频' : '播放视频'" :title="fullscreen ? '播放／暂停（空格键）' : '播放／暂停'" @click="toggle"><IconPlayerPauseFilled v-if="playing" :size="19"/><IconPlayerPlayFilled v-else :size="19"/></button>
         <select v-model="rate" aria-label="播放速度" @change="changeRate"><option v-for="speed in ['0.5','0.75','1','1.25','1.5','2']" :key="speed" :value="speed">{{ speed }}×</option></select>
         <button type="button" :aria-label="muted ? '开启声音' : '静音'" @click="toggleMute"><IconVolumeOff v-if="muted" :size="20"/><IconVolume v-else :size="20"/></button>
       </div>

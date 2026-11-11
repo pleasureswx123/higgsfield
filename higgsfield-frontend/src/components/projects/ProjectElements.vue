@@ -47,7 +47,7 @@ const route = useRoute()
 const router = useRouter()
 function previewAsset(versionId: string) {
   if (batchBusy.value) return
-  void router.push({ query: { ...route.query, tab: 'folders', asset: undefined, assetVersion: versionId, previewFrom: 'elements' } })
+  void router.push({ query: { ...route.query, tab: 'elements', asset: undefined, assetVersion: versionId, previewFrom: 'elements' } })
 }
 const {
   rows,

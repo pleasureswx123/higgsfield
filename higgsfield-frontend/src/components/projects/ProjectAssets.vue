@@ -1,5 +1,7 @@
 <script setup lang="ts">
 import AssetGenerationInfo from './AssetGenerationInfo.vue'
+import AssetLibraryControls, { type AssetFilterValues } from './AssetLibraryControls.vue'
+import { useResizeObserver, refDebounced } from '@vueuse/core'
 import { useRoute, useRouter } from 'vue-router'
 import FolderIcon from './FolderIcon.vue'
 import { useAssetLocation } from '@/composables/useAssetLocation'
@@ -21,11 +23,9 @@ import {
   ElForm,
   ElFormItem,
   ElCheckbox,
-  ElInputNumber,
-  ElDatePicker,
 } from 'element-plus'
-import { IconLoader2, IconInfoCircle, IconMessageCircle, IconMinimize, IconX, IconChevronRight, IconCircleDotted, IconMaximize, IconCheckbox, IconAt, IconPencil, IconFolderSymlink, IconFolderPlus, IconTrash, IconDownload, IconCloud, IconEye, IconPhoto, IconMovie, IconUpload, IconFileText, IconFilter, IconLayoutGrid, IconDots, IconRefresh, IconSearch } from '@tabler/icons-vue'
-import { assetAccept, documentFormats } from '@/utils/assetFormats'
+import { IconZoomIn, IconZoomOut, IconLoader2, IconInfoCircle, IconMessageCircle, IconMinimize, IconX, IconChevronRight, IconCircleDotted, IconMaximize, IconCheckbox, IconAt, IconPencil, IconFolderSymlink, IconFolderPlus, IconTrash, IconDownload, IconCloud, IconEye, IconPhoto, IconMovie, IconUpload, IconFileText, IconDots, IconSearch } from '@tabler/icons-vue'
+import { assetAccept } from '@/utils/assetFormats'
 import type { Asset } from '@/api/assets'
 import Button from '@/components/ui/Button.vue'
 import { useAssetPreviewRoute } from '@/composables/useAssetPreviewRoute'
@@ -51,7 +51,7 @@ const elementSource = ref<Asset | null>(null)
 const canCreateElement = computed(() => props.projectActions?.includes('element:create') && props.projectActions?.includes('asset:reference'))
 const canCopy = computed(() => props.canMove && props.projectActions?.includes('asset:create') && props.projectActions?.includes('asset:reference'))
 import type { LibraryViewSettings, FolderViewSettings } from '@/api/viewPreferences'
-import { groupContentByDate, contentCardWidth } from '@/utils/contentView'
+import { groupContentByDate, contentCardWidth, galleryCardWidths } from '@/utils/contentView'
 const commentCanvasHost = ref<HTMLElement>()
 const previewPlayer = ref<HTMLVideoElement>()
 const previewTimecode = ref(false)
@@ -116,7 +116,6 @@ const {
   pdfBlob,
   mediaError,
   mediaLoading,
-  loadedBytes,
   openMedia: loadMedia,
   closePreview: clearPreview,
 } = useAssetLibrary(props.projectId, toRef(props, 'folderId'), () => props.visible !== false)
@@ -127,6 +126,7 @@ const { openPreview: openMedia, closePreview } = useAssetPreviewRoute(
   message => { error.value = message }, () => props.folderId,
 )
 const previewDownloadIds = ref<string[]>([])
+const delayedMediaLoading = refDebounced(mediaLoading, 300)
 const previewDownload = useAssetBatchDownload(() => selected.value ? [selected.value] : [], previewDownloadIds, () => props.visible !== false && props.canDownload && !!selected.value)
 function downloadPreview() {
   if (!selected.value) return
@@ -146,6 +146,94 @@ async function deletePreview() {
 }
 const previewTab = ref<'info' | 'comments'>('info')
 const { expanded: previewExpanded, toggle: togglePreviewFullscreen, restore: restorePreviewFullscreen } = usePreviewFullscreen(() => commentCanvasHost.value?.closest<HTMLElement>('.asset-preview-dialog'))
+// 按钮、Esc 或浏览器退出全屏均保留未提交标注的可见入口。
+watch(previewExpanded, (expanded, wasExpanded) => {
+  if (wasExpanded && !expanded && comments.value?.hasAnnotationDraft) previewTab.value = 'comments'
+})
+const fullscreenImageScale = ref(1)
+const imageFitScale = ref(1)
+const imageScaleMax = computed(() => Math.max(3, 1 / imageFitScale.value))
+const imageScaleMin = computed(() => Math.min(0.4, 1 / imageFitScale.value))
+const imageScaleLabel = computed(() => `${Math.round(fullscreenImageScale.value * imageFitScale.value * 100)}%`)
+function measureImageFit() {
+  const stage = commentCanvasHost.value
+  const img = stage?.querySelector<HTMLImageElement>('img.asset-media')
+  if (!stage || !img?.naturalWidth || !img.naturalHeight) return
+  imageFitScale.value = Math.min(stage.clientWidth / img.naturalWidth, stage.clientHeight / img.naturalHeight) || 1
+  setImageOffset(imageOffset.value.x, imageOffset.value.y)
+}
+useResizeObserver(commentCanvasHost, measureImageFit)
+const imageDragging = ref(false)
+const imageOffset = ref({ x: 0, y: 0 })
+let imageDrag: { pointerId: number; x: number; y: number; left: number; top: number; target: HTMLElement } | undefined
+function stopImageDrag() {
+  if (imageDrag?.target.hasPointerCapture(imageDrag.pointerId)) imageDrag.target.releasePointerCapture(imageDrag.pointerId)
+  imageDrag = undefined
+  imageDragging.value = false
+}
+function startImageDrag(event: PointerEvent) {
+  if (!previewExpanded.value || fullscreenImageScale.value <= 1 || event.button !== 0) return
+  const target = commentCanvasHost.value
+  if (!target) return
+  event.preventDefault()
+  target.setPointerCapture(event.pointerId)
+  imageDrag = { pointerId: event.pointerId, x: event.clientX, y: event.clientY, left: imageOffset.value.x, top: imageOffset.value.y, target }
+  imageDragging.value = true
+}
+function moveImageDrag(event: PointerEvent) {
+  if (!imageDrag || event.pointerId !== imageDrag.pointerId) return
+  setImageOffset(imageDrag.left + event.clientX - imageDrag.x, imageDrag.top + event.clientY - imageDrag.y)
+}
+function setImageOffset(x: number, y: number) {
+  const stage = commentCanvasHost.value
+  const img = stage?.querySelector<HTMLImageElement>('img.asset-media')
+  if (!stage || !img?.naturalWidth || !img.naturalHeight) { imageOffset.value = { x: 0, y: 0 }; return }
+  const fit = Math.min(stage.clientWidth / img.naturalWidth, stage.clientHeight / img.naturalHeight)
+  const limitX = Math.max(0, (img.naturalWidth * fit * fullscreenImageScale.value - stage.clientWidth) / 2)
+  const limitY = Math.max(0, (img.naturalHeight * fit * fullscreenImageScale.value - stage.clientHeight) / 2)
+  imageOffset.value = { x: Math.max(-limitX, Math.min(limitX, x)), y: Math.max(-limitY, Math.min(limitY, y)) }
+}
+watch(fullscreenImageScale, () => {
+  stopImageDrag()
+  setImageOffset(imageOffset.value.x, imageOffset.value.y)
+})
+
+function resetImageView() {
+  fullscreenImageScale.value = 1
+  imageOffset.value = { x: 0, y: 0 }
+  stopImageDrag()
+}
+function applyImageZoom(value: number, clientX?: number, clientY?: number) {
+  const previous = fullscreenImageScale.value
+  const next = Math.min(imageScaleMax.value, Math.max(imageScaleMin.value, value))
+  const bounds = commentCanvasHost.value?.getBoundingClientRect()
+  const x = bounds && clientX !== undefined ? clientX - bounds.left - bounds.width / 2 : 0
+  const y = bounds && clientY !== undefined ? clientY - bounds.top - bounds.height / 2 : 0
+  const ratio = next / previous
+  const offset = imageOffset.value
+  fullscreenImageScale.value = next
+  setImageOffset(x - (x - offset.x) * ratio, y - (y - offset.y) * ratio)
+}
+function zoomFullscreenImage(direction: number) {
+  applyImageZoom(Math.round((fullscreenImageScale.value + direction * 0.2) * 100) / 100)
+}
+function wheelImageZoom(event: WheelEvent) {
+  if (!previewExpanded.value || selected.value?.mediaType !== 'image') return
+  event.preventDefault()
+  applyImageZoom(fullscreenImageScale.value * Math.exp(-Math.max(-100, Math.min(100, event.deltaY)) * 0.002), event.clientX, event.clientY)
+}
+function toggleImageActualSize() {
+  if (!previewExpanded.value) return
+  measureImageFit()
+  if (Math.abs(fullscreenImageScale.value - 1) > 0.001) resetImageView()
+  else { applyImageZoom(1 / imageFitScale.value); imageOffset.value = { x: 0, y: 0 } }
+}
+watch([previewExpanded, () => selected.value?.currentVersionId], () => { fullscreenImageScale.value = 1; imageOffset.value = { x: 0, y: 0 }; stopImageDrag() })
+const fullscreenImageStyle = computed(() => {
+  if (!previewExpanded.value) return undefined
+  const scale = fullscreenImageScale.value
+  return { transform: `translate(${imageOffset.value.x}px, ${imageOffset.value.y}px) scale(${scale})`, transformOrigin: 'center center' }
+})
 function updateCommentCount(count: number) {
   const versionId = selected.value?.currentVersionId
   rows.value = rows.value.map(entry => entry.asset.currentVersionId === versionId
@@ -167,15 +255,26 @@ function showPreviewComments() {
   void restorePreviewFullscreen()
   previewTab.value = 'comments'
 }
+function applyFilters(value: AssetFilterValues) {
+  search.value = value.search; fileType.value = value.fileType; activity.value = value.activity
+  dates.value = value.dates; includeDescendants.value = value.includeDescendants
+  filter()
+}
 const layout = ref<'square' | 'masonry'>('square'), cardSize = ref(4), splitByDate = ref(false)
 const viewSettings = computed<LibraryViewSettings>(() => ({ ...props.folderSettings, layout: layout.value, cardSize: cardSize.value, splitByDate: splitByDate.value, fileType: fileType.value || null, activity: activity.value || null, dates: dates.value?.length ? [...dates.value] : null, includeDescendants: includeDescendants.value }))
-const dateGroups = computed(() => groupContentByDate(rows.value, splitByDate.value))
+const galleryHost = ref<HTMLElement>()
+const galleryWidth = ref(0)
+useResizeObserver(galleryHost, entries => { galleryWidth.value = entries[0]?.contentRect.width ?? 0 })
+const dateGroups = computed(() => groupContentByDate(rows.value, splitByDate.value).map(group => ({
+  ...group,
+  widths: galleryCardWidths(group.rows.map(entry => entry.asset.file.width && entry.asset.file.height ? entry.asset.file.width / entry.asset.file.height : 0.8), galleryWidth.value, contentCardWidth(cardSize.value) + 60),
+})))
 const activeFilters = computed(() => {
   const values: { key: 'search' | 'fileType' | 'activity' | 'dates' | 'includeDescendants'; label: string }[] = []
   if (search.value.trim()) values.push({ key: 'search', label: `名称：${search.value.trim()}` })
   if (fileType.value) values.push({ key: 'fileType', label: `类型：${fileType.value === 'image' ? '图片' : fileType.value === 'video' ? '视频' : fileType.value.toUpperCase()}` })
-  const activityNames = { generated: '生成来源', uploaded: '上传来源', liked: '本人收藏', downloaded: '本人下载' }
-  if (activity.value) values.push({ key: 'activity', label: `活动：${activityNames[activity.value]}` })
+  const activityNames = { generated: '生成来源', uploaded: '上传来源', liked: '本人收藏', downloaded: '本人获准下载' }
+  if (activity.value) values.push({ key: 'activity', label: activityNames[activity.value] })
   if (dates.value?.length) values.push({ key: 'dates', label: `创建日期：${dates.value.join(' 至 ')}` })
   if (props.folderId && !includeDescendants.value) values.push({ key: 'includeDescendants', label: '仅当前文件夹素材' })
   return values
@@ -297,52 +396,12 @@ defineExpose({ includeDescendants })
     <ElementEditor v-if="elementSource" :initial-asset="elementSource" :element-id="null" :project-id="projectId" :actions="projectActions || []" :visible="visible !== false" @close="elementSource = null" @saved="elementSource = null; moveMessage = '元素已创建，可在项目元素中查看'" />
     <header class="asset-toolbar asset-workspace-toolbar" :inert="batchBusy">
       <div class="asset-workspace-path"><slot name="breadcrumb"><h3>素材 <small class="muted">{{ total }}</small></h3></slot></div>
-      <ElPopover placement="bottom-end" trigger="click" :width="420" popper-class="asset-controls-popover">
-        <template #reference><Button variant="outline" aria-label="筛选素材"><IconFilter :size="16" />筛选<span v-if="activeFilters.length" class="asset-filter-count">{{ activeFilters.length }}</span></Button></template>
-        <h4>筛选素材</h4>
-    <div class="asset-filters" :inert="batchBusy">
-      <ElCheckbox v-if="folderId" v-model="includeDescendants" @change="filter">包含子目录素材</ElCheckbox>
-      <span class="muted">创建日期（上海时间，包含结束日）</span>
-      <ElDatePicker v-model="dates" type="daterange" value-format="YYYY-MM-DD" start-placeholder="创建开始日期" end-placeholder="创建结束日期" aria-label="素材创建日期（上海时间，包含结束日）" @change="filter" />
-      <ElSelect v-model="activity" placeholder="全部活动" aria-label="素材活动" @change="filter">
-        <ElOption label="全部活动" value="" /><ElOption label="生成来源" value="generated" /><ElOption label="上传来源" value="uploaded" /><ElOption label="本人获准下载" value="downloaded" />
-      </ElSelect>
-      <ElInput
-        v-model="search"
-        :placeholder="!folderId ? '搜索项目全部素材' : includeDescendants ? '搜索当前文件夹及子文件夹素材' : '搜索当前文件夹素材'"
-        clearable
-        maxlength="200"
-        aria-label="素材名称"
-        @keyup.enter="filter"
-        @clear="filter"
-      />
-      <ElSelect v-model="fileType" placeholder="全部类型" aria-label="素材类型" @change="filter"
-        ><ElOption label="全部类型" value="" /><ElOption label="图片" value="image" /><ElOption
-          label="视频"
-          value="video"
-      /><ElOption v-for="(_, kind) in documentFormats" :key="kind" :label="kind.toUpperCase()" :value="kind" /></ElSelect>
-      <Button variant="ghost" @click="filter">搜索</Button>
-    </div>
-    <div v-if="activeFilters.length" class="asset-toolbar" aria-label="当前素材筛选" :inert="batchBusy">
-      <span class="muted">{{ activeFilters.length }} 项条件</span>
-      <Button v-for="condition in activeFilters" :key="condition.key" variant="outline" :aria-label="`移除筛选 ${condition.label}`" @click="clearFilter(condition.key)">{{ condition.label }} ×</Button>
-      <Button variant="ghost" @click="clearFilter()">清除全部筛选</Button>
-    </div>
-
-      </ElPopover>
-      <ElPopover placement="bottom-end" trigger="click" :width="320" popper-class="asset-controls-popover">
-        <template #reference><Button variant="outline" aria-label="素材视图"><IconLayoutGrid :size="16" />视图</Button></template>
-        <h4>视图</h4><div class="asset-view-controls">
-      <ElSelect v-model="layout" aria-label="素材布局"><ElOption :label="compact ? '等高画廊' : '方形网格'" value="square" /><ElOption label="瀑布流" value="masonry" /></ElSelect>
-      <ElCheckbox v-model="splitByDate">按日期分组</ElCheckbox>
-      <label class="muted">卡片尺寸 <ElInputNumber v-model="cardSize" :min="1" :max="8" :precision="0" aria-label="素材卡片尺寸" /></label>
-        </div>
-        <div :inert="batchBusy"><LibraryViewPreference :key="projectId" :project-id="projectId" :settings="viewSettings" @restore="restoreView" /></div>
-      </ElPopover>
-      <ElPopover placement="bottom-end" trigger="click" :width="180" popper-class="asset-controls-popover">
-        <template #reference><Button variant="outline" aria-label="素材更多操作"><IconDots :size="16" /></Button></template>
-        <div class="asset-more-controls"><Button variant="ghost" :disabled="loading" @click="refresh"><IconRefresh :size="16" />刷新素材</Button><Button variant="ghost" @click="selection.selectAll(true)">选择当前页素材</Button></div>
-      </ElPopover>
+      <AssetLibraryControls
+        v-model:layout="layout" v-model:card-size="cardSize" v-model:split-by-date="splitByDate"
+        :filters="{ search, fileType, activity, dates, includeDescendants }" :conditions="activeFilters.map(condition => condition.label)"
+        :folder="Boolean(folderId)" :compact="compact" :loading="loading" :item-count="rows.length"
+        @apply="applyFilters" @refresh="refresh" @select-all="selection.selectAll(true)"
+      ><template #preference><LibraryViewPreference :key="projectId" :project-id="projectId" :settings="viewSettings" @restore="restoreView" /></template></AssetLibraryControls>
       <button v-if="items.length" type="button" class="folder-text-button" @click="uploadsOpen = !uploadsOpen">上传记录（{{ items.length }}）</button>
       <Button v-if="canUpload" variant="outline" @click="input?.click()"><IconUpload :size="16" />上传素材</Button>
       <input
@@ -381,11 +440,11 @@ defineExpose({ includeDescendants })
     <p v-if="splitByDate" class="muted">按上海日期分组，仅展示当前页素材。</p>
     <p v-if="error" class="project-error" role="alert">{{ error }}</p>
     <p v-if="loading" class="muted" role="status">正在加载素材…</p>
-    <div v-else :style="{ '--asset-card-width': `${contentCardWidth(cardSize)}px`, '--asset-row-height': `${contentCardWidth(cardSize) + 60}px` }">
+    <div v-else ref="galleryHost" :style="{ '--asset-card-width': `${contentCardWidth(cardSize)}px`, '--asset-row-height': `${contentCardWidth(cardSize) + 60}px` }">
     <section v-for="dateGroup in dateGroups" :key="dateGroup.key" class="asset-date-group">
       <h4 v-if="splitByDate">{{ dateGroup.label }} · {{ dateGroup.rows.length }} 项</h4>
       <div :class="layout === 'masonry' ? 'asset-masonry' : compact ? 'asset-filmstrip' : 'asset-grid'">
-      <article v-for="entry in dateGroup.rows" :key="entry.id" class="asset-card" :class="{ 'is-selected': selection.selected.value.includes(entry.asset.id), 'is-new-result': arrivals.highlighted.value.includes(entry.asset.id) }" @mouseenter="videoCards.get(entry.id)?.start()" @mouseleave="videoCards.get(entry.id)?.stop()" :inert="batchBusy" :style="compact && layout === 'square' ? { '--media-ratio': entry.asset.file.width && entry.asset.file.height ? entry.asset.file.width / entry.asset.file.height : 0.8 } : undefined">
+      <article v-for="(entry, entryIndex) in dateGroup.rows" :key="entry.id" class="asset-card" :class="{ 'is-selected': selection.selected.value.includes(entry.asset.id), 'is-new-result': arrivals.highlighted.value.includes(entry.asset.id) }" @mouseenter="videoCards.get(entry.id)?.start()" @mouseleave="videoCards.get(entry.id)?.stop()" :inert="batchBusy" :style="compact && layout === 'square' ? { width: dateGroup.widths[entryIndex] ? `${dateGroup.widths[entryIndex]}px` : undefined, '--media-ratio': entry.asset.file.width && entry.asset.file.height ? entry.asset.file.width / entry.asset.file.height : 0.8 } : undefined">
         <span v-if="arrivals.highlighted.value.includes(entry.asset.id)" class="asset-new-result">新增素材</span>
         <ElCheckbox :model-value="selection.selected.value.includes(entry.asset.id)" :aria-label="`选择素材 ${entry.name}`" :disabled="actionsLocked || batchBusy" @change="selection.toggle(entry.asset.id, Boolean($event))" />
         <button
@@ -488,7 +547,9 @@ defineExpose({ includeDescendants })
     />
     <ElDialog
       :model-value="visible !== false && Boolean(selected)"
-      :title="selected?.name"
+      title="素材详情"
+      :transition="{ css: false }"
+      append-to-body
       fullscreen
       class="asset-preview-dialog"
       :class="{ 'asset-preview-dialog--expanded': previewExpanded, 'asset-preview-dialog--video': selected?.mediaType === 'video' }"
@@ -507,10 +568,17 @@ defineExpose({ includeDescendants })
       </template>
       <div class="asset-preview-layout">
         <section class="asset-preview-main" :class="{ 'asset-preview-main--image': selected?.mediaType === 'image' }" aria-label="素材预览区">
-          <div ref="commentCanvasHost" class="asset-preview-stage" style="position:relative">
-      <p v-if="mediaLoading" role="status">
-        正在授权读取 {{ size(loadedBytes) }} /
-        {{ size(selected?.file.byteSize || 0) }}，大文件需要等待完整下载。
+          <div v-if="previewExpanded && selected?.mediaType === 'image'" class="asset-fullscreen-actions" role="group" aria-label="全屏图片工具">
+            <Button variant="ghost" aria-label="缩小图片" title="缩小" :disabled="fullscreenImageScale <= imageScaleMin + 0.001" @click="zoomFullscreenImage(-1)"><IconZoomOut :size="18" /></Button>
+            <Button variant="ghost" class="asset-zoom-ratio" aria-label="适应窗口并居中" title="点击适应窗口并居中" @click="resetImageView">{{ imageScaleLabel }}</Button>
+            <Button variant="ghost" aria-label="放大图片" title="放大" :disabled="fullscreenImageScale >= imageScaleMax - 0.001" @click="zoomFullscreenImage(1)"><IconZoomIn :size="18" /></Button>
+            <Button variant="ghost" aria-label="下载原素材" :title="canDownload ? '下载原素材' : '暂无下载权限'" :disabled="!canDownload || previewDownload.pending.value" @click="downloadPreview"><IconDownload :size="18" /></Button>
+          </div>
+          <div ref="commentCanvasHost" class="asset-preview-stage" style="position:relative"
+            :class="{ 'asset-preview-stage--draggable': previewExpanded && selected?.mediaType === 'image' && fullscreenImageScale > 1, 'is-dragging': imageDragging }"
+            @dblclick="toggleImageActualSize" @wheel="wheelImageZoom" @pointermove="moveImageDrag" @pointerup="stopImageDrag" @pointercancel="stopImageDrag" @lostpointercapture="stopImageDrag">
+      <p v-if="mediaLoading && delayedMediaLoading" role="status">
+        正在加载素材…
       </p>
       <p v-if="mediaError" class="project-error" role="alert">{{ mediaError }}</p>
       <img
@@ -518,6 +586,8 @@ defineExpose({ includeDescendants })
         class="asset-media"
         :src="mediaUrl"
         :alt="selected.name"
+        :style="fullscreenImageStyle"
+        :draggable="false" @pointerdown="startImageDrag" @load="measureImageFit"
       />
       <video
         v-if="mediaUrl && selected?.mediaType === 'video'"
@@ -536,7 +606,7 @@ defineExpose({ includeDescendants })
         </article>
       </section>
           </div>
-          <VideoPreviewControls v-model:timecode="previewTimecode" v-if="selected?.mediaType === 'video'" :player="previewPlayer" :time="playbackTime" :duration="playbackDuration" :playing="playbackPlaying" :comments="videoComments" @seek="seekPlayback" @select="selectVideoComment">
+          <VideoPreviewControls :fullscreen="previewExpanded" v-model:timecode="previewTimecode" v-if="selected?.mediaType === 'video'" :player="previewPlayer" :time="playbackTime" :duration="playbackDuration" :playing="playbackPlaying" :comments="videoComments" @seek="seekPlayback" @select="selectVideoComment">
             <span class="asset-preview-status"><IconCircleDotted :size="18" />{{ assetStatus(selected?.workStatus)?.label || '无状态' }}</span>
             <Button variant="ghost" aria-label="查看素材评论" title="查看素材评论" @click="showPreviewComments"><IconMessageCircle :size="20" /></Button>
             <Button variant="ghost" :aria-label="previewExpanded ? '还原预览布局' : '最大化素材预览'" :title="previewExpanded ? '还原预览布局' : '最大化素材预览'" :aria-pressed="previewExpanded" @click="togglePreviewFullscreen"><IconMinimize v-if="previewExpanded" :size="20" /><IconMaximize v-else :size="20" /></Button>
@@ -580,7 +650,7 @@ defineExpose({ includeDescendants })
             </div>
           </section>
           <div v-show="previewTab === 'comments'" id="asset-preview-comments" class="asset-preview-comments" role="tabpanel" aria-labelledby="asset-preview-comments-tab">
-      <MediaComments @count="updateCommentCount" :timecode="previewTimecode" :playback-time="playbackTime" @seek="seekPlayback" @pause="previewPlayer?.pause()" @timeline="videoComments = $event" sidebar :project-id="projectId" :canvas-host="previewTab === 'comments' ? commentCanvasHost : undefined" :source-width="selected?.file.width || undefined" :source-height="selected?.file.height || undefined"
+      <MediaComments @count="updateCommentCount" :timecode="previewTimecode" :playback-time="playbackTime" @seek="seekPlayback" @pause="previewPlayer?.pause()" @timeline="videoComments = $event" sidebar :project-id="projectId" :fullscreen="previewExpanded" :canvas-host="previewTab === 'comments' || previewExpanded ? commentCanvasHost : undefined" :canvas-transform="previewExpanded && selected?.mediaType === 'image' ? { scale: fullscreenImageScale, x: imageOffset.x, y: imageOffset.y } : undefined" :source-width="selected?.file.width || undefined" :source-height="selected?.file.height || undefined"
         :visible="visible !== false"
         ref="comments"
         v-if="selected"
