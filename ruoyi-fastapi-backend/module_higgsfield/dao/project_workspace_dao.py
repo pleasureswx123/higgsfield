@@ -65,6 +65,9 @@ class WorkspaceDao:
             for code, scope in values[role].items():
                 if code not in OWNER_PERMISSIONS or scope == 'none':
                     continue
+                # 审批为项目级授权；旧本人范围保留原配置，但不能视为有效审批权。
+                if code == 'content:review' and scope != 'project':
+                    continue
                 if scope == 'project' or code not in scopes:
                     scopes[code] = scope
         return scopes

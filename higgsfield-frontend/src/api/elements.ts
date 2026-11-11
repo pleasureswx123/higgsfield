@@ -48,6 +48,7 @@ export interface PropertySnapshot extends PropertyValue {
   options: string[]
 }
 export interface ElementRevision {
+  categorySnapshot?: ElementCategory | null
   isFictionalPerson: boolean
   id: string
   elementId: string
@@ -142,6 +143,8 @@ export const listRevisions = (id: string, pageNum: number, signal: AbortSignal) 
     params: { pageNum, pageSize: 30 },
     signal,
   })
+export const readElementRevision = (id: string, revisionId: string, signal: AbortSignal) =>
+  request<Result<ElementRevision>>({ url: `/api/v1/elements/${id}/revisions/${revisionId}`, signal })
 export const listElementTrash = (projectId: string, pageNum: number, signal: AbortSignal) =>
   request<Page<RecycledElement>>({
     url: `/api/v1/projects/${projectId}/trash`,

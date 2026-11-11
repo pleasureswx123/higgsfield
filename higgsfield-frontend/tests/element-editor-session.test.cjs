@@ -302,3 +302,24 @@ test('元素编辑页签隐藏保留字段且旧校验失效，缓存未激活�
  assert.equal(c.state.active.value,false);c.hooks.activate();assert.equal(c.state.canEdit.value,true)
  c.close()
 })
+
+test('制作状态同步只更新元数据和修订，保留未保存描述及正确dirty基线', async () => {
+  const c = setup({ readElement: async () => ({ data: {
+    element: { id: '5', projectId: '99', name: '角色', alias: 'role', category: 'character', workStatus: 'none', performerId: null, revision: '7', allowedActions: ['element:edit'] },
+    currentRevision: { description: '原描述', label: '', media: [], propertyValues: [], propertySnapshot: [] },
+  } }) }, async () => {}, '5')
+  await tick()
+  c.state.syncProduction({ targetId: '5', revision: '8', workStatus: 'working', performerId: 'u', performerName: '制作人' })
+  assert.equal(c.state.dirty.value, false)
+  c.state.productionBusy.value = true
+  assert.equal(c.state.locked.value, true)
+  c.state.productionBusy.value = false
+  c.state.fields.description = '未保存描述'
+  c.state.syncProduction({ targetId: '5', revision: '9', workStatus: 'review', performerId: 'u', performerName: '制作人' })
+  assert.equal(c.state.fields.description, '未保存描述')
+  assert.equal(c.state.detail.value.element.revision, '9')
+  assert.equal(c.state.dirty.value, true)
+  c.state.fields.description = '原描述'
+  assert.equal(c.state.dirty.value, false)
+  c.close()
+})

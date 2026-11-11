@@ -53,6 +53,8 @@ class AssetLifecycleService:
 
     @classmethod
     async def mutate(cls, db, user, asset_id, action, payload, key):
+        if action == 'status':
+            cls.fail('WORKFLOW_ACTION_REQUIRED', '请在详情中使用开始制作、提交审核、退回修改或通过审核操作')
         path = f'/assets/{asset_id}' + ('/restore' if action == 'restore' else '/status' if action == 'status' else '')
         method = {'status': 'PATCH', 'rename': 'PATCH', 'delete': 'DELETE', 'restore': 'POST'}[action]
         data = payload.model_dump(by_alias=True)
@@ -61,6 +63,7 @@ class AssetLifecycleService:
             project_id = await AssetDao.project_id(db, asset_id)
             if project_id is None:
                 cls.fail('RESOURCE_NOT_FOUND', '素材不存在或无权访问')
+            await WorkspaceDao.lock_project(db, project_id)
             asset = await AssetDao.asset(db, asset_id)
             await WorkspaceService.authorize(
                 db,
@@ -69,6 +72,7 @@ class AssetLifecycleService:
                 'content:review' if action == 'status' else 'asset:edit' if action == 'rename' else 'asset:remove',
                 write=True,
                 owner_id=asset.create_user_id,
+                responsibility_id=asset.performer_id or asset.create_user_id,
             )
             asset = await AssetDao.asset(db, asset_id)
             await FolderDao.space(db, project_id, lock=True)

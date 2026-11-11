@@ -6,7 +6,7 @@ import Button from '@/components/ui/Button.vue'
 import { useElementHistory } from '@/composables/useElementHistory'
 import type { ElementRevision } from '@/api/elements'
 import MediaComments from './MediaComments.vue'
-const props = defineProps<{ elementId: string; visible?: boolean }>()
+const props = defineProps<{ elementId: string; revisionId?: string; visible?: boolean }>()
 const emit = defineEmits<{ close: [] }>()
 const comments = ref<InstanceType<typeof MediaComments>>()
 const {
@@ -19,12 +19,13 @@ const {
   selected,
   selectedVersion,
   preview,
+  previewKind,
   previewLoading,
   previewError,
   properties,
   choose,
   load,
-} = useElementHistory(props.elementId, () => props.visible !== false)
+} = useElementHistory(props.elementId, () => props.visible !== false, props.revisionId)
 async function mayLeave() {
   return !comments.value || await comments.value.confirmLeave()
 }
@@ -72,7 +73,7 @@ function propertyText(value: string | string[] | null) {
         >
           <strong>修订 #{{ revision.revisionNo }}</strong
           ><small
-            >{{ revision.label || '无展示标签' }} · {{ revision.media.length }} 张图</small
+            >{{ revision.label || '无展示标签' }} · {{ revision.media.length }} 项素材</small
           ></button
         ><ElPagination
           v-if="total > 30"
@@ -85,7 +86,8 @@ function propertyText(value: string | string[] | null) {
       </aside>
       <section v-if="selected" class="element-history-content">
         <div class="element-history-image">
-          <img v-if="preview" :src="preview" :alt="'修订 ' + selected.revisionNo + ' 图片'" />
+          <video v-if="preview && previewKind === 'video'" :src="preview" controls aria-label="历史修订视频" />
+          <img v-else-if="preview" :src="preview" :alt="'修订 ' + selected.revisionNo + ' 图片'" />
           <p v-else-if="previewLoading" role="status">正在授权读取历史图片…</p>
           <p v-else-if="previewError" class="project-error" role="alert">{{ previewError }}</p>
           <p v-else class="muted">此修订无图片</p>
@@ -97,10 +99,11 @@ function propertyText(value: string | string[] | null) {
             :class="{ active: selectedVersion === media.assetVersionId }"
             @click="selectImage(media.assetVersionId)"
           >
-            图片 {{ index + 1 }}{{ media.isPrimary ? ' · 主图' : '' }}
+            素材 {{ index + 1 }}{{ media.isPrimary ? ' · 主素材' : '' }}
           </button>
         </div>
         <h4>描述</h4>
+        <p class="muted">分类：{{ selected.categorySnapshot ? ({ character: '角色', scene: '场景', prop: '道具', other: '其他' })[selected.categorySnapshot] : '历史修订未保存分类' }}</p>
         <p class="element-history-description">{{ selected.description || '未填写' }}</p>
         <h4 v-if="properties.length">属性快照</h4>
         <dl class="element-history-properties">
@@ -111,7 +114,7 @@ function propertyText(value: string | string[] | null) {
             <dd>{{ propertyText(property.value) }}</dd></template
           >
         </dl>
-        <MediaComments v-if="selectedVersion" :visible="active" ref="comments" :target="{ assetVersionId: selectedVersion }" media-kind="image" />
+        <MediaComments v-if="selectedVersion" :visible="active" ref="comments" :target="{ assetVersionId: selectedVersion }" :media-kind="previewKind" />
       </section>
     </div>
     <template #footer
@@ -120,3 +123,6 @@ function propertyText(value: string | string[] | null) {
     >
   </ElDialog>
 </template>
+<style scoped>
+.element-history-image video { width: 100%; max-height: 360px; object-fit: contain; }
+</style>

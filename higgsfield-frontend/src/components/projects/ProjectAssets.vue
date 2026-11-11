@@ -1,12 +1,13 @@
 <script setup lang="ts">
+import ProductionPanel from './ProductionPanel.vue'
+import type { ProductionState } from '@/api/production'
 import AssetGenerationInfo from './AssetGenerationInfo.vue'
 import AssetLibraryControls, { type AssetFilterValues } from './AssetLibraryControls.vue'
 import { useResizeObserver, refDebounced } from '@vueuse/core'
 import { useRoute, useRouter } from 'vue-router'
 import FolderIcon from './FolderIcon.vue'
 import { useAssetLocation } from '@/composables/useAssetLocation'
-import { useAssetBatchStatus } from '@/composables/useAssetBatchStatus'
-import { assetStatuses, assetStatus } from '@/utils/assetStatus'
+import { assetStatus } from '@/utils/assetStatus'
 import AssetHoverVideo from './AssetHoverVideo.vue'
 import ElementEditor from './ElementEditor.vue'
 import AssetCardMenu from './AssetCardMenu.vue'
@@ -239,7 +240,13 @@ function updateCommentCount(count: number) {
   rows.value = rows.value.map(entry => entry.asset.currentVersionId === versionId
     ? { ...entry, asset: { ...entry.asset, commentCount: count } } : entry)
 }
+function productionChanged(state: ProductionState) {
+  if (selected.value?.id === state.targetId) selected.value = { ...selected.value, revision: state.revision, workStatus: state.workStatus }
+  void refresh()
+}
 const previewEntry = computed(() => rows.value.find(entry => entry.asset.id === selected.value?.id))
+const previewStatusLabel = computed(() => selected.value?.latestVersionId && selected.value.latestVersionId !== selected.value.currentVersionId
+  ? '历史版本' : assetStatus(selected.value?.workStatus)?.label || '未开始')
 const previewLocation = useAssetLocation(() => previewEntry.value?.folderId)
 const locationRoute = useRoute(), locationRouter = useRouter()
 async function openAssetFolder(folderId: string | null) {
@@ -333,13 +340,8 @@ for (const downloadMessage of [batchDownload.message, previewDownload.message]) 
 const videoCards = new Map<string, InstanceType<typeof AssetHoverVideo>>()
 watch(() => selection.selected.value.length, count => emit('selectionChange', count), { immediate: true })
 watch(() => props.folderId, () => { selection.selected.value = [] })
-const statusMoreOpen = ref(false), statusOptionsOpen = ref(false)
-watch(statusMoreOpen, open => { if (!open) statusOptionsOpen.value = false })
-const batchStatus = useAssetBatchStatus(() => rows.value.map(entry => entry.asset), () => props.visible !== false && !actionsLocked.value && !loading.value && !batchDelete.pending.value && !batchDownload.pending.value && !mover.value?.locked && !copier.value?.locked, refresh, selection.selected)
-const canChangeStatus = computed(() => rows.value.some(entry => selection.selected.value.includes(entry.asset.id) && entry.asset.allowedActions?.includes('content:review')))
 const firstSelected = computed(() => rows.value.find(entry => selection.selected.value.includes(entry.asset.id))?.asset)
-watch(() => selection.selected.value.length, count => { if (!count) { statusMoreOpen.value = false; statusOptionsOpen.value = false } })
-const batchBusy = computed(() => batchStatus.pending.value || batchDelete.pending.value || batchDownload.pending.value || Boolean(mover.value?.locked) || Boolean(copier.value?.locked))
+const batchBusy = computed(() => batchDelete.pending.value || batchDownload.pending.value || Boolean(mover.value?.locked) || Boolean(copier.value?.locked))
 const moveMessage = ref('')
 function moved(ids: string[], summary: string) {
   const assets = new Set(rows.value.filter(entry => ids.includes(entry.id)).map(entry => entry.asset.id))
@@ -417,25 +419,17 @@ defineExpose({ includeDescendants })
     </header>
     <AssetUploadPanel v-if="items.length" v-model:open="uploadsOpen" :items="items" :running="running" :can-upload="canUpload" @pause="pause" @pause-item="pauseItem" @retry="retry" @clear="clearFinished" />
 
-    <div v-if="selection.selected.value.length || batchDelete.pending.value || batchStatus.pending.value" class="asset-toolbar asset-selection-toolbar" :class="{ 'asset-selection-dock': compact }">
+    <div v-if="selection.selected.value.length || batchDelete.pending.value" class="asset-toolbar asset-selection-toolbar" :class="{ 'asset-selection-dock': compact }">
       <span class="asset-selection-count"><span v-if="firstSelected" class="asset-selection-thumbnail"><ReferenceThumbnail :version-id="firstSelected.currentVersionId" :alt="firstSelected.name" fill passive /></span><strong>已选 {{ selection.selected.value.length }} 项</strong></span>
       <Button variant="ghost" :disabled="!canDownload || loading || actionsLocked || batchBusy" :title="canDownload ? '下载所选' : '暂无下载权限'" @click="batchDownload.download"><IconDownload :size="18" />下载</Button>
       <Button variant="ghost" :disabled="!canMove || loading || actionsLocked || batchBusy" @click="mover?.openMany(rows.filter(entry => selection.selected.value.includes(entry.asset.id)))"><IconFolderSymlink :size="18" />移动到</Button>
       <Button variant="ghost" :disabled="!canCopy || loading || actionsLocked || batchBusy" @click="copier?.openMany(rows.filter(entry => selection.selected.value.includes(entry.asset.id)))"><IconFolderPlus :size="18" />复制到</Button>
       <Button variant="ghost" class="asset-selection-icon" aria-label="删除所选" :title="deleteCount ? '删除所选' : '暂无删除权限'" :disabled="loading || actionsLocked || batchBusy || !deleteCount" @click="batchDelete.execute"><IconTrash :size="18" /></Button>
-      <ElPopover v-model:visible="statusMoreOpen" placement="top-end" trigger="click" :width="220" popper-class="asset-controls-popover asset-batch-more">
-        <template #reference><Button variant="ghost" class="asset-selection-icon" aria-label="更多批量操作" :disabled="batchBusy"><IconDots :size="18" /></Button></template>
-        <ElPopover v-model:visible="statusOptionsOpen" placement="right-end" trigger="click" :width="210" popper-class="asset-controls-popover asset-batch-status">
-          <template #reference><button class="asset-menu-item" :disabled="batchBusy" :title="canChangeStatus ? '设置所选素材状态' : '暂无素材审核权限'"><IconCircleDotted :size="18" />状态<IconChevronRight :size="16" class="status-menu-arrow" /></button></template>
-          <header><span>状态</span><button :disabled="batchBusy || !canChangeStatus" @click="batchStatus.change('none'); statusMoreOpen = false; statusOptionsOpen = false">清除</button></header>
-          <button v-for="option in assetStatuses" :key="option.value" class="asset-menu-item" :disabled="batchBusy || !canChangeStatus" @click="batchStatus.change(option.value); statusMoreOpen = false; statusOptionsOpen = false"><span class="asset-status-dot" :style="{ background: option.color }" />{{ option.label }}</button>
-        </ElPopover>
-      </ElPopover>
+      <span class="muted">制作审核请逐项打开素材详情操作</span>
       <Button variant="ghost" class="asset-selection-close" aria-label="取消选择" :disabled="batchBusy" @click="selection.selectAll(false)"><IconX :size="20" /></Button>
       <Button v-if="batchDownload.pending.value" variant="ghost" @click="batchDownload.stop">停止下载</Button>
     </div>
     <p v-if="moveMessage" role="status">{{ moveMessage }}</p>
-    <p v-if="batchStatus.message.value" role="status">{{ batchStatus.message.value }}</p>
     <p v-if="batchDelete.message.value" role="status">{{ batchDelete.message.value }}</p>
     <p v-if="splitByDate" class="muted">按上海日期分组，仅展示当前页素材。</p>
     <p v-if="error" class="project-error" role="alert">{{ error }}</p>
@@ -458,9 +452,9 @@ defineExpose({ includeDescendants })
           <template v-else><IconFileText :size="44" /><span>{{ entry.name.split('.').pop()?.toUpperCase() }}</span></template>
           <span class="asset-media-badges">
             <span v-if="entry.asset.commentCount" class="asset-comment-count" :aria-label="`${entry.asset.commentCount} 条评论`" :title="`${entry.asset.commentCount} 条评论`">{{ entry.asset.commentCount }}</span>
-        <span class="asset-hover-status" :class="{ 'has-status': assetStatus(entry.asset.workStatus) }" :title="assetStatus(entry.asset.workStatus)?.label || '无状态'">
+        <span class="asset-hover-status" :class="{ 'has-status': assetStatus(entry.asset.workStatus) }" :title="assetStatus(entry.asset.workStatus)?.label || '未开始'">
           <span v-if="assetStatus(entry.asset.workStatus)" class="asset-status-dot" :style="{ background: assetStatus(entry.asset.workStatus)?.color }" /><IconCircleDotted v-else :size="13" />
-          <span class="asset-status-label">{{ assetStatus(entry.asset.workStatus)?.label || '无状态' }}</span>
+          <span class="asset-status-label">{{ assetStatus(entry.asset.workStatus)?.label || '未开始' }}</span>
         </span>
           </span>
           <span v-if="lastViewedId === entry.asset.id && !selected" class="asset-last-viewed"><IconEye :size="14" />最近查看</span>
@@ -475,6 +469,7 @@ defineExpose({ includeDescendants })
           <button class="asset-menu-item" @click="selection.toggle(entry.asset.id, !selection.selected.value.includes(entry.asset.id))"><IconCheckbox :size="18" />{{ selection.selected.value.includes(entry.asset.id) ? '取消选择' : '选择' }}</button>
           <button class="asset-menu-item" :disabled="!canCreateElement || !['image', 'video'].includes(entry.asset.mediaType)" :title="!['image', 'video'].includes(entry.asset.mediaType) ? '元素支持图片和视频素材' : !canCreateElement ? '暂无创建元素权限' : '从当前素材创建元素'" @click="elementSource = entry.asset"><IconAt :size="18" />创建元素</button>
           <span class="asset-menu-divider" />
+          <button v-if="canUpload && entry.asset.allowedActions?.includes('asset:edit')" class="asset-menu-item" :disabled="actionsLocked || running" title="为此素材上传新版本，保留旧版本与审核记录" @click="chooseVersionTarget(entry.asset)"><IconUpload :size="18" />上传新版本</button>
           <button class="asset-menu-item" :disabled="actionsLocked || !entry.asset.allowedActions?.includes('asset:edit')" :title="!entry.asset.allowedActions?.includes('asset:edit') ? '暂无重命名权限' : ''" @click="edit(entry.asset)"><IconPencil :size="18" />重命名</button>
           <button class="asset-menu-item" :disabled="!canDownload || mediaLoading || batchBusy" :title="canDownload ? '' : '暂无下载权限'" @click="canDownload && batchDownload.downloadOne(entry.asset)"><IconDownload :size="18" />下载</button>
           <button class="asset-menu-item" :disabled="!canMove" :title="canMove ? '' : '暂无移动权限'" @click="mover?.open(entry)"><IconFolderSymlink :size="18" />移动到</button>
@@ -607,12 +602,12 @@ defineExpose({ includeDescendants })
       </section>
           </div>
           <VideoPreviewControls :fullscreen="previewExpanded" v-model:timecode="previewTimecode" v-if="selected?.mediaType === 'video'" :player="previewPlayer" :time="playbackTime" :duration="playbackDuration" :playing="playbackPlaying" :comments="videoComments" @seek="seekPlayback" @select="selectVideoComment">
-            <span class="asset-preview-status"><IconCircleDotted :size="18" />{{ assetStatus(selected?.workStatus)?.label || '无状态' }}</span>
+            <span class="asset-preview-status"><IconCircleDotted :size="18" />{{ previewStatusLabel }}</span>
             <Button variant="ghost" aria-label="查看素材评论" title="查看素材评论" @click="showPreviewComments"><IconMessageCircle :size="20" /></Button>
             <Button variant="ghost" :aria-label="previewExpanded ? '还原预览布局' : '最大化素材预览'" :title="previewExpanded ? '还原预览布局' : '最大化素材预览'" :aria-pressed="previewExpanded" @click="togglePreviewFullscreen"><IconMinimize v-if="previewExpanded" :size="20" /><IconMaximize v-else :size="20" /></Button>
           </VideoPreviewControls>
           <div v-else class="asset-preview-tools">
-            <span class="asset-preview-status"><IconCircleDotted :size="18" />{{ assetStatus(selected?.workStatus)?.label || '无状态' }}</span>
+            <span class="asset-preview-status"><IconCircleDotted :size="18" />{{ previewStatusLabel }}</span>
             <Button variant="ghost" aria-label="查看素材评论" title="查看素材评论" @click="showPreviewComments"><IconMessageCircle :size="20" /></Button>
             <Button variant="ghost" :aria-label="previewExpanded ? '还原预览布局' : '最大化素材预览'" :title="previewExpanded ? '还原预览布局' : '最大化素材预览'" :aria-pressed="previewExpanded" @click="togglePreviewFullscreen"><IconMinimize v-if="previewExpanded" :size="20" /><IconMaximize v-else :size="20" /></Button>
           </div>
@@ -623,6 +618,7 @@ defineExpose({ includeDescendants })
             <button id="asset-preview-comments-tab" role="tab" :aria-selected="previewTab === 'comments'" aria-controls="asset-preview-comments" @click="previewTab = 'comments'"><IconMessageCircle :size="16" />评论</button>
           </div>
           <section v-show="previewTab === 'info'" id="asset-preview-info" class="asset-preview-info" role="tabpanel" aria-labelledby="asset-preview-info-tab">
+            <ProductionPanel v-if="selected" kind="asset" :id="selected.id" :project-id="projectId" :version-id="selected.currentVersionId" :disabled="actionsLocked" @changed="productionChanged" @version="locationRouter.push({ query: { ...locationRoute.query, asset: undefined, assetVersion: $event } })" />
             <AssetGenerationInfo v-if="selected?.generation" :key="selected.currentVersionId" :info="selected.generation" :file="selected.file" :can-load="canGenerate" />
             <h3>详细信息</h3>
             <dl v-if="selected">
@@ -656,6 +652,7 @@ defineExpose({ includeDescendants })
         v-if="selected"
         :key="selected.currentVersionId"
         :target="{ assetVersionId: selected.currentVersionId }"
+        :can-create-comment="projectActions?.includes('comment:create') === true"
         :media-kind="selected.mediaType"
       />
           </div>

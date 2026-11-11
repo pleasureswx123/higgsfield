@@ -26,7 +26,7 @@ CATALOG = [
     ('内容操作', 'element:copy', '跨项目复制元素', True, False),
     ('内容操作', 'element:import', '导入元素', True, False),
     ('内容操作', 'folder:write', '管理项目目录', True, False),
-    ('内容操作', 'content:review', '审核内容状态', True, True),
+    ('内容操作', 'content:review', '审核通过与退回', True, False),
     ('内容操作', 'output:archive', '重试作品归档', True, True),
     ('评论', 'comment:read', '查看评论', True, False),
     ('评论', 'comment:create', '发表评论', True, False),

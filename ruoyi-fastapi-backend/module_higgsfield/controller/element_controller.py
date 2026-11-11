@@ -28,6 +28,8 @@ from module_higgsfield.entity.vo.element_vo import (
 )
 from module_higgsfield.service.element_service import ElementService
 from module_higgsfield.service.element_copy_service import ElementCopyService
+from module_higgsfield.service.production_review_service import ProductionReviewService
+from module_higgsfield.entity.vo.production_vo import ProductionAction, ProductionAssignment
 from utils.response_util import ResponseUtil
 
 element_controller = APIRouterPro(
@@ -35,6 +37,23 @@ element_controller = APIRouterPro(
 )
 PageNumber = Annotated[int, Query(ge=1)]
 PageSize = Annotated[int, Query(ge=1, le=100)]
+
+
+@element_controller.get('/elements/{element_id}/production', summary='查看元素制作交接与版本审核记录')
+async def element_production(request: Request, element_id: ProjectId, db: Db, user: User):
+    return ResponseUtil.success(data=await ProductionReviewService.get(db, user, 'element', element_id))
+
+
+@element_controller.post('/elements/{element_id}/assignment', summary='分配元素制作责任')
+@Log(title='分配元素制作人', business_type=BusinessType.UPDATE)
+async def element_assignment(request: Request, element_id: ProjectId, payload: ProductionAssignment, key: Key, db: Db, user: User):
+    return mutation_response(await ProductionReviewService.assign(db, user, 'element', element_id, payload, key))
+
+
+@element_controller.post('/elements/{element_id}/production', summary='执行元素制作或审核动作')
+@Log(title='元素制作与审核', business_type=BusinessType.UPDATE)
+async def element_production_action(request: Request, element_id: ProjectId, payload: ProductionAction, key: Key, db: Db, user: User):
+    return mutation_response(await ProductionReviewService.act(db, user, 'element', element_id, payload, key))
 
 
 @element_controller.post('/elements/{element_id}/copy', summary='双向授权复制元素固定修订')
@@ -121,6 +140,13 @@ async def element_revisions(
     request: Request, element_id: ProjectId, db: Db, user: User, pageNum: PageNumber = 1, pageSize: PageSize = 30
 ):
     return ResponseUtil.success(model_content=await ElementService.revisions(db, user, element_id, pageNum, pageSize))
+
+
+@element_controller.get('/elements/{element_id}/revisions/{revision_id}', summary='读取指定元素历史修订')
+async def element_revision_detail(
+    request: Request, element_id: ProjectId, revision_id: ProjectId, db: Db, user: User
+):
+    return ResponseUtil.success(data=await ElementService.revision_detail(db, user, element_id, revision_id))
 
 
 @element_controller.get('/projects/{project_id}/property-definitions', summary='读取项目最新属性定义')

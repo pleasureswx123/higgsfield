@@ -19,6 +19,7 @@ class AssetVersionPreviewTests(unittest.IsolatedAsyncioTestCase):
             authorize.assert_awaited_once_with(db, user, 42)
             serialize.assert_awaited_once_with(db, asset, version, user=user)
             self.assertEqual(result['currentVersionId'], '13')
+            self.assertEqual(result['latestVersionId'], '99')
             self.assertEqual(result['author']['displayName'], '制作人')
 
     async def test_denied_asset_cannot_preview_version(self):

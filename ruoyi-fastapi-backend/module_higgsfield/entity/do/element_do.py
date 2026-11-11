@@ -43,6 +43,7 @@ class HfElementRevision(ContentRecord):
         UniqueConstraint('element_id', 'revision_no', name='uq_hf_element_revision_no'),
         UniqueConstraint('element_id', 'revision_id', name='uq_hf_element_revision_identity'),
         CheckConstraint('revision_no > 0', name='ck_hf_element_revision_no'),
+        CheckConstraint("category_snapshot IS NULL OR category_snapshot IN ('character','scene','prop','other')", name='ck_hf_element_revision_category'),
         CheckConstraint("jsonb_typeof(property_snapshot)='array'", name='ck_hf_element_property_snapshot'),
         {'comment': '元素不可变生成资料修订', 'info': {'migration_managed': True}},
     )
@@ -50,6 +51,7 @@ class HfElementRevision(ContentRecord):
     element_id = Column(BigInteger, nullable=False, comment='元素身份ID')
     revision_no = Column(Integer, nullable=False, comment='递增内部修订号')
     description = Column(Text, nullable=False, server_default='', comment='参与生成的描述')
+    category_snapshot = Column(String(32), comment='此修订审核时的元素分类，空表示旧修订未知')
     is_fictional_person = Column(Boolean, nullable=False, server_default=text('false'), comment='是否虚构人物，固定修订中的人物素材注册策略')
     property_snapshot = Column(
         JSONB, nullable=False, server_default=text("'[]'::jsonb"), comment='属性定义版本和值的不可变快照'

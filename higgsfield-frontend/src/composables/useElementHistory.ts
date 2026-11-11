@@ -1,9 +1,9 @@
 import { computed, onActivated, onDeactivated, onBeforeUnmount, ref, watch } from 'vue'
-import { listRevisions, type ElementRevision } from '@/api/elements'
+import { listRevisions, readElementRevision, type ElementRevision } from '@/api/elements'
 import { readMedia } from '@/api/assets'
 import { useAuthStore } from '@/stores/auth'
 
-export function useElementHistory(id: string, visible: () => boolean = () => true) {
+export function useElementHistory(id: string, visible: () => boolean = () => true, revisionId?: string) {
   const auth = useAuthStore(), active = ref(visible())
   let mountedActive = true, alive = true
   const rows = ref<ElementRevision[]>([]),
@@ -17,6 +17,7 @@ export function useElementHistory(id: string, visible: () => boolean = () => tru
     previewLoading = ref(false),
     previewError = ref('')
   const properties = computed(() => selected.value?.propertySnapshot || [])
+  const previewKind = ref<'image' | 'video'>('image')
   let listController: AbortController | undefined, mediaController: AbortController | undefined
   function clearMedia() {
     mediaController?.abort()
@@ -40,7 +41,9 @@ export function useElementHistory(id: string, visible: () => boolean = () => tru
     loading.value = true
     error.value = ''
     try {
-      const response = await listRevisions(id, page.value, controller.signal)
+      const response = revisionId
+        ? { rows: [(await readElementRevision(id, revisionId, controller.signal)).data], total: 1 }
+        : await listRevisions(id, page.value, controller.signal)
       if (!controller.signal.aborted) {
         rows.value = response.rows
         total.value = response.total
@@ -77,7 +80,10 @@ export function useElementHistory(id: string, visible: () => boolean = () => tru
     previewLoading.value = true
     try {
       const blob = await readMedia(version, false, controller.signal, () => {})
-      if (!controller.signal.aborted) preview.value = URL.createObjectURL(blob)
+      if (!controller.signal.aborted) {
+        previewKind.value = blob.type?.startsWith('video/') ? 'video' : 'image'
+        preview.value = URL.createObjectURL(blob)
+      }
     } catch (cause) {
       if (!controller.signal.aborted)
         previewError.value = cause instanceof Error ? cause.message : '历史图片不可读取'
@@ -134,6 +140,7 @@ export function useElementHistory(id: string, visible: () => boolean = () => tru
     selected,
     selectedVersion,
     preview,
+    previewKind,
     previewLoading,
     previewError,
     properties,

@@ -4,6 +4,7 @@ from module_higgsfield.dao.element_dao import ElementDao
 from module_higgsfield.entity.do.element_do import HfElementRevision, HfElementRevisionLabel, HfElementRevisionMedia
 from module_higgsfield.service.project_workspace_service import WorkspaceService
 from module_higgsfield.service.write_service import WriteService
+from module_higgsfield.service.production_review_service import ProductionReviewService
 
 
 class ElementContentService:
@@ -71,6 +72,7 @@ class ElementContentService:
             element_id=element.element_id,
             revision_no=previous.revision_no + 1 if previous else 1,
             description=content.description,
+            category_snapshot=element.category,
             is_fictional_person=bool(content.is_fictional_person),
             property_snapshot=snapshots,
             create_user_id=user.user.user_id,
@@ -96,6 +98,8 @@ class ElementContentService:
                 **audit,
             )
         element.current_revision_id = revision.revision_id
+        if previous:
+            await ProductionReviewService.new_version(db, user, element, 'element')
         await db.flush()
         return revision
 
@@ -108,6 +112,7 @@ class ElementContentService:
             'elementId': str(revision.element_id),
             'revisionNo': revision.revision_no,
             'description': revision.description,
+            'categorySnapshot': revision.category_snapshot,
             'isFictionalPerson': revision.is_fictional_person,
             'propertyValues': [
                 {key: item[key] for key in ('definitionId', 'definitionVersion', 'value')}

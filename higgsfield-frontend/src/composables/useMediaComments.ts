@@ -22,14 +22,14 @@ import {
   clearCommentRecovery,
 } from '@/utils/commentRecovery'
 
-export function useMediaComments(target: () => CommentTarget, mediaKind: () => string = () => '', visible: () => boolean = () => true) {
+export function useMediaComments(target: () => CommentTarget, mediaKind: () => string = () => '', visible: () => boolean = () => true, projectCanCreate: () => boolean = () => false) {
   const auth = useAuthStore()
   const hasPermission = (code: string) => {
     const values = auth.user?.permissions || []
     return values.includes('*:*:*') || values.includes(code)
   }
   const canRead = computed(() => hasPermission('comment:read'))
-  const canCreate = computed(() => canRead.value && hasPermission('comment:create'))
+  const canCreate = computed(() => canRead.value && hasPermission('comment:create') && projectCanCreate())
   let active = visible(), mountedActive = true,
     alive = true
   const available = () => alive && active && Boolean(auth.token)

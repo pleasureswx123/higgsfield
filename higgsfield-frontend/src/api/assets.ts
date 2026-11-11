@@ -29,6 +29,7 @@ export interface Asset {
   name: string
   mediaType: 'image' | 'video' | 'document'
   currentVersionId: string
+  latestVersionId?: string
   uploaded?: boolean
   revision: string
   file: {

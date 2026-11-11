@@ -17,6 +17,7 @@ from module_higgsfield.service.element_content_service import ElementContentServ
 from module_higgsfield.service.folder_service import FolderService
 from module_higgsfield.service.project_workspace_service import WorkspaceService
 from module_higgsfield.service.write_service import WriteService
+from module_higgsfield.service.production_review_service import ProductionReviewService
 from utils.time_util import TimezoneUtil
 
 STATUS_CODES = dict(zip(('none', 'working', 'review', 'approved', 'rejected'), '01234'))
@@ -36,7 +37,7 @@ class ElementService:
             'alias': element.alias,
             'category': element.category,
             'currentRevisionId': str(element.current_revision_id) if element.current_revision_id else None,
-            'performerId': str(element.performer_id) if element.performer_id else None,
+            'performerId': str(element.performer_id or element.create_user_id),
             'folderId': str(element.folder_id) if element.folder_id else None,
             'workStatus': STATUS_NAMES[element.work_status],
             'revision': str(element.revision),
@@ -49,9 +50,12 @@ class ElementService:
         project_id = await ElementDao.project_id(db, element_id)
         if project_id is None:
             cls.fail('RESOURCE_NOT_FOUND', '元素不存在或无权访问')
+        if write:
+            await WorkspaceDao.lock_project(db, project_id)
         element = await ElementDao.element(db, element_id)
         project, _, allowed = await WorkspaceService.authorize(
-            db, user, project_id, permission, write=write, owner_id=element.create_user_id
+            db, user, project_id, permission, write=write, owner_id=element.create_user_id,
+            responsibility_id=element.performer_id or element.create_user_id,
         )
         if write:
             element = await ElementDao.element(db, element_id)
@@ -203,6 +207,15 @@ class ElementService:
 
     @classmethod
     async def validate_fields(cls, db, user, project_id, payload, element=None):
+        previous = STATUS_NAMES[element.work_status] if element else 'none'
+        if previous != payload.work_status:
+            cls.fail('WORKFLOW_ACTION_REQUIRED', '请保存内容后使用提交审核等制作操作，不能直接修改审核状态')
+        creator_id = element.create_user_id if element else user.user.user_id
+        requested_performer = int(payload.performer_id) if payload.performer_id else creator_id
+        previous_performer = (element.performer_id or creator_id) if element else user.user.user_id
+        if requested_performer != previous_performer:
+            await WorkspaceService.authorize(db, user, project_id, 'element:edit', write=True)
+            await ProductionReviewService.validate_performer(db, project_id, 'element', requested_performer)
         if payload.performer_id:
             member = await WorkspaceDao.member(db, project_id, int(payload.performer_id))
             target = await WorkspaceDao.user(db, int(payload.performer_id), lock=True)
@@ -214,16 +227,6 @@ class ElementService:
                 or target['del_flag'] != '0'
             ):
                 cls.fail('PERFORMER_INVALID', '负责人必须是当前有效项目成员')
-        previous = STATUS_NAMES[element.work_status] if element else 'none'
-        if previous != payload.work_status:
-            await WorkspaceService.authorize(
-                db,
-                user,
-                project_id,
-                'content:review',
-                write=True,
-                owner_id=element.create_user_id if element else user.user.user_id,
-            )
 
     @staticmethod
     async def set_status(db, user, element, status):
@@ -307,17 +310,21 @@ class ElementService:
                 return replay, True
             WorkspaceService.check_revision(element, payload.revision)
             if action in ('patch', 'save'):
+                previous_category = element.category
                 if 'alias' in data and await ElementDao.alias_exists(db, element.space_id, payload.alias, element_id):
                     cls.fail('ALIAS_CONFLICT', '此项目已使用该别名')
                 for field, column in (('name', 'element_name'), ('alias', 'alias'), ('category', 'category')):
                     if field in data:
                         setattr(element, column, getattr(payload, field))
             revision = await ElementDao.revision(db, element.current_revision_id)
-            if action == 'patch' and element.category != 'character' and revision.is_fictional_person:
+            if action not in ('patch', 'save'):
+                previous_category = element.category
+            if action == 'patch' and element.category != previous_category:
                 # 身份接口修改类型也要留下新修订，不能让新场景引用继续走人物注册或改写旧引用。
                 previous = await ElementContentService.result(db, revision)
                 content = RevisionContent(
-                    description=revision.description, isFictionalPerson=False,
+                    description=revision.description,
+                    isFictionalPerson=element.category == 'character' and revision.is_fictional_person,
                     media=previous['media'], propertyValues=previous['propertyValues'],
                 )
                 revision = await ElementContentService.append(
@@ -339,7 +346,8 @@ class ElementService:
                     [item.model_dump(by_alias=True) for item in payload.media], key=lambda item: item['ordinal']
                 )
                 changed = (
-                    revision.description != payload.description
+                    previous_category != element.category
+                    or revision.description != payload.description
                     or revision.is_fictional_person != payload.is_fictional_person
                     or revision.property_snapshot != snapshots
                     or previous['media'] != media
@@ -373,6 +381,14 @@ class ElementService:
         except Exception:
             await db.rollback()
             raise
+
+    @classmethod
+    async def revision_detail(cls, db, user, element_id, revision_id):
+        await cls.authorized(db, user, element_id, 'element:read')
+        revision = await ElementDao.revision(db, revision_id)
+        if revision is None or revision.element_id != element_id:
+            cls.fail('RESOURCE_NOT_FOUND', '修订不存在或不属于当前元素')
+        return await ElementContentService.result(db, revision)
 
     @classmethod
     async def revisions(cls, db, user, element_id, page_num, page_size):

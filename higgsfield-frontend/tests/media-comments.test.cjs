@@ -29,6 +29,16 @@ runInNewContext(
 )
 test.beforeEach(() => recovery.clearCommentRecovery())
 
+test('系统有评论权限但项目不允许时，不能发送评论且保留草稿', async () => {
+  const c = await setup({ projectCanCreate: false })
+  c.state.body.value = '保留的草稿'
+  assert.equal(c.state.canCreate.value, false)
+  await c.state.mutate('save')
+  assert.equal(c.calls.length, 0)
+  assert.equal(c.state.body.value, '保留的草稿')
+  c.close()
+})
+
 test('异步表单校验只提交已校验的主题和编辑内容', async () => {
   for (const change of [c => { c.state.threadId.value = 'other' }, c => { c.state.body.value = '新正文' },
     c => { c.state.videoTime.value = '2' }, c => { c.state.updateAnnotations([{ shape: 'point', geometry: { x: 0.5, y: 0.5 } }]) }]) {
@@ -138,6 +148,7 @@ async function setup(overrides = {}) {
         () => target.value,
         () => 'video',
         () => visible.value,
+        () => overrides.projectCanCreate !== false,
       ),
     )
   state.form.value = { validate: async () => true }

@@ -4,6 +4,7 @@ from contextlib import ExitStack
 from types import SimpleNamespace as NS
 from unittest.mock import AsyncMock, patch
 from pydantic import ValidationError
+from exceptions.exception import ServiceWarning
 from module_higgsfield.entity.vo.asset_vo import AssetStatus
 from module_higgsfield.service.asset_lifecycle_service import AssetLifecycleService
 from module_higgsfield.service.asset_service import AssetService
@@ -23,15 +24,15 @@ class AssetStatusTests(unittest.IsolatedAsyncioTestCase):
         auth=stack.enter_context(patch.object(WorkspaceService,'authorize',AsyncMock(side_effect=RuntimeError('无审核权限') if denied else None)))
         return stack,auth
 
-    async def test_all_statuses_saved_with_review_permission(self):
+    async def test_legacy_statuses_require_explicit_workflow_actions(self):
         for status in ['working','review','approved','rejected','none']:
             asset=NS(create_user_id=2,revision=1,del_flag='0',work_status='none')
             stack,auth=self.context(asset)
-            with stack:
+            with stack, self.assertRaises(ServiceWarning) as error:
                 await AssetLifecycleService.mutate(AsyncMock(),NS(user=NS(user_name='测试',user_id=2)),3,'status',AssetStatus(revision='1',workStatus=status),'key')
-            self.assertEqual(asset.work_status,status)
-            self.assertEqual(asset.revision,2)
-            self.assertEqual(auth.await_args.args[3],'content:review')
+            self.assertIn('提交审核', error.exception.message)
+            self.assertEqual(asset.work_status,'none')
+            self.assertEqual(asset.revision,1)
 
     async def test_denial_and_revision_conflict_do_not_write(self):
         for denied,revision in [(True,'1'),(False,'2')]:
@@ -41,14 +42,13 @@ class AssetStatusTests(unittest.IsolatedAsyncioTestCase):
             with stack, self.assertRaises(Exception):
                 await AssetLifecycleService.mutate(db,NS(user=NS(user_name='测试',user_id=2)),3,'status',AssetStatus(revision=revision,workStatus='approved'),'key')
             self.assertEqual(asset.work_status,'none')
-            db.rollback.assert_awaited_once()
+            db.commit.assert_not_awaited()
 
-    async def test_replay_does_not_increment_revision(self):
+    async def test_legacy_replay_cannot_bypass_new_workflow(self):
         asset=NS(create_user_id=2,revision=2,del_flag='0',work_status='approved')
         stack,_=self.context(asset,replay={'saved': True})
-        with stack:
-            result=await AssetLifecycleService.mutate(AsyncMock(),NS(user=NS(user_name='测试',user_id=2)),3,'status',AssetStatus(revision='1',workStatus='approved'),'key')
-        self.assertEqual(result,({'saved':True},True))
+        with stack, self.assertRaises(ServiceWarning):
+            await AssetLifecycleService.mutate(AsyncMock(),NS(user=NS(user_name='测试',user_id=2)),3,'status',AssetStatus(revision='1',workStatus='approved'),'key')
         self.assertEqual(asset.revision,2)
 
     def test_unknown_status_rejected(self):

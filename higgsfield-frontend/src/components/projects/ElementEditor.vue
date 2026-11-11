@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import ProductionPanel from './ProductionPanel.vue'
 import type { Asset } from '@/api/assets'
 import type { PropertyDefinition, ElementRecord } from '@/api/elements'
 import { ref, toRef, defineAsyncComponent, watch } from 'vue'
@@ -22,8 +23,6 @@ import {
   IconTrash,
   IconInfoCircle,
   IconCategory,
-  IconUserCheck,
-  IconCircleDashed,
 } from '@tabler/icons-vue'
 import Button from '@/components/ui/Button.vue'
 import { Switch } from '@/components/ui/switch'
@@ -43,8 +42,10 @@ const props = defineProps<{
   using?: boolean
   useError?: string
 }>()
-const emit = defineEmits<{ close: []; saved: []; use: [element: ElementRecord] }>()
+const emit = defineEmits<{ close: []; saved: []; changed: []; use: [element: ElementRecord] }>()
 const previewExpanded = ref(false)
+const historyRevision = ref('')
+const ElementHistoryDialog = defineAsyncComponent(() => import('./ElementHistoryDialog.vue'))
 const ElementMediaPicker = defineAsyncComponent(() => import('./DraftReferences.vue'))
 const referencePicker = ref<{ show: (kind: 'asset', anchor: HTMLElement) => void }>()
 const referencePickerOpen = ref(false)
@@ -81,7 +82,10 @@ const {
   newerDefinitions,
   adoptDefinition,
   removeProperty,
-  members,
+  dirty,
+  detail,
+  productionBusy,
+  syncProduction,
   loading,
   saving,
   uncertain,
@@ -94,7 +98,6 @@ const {
   retry,
   error,
   canEdit,
-  canReview,
   allowed,
   selectedVersion,
   previewUrl,
@@ -122,13 +125,6 @@ const categories = [
   { value: 'scene', label: '场景' },
   { value: 'prop', label: '道具' },
   { value: 'other', label: '其他' },
-]
-const statuses = [
-  { value: 'none', label: '无状态' },
-  { value: 'working', label: '制作中' },
-  { value: 'review', label: '待审核' },
-  { value: 'approved', label: '已通过' },
-  { value: 'rejected', label: '已驳回' },
 ]
 const rules: FormRules = {
   name: [{ required: true, whitespace: true, message: '请输入名称', trigger: 'blur' }],
@@ -273,6 +269,8 @@ async function removeSelectedImage() {
         </div>
       </section>
       <section class="element-detail-panel">
+        <ProductionPanel v-if="elementId && detail && active" kind="element" :id="elementId" :project-id="projectId" :version-id="detail.element.currentRevisionId" :dirty="dirty" :disabled="loading || saving || uncertain || conflict || !!using" @changed="syncProduction($event); emit('changed')" @busy="productionBusy = $event" @version="historyRevision = $event" />
+        <p v-else-if="!elementId" class="muted">保存元素后可分配制作人并开始制作。</p>
         <ElForm
           ref="form"
           :model="fields"
@@ -350,32 +348,6 @@ async function removeSelectedImage() {
               :rows="4"
               placeholder="描述此元素（可选）"
           /></ElFormItem>
-          <ElFormItem label="负责人"
-            ><ElSelect
-              v-model="fields.performerId"
-              clearable
-              :value-on-clear="null"
-              :disabled="!allowed.includes('member:read')"
-              placeholder="未分配"
-              ><template #prefix><IconUserCheck :size="18" /></template
-              ><ElOption
-                v-if="
-                  fields.performerId &&
-                  !members.some((member) => member.userId === fields.performerId)
-                "
-                :value="fields.performerId"
-                label="原负责人（当前不可选）"
-                disabled /><ElOption
-                v-for="member in members"
-                :key="member.userId"
-                :value="member.userId"
-                :label="member.displayName" /></ElSelect
-          ></ElFormItem>
-          <ElFormItem label="状态"
-            ><ElSelect v-model="fields.workStatus" :disabled="!canReview"
-              ><template #prefix><IconCircleDashed :size="18" /></template
-              ><ElOption v-for="item in statuses" :key="item.value" v-bind="item" /></ElSelect
-          ></ElFormItem>
           <h4 class="element-properties-heading">自定义属性</h4>
           <ElFormItem
             v-for="property in properties"
@@ -438,7 +410,7 @@ async function removeSelectedImage() {
         >取消</Button
       ><Button
         v-if="canEdit && !uncertain"
-        :disabled="using || saving || loading || conflict"
+        :disabled="using || locked || loading || conflict"
         @click="save"
         >{{ saving ? '保存中…' : elementId ? '保存' : '创建' }}</Button
       ><Button v-if="uncertain" :disabled="saving || loading || using" @click="retry">{{
@@ -451,6 +423,7 @@ async function removeSelectedImage() {
     <ElDialog v-if="previewKind === 'video'" v-model="previewExpanded" title="视频放大预览" fullscreen append-to-body class="element-video-lightbox" :show-close="true">
       <video v-if="previewExpanded" :src="previewUrl" controls />
     </ElDialog>
+    <ElementHistoryDialog v-if="elementId && historyRevision" :key="historyRevision" :element-id="elementId" :revision-id="historyRevision" :visible="active" @close="historyRevision = ''" />
     <ElementMediaPicker
       ref="referencePicker"
       v-model="pickerReferences"

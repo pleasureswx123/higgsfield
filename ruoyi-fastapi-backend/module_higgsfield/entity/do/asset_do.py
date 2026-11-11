@@ -124,6 +124,7 @@ class HfAsset(ContentRecord):
     work_status = Column(String(16), nullable=False, server_default='none', comment='素材工作状态：none无状态、working进行中、review待审核、approved已通过、rejected已驳回')
     media_type = Column(String(32), nullable=False, comment='素材媒体类型')
     create_user_id = Column(BigInteger, nullable=False, comment='作者用户ID')
+    performer_id = Column(BigInteger, comment='当前制作责任人用户ID，空时由作者制作')
     current_version_id = Column(BigInteger, comment='当前就绪版本ID')
     revision = Column(BigInteger, nullable=False, server_default='1', comment='并发修订')
     del_flag = Column(CHAR(1), nullable=False, server_default='0', comment='0存在2删除')

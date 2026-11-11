@@ -1,3 +1,4 @@
+import type { ProductionState } from '@/api/production'
 import {
   computed,
   onActivated,
@@ -50,7 +51,8 @@ export function useElementEditor(
     ready = ref(false),
     saving = ref(false),
     error = ref('')
-  const locked = computed(() => saving.value || uncertain.value)
+  const productionBusy = ref(false)
+  const locked = computed(() => saving.value || uncertain.value || productionBusy.value)
   const aliasSuggestion = computed(() => {
     const normalize = (value: string) =>
       value
@@ -137,6 +139,21 @@ export function useElementEditor(
       properties: properties.value.map((item) => ({ id: item.definition.id, value: item.value })),
     })
   const dirty = computed(() => !loading.value && !!baseline && snapshot() !== baseline)
+  function syncProduction(state: ProductionState) {
+    if (!detail.value || state.targetId !== detail.value.element.id) return
+    const wasDirty = dirty.value
+    detail.value.element = { ...detail.value.element, revision: state.revision, workStatus: state.workStatus, performerId: state.performerId, performerName: state.performerName || undefined }
+    fields.workStatus = state.workStatus
+    fields.performerId = state.performerId
+    // 只同步制作元数据，保留制作期间新输入的名称、描述和媒体。
+    if (!wasDirty) baseline = snapshot()
+    else if (baseline) {
+      const previous = JSON.parse(baseline)
+      previous.fields.workStatus = state.workStatus
+      previous.fields.performerId = state.performerId
+      baseline = JSON.stringify(previous)
+    }
+  }
   async function initialize() {
     if (!active.value || loadController.signal.aborted) return
     const ticket = lifecycle
@@ -379,7 +396,7 @@ export function useElementEditor(
     fields.media = next.map((item, ordinal) => ({ ...item, ordinal }))
   }
   async function save() {
-    if (deleteIntent || conflict.value) return
+    if (deleteIntent || conflict.value || productionBusy.value) return
     const ticket = lifecycle
     if (
       saving.value ||
@@ -593,6 +610,8 @@ export function useElementEditor(
   })
   void initialize()
   return {
+    productionBusy,
+    syncProduction,
     active,
     newerDefinitions,
     adoptDefinition,

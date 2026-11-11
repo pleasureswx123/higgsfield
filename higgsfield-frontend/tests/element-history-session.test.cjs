@@ -2,18 +2,31 @@ const {test}=require('node:test'),assert=require('node:assert/strict')
 const {readFileSync}=require('node:fs'),{join}=require('node:path'),{runInNewContext}=require('node:vm')
 const ts=require('typescript'),vue=require('vue')
 const tick=()=>new Promise(setImmediate)
-function setup(){
+function setup(revisionId){
  const exports={},hooks={},reads=[],media=[],revoked=[],visible=vue.ref(false),auth=vue.reactive({token:'one',user:{user:{userId:'1'},permissions:['element:read']}})
  runInNewContext(ts.transpileModule(readFileSync(join(__dirname,'../src/composables/useElementHistory.ts'),'utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS}}).outputText,{
  exports,AbortController,URL:{createObjectURL:()=> 'blob:history',revokeObjectURL:url=>revoked.push(url)},require(id){
  if(id==='vue')return {...vue,onBeforeUnmount:fn=>hooks.close=fn,onActivated:fn=>hooks.activate=fn,onDeactivated:fn=>hooks.deactivate=fn}
  if(id.includes('stores/auth'))return {useAuthStore:()=>auth}
- return {listRevisions:(...args)=>new Promise(resolve=>reads.push({args,resolve})),readMedia:(...args)=>new Promise(resolve=>media.push({args,resolve}))}
+ return {listRevisions:(...args)=>new Promise(resolve=>reads.push({args,resolve})),readElementRevision:(...args)=>new Promise(resolve=>reads.push({args,resolve})),readMedia:(...args)=>new Promise(resolve=>media.push({args,resolve}))}
  }})
- const scope=vue.effectScope(),state=scope.run(()=>exports.useElementHistory('9',()=>visible.value))
+ const scope=vue.effectScope(),state=scope.run(()=>exports.useElementHistory('9',()=>visible.value,revisionId))
  return {state,visible,auth,reads,media,revoked,hooks,close(){hooks.close();scope.stop()}}
 }
 const revisions=[{id:'r1',media:[{assetVersionId:'v1',isPrimary:true}],propertySnapshot:[]},{id:'r2',media:[{assetVersionId:'v2',isPrimary:true},{assetVersionId:'v3'}],propertySnapshot:[]}]
+test('审核记录直接定位指定修订，不用最新修订代替',async()=>{
+ const h=setup('r2');h.visible.value=true
+ assert.deepEqual(h.reads[0].args.slice(0,2),['9','r2'])
+ h.reads[0].resolve({data:revisions[1]});await tick()
+ assert.equal(h.state.selected.value.id,'r2');assert.equal(h.state.total.value,1)
+ assert.equal(h.state.selectedVersion.value,'v2');h.close()
+})
+test('历史视频按文件类型渲染，切换图片不会沿用视频类型',async()=>{
+ const h=setup();h.visible.value=true;h.reads[0].resolve({rows:revisions,total:2});await tick()
+ h.media[0].resolve({type:'video/mp4'});await tick();assert.equal(h.state.previewKind.value,'video')
+ h.state.choose(revisions[1]);await tick();h.media.at(-1).resolve({type:'image/png'});await tick()
+ assert.equal(h.state.previewKind.value,'image');h.close()
+})
 test('历史弹窗隐藏取消媒体，返回保持修订和所选图片并重新授权读取',async()=>{
  const h=setup();assert.equal(h.reads.length,0);h.visible.value=true
  h.reads[0].resolve({rows:revisions,total:2});await tick();h.state.choose(revisions[1]);await tick()

@@ -37,6 +37,7 @@ const props = defineProps<{
   visible?: boolean
   sidebar?: boolean
   projectId?: string
+  canCreateComment?: boolean
   canvasHost?: HTMLElement
   fullscreen?: boolean
   canvasTransform?: { scale: number; x: number; y: number }
@@ -97,6 +98,7 @@ const {
   () => props.target,
   () => props.mediaKind || '',
   () => props.visible !== false,
+  () => props.canCreateComment === true,
 )
 // 表单始终读取同一份响应式草稿，避免创建讨论后校验到旧正文。
 const commentFormModel = reactive({ body, videoTime })
@@ -360,6 +362,7 @@ async function remove(row: MediaComment) {
       <Button v-if="uncertain" :disabled="saving || retryBlocked" @click="retry"
         >重试确认结果</Button
       >
+      <p v-if="!canCreate" class="muted">当前项目没有发表评论权限，可查看已有评论。</p>
       <ElForm @submit.prevent ref="form" :model="commentFormModel" :rules="rules" class="comment-sidebar-form">
         <ElFormItem prop="body"
           ><CommentComposer :timecode="timecode"

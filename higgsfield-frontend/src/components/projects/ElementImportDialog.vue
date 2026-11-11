@@ -88,6 +88,10 @@ async function close() {
       当前没有元素导入权限，不能读取或提交导入批次。
     </p>
     <template v-if="canImport && !batch">
+      <p>从清单或文档提取角色、场景、道具等元素资料。先上传解析，再复核候选，确认后才创建元素。</p>
+      <p class="muted">这里导入名称与描述，不会自动生成图片、视频或完成审核。创建后可关联素材、分配制作人并进入制作流程。</p>
+      <details>
+        <summary>支持的文件格式与填写规则</summary>
       <p class="muted">
         支持 UTF-8 CSV 和单工作表
         XLSX。四列依次为：名称、别名、分类、描述。分类填写角色、场景、道具或其他；XLSX
@@ -110,6 +114,7 @@ async function close() {
         PDF
         须有可提取文字，沿用分类段落格式；来源显示实际页号和提取文本行号。当前不支持扫描件OCR或加密PDF，最多200页。
       </p>
+      </details>
       <div v-if="canUpload" class="element-import-upload">
         <input
           type="file"

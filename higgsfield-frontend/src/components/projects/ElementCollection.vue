@@ -22,7 +22,7 @@ const statusNames = {
   working: '制作中',
   review: '待审核',
   approved: '已通过',
-  rejected: '已驳回',
+  rejected: '待修改',
 }
 const columns = computed(() =>
   Object.entries(statusNames).map(([status, title]) => ({
@@ -38,7 +38,7 @@ const textColumns = computed(() => [
   { key: 'alias', title: '元素 ID', width: 140, value: (row: ElementRecord) => `@${row.alias}` },
   { key: 'description', title: '描述', width: 220, value: (row: ElementRecord) => row.description || '' },
   { key: 'label', title: '版本', width: 130, value: (row: ElementRecord) => row.label || '—' },
-  { key: 'performer', title: '负责人', width: 150, value: (row: ElementRecord) => row.performerName || (row.performerId ? `成员 ${row.performerId}` : '未分配') },
+  { key: 'performer', title: '制作人', width: 150, value: (row: ElementRecord) => row.performerName || (row.performerId ? `成员 ${row.performerId}` : '未分配') },
   { key: 'status', title: '状态', width: 110, value: (row: ElementRecord) => statusNames[row.workStatus] },
 ])
 const tableWidth = computed(() => 328 + textColumns.value.reduce((sum, column) => sum + column.width, 0))

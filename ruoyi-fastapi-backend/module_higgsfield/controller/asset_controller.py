@@ -22,11 +22,30 @@ from module_higgsfield.entity.vo.asset_vo import (
 from module_higgsfield.service.asset_service import AssetService
 from module_higgsfield.service.asset_lifecycle_service import AssetLifecycleService
 from module_higgsfield.service.upload_service import UploadService
+from module_higgsfield.service.production_review_service import ProductionReviewService
+from module_higgsfield.entity.vo.production_vo import ProductionAction, ProductionAssignment
 from utils.response_util import ResponseUtil
 
 asset_controller = APIRouterPro(
     prefix='/api/v1', tags=['制作平台-上传与素材'], order_num=83, dependencies=[PreAuthDependency()]
 )
+
+
+@asset_controller.get('/assets/{asset_id}/production', summary='查看素材制作交接与版本审核记录')
+async def asset_production(request: Request, asset_id: ProjectId, db: Db, user: User):
+    return ResponseUtil.success(data=await ProductionReviewService.get(db, user, 'asset', asset_id))
+
+
+@asset_controller.post('/assets/{asset_id}/assignment', summary='分配素材制作责任')
+@Log(title='分配素材制作人', business_type=BusinessType.UPDATE)
+async def asset_assignment(request: Request, asset_id: ProjectId, payload: ProductionAssignment, key: Key, db: Db, user: User):
+    return mutation_response(await ProductionReviewService.assign(db, user, 'asset', asset_id, payload, key))
+
+
+@asset_controller.post('/assets/{asset_id}/production', summary='执行素材制作或审核动作')
+@Log(title='素材制作与审核', business_type=BusinessType.UPDATE)
+async def asset_production_action(request: Request, asset_id: ProjectId, payload: ProductionAction, key: Key, db: Db, user: User):
+    return mutation_response(await ProductionReviewService.act(db, user, 'asset', asset_id, payload, key))
 
 
 @asset_controller.get('/projects/{project_id}/library', summary='分页读取当前目录素材')

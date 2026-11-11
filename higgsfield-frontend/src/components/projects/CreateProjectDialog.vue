@@ -45,7 +45,7 @@ const { form, name, pending, error, rules, submit } = useCreateProject(open, (id
       <div class="project-privacy"><IconLock :size="14" />仅项目成员可访问</div>
       <div class="project-create-note">
         <IconUsers :size="22" /><span
-          >你将成为这个项目的首位负责人。<small>项目空间将与项目同时创建。</small></span
+          >你将成为这个项目的所有者。<small>项目空间将与项目同时创建。</small></span
         >
       </div>
       <Button type="button" @click="submit" class="project-create-submit" :disabled="pending">{{

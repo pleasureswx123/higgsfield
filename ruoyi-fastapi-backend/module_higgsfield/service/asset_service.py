@@ -9,6 +9,7 @@ from module_higgsfield.service.folder_service import FolderService
 from module_higgsfield.service.project_workspace_service import WorkspaceService
 from module_higgsfield.service.upload_service import UploadService
 from module_higgsfield.service.write_service import WriteService
+from module_higgsfield.service.production_review_service import ProductionReviewService
 from utils.time_util import TimezoneUtil
 from uuid import uuid4
 from zipfile import BadZipFile
@@ -88,7 +89,9 @@ class AssetService:
                 for code in ('asset:edit', 'asset:remove', 'content:review')
                 if project.status == '0'
                 and code in scopes
-                and (scopes[code] == 'project' or asset.create_user_id == user.user.user_id)
+                and (scopes[code] == 'project' or (
+                    (asset.performer_id or asset.create_user_id) if code == 'asset:edit' else asset.create_user_id
+                ) == user.user.user_id)
                 and (role == 'owner' or '*:*:*' in user.permissions or code in user.permissions)
             )
             items.append(
@@ -314,6 +317,7 @@ class AssetService:
         detail = await cls.get(db, user, version.asset_id)
         asset = await AssetDao.asset(db, version.asset_id)
         result = await cls.result(db, asset, version, user=user)
+        result['latestVersionId'] = str(asset.current_version_id)
         result['author'] = detail.get('author')
         return result
 
@@ -326,6 +330,7 @@ class AssetService:
             project_id = int(payload.project_id) if asset_id is None else await AssetDao.project_id(db, asset_id)
             if project_id is None:
                 cls.fail('RESOURCE_NOT_FOUND', '素材不存在或无权访问')
+            await WorkspaceDao.lock_project(db, project_id)
             existing_asset = await AssetDao.asset(db, asset_id) if asset_id else None
             await WorkspaceService.authorize(
                 db,
@@ -334,6 +339,7 @@ class AssetService:
                 'asset:create' if asset_id is None else 'asset:edit',
                 write=True,
                 owner_id=existing_asset.create_user_id if existing_asset else None,
+                responsibility_id=(existing_asset.performer_id or existing_asset.create_user_id) if existing_asset else None,
             )
             space = await FolderDao.space(db, project_id, lock=True)
             replay = await WriteService.replay(db, user, path, key, data)
@@ -401,6 +407,8 @@ class AssetService:
                 **audit,
             )
             asset.current_version_id = version.version_id
+            if asset_id is not None:
+                await ProductionReviewService.new_version(db, user, asset, 'asset')
             await AssetDao.add(
                 db,
                 HfUploadBinding,

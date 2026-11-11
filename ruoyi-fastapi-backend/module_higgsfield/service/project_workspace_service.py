@@ -18,7 +18,7 @@ class WorkspaceService:
         raise ServiceWarning(message=message, data={'errorCode': code})
 
     @classmethod
-    async def authorize(cls, db, user, project_id, permission, write=False, owner_id=None):
+    async def authorize(cls, db, user, project_id, permission, write=False, owner_id=None, responsibility_id=None):
         if 'project:read' not in user.permissions and '*:*:*' not in user.permissions:
             raise PermissionException(message='未获制作平台项目访问授权')
         if write:
@@ -30,7 +30,10 @@ class WorkspaceService:
         permissions = {
             code
             for code, scope in scopes.items()
-            if scope == 'project' or (scope == 'own' and owner_id == user.user.user_id)
+            if scope == 'project' or (scope == 'own' and (
+                responsibility_id if responsibility_id is not None and code in ('asset:edit', 'element:edit')
+                else owner_id
+            ) == user.user.user_id)
         }
         allowed = permissions if row[1] == 'owner' or '*:*:*' in user.permissions else permissions.intersection(user.permissions)
         if permission not in allowed:
