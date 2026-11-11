@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { watch } from 'vue'
+import { computed, watch } from 'vue'
 import { ElInput, ElSelect, ElOption } from 'element-plus'
 import Button from '@/components/ui/Button.vue'
 import { useProduction } from '@/composables/useProduction'
@@ -13,12 +13,18 @@ const props = defineProps<{
   disabled?: boolean
   dirty?: boolean
 }>()
-const emit = defineEmits<{ changed: [state: ProductionState]; busy: [busy: boolean]; version: [id: string] }>()
+const emit = defineEmits<{
+  changed: [state: ProductionState]
+  busy: [busy: boolean]
+  version: [id: string]
+}>()
 const {
   state,
   loading,
   pending,
   error,
+  assignmentError,
+  assignmentLoading,
   reason,
   clearDraft,
   members,
@@ -54,6 +60,14 @@ const statuses: Record<string, string> = {
   rejected: '待修改',
   approved: '已通过',
 }
+const feedback = computed(() => {
+  if (oldVersion.value || !['rejected', 'working'].includes(state.value?.workStatus || '')) return
+  // 已通过的上一轮意见不再作为当前待处理意见。
+  for (const item of state.value?.history || []) {
+    if (item.action === 'approve') return
+    if (item.action === 'request_changes' && item.reason) return item
+  }
+})
 </script>
 <template>
   <section class="production-panel" aria-label="制作与审核">
@@ -74,19 +88,42 @@ const statuses: Record<string, string> = {
         }}
       </p>
       <p><span class="muted">制作人：</span>{{ state.performerName || '未分配' }}</p>
-      <Button v-if="state.approvedVersionId && state.approvedVersionId !== versionId" variant="ghost" :disabled="pending || !!intent" @click="emit('version', state.approvedVersionId)">查看最近通过版本</Button>
+      <aside v-if="feedback" class="production-feedback" aria-label="修改意见">
+        <strong>修改意见</strong>
+        <p>{{ feedback.reason }}</p>
+      </aside>
+      <Button
+        v-if="state.approvedVersionId && state.approvedVersionId !== versionId"
+        variant="ghost"
+        :disabled="pending || !!intent"
+        @click="emit('version', state.approvedVersionId)"
+        >查看最近通过版本</Button
+      >
       <p v-if="oldVersion" class="muted">
         正在查看旧版本，不能对当前新版本执行制作或审核操作。请打开最新版本后操作。
       </p>
-      <Button v-if="oldVersion" variant="outline" :disabled="pending || !!intent" @click="emit('version', state.versionId)">查看最新版本</Button>
+      <Button
+        v-if="oldVersion"
+        variant="outline"
+        :disabled="pending || !!intent"
+        @click="emit('version', state.versionId)"
+        >查看最新版本</Button
+      >
       <p v-if="dirty" class="muted">有未保存的修改，请先保存，再执行制作或审核操作。</p>
       <div v-if="state.canAssign" class="production-assignment">
         <ElSelect
           v-model="performer"
           aria-label="分配制作人"
           placeholder="未分配"
-          :disabled="blocked || !!intent"
+          :disabled="blocked || !!intent || assignmentLoading || !!assignmentError"
+          :loading="assignmentLoading"
         >
+          <ElOption
+            v-if="performer && !members.some((member) => member.userId === performer)"
+            :value="performer"
+            :label="state.performerName || '原制作人（当前不可分配）'"
+            disabled
+          />
           <ElOption
             v-for="member in members"
             :key="member.userId"
@@ -96,11 +133,21 @@ const statuses: Record<string, string> = {
         </ElSelect>
         <Button
           variant="outline"
-          :disabled="blocked || !!intent || !performer || performer === state.performerId"
+          :disabled="
+            blocked ||
+            !!intent ||
+            assignmentLoading ||
+            !!assignmentError ||
+            !performer ||
+            performer === state.performerId
+          "
           @click="run(undefined, true)"
           >分配</Button
         >
       </div>
+      <p v-if="assignmentError" class="project-error" role="alert">
+        制作人列表暂不可用：{{ assignmentError }}。可点击上方刷新重试，审核操作不受影响。
+      </p>
       <label v-if="state.allowedActions.includes('request_changes')" class="production-reason"
         >修改意见（退回时必填）
         <ElInput
@@ -154,7 +201,13 @@ const statuses: Record<string, string> = {
             }}</small
           >
           <p v-if="item.reason">{{ item.reason }}</p>
-          <Button v-if="item.versionId" variant="ghost" :disabled="pending || !!intent" @click="emit('version', item.versionId)">查看此版本</Button>
+          <Button
+            v-if="item.versionId"
+            variant="ghost"
+            :disabled="pending || !!intent"
+            @click="emit('version', item.versionId)"
+            >查看此版本</Button
+          >
         </article>
       </details>
     </template>
@@ -188,6 +241,15 @@ const statuses: Record<string, string> = {
 .production-reason {
   display: grid;
   gap: 8px;
+}
+.production-feedback {
+  display: grid;
+  gap: 6px;
+  padding: 10px;
+  border-radius: 8px;
+  background: var(--muted);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
 }
 .production-history summary {
   cursor: pointer;

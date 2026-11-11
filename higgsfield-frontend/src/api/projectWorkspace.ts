@@ -34,6 +34,7 @@ export interface Member {
   joinedAt: string
 }
 export interface ProjectRole {
+  productionKinds?: ('asset' | 'element')[]
   id: string
   code: string
   name: string

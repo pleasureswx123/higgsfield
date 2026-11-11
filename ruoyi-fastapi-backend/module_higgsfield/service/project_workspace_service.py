@@ -107,12 +107,14 @@ class WorkspaceService:
         project, role, allowed = await cls.authorize(db, user, project_id, 'member:read')
         result = []
         for item in await WorkspaceDao.roles(db):
+            scopes = await WorkspaceDao.permission_scopes(db, item.code, project_id)
             result.append(
                 {
                     'id': str(item.role_id),
                     'code': item.code,
                     'name': item.role_name,
-                    'permissions': sorted(code for code, scope in (await WorkspaceDao.permission_scopes(db, item.code, project_id)).items() if scope == 'project'),
+                    'permissions': sorted(code for code, scope in scopes.items() if scope == 'project'),
+                    'productionKinds': [kind for kind in ('asset', 'element') if scopes.get(f'{kind}:edit')],
                     'canGrant': role in ('owner', 'admin')
                     and 'member:manage' in allowed
                     and item.code in (('admin', 'producer', 'viewer') if role == 'owner' else ('producer', 'viewer')),

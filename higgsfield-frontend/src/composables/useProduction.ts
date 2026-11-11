@@ -23,6 +23,8 @@ export function useProduction(
     loading = ref(false),
     pending = ref(false),
     error = ref(''),
+    assignmentError = ref(''),
+    assignmentLoading = ref(false),
     reason = ref(''),
     members = ref<Member[]>([]),
     performer = ref<string | null>(null)
@@ -69,7 +71,7 @@ export function useProduction(
     () => disabled() || loading.value || pending.value || oldVersion.value || !state.value,
   )
   async function load() {
-    if (pending.value || intent.value) return
+    if (pending.value || intent.value || !auth.token) return
     controller?.abort()
     controller = new AbortController()
     const signal = controller.signal,
@@ -77,28 +79,45 @@ export function useProduction(
       current = target()
     loading.value = true
     error.value = ''
+    assignmentError.value = ''
+    assignmentLoading.value = false
+    members.value = []
     try {
       const result = await readProduction(current.kind, current.id, signal)
       if (ticket !== epoch || signal.aborted) return
       state.value = result.data
       performer.value = result.data.performerId
+      loading.value = false
       if (result.data.canAssign) {
-        const roles = await readRoles(current.projectId, signal)
-        const eligible = new Set(
-          roles.data.items.filter((role) => role.code !== 'viewer').map((role) => role.id),
-        )
-        const all: Member[] = []
-        for (let page = 1; ; page++) {
-          const result = await readMembers(current.projectId, page, 'active', signal)
+        assignmentLoading.value = true
+        try {
+          const roles = await readRoles(current.projectId, signal)
           if (ticket !== epoch || signal.aborted) return
-          all.push(...result.rows)
-          if (!result.rows.length || all.length >= result.total) break
+          const eligible = new Set(
+            roles.data.items
+              .filter((role) => role.productionKinds?.includes(current.kind))
+              .map((role) => role.id),
+          )
+          const all: Member[] = []
+          for (let page = 1; ; page++) {
+            const result = await readMembers(current.projectId, page, 'active', signal)
+            if (ticket !== epoch || signal.aborted) return
+            all.push(...result.rows)
+            if (!result.rows.length || all.length >= result.total) break
+          }
+          members.value = all.filter((member) => eligible.has(member.roleId))
+        } catch (cause) {
+          if (ticket === epoch && !signal.aborted)
+            assignmentError.value = cause instanceof Error ? cause.message : '制作人列表读取失败'
+        } finally {
+          if (ticket === epoch) assignmentLoading.value = false
         }
-        members.value = all.filter((member) => eligible.has(member.roleId))
       }
     } catch (cause) {
-      if (ticket === epoch && !signal.aborted)
+      if (ticket === epoch && !signal.aborted) {
+        state.value = undefined
         error.value = cause instanceof Error ? cause.message : '读取制作信息失败'
+      }
     } finally {
       if (ticket === epoch) loading.value = false
     }
@@ -106,6 +125,13 @@ export function useProduction(
   async function run(action?: ProductionAction, assign = false) {
     if (blocked.value || !state.value) return
     if (!intent.value) {
+      if (
+        assign &&
+        (assignmentLoading.value ||
+          assignmentError.value ||
+          !members.value.some((member) => member.userId === performer.value))
+      )
+        return
       if (assign ? !state.value.canAssign : !action || !state.value.allowedActions.includes(action))
         return
       if (action === 'request_changes' && !reason.value.trim()) {
@@ -168,10 +194,26 @@ export function useProduction(
       state.value = undefined
       intent.value = undefined
       pending.value = false
+      loading.value = false
+      error.value = ''
+      performer.value = null
       members.value = []
+      assignmentLoading.value = false
+      assignmentError.value = ''
       void load()
     },
     { immediate: true, flush: 'sync' },
+  )
+  watch(
+    () => JSON.stringify(auth.user?.permissions || []),
+    () => {
+      // 结果未知的请求仍保留原幂等键；普通页面立即重新读取授权。
+      if (!pending.value && !intent.value) {
+        state.value = undefined
+        void load()
+      }
+    },
+    { flush: 'sync' },
   )
   const canLeave = () => !pending.value && !intent.value
   onBeforeRouteLeave(canLeave)
@@ -193,6 +235,8 @@ export function useProduction(
     loading,
     pending,
     error,
+    assignmentError,
+    assignmentLoading,
     reason,
     clearDraft,
     members,

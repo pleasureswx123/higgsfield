@@ -10,6 +10,14 @@ from module_higgsfield.service.project_workspace_service import WorkspaceService
 
 
 class AssignedProductionPermissionTests(unittest.IsolatedAsyncioTestCase):
+    async def test_role_candidates_use_effective_edit_scopes(self):
+        with patch.object(WorkspaceService, 'authorize', AsyncMock(return_value=(NS(revision=1), 'owner', {'member:manage'}))), \
+             patch.object(WorkspaceDao, 'roles', AsyncMock(return_value=[NS(role_id=4, code='viewer', role_name='查看者')])), \
+             patch.object(WorkspaceDao, 'permission_scopes', AsyncMock(return_value={'asset:edit': 'own'})):
+            result = await WorkspaceService.roles(object(), object(), 1)
+            self.assertEqual(result['items'][0]['productionKinds'], ['asset'])
+            self.assertEqual(result['items'][0]['permissions'], [])
+
     async def test_assignee_can_edit_but_cannot_remove_creators_content(self):
         user = NS(user=NS(user_id=20), permissions={'project:read', 'asset:edit', 'asset:remove'})
         with patch.object(ProjectDao, 'get_project', AsyncMock(return_value=(NS(status='0'), 'producer'))), \
