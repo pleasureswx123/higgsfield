@@ -376,7 +376,7 @@
 .element-category-tabs button.active { background:var(--surface-hover); color:var(--foreground); }
 .element-library-search { width:210px; }
 .element-library-options { display:flex; flex-direction:column; gap:12px; }
-.element-library-body { display:grid; grid-template-columns:minmax(0,1fr) 210px; gap:16px; }
+.element-library-body { display:grid; grid-template-columns:minmax(0,1fr); }
 .element-library-content { min-width:0; overflow:auto; }
 .element-table-scroll { min-width: 0; border: 1px solid var(--border); }
 .element-table-scroll > div { max-height: calc(100dvh - 195px); }
@@ -404,12 +404,8 @@
 .element-table tr:hover .element-index-cell:has(.element-row-select) .element-row-index,
 .element-table tr:focus-within .element-index-cell:has(.element-row-select) .element-row-index,
 .element-index-cell:has([data-state="checked"]) .element-row-index { visibility: hidden; }
-.element-library-sidebar { display:flex; flex-direction:column; gap:6px; padding:0 4px; }
-.element-library-sidebar button { display:flex; align-items:center; gap:8px; border:0; border-radius:10px; padding:10px 12px; color:var(--foreground); background:transparent; text-align:left; cursor:pointer; overflow-wrap:anywhere; }
-.element-library-sidebar button.active,.element-library-sidebar button:hover { background:var(--surface-hover); }
-.element-library-sidebar small { margin:18px 12px 5px; color:var(--muted-foreground); }
 .element-batch-toolbar { padding:8px; background:var(--surface-hover); border-radius:10px; }
-@media(max-width:900px) { .element-library-body { grid-template-columns:minmax(0,1fr) 150px; } .element-library-navigation { align-items:flex-start; flex-wrap:wrap; } }
+@media(max-width:900px) { .element-library-navigation { align-items:flex-start; flex-wrap:wrap; } }
 .element-media-preview { display:flex; flex:1; min-width:0; height:100%; padding:0; border:0; background:transparent; cursor:pointer; }
 .element-media-preview:focus-visible { outline:2px solid var(--foreground); outline-offset:-2px; }
 button.element-empty-media { border:0; background:transparent; cursor:pointer; }
@@ -475,3 +471,32 @@ button.element-empty-media { border:0; background:transparent; cursor:pointer; }
 .element-video-lightbox video { display: block; width: 100%; height: calc(100vh - 100px); object-fit: contain; }
 
 .element-lightbox-tools { display: flex; align-items: center; gap: 8px; }
+/* 工具栏浮层保持统一密度，查询期间保留列表占位。 */
+.element-library { position:relative; }
+.element-library-results { min-height:300px; }
+.element-list-loading { position:absolute; right:16px; top:112px; z-index:4; margin:0; padding:6px 10px; border:1px solid var(--border); border-radius:8px; background:var(--surface); color:var(--muted-foreground); font-size:12px; pointer-events:none; }
+.element-toolbar-popover { padding:14px; border-radius:12px; animation:none!important; }
+.element-toolbar-popover .element-library-options { gap:12px; }
+.element-toolbar-popover .ui-button { height:32px; min-height:32px; border-radius:7px; font-size:12px; }
+.element-toolbar-popover input { height:34px; border:1px solid var(--border); box-shadow:none; }
+.element-toolbar-popover input:hover, .element-toolbar-popover input:focus { border-color:var(--border); box-shadow:none; outline:none; }
+.element-toolbar-popover .element-reset-filter { align-self:flex-start; }
+.element-toolbar-button, .element-toolbar-button:hover, .element-toolbar-button:focus { border:1px solid var(--border); }
+.element-layout-choices { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:6px; }
+.element-layout-choices button { display:flex; flex-direction:column; align-items:center; justify-content:center; gap:6px; min-height:62px; padding:8px; border:0; border-radius:8px; background:var(--surface); color:var(--foreground); font-size:12px; cursor:pointer; }
+.element-layout-choices button:hover { background:var(--surface-hover); }
+.element-layout-choices button[aria-pressed='true'] { background:color-mix(in srgb,var(--primary) 14%,var(--surface)); }
+.element-layout-choices button:focus-visible { text-decoration:underline; outline:none; }
+
+.element-toolbar-popover .el-select__wrapper,
+.element-toolbar-popover .el-select__wrapper:hover,
+.element-toolbar-popover .el-select__wrapper.is-focused { min-height:34px; border-radius:8px; background:var(--background); box-shadow:0 0 0 1px var(--border) inset; font-size:13px; }
+.element-toolbar-popover .el-select input { border:0; box-shadow:none; }
+
+/* 搜索在工具栏内展开，向左占用空间，右侧按钮保持原位。 */
+.element-inline-search { flex:none; }
+.element-inline-search.is-expanded { width:250px; max-width:40vw; }
+.element-inline-search .el-input__wrapper,
+.element-inline-search .el-input__wrapper:hover,
+.element-inline-search .el-input__wrapper.is-focus { height:34px; padding:0 10px; border-radius:8px; background:var(--surface); box-shadow:0 0 0 1px var(--border) inset; }
+.element-inline-search .el-input__inner { height:32px; border:0; background:transparent; font-size:13px; box-shadow:none; }

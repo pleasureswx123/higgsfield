@@ -1,16 +1,15 @@
 <script setup lang="ts">
-import { Input } from '@/components/ui/input'
+import { useTimeoutFn } from '@vueuse/core'
 import { Switch } from '@/components/ui/switch'
 import { Slider } from '@/components/ui/slider'
 import { Separator } from '@/components/ui/separator'
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
-import StudioSelect from '@/components/ui/StudioSelect.vue'
 import StudioPopover from '@/components/ui/StudioPopover.vue'
 import StudioPagination from '@/components/ui/StudioPagination.vue'
-import { ref, watch, computed, useId } from 'vue'
+import { ref, watch, computed, useId, nextTick } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { ElCheckbox, ElMessageBox } from 'element-plus'
-import { IconRefresh, IconAdjustmentsHorizontal, IconPlus, IconSearch, IconFilter, IconLayoutGrid, IconUpload, IconFolder, IconAt } from '@tabler/icons-vue'
+import { ElCheckbox, ElSelect, ElOption, ElInput } from 'element-plus'
+import { IconRefresh, IconAdjustmentsHorizontal, IconPlus, IconSearch, IconFilter, IconLayoutGrid, IconTable, IconLayoutColumns, IconUpload } from '@tabler/icons-vue'
 import DirectoryMoveDialog from './DirectoryMoveDialog.vue'
 import ElementBatchCopyDialog from './ElementBatchCopyDialog.vue'
 import type { ElementRecord } from '@/api/elements'
@@ -70,20 +69,37 @@ const {
 } = useElements(props.projectId, () => props.visible !== false)
 const categoryPanelId = useId()
 const toolbarMenu = ref('')
-const searchInputId = useId()
+const searchExpanded = ref(false)
+const searchInput = ref<InstanceType<typeof ElInput>>()
 const statusInputId = useId()
 const dateSwitchId = useId()
-function applySearch() { filter(); toolbarMenu.value = '' }
-function clearSearch() { search.value = ''; filter() }
+const searchDraft = ref('')
+const { start: scheduleSearch, stop: stopSearch } = useTimeoutFn(applySearch, 350, { immediate: false })
+function openToolbar(name: string, open: boolean) { toolbarMenu.value = open ? name : '' }
+async function openSearch() {
+  toolbarMenu.value = ''
+  searchDraft.value = search.value
+  searchExpanded.value = true
+  await nextTick()
+  searchInput.value?.focus()
+}
+function applySearch() {
+  stopSearch()
+  const next = searchDraft.value.trim()
+  if (search.value !== next) { search.value = next; filter() }
+}
+function blurSearch() {
+  applySearch()
+  if (!searchDraft.value.trim()) searchExpanded.value = false
+}
+function closeSearch() {
+  stopSearch()
+  searchDraft.value = ''
+  applySearch()
+  searchExpanded.value = false
+}
 watch(() => props.visible, value => { if (value === false) toolbarMenu.value = '' })
 const library = useElementLibrary(props.projectId, rows, () => props.visible !== false && !trash.value, () => ({ q: search.value, category: category.value || undefined, statusGroup: group.value || undefined, workStatus: workStatus.value || undefined, folderId: folderId.value || undefined }))
-function chooseGroup(value: '' | 'active' | 'drafts') { group.value = value; folderId.value = ''; filter() }
-async function addFolder() {
-  try {
-    const { value } = await ElMessageBox.prompt('输入元素文件夹名称', '添加文件夹', { inputPattern: /\S+/, inputErrorMessage: '请输入名称', confirmButtonText: '创建', cancelButtonText: '取消' })
-    await library.addFolder(value.trim())
-  } catch { /* 取消时保留当前列表 */ }
-}
 const selection = useContentSelection(
   () => rows.value,
   () => pending.value || loading.value || batchBusy.value,
@@ -213,31 +229,33 @@ function saved() {
         </TabsList>
       </Tabs>
       <div class="element-library-actions">
-        <StudioPopover :disabled="visible === false" :visible="toolbarMenu === 'search'" placement="bottom-end" :width="300" popper-class="element-toolbar-popover" @update:visible="toolbarMenu = $event ? 'search' : ''">
-          <template #reference><Button variant="ghost" class="element-toolbar-button" :class="{ 'has-value': search }"><IconSearch :size="16" />搜索<span v-if="search" class="toolbar-value-dot" aria-label="已设置搜索条件"></span></Button></template>
-          <form class="element-library-options" @submit.prevent="applySearch">
-            <label :for="searchInputId">搜索元素</label>
-            <Input :id="searchInputId" v-model="search" placeholder="输入名称或别名" aria-label="搜索名称或别名" />
-            <div class="element-search-actions"><Button type="button" variant="ghost" :disabled="!search" @click="clearSearch">清除</Button><Button type="submit">搜索</Button></div>
-          </form>
+        <div class="element-inline-search" :class="{ 'is-expanded': searchExpanded }">
+          <ElInput v-if="searchExpanded" ref="searchInput" v-model="searchDraft" placeholder="搜索名称或别名" aria-label="搜索名称或别名" clearable maxlength="200" @input="scheduleSearch()" @clear="applySearch" @keydown.enter.prevent="applySearch" @keydown.esc.stop="closeSearch" @blur="blurSearch">
+            <template #prefix><IconSearch :size="16" /></template>
+          </ElInput>
+          <Button v-else variant="outline" class="element-toolbar-button" @click="openSearch"><IconSearch :size="16" />搜索</Button>
+        </div>
+        <StudioPopover :disabled="visible === false" :visible="toolbarMenu === 'filter'" placement="bottom-end" :width="300" popper-class="element-toolbar-popover" @update:visible="openToolbar('filter', $event)">
+          <template #reference><Button variant="outline" class="element-toolbar-button" :class="{ 'has-value': workStatus }"><IconFilter :size="16" />筛选<span v-if="workStatus" class="toolbar-value-dot" aria-label="已设置筛选条件"></span></Button></template>
+          <div class="element-library-options"><label :for="statusInputId">制作状态</label><ElSelect :id="statusInputId" v-model="workStatus" aria-label="制作状态" placeholder="全部状态" :teleported="false" @change="filter"><ElOption label="全部状态" value="" /><ElOption label="未开始" value="none" /><ElOption label="制作中" value="working" /><ElOption label="待审核" value="review" /><ElOption label="已通过" value="approved" /><ElOption label="已驳回" value="rejected" /></ElSelect><Button variant="outline" class="element-reset-filter" :disabled="!workStatus" @click="workStatus = ''; filter()">重置筛选</Button></div>
         </StudioPopover>
-        <StudioPopover :disabled="visible === false" :visible="toolbarMenu === 'filter'" placement="bottom-end" :width="260" popper-class="element-toolbar-popover" @update:visible="toolbarMenu = $event ? 'filter' : ''">
-          <template #reference><Button variant="ghost" class="element-toolbar-button" :class="{ 'has-value': workStatus }"><IconFilter :size="16" />筛选<span v-if="workStatus" class="toolbar-value-dot" aria-label="已设置筛选条件"></span></Button></template>
-          <div class="element-library-options"><label :for="statusInputId">制作状态</label><StudioSelect :id="statusInputId" v-model="workStatus" aria-label="制作状态" :options="[{ label: '全部', value: '' }, { label: '未开始', value: 'none' }, { label: '制作中', value: 'working' }, { label: '待审核', value: 'review' }, { label: '已通过', value: 'approved' }, { label: '已驳回', value: 'rejected' }]" @change="filter" /><Button variant="ghost" :disabled="!workStatus" @click="workStatus = ''; filter()">重置筛选</Button></div>
-        </StudioPopover>
-        <StudioPopover :disabled="visible === false" :visible="toolbarMenu === 'view'" placement="bottom-end" :width="280" popper-class="element-toolbar-popover" @update:visible="toolbarMenu = $event ? 'view' : ''">
-          <template #reference><Button variant="ghost" class="element-toolbar-button"><IconLayoutGrid :size="16" />视图</Button></template>
+        <StudioPopover :disabled="visible === false" :visible="toolbarMenu === 'view'" placement="bottom-end" :width="300" popper-class="element-toolbar-popover" @update:visible="openToolbar('view', $event)">
+          <template #reference><Button variant="outline" class="element-toolbar-button"><IconLayoutGrid :size="16" />视图</Button></template>
           <div class="element-library-options">
             <span class="toolbar-field-label">显示方式</span>
-            <StudioSelect v-model="layout" aria-label="元素布局" :options="[{ label: '表格', value: 'table' }, { label: '网格', value: 'grid' }, { label: '看板', value: 'board' }]" />
+            <div class="element-layout-choices" role="group" aria-label="元素布局">
+              <button type="button" :aria-pressed="layout === 'table'" @click="layout = 'table'"><IconTable :size="18" />表格</button>
+              <button type="button" :aria-pressed="layout === 'grid'" @click="layout = 'grid'"><IconLayoutGrid :size="18" />网格</button>
+              <button type="button" :aria-pressed="layout === 'board'" @click="layout = 'board'"><IconLayoutColumns :size="18" />看板</button>
+            </div>
             <div class="element-view-switch"><label :for="dateSwitchId">按日期分组</label><Switch :id="dateSwitchId" v-model="splitByDate" /></div>
-            <div class="element-card-size" :class="{ 'is-disabled': layout === 'table' }"><div><span>卡片尺寸</span><span>{{ cardSize }} / 8</span></div><Slider :model-value="[cardSize]" :min="1" :max="8" :step="1" :disabled="layout === 'table'" aria-label="卡片尺寸" @update:model-value="value => { if (value?.[0] !== undefined) cardSize = value[0] }" /><small v-if="layout === 'table'">切换为网格或看板后可调整</small></div>
+            <div v-if="layout !== 'table'" class="element-card-size"><div><span>卡片尺寸</span><span>{{ cardSize }} / 8</span></div><Slider :model-value="[cardSize]" :min="1" :max="8" :step="1" aria-label="卡片尺寸" @update:model-value="value => { if (value?.[0] !== undefined) cardSize = value[0] }" /></div>
             <Separator />
             <ElementViewPreference compact :project-id="projectId" :settings="viewSettings" @restore="restoreView" />
             <div class="element-view-menu">
               <Button variant="ghost" @click="refresh"><IconRefresh :size="16" /><span>刷新列表</span></Button>
               <Button v-if="actions.includes('element:configure')" variant="ghost" @click="toolbarMenu = ''; propertiesOpen = true"><IconAdjustmentsHorizontal :size="16" /><span>属性配置</span></Button>
-              <Separator v-if="actions.includes('element:remove')" />
+
             </div>
           </div>
         </StudioPopover>
@@ -245,8 +263,8 @@ function saved() {
     </div>
     <p v-if="library.error.value" class="project-error" role="alert">{{ library.error.value }}</p>
     <p v-if="error" class="project-error" role="alert">{{ error }}</p>
-    <p v-if="loading" role="status">正在加载元素…</p>
-    <template v-else>
+    <p v-if="loading" class="element-list-loading" role="status">正在加载元素…</p>
+    <div class="element-library-results">
       <div v-if="selection.selected.value.length" class="element-toolbar element-batch-toolbar">
         <ElCheckbox
           :model-value="selection.allSelected.value"
@@ -306,7 +324,7 @@ function saved() {
       </p>
       <p v-if="downloader.message.value" role="status">{{ downloader.message.value }}</p>
       <p v-if="moveMessage" role="status">{{ moveMessage }}</p>
-      <div class="element-library-body"><div :id="categoryPanelId" class="element-library-content" role="tabpanel" aria-label="元素分类结果"><ElementViewCollection
+      <div class="element-library-body" :aria-busy="loading" :inert="loading"><div :id="categoryPanelId" class="element-library-content" role="tabpanel" aria-label="元素分类结果"><ElementViewCollection
         selectable
         :selected="selection.selected.value"
         :selection-disabled="batchBusy"
@@ -318,16 +336,8 @@ function saved() {
         :split-by-date="splitByDate"
         @open="!batchBusy && open($event.id)"
       /></div>
-      <aside class="element-library-sidebar" aria-label="元素范围">
-        <button :class="{ active: !group && !folderId }" @click="chooseGroup('')"><IconAt :size="21" />全部元素</button>
-        <small>状态</small>
-        <button :class="{ active: group === 'active' }" @click="chooseGroup('active')">✧ 已通过</button>
-        <button :class="{ active: group === 'drafts' }" @click="chooseGroup('drafts')">▤ 草稿</button>
-        <small>文件夹</small>
-        <button v-for="folder in library.folders.value" :key="folder.id" :class="{ active: folderId === folder.id }" :style="{ paddingLeft: `${12 + folder.depth * 12}px` }" @click="folderId = folder.id; group = ''; filter()"><IconFolder :size="18" />{{ folder.name }}</button>
-        <button v-if="actions.includes('folder:write')" :disabled="library.creating.value" @click="addFolder"><IconPlus :size="18" />添加文件夹</button>
-      </aside></div>
-    </template>
+      </div>
+    </div>
     <ElementBatchCopyDialog
       :visible="visible !== false"
       ref="copier"
