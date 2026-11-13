@@ -119,7 +119,7 @@ test('移除属性仅改变当前元素，保存后再打开不会从项目定�
   assert.equal((await api.listProperties()).rows.length, 1)
   reopened.close()
 })
-function setup(overrides = {}, confirm = async () => {}, elementId = null) {
+function setup(overrides = {}, confirm = async () => {}, elementId = null, readOnly = false) {
   const exports = {}, hooks = {}, auth = vue.reactive({ token: 'one' }), visible = vue.ref(true)
   let writes = 0, completed = 0
   const api = { listProperties: async () => ({ rows: [], hasNext: false }), createElement: async () => { writes++ }, ...overrides }
@@ -134,7 +134,7 @@ function setup(overrides = {}, confirm = async () => {}, elementId = null) {
       return api
     },
   })
-  const scope = vue.effectScope(), state = scope.run(() => exports.useElementEditor('99', elementId, vue.ref(['element:create']), () => { completed++ }, () => visible.value))
+  const scope = vue.effectScope(), state = scope.run(() => exports.useElementEditor('99', elementId, vue.ref(['element:create']), () => { completed++ }, () => visible.value, undefined, () => readOnly))
   state.form.value = { validate: async () => true }
   return { state, hooks, auth, visible, writes: () => writes, completed: () => completed, close: () => { hooks.unmount(); scope.stop() } }
 }
@@ -301,4 +301,26 @@ test('元素编辑页签隐藏保留字段且旧校验失效，缓存未激活�
  c.hooks.deactivate();c.visible.value=false;c.visible.value=true
  assert.equal(c.state.active.value,false);c.hooks.activate();assert.equal(c.state.canEdit.value,true)
  c.close()
+})
+
+
+test('只读查看即使拥有编辑审核删除权限也不能写入', async () => {
+  let writes = 0
+  const c = setup({
+    readElement: async () => ({ data: {
+      element: { projectId: '99', name: '查看测试', alias: 'view_test', category: 'character', workStatus: 'none', revision: '7', allowedActions: ['element:edit', 'element:remove', 'content:review'] },
+      currentRevision: { description: '原描述', label: '', media: [], propertyValues: [], propertySnapshot: [] },
+    } }),
+    saveElement: async () => { writes++ },
+    recycleElement: async () => { writes++ },
+  }, async () => {}, '5', true)
+  await tick()
+  assert.equal(c.state.fields.name, '查看测试')
+  assert.equal(c.state.canEdit.value, false)
+  assert.equal(c.state.canReview.value, false)
+  assert.equal(c.state.canRemove.value, false)
+  await c.state.save()
+  await c.state.remove()
+  assert.equal(writes, 0)
+  c.close()
 })

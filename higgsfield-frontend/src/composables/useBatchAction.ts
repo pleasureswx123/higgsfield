@@ -6,7 +6,7 @@ import { useAuthStore } from '@/stores/auth'
 import { ApiError } from '@/api/client'
 
 /** 批量操作逐项执行，保留失败项及其幂等键，已成功项不重复提交。 */
-export function useBatchAction<T extends BatchItem>(rows: () => T[], allowed: () => boolean, refresh: () => Promise<void>, executeItem: (item: T, key: string) => Promise<unknown>, eligibleItem: (item: T) => boolean, label: string, verb: string, warning: string | (() => string), selection?: Ref<string[]>, options: { confirm?: boolean; preserveSelection?: boolean } = {}) {
+export function useBatchAction<T extends BatchItem>(rows: () => T[], allowed: () => boolean, refresh: () => Promise<void>, executeItem: (item: T, key: string) => Promise<unknown>, eligibleItem: (item: T) => boolean, label: string, verb: string, warning: string | (() => string), selection?: Ref<string[]>, options: { confirm?: boolean; preserveSelection?: boolean; confirmation?: (items: T[]) => { title: string; message: string; button: string } } = {}) {
   const auth = useAuthStore(), selected = selection || ref<string[]>([]), pending = ref(false), message = ref('')
   const eligible = computed(() => rows().filter(eligibleItem))
   const allSelected = computed(() => eligible.value.length > 0 && eligible.value.every(item => selected.value.includes(item.id)))
@@ -31,7 +31,12 @@ export function useBatchAction<T extends BatchItem>(rows: () => T[], allowed: ()
     if (!items.length) return
     pending.value = true; message.value = ''
     try {
-      try { if (options.confirm !== false) await ElMessageBox.confirm(`${verb}选中的 ${items.length} 个${label}？${typeof warning === 'function' ? warning() : warning}`, `批量${verb}${label}`, { confirmButtonText: `${verb}所选`, cancelButtonText: '取消' }) }
+      try {
+        if (options.confirm !== false) {
+          const confirmation = options.confirmation?.(items)
+          await ElMessageBox.confirm(confirmation?.message ?? `${verb}选中的 ${items.length} 个${label}？${typeof warning === 'function' ? warning() : warning}`, confirmation?.title ?? `批量${verb}${label}`, { confirmButtonText: confirmation?.button ?? `${verb}所选`, cancelButtonText: '取消' })
+        }
+      }
       catch { return }
       if (!active || ticket !== epoch || viewTicket !== interaction || !allowed()) return
       let success = 0

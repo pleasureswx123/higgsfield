@@ -35,6 +35,7 @@ import ReferenceThumbnail from './ReferenceThumbnail.vue'
 import ElementImageLightbox from './ElementImageLightbox.vue'
 import ElementPropertyPopover from './ElementPropertyPopover.vue'
 const props = defineProps<{
+  readOnly?: boolean
   initialAsset?: Asset
   projectId: string
   visible?: boolean
@@ -113,6 +114,7 @@ const {
   () => emit('saved'),
   () => props.visible !== false,
   props.initialAsset,
+  () => Boolean(props.readOnly),
 )
 const previewDownload = useElementPreviewDownload(() => active.value && previewExpanded.value && props.actions.includes('asset:download'))
 watch(previewDownload.message, value => { if (value) ElMessage.error(value) })
@@ -158,7 +160,7 @@ async function removeSelectedImage() {
 <template>
   <ElDialog
     :model-value="active"
-    :title="elementId ? '编辑元素' : '新建元素'"
+    :title="readOnly ? '查看元素' : elementId ? '编辑元素' : '新建元素'"
     width="min(1280px, calc(100vw - 48px))"
     top="8dvh"
     class="element-dialog"
@@ -172,7 +174,7 @@ async function removeSelectedImage() {
       <DialogHeading
         :title-id="titleId"
         :title-class="titleClass"
-        :title="elementId ? '编辑元素' : '新建元素'"
+        :title="readOnly ? '查看元素' : elementId ? '编辑元素' : '新建元素'"
       />
     </template>
     <p v-if="useError" class="project-error" role="alert">{{ useError }}</p>

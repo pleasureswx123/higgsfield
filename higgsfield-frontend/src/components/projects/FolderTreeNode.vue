@@ -56,7 +56,8 @@ const emit = defineEmits<{
       >
         <IconPlus :size="15" />
       </button>
-      <DropdownMenu>
+      <!-- 普通操作菜单不锁定页面滚动，避免滚动条消失造成布局位移。 -->
+      <DropdownMenu :modal="false">
         <DropdownMenuTrigger as-child><button class="folder-icon-button folder-hover-action" aria-label="文件夹操作"><IconDotsVertical :size="16" /></button></DropdownMenuTrigger>
         <DropdownMenuContent side="right" align="start" class="folder-dropdown-menu">
           <DropdownMenuItem v-if="canWrite" :disabled="pending" @select="emit('edit', folder)">编辑名称与颜色</DropdownMenuItem>

@@ -1,13 +1,18 @@
 <script setup lang="ts">
+import ElementDescriptionCell from './ElementDescriptionCell.vue'
+import ElementAliasCell from './ElementAliasCell.vue'
+import ElementCategoryCell from './ElementCategoryCell.vue'
 import ReferenceThumbnail from './ReferenceThumbnail.vue'
 import { computed } from 'vue'
-import { IconPhoto } from '@tabler/icons-vue'
+import { IconPhoto, IconDotsVertical, IconEye, IconPencil, IconTrash } from '@tabler/icons-vue'
+import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem } from '@/components/ui/dropdown-menu'
 import { ElCheckbox } from 'element-plus'
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '@/components/ui/table'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
 import type { ElementRecord } from '@/api/elements'
 const props = defineProps<{
+  canRemove?: boolean; canReview?: boolean; canEdit?: boolean
   rows: ElementRecord[]
   layout: 'grid' | 'board' | 'table'
   showProject?: boolean
@@ -15,7 +20,7 @@ const props = defineProps<{
   selected?: string[]
   selectionDisabled?: boolean
 }>()
-const emit = defineEmits<{ open: [element: ElementRecord]; select: [id: string, checked: boolean]; preview: [versionId: string] }>()
+const emit = defineEmits<{ view: [element: ElementRecord]; remove: [element: ElementRecord]; open: [element: ElementRecord]; select: [id: string, checked: boolean]; preview: [versionId: string]; saved: [row: ElementRecord] }>()
 const categoryNames = { character: '角色', scene: '场景', prop: '道具', other: '其他' }
 const statusNames = {
   none: '未开始',
@@ -41,22 +46,24 @@ const textColumns = computed(() => [
   { key: 'performer', title: '负责人', width: 150, value: (row: ElementRecord) => row.performerName || (row.performerId ? `成员 ${row.performerId}` : '未分配') },
   { key: 'status', title: '状态', width: 110, value: (row: ElementRecord) => statusNames[row.workStatus] },
 ])
-const tableWidth = computed(() => 328 + textColumns.value.reduce((sum, column) => sum + column.width, 0))
+const tableWidth = computed(() => 376 + textColumns.value.reduce((sum, column) => sum + column.width, 0))
 </script>
 <template>
   <div v-if="layout === 'table'" class="element-table-scroll">
     <TooltipProvider :delay-duration="300">
-      <Table class="element-table" :style="{ minWidth: `${tableWidth}px` }" aria-label="元素列表">
+      <Table class="element-table" :style="{ '--element-table-min-width': `${tableWidth}px` }" aria-label="元素列表">
         <colgroup>
           <col style="width: 48px" />
           <col style="width: 280px" />
           <col v-for="column in textColumns" :key="column.key" :style="{ width: `${column.width}px` }" />
+          <col style="width: 48px" />
         </colgroup>
         <TableHeader>
           <TableRow>
             <TableHead scope="col">#</TableHead>
             <TableHead scope="col">图片</TableHead>
             <TableHead v-for="column in textColumns" :key="column.key" scope="col">{{ column.title }}</TableHead>
+            <TableHead scope="col"><span class="sr-only">操作</span></TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
@@ -75,8 +82,11 @@ const tableWidth = computed(() => 328 + textColumns.value.reduce((sum, column) =
                 <button v-else type="button" class="element-empty-media" :aria-label="`为 ${row.name} 添加素材`" @click="emit('open', row)"><span>＋</span>添加元素图片</button>
               </div>
             </TableCell>
-            <TableCell v-for="column in textColumns" :key="column.key" :class="{ 'cursor-pointer': column.key === 'name' }" @click="column.key === 'name' && emit('open', row)">
-              <Tooltip v-if="column.value(row)">
+            <TableCell v-for="column in textColumns" :key="column.key" :class="{ 'cursor-pointer': column.key === 'name', 'element-category-cell': ['category', 'alias', 'description', 'label', 'performer', 'status'].includes(column.key) }" @click="column.key === 'name' && emit('open', row)">
+              <ElementCategoryCell :can-review="canReview" v-if="column.key === 'category' || column.key === 'performer' || column.key === 'status'" :field="column.key" :row="row" :can-edit="canEdit" :disabled="selectionDisabled" @saved="emit('saved', $event)" />
+              <ElementAliasCell v-else-if="column.key === 'alias' || column.key === 'label'" :field="column.key" :row="row" :can-edit="canEdit" :disabled="selectionDisabled" @saved="emit('saved', $event)" />
+              <ElementDescriptionCell v-else-if="column.key === 'description'" :row="row" :can-edit="canEdit" :disabled="selectionDisabled" @saved="emit('saved', $event)" />
+              <Tooltip v-else-if="column.value(row)">
                 <TooltipTrigger as-child>
                   <button v-if="column.key === 'name'" type="button" class="folder-text-button element-cell-text" :aria-label="`编辑元素 ${row.name}`" title="打开元素编辑器" @click.stop="emit('open', row)">{{ column.value(row) }}</button>
                   <span v-else class="element-cell-text" tabindex="0">{{ column.value(row) }}</span>
@@ -84,8 +94,20 @@ const tableWidth = computed(() => 328 + textColumns.value.reduce((sum, column) =
                 <TooltipContent class="element-cell-tooltip">{{ column.value(row) }}</TooltipContent>
               </Tooltip>
             </TableCell>
+            <TableCell class="element-more-cell">
+              <DropdownMenu :modal="false">
+                <DropdownMenuTrigger as-child>
+                  <button type="button" class="element-more-button" :aria-label="`${row.name} 的更多操作`" :disabled="selectionDisabled"><IconDotsVertical :size="16" /></button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                  <DropdownMenuItem @select="emit('view', row)"><IconEye :size="16" aria-hidden="true" />查看元素</DropdownMenuItem>
+                  <DropdownMenuItem v-if="row.allowedActions ? row.allowedActions.includes('element:edit') : canEdit" @select="emit('open', row)"><IconPencil :size="16" aria-hidden="true" />编辑元素</DropdownMenuItem>
+                  <DropdownMenuItem v-if="canRemove && (!row.allowedActions || row.allowedActions.includes('element:remove'))" class="text-destructive" @select="emit('remove', row)"><IconTrash :size="16" aria-hidden="true" />删除元素</DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            </TableCell>
           </TableRow>
-          <TableRow v-if="!rows.length"><TableCell :colspan="textColumns.length + 2" class="element-table-empty">暂无匹配的元素</TableCell></TableRow>
+          <TableRow v-if="!rows.length"><TableCell :colspan="textColumns.length + 3" class="element-table-empty">暂无匹配的元素</TableCell></TableRow>
         </TableBody>
       </Table>
     </TooltipProvider>
@@ -135,6 +157,10 @@ const tableWidth = computed(() => 328 + textColumns.value.reduce((sum, column) =
 
 
 <style scoped>
+.element-category-cell { position:relative; }
+.element-table td.element-more-cell { padding:6px 8px; }
+.element-more-button { display:grid; place-items:center; width:32px; height:28px; padding:0; border:0; border-radius:6px; background:transparent; color:var(--muted-foreground); cursor:pointer; }
+.element-more-button:hover,.element-more-button[data-state=open] { background:var(--surface-hover); color:var(--foreground); }
 .element-select-card { min-width: 0; }
 .element-select-card > .element-card { width: 100%; }
 </style>

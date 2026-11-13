@@ -67,6 +67,12 @@ const {
   filter,
   open,
 } = useElements(props.projectId, () => props.visible !== false)
+const readOnlyEditor = ref(false)
+function showElement(id: string | null, readOnly = false) {
+  if (batchBusy.value) return
+  readOnlyEditor.value = readOnly
+  open(id)
+}
 const categoryPanelId = useId()
 const toolbarMenu = ref('')
 const searchExpanded = ref(false)
@@ -134,9 +140,22 @@ const downloader = useElementDownload(
     selection.selected.value = selection.selected.value.filter((id) => !ids.includes(id))
   },
 )
+const singleDeleteSelection = ref<string[]>([])
+const singleDelete = useElementBatchDelete(
+  () => rows.value,
+  () => props.visible !== false && !trash.value && props.actions.includes('element:remove') && !pending.value && !loading.value && !editorOpen.value && !batchDelete.pending.value && !mover.value?.locked && !copier.value?.locked && !downloader.pending.value,
+  refresh,
+  singleDeleteSelection,
+  true,
+)
+function removeElement(row: ElementRecord) {
+  if (batchBusy.value) return
+  singleDeleteSelection.value = [row.id]
+  void singleDelete.execute()
+}
 const batchBusy = computed(
   () =>
-    batchDelete.pending.value ||
+    batchDelete.pending.value || singleDelete.pending.value ||
     Boolean(mover.value?.locked) ||
     Boolean(copier.value?.locked) ||
     downloader.pending.value,
@@ -205,6 +224,17 @@ watch(
   },
   { immediate: true },
 )
+function updateCategoryRow(updated: import('@/api/elements').ElementRecord) {
+  const remove = Boolean(
+    (category.value && category.value !== updated.category) ||
+    (workStatus.value && workStatus.value !== updated.workStatus) ||
+    (group.value === 'active' && updated.workStatus !== 'approved') ||
+    (group.value === 'drafts' && !['none', 'working', 'review'].includes(updated.workStatus)),
+  )
+  library.updateRow(updated, remove)
+  if (remove) total.value = Math.max(0, total.value - 1)
+}
+
 function saved() {
   editorOpen.value = false
   void refresh()
@@ -217,7 +247,7 @@ function saved() {
       <div class="element-library-actions">
         <Button v-if="!trash && actions.includes('element:import')" variant="outline" @click="importOpen = true"><IconUpload :size="16" />导入</Button>
         <Button v-if="!trash" variant="outline" :disabled="library.exporting.value" @click="library.exportCsv">{{ library.exporting.value ? '导出中…' : '导出 CSV' }}</Button>
-        <Button v-if="!trash && actions.includes('element:create')" @click="open(null)"><IconPlus :size="17" />新建元素</Button>
+        <Button v-if="!trash && actions.includes('element:create')" @click="showElement(null)"><IconPlus :size="17" />新建元素</Button>
         <Button v-if="trash" variant="ghost" @click="trash = false">返回元素</Button>
       </div>
     </header>
@@ -318,6 +348,7 @@ function saved() {
           >取消选择</Button
         >
       </div>
+      <p v-if="singleDelete.message.value" role="status">{{ singleDelete.message.value }}</p>
       <p v-if="batchDelete.message.value" role="status">{{ batchDelete.message.value }}</p>
       <p v-if="downloader.pending.value" role="status">
         正在读取 {{ downloader.currentName.value }} · {{ downloader.loadedBytes.value }} 字节
@@ -325,6 +356,9 @@ function saved() {
       <p v-if="downloader.message.value" role="status">{{ downloader.message.value }}</p>
       <p v-if="moveMessage" role="status">{{ moveMessage }}</p>
       <div class="element-library-body" :aria-busy="loading" :inert="loading"><div :id="categoryPanelId" class="element-library-content" role="tabpanel" aria-label="元素分类结果"><ElementViewCollection
+        @saved="updateCategoryRow"
+        :can-edit="actions.includes('element:edit')"
+        :can-review="actions.includes('content:review')"
         selectable
         :selected="selection.selected.value"
         :selection-disabled="batchBusy"
@@ -334,7 +368,10 @@ function saved() {
         :layout="layout"
         :card-size="cardSize"
         :split-by-date="splitByDate"
-        @open="!batchBusy && open($event.id)"
+        @open="showElement($event.id)"
+        @view="showElement($event.id, true)"
+        @remove="removeElement"
+        :can-remove="actions.includes('element:remove') && !trash"
       /></div>
       </div>
     </div>
@@ -380,6 +417,7 @@ function saved() {
       v-if="editorOpen"
       :project-id="projectId"
       :element-id="editingId"
+      :read-only="readOnlyEditor"
       :using="using"
       :use-error="useError"
       @use="
