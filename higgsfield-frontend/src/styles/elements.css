@@ -380,7 +380,7 @@
 .element-library-content { min-width:0; overflow:auto; }
 .element-table-scroll { min-width: 0; border: 1px solid var(--border); }
 .element-table-scroll > div { max-height: calc(100dvh - 195px); }
-.element-table { table-layout: fixed; border-collapse: collapse; border-radius: 0; color: var(--foreground); font-size: 12px; }
+.element-table { min-width: var(--element-table-min-width); table-layout: fixed; border-collapse: collapse; border-radius: 0; color: var(--foreground); font-size: 12px; }
 .element-table thead { position: sticky; top: 0; z-index: 1; background: var(--surface-hover); }
 .element-table tr { border-bottom: 1px solid var(--border); background: transparent; }
 .element-table tbody tr:last-child { border-bottom: 0; }

@@ -27,9 +27,22 @@ export function useElementLibrary(projectId: string, rows: Ref<ElementRecord[]>,
         } catch { /* 列表仍可使用，详情加载失败不阻断其他元素 */ }
       }))
       if (current.signal.aborted) return
-      displayRows.value = [...enriched]
+      // 详情加载期间可能发生单元格保存，不让旧响应覆盖已保存的行。
+      displayRows.value = enriched.filter(row => rows.value.some(item => item.id === row.id)).map(row => {
+        const latest = displayRows.value.find(item => item.id === row.id)
+        return latest && latest.revision !== row.revision ? latest : row
+      })
     }
   }, { immediate: true })
+  function updateRow(updated: ElementRecord, remove = false) {
+    // 原位更新，不触发整页加载或重新挂载已有缩略图。
+    for (const collection of new Set([rows.value, displayRows.value])) {
+      const index = collection.findIndex(row => row.id === updated.id)
+      if (index < 0) continue
+      if (remove) collection.splice(index, 1)
+      else collection[index] = { ...collection[index], ...updated }
+    }
+  }
   async function loadFolders() {
     folderController?.abort()
     const current = folderController = new AbortController()
@@ -90,5 +103,5 @@ export function useElementLibrary(projectId: string, rows: Ref<ElementRecord[]>,
     finally { exporting.value = false }
   }
   onBeforeUnmount(() => { controller?.abort(); folderController?.abort(); exportController.abort() })
-  return { displayRows: renderedRows, folders, error, exporting, creating, addFolder, exportCsv }
+  return { displayRows: renderedRows, updateRow, folders, error, exporting, creating, addFolder, exportCsv }
 }

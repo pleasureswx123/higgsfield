@@ -35,6 +35,7 @@ export function useElementEditor(
   completed: () => void,
   visible: () => boolean = () => true,
   initialAsset?: Asset,
+  readOnly: () => boolean = () => false,
 ) {
   const auth = useAuthStore()
   const active = ref(visible())
@@ -87,9 +88,9 @@ export function useElementEditor(
   const allowed = computed(() => (id ? detail.value?.element.allowedActions || [] : actions.value))
   const canEdit = computed(
     () =>
-      active.value && ready.value && allowed.value.includes(id ? 'element:edit' : 'element:create'),
+      !readOnly() && active.value && ready.value && allowed.value.includes(id ? 'element:edit' : 'element:create'),
   )
-  const canReview = computed(() => ready.value && allowed.value.includes('content:review'))
+  const canReview = computed(() => !readOnly() && ready.value && allowed.value.includes('content:review'))
   function markAliasManual() {
     aliasManual.value = true
   }
@@ -113,7 +114,7 @@ export function useElementEditor(
     { flush: 'sync' },
   )
   const canRemove = computed(
-    () => active.value && ready.value && !!id && allowed.value.includes('element:remove'),
+    () => !readOnly() && active.value && ready.value && !!id && allowed.value.includes('element:remove'),
   )
   const selectedVersion = ref(''),
     previewUrl = ref(''),
