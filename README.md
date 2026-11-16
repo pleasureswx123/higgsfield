@@ -154,3 +154,32 @@ Remove-Item Env:HF_RUN_DB_TESTS
 本节为本地开发启动说明；正式部署应使用服务管理工具管理启动和重启，不从本地命令推断正式部署方式。
 
 产品概述于2026-11-03按源码基线fdf3f612同步，本地启动说明于2026-11-05按当前脚本补充。文档和代码检查不代表已完成正式供应商、NAS与全部浏览器验收。历史逐次开发记录见[旧README](docs/历史版本/2026-11-03同步前/README.md)。
+
+
+
+
+### 启动 PostgreSQL 和 Redis 服务
+先打开 Docker Desktop，等待 Docker 可用，再执行：
+```powershell
+cd D:\laputta\higgsfield
+docker compose --env-file .env.local-infra -f docker-compose.local.yml up -d postgres redis
+docker compose --env-file .env.local-infra -f docker-compose.local.yml ps
+```
+
+### 启动api后端服务端项目
+```powershell
+cd D:\laputta\higgsfield
+.\scripts\start-local.ps1
+```
+
+### 启动 ruoyi-fastapi-frontend 管理平台项目
+```powershell
+cd D:\laputta\higgsfield\ruoyi-fastapi-frontend\vue3\web
+pnpm run dev --host 0.0.0.0 --port 5173 --strictPort
+```
+
+### 启动 higgsfield-frontend 制作平台项目
+```powershell
+cd D:\laputta\higgsfield\higgsfield-frontend
+pnpm run dev --host 0.0.0.0 --port 5174 --strictPort
+```
