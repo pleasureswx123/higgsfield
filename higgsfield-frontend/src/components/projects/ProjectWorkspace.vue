@@ -203,7 +203,7 @@ watch(
   />
 
   </TabsContent>
-  <ProjectFolders @empty-change="emptyFolderState = $event" @select="tab = 'folders'" ref="folderWorkspace" @selection-change="selectedAssetCount = $event"
+  <ProjectFolders @empty-change="emptyFolderState = $event" ref="folderWorkspace" @selection-change="selectedAssetCount = $event"
     v-if="brief?.allowedActions.includes('asset:read')"
     v-show="tab === 'folders'"
     :visible="route.params.id === projectId"

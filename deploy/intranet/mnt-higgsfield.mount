@@ -1,0 +1,14 @@
+[Unit]
+Description=Higgsfield 正式媒体 NAS
+Wants=network-online.target
+After=network-online.target
+
+[Mount]
+What=//192.168.1.13/Project
+Where=/mnt/higgsfield
+Type=cifs
+Options=credentials=/etc/higgsfield/nas.credentials,vers=3.1.1,uid=10001,gid=10001,forceuid,forcegid,file_mode=0640,dir_mode=0750,serverino,nosuid,nodev,noexec
+TimeoutSec=25
+
+[Install]
+WantedBy=remote-fs.target

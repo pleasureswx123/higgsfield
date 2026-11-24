@@ -195,7 +195,9 @@ class TransportCryptoMiddleware:
         if query_envelope is not None:
             decrypted_query = await self._decrypt_envelope(request, scope, query_envelope)
             query_payload = self._loads_json_mapping(decrypted_query.plaintext.decode('utf-8'))
-            new_scope['query_string'] = urlencode(query_payload, doseq=True).encode('utf-8')
+            # URL 查询中的可选字段为空时应省略，避免将根目录 ID 转成字符串 None。
+            query_fields = {key: value for key, value in query_payload.items() if value is not None}
+            new_scope['query_string'] = urlencode(query_fields, doseq=True).encode('utf-8')
             crypto_context = self._build_crypto_context(decrypted_query)
 
         decrypted_body = body

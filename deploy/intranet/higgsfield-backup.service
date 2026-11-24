@@ -1,0 +1,8 @@
+[Unit]
+Description=Higgsfield 正式数据库备份
+RequiresMountsFor=/mnt/data /mnt/higgsfield
+After=docker.service
+
+[Service]
+Type=oneshot
+ExecStart=/bin/sh /opt/higgsfield/current/backup.sh

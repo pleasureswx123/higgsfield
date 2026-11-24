@@ -268,7 +268,7 @@ watch(() => [props.kind, props.selected?.versionId, props.disabled], () => { men
 .composer-selected-images::-webkit-scrollbar { display:none; }
 .composer-input-tools { flex:1; min-width:0; display:flex; flex-direction:column; }
 .composer-input-tools textarea { width:100%; flex:none; min-height:49px; max-height:min(320px, 45dvh); overflow-y:auto; scrollbar-width:thin; scrollbar-color:var(--muted-foreground) transparent; resize:none; border:0; outline:none; background:transparent; color:var(--foreground); font:inherit; font-size:14px; line-height:1.5; }
-.composer-toolbar { display:flex; align-items:center; gap:4px; min-width:0; padding-top:8px; }
+.composer-toolbar { display:flex; flex-wrap:wrap; align-items:center; gap:4px; min-width:0; padding-top:8px; }
 .composer-tool-strip { display:flex; align-items:center; flex:1; gap:4px; min-width:0; }
 .composer-tool-row { flex:1; min-width:0; overflow-x:auto; scrollbar-width:none; }
 .composer-tool-content { display:flex; align-items:center; flex-wrap:nowrap; gap:5px; width:max-content; }

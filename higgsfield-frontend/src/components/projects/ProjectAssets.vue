@@ -548,7 +548,7 @@ defineExpose({ includeDescendants })
     <ElDialog
       :model-value="visible !== false && Boolean(selected)"
       title="素材详情"
-      :transition="{ css: false }"
+      :transition="{ name: 'dialog-fade', css: false }"
       append-to-body
       fullscreen
       class="asset-preview-dialog"

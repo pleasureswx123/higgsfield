@@ -1,0 +1,108 @@
+name: higgsfield-prod
+x-app: &app
+  image: ${HF_IMAGE:?必须指定已验证的发布镜像}
+  restart: unless-stopped
+  env_file: /etc/higgsfield/app.env
+  volumes:
+    - type: bind
+      source: /mnt/higgsfield/NightmareTheatre/prod
+      target: /nas/prod
+      bind: {create_host_path: false}
+    - /mnt/data/higgsfield/logs:/app/logs
+    - /mnt/data/higgsfield/runtime:/app/vf_admin
+  depends_on:
+    postgres: {condition: service_healthy}
+    redis: {condition: service_healthy}
+  stop_grace_period: 21m
+  healthcheck:
+    test: ["CMD","python","-c","import json,time,pathlib; p=pathlib.Path('/tmp/hf-worker/status.json'); s=json.loads(p.read_text()); assert s['state']=='ready' and s['databaseReady'] and time.time()-p.stat().st_mtime<30"]
+    interval: 20s
+    timeout: 5s
+    retries: 4
+    start_period: 45s
+  logging: {driver: json-file, options: {max-size: 20m, max-file: "3"}}
+
+services:
+  postgres:
+    image: postgres:14
+    restart: unless-stopped
+    env_file: /etc/higgsfield/db.env
+    volumes:
+      - /mnt/data/higgsfield/postgres:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U higgsfield -d higgsfield_prod"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+  redis:
+    image: redis:7.4
+    restart: unless-stopped
+    command: ["redis-server","--appendonly","yes"]
+    volumes:
+      - /mnt/data/higgsfield/redis:/data
+    healthcheck:
+      test: ["CMD","redis-cli","ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+  api:
+    <<: *app
+    environment:
+      RUOYI_FRONTEND_ROOT: /srv/admin
+    volumes:
+      - ./admin:/srv/admin:ro
+      - type: bind
+        source: /mnt/higgsfield/NightmareTheatre/prod
+        target: /nas/prod
+        bind: {create_host_path: false}
+      - /mnt/data/higgsfield/logs:/app/logs
+      - /mnt/data/higgsfield/runtime:/app/vf_admin
+    healthcheck:
+      test: ["CMD","python","-c","import urllib.request; urllib.request.urlopen('http://127.0.0.1:9099/transport/crypto/frontend-config',timeout=5).read()"]
+      interval: 15s
+      timeout: 8s
+      retries: 6
+      start_period: 45s
+  web:
+    image: nginx:1.30.6-alpine
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1/index.html | grep -q 'id=\"app\"' && wget -qO- http://127.0.0.1:8080/index.html | grep -q 'id=\"app\"' && wget -qO /dev/null http://127.0.0.1/dev-api/transport/crypto/frontend-config"]
+      interval: 30s
+      timeout: 8s
+      retries: 3
+      start_period: 10s
+    restart: unless-stopped
+    depends_on:
+      api: {condition: service_healthy}
+    ports: ["192.168.1.100:80:80","192.168.1.100:8080:8080"]
+    volumes:
+      - ./nginx.conf:/etc/nginx/conf.d/default.conf:ro
+      - ./studio:/srv/studio:ro
+      - ./admin:/srv/admin:ro
+  worker-image:
+    <<: *app
+    command: ["python","-m","module_higgsfield.worker","--env","prod","--mode","image","--enable-consumption","--concurrency","2","--handler-timeout","1200","--control-dir","/tmp/hf-worker"]
+  worker-image-recovery:
+    <<: *app
+    command: ["python","-m","module_higgsfield.worker","--env","prod","--mode","image-recovery","--enable-consumption","--concurrency","1","--handler-timeout","300","--control-dir","/tmp/hf-worker"]
+  worker-video:
+    <<: *app
+    command: ["python","-m","module_higgsfield.worker","--env","prod","--mode","video","--enable-consumption","--concurrency","4","--handler-timeout","300","--control-dir","/tmp/hf-worker"]
+  worker-archive:
+    <<: *app
+    command: ["python","-m","module_higgsfield.worker","--env","prod","--mode","archive","--enable-consumption","--concurrency","2","--handler-timeout","300","--control-dir","/tmp/hf-worker"]
+  worker-billing:
+    <<: *app
+    command: ["python","-m","module_higgsfield.worker","--env","prod","--mode","billing","--enable-consumption","--concurrency","10","--handler-timeout","300","--control-dir","/tmp/hf-worker"]
+  worker-image-thumbnail:
+    <<: *app
+    command: ["python","-m","module_higgsfield.worker","--env","prod","--mode","image-thumbnail","--enable-consumption","--concurrency","2","--handler-timeout","300","--control-dir","/tmp/hf-worker"]
+  worker-credential-test:
+    <<: *app
+    command: ["python","-m","module_higgsfield.worker","--env","prod","--mode","credential-test","--enable-consumption","--concurrency","1","--handler-timeout","300","--control-dir","/tmp/hf-worker"]
+  worker-element-import:
+    <<: *app
+    command: ["python","-m","module_higgsfield.worker","--env","prod","--mode","element-import","--enable-consumption","--concurrency","1","--handler-timeout","300","--control-dir","/tmp/hf-worker"]
+  worker-reconciliation:
+    <<: *app
+    command: ["python","-m","module_higgsfield.worker","--env","prod","--mode","reconciliation","--enable-consumption","--concurrency","1","--handler-timeout","300","--control-dir","/tmp/hf-worker"]

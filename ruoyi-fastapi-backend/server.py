@@ -1,4 +1,5 @@
 import asyncio
+import os
 from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
 
@@ -226,8 +227,15 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
             _show_startup_addresses()
         # 确保启动阶段的插件摘要在ASGI lifespan启动完成前已写入stdout和日志文件。
         await logger.complete()
+        if os.environ.get('HF_NAS_PROJECT_DIRECTORIES') == '1':
+            from module_higgsfield.service.nas_directory_service import NasDirectoryService
+            app.state.nas_stop = asyncio.Event()
+            app.state.nas_task = asyncio.create_task(NasDirectoryService.run(app.state.nas_stop))
         yield
     finally:
+        if getattr(app.state, 'nas_task', None):
+            app.state.nas_stop.set()
+            await app.state.nas_task
         from module_higgsfield.service.project_activity_hub import project_activity_hub
         await project_activity_hub.close()
         await _shutdown_application_runtime(app)

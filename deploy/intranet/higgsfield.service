@@ -1,0 +1,24 @@
+[Unit]
+Description=Higgsfield 制作平台
+After=network-online.target docker.service
+Wants=network-online.target
+Requires=docker.service
+RequiresMountsFor=/mnt/data
+StartLimitIntervalSec=0
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+WorkingDirectory=/opt/higgsfield/current
+ExecStartPre=/usr/bin/systemctl start mnt-higgsfield.mount
+ExecStartPre=/usr/bin/mountpoint -q /mnt/data
+ExecStartPre=/usr/bin/mountpoint -q /mnt/higgsfield
+ExecStart=/usr/bin/docker compose up -d --wait --wait-timeout 180
+ExecStop=/usr/bin/docker compose stop
+TimeoutStartSec=6min
+TimeoutStopSec=24min
+Restart=on-failure
+RestartSec=15
+
+[Install]
+WantedBy=multi-user.target

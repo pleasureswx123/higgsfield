@@ -34,7 +34,7 @@ const props = defineProps<{
   canDownload: boolean
   canGenerate?: boolean
 }>()
-const emit = defineEmits<{ create: []; select: []; reference: [asset: Asset, kind: 'image' | 'video']; selectionChange: [count: number]; emptyChange: [state: { folderId: string | null; empty: boolean }] }>()
+const emit = defineEmits<{ create: []; reference: [asset: Asset, kind: 'image' | 'video']; selectionChange: [count: number]; emptyChange: [state: { folderId: string | null; empty: boolean }] }>()
 const destinationTreeBusy = ref(false)
 // 暂时隐藏侧栏文件夹搜索入口，需要时可重新开启。
 const folderSearchEnabled = false
@@ -71,8 +71,8 @@ const {
   loadTree,
   toggle,
   refresh,
-  navigate: navigateFolder,
-  showTrash: navigateTrash,
+  navigate,
+  showTrash,
   filter,
   changePage,
   startCreate,
@@ -90,8 +90,6 @@ const {
   createInDestination,
   transfer,
 } = useFolders(props.projectId, () => props.visible !== false)
-function navigate(path: import('@/api/folders').Folder[]) { emit('select'); navigateFolder(path) }
-function showTrash() { emit('select'); navigateTrash() }
 const personal = useFolderPresentation(expanded, loadTree)
 const orderedRoots = computed(() => personal.arrange(roots.value))
 const orderedChildren = computed(() => Object.fromEntries(Object.entries(children).map(([id, values]) => [id, personal.arrange(values)])))
