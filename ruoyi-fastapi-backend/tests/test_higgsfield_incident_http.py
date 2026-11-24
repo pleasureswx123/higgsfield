@@ -81,6 +81,8 @@ class IncidentHttpTests(unittest.IsolatedAsyncioTestCase):
             mocks = {action: stack.enter_context(patch.object(owner, method, AsyncMock(return_value=(response_body, True)))) for action, (owner, method) in services.items()}
             for action in services:
                 payload = {'revision': '7', 'action': action, 'reason': ' 核对证据 ', 'evidenceRef': 'provider-call:9'}
+                if action == 'close_tracking':
+                    payload['acknowledgeSupplierStopped'] = True
                 response = await self.client.post(path, json=payload, headers={'Idempotency-Key': key})
                 self.assertEqual(response.status_code, 200)
                 self.assertEqual(response.json(), response_body)

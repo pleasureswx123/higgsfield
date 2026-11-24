@@ -7,7 +7,7 @@ import unittest
 from unittest.mock import patch, AsyncMock
 from uuid import uuid4
 from sqlalchemy import text
-from exceptions.exception import ServiceWarning
+from exceptions.exception import PermissionException, ServiceWarning
 from module_higgsfield.service.generation_cancel_service import GenerationCancelService
 from module_higgsfield.entity.vo.generation_action_vo import GenerationCancel
 from module_higgsfield.dao.price_source_dao import PriceSourceDao
@@ -61,6 +61,18 @@ class GenerationCancelTests(unittest.IsolatedAsyncioTestCase):
             )
             await db.commit()
 
+    async def enable_historical_role(self):
+        """按历史授权配置模拟仍有本地取消权限的制作角色，保留事务与重放覆盖。"""
+        from module_higgsfield import project_permissions
+        historical = patch.object(project_permissions, 'OWNER_PERMISSIONS',
+                                  project_permissions.OWNER_PERMISSIONS | {'generation:cancel'})
+        historical.start()
+        self.addCleanup(historical.stop)
+        async with self.sessions() as db:
+            await db.execute(text("UPDATE hf_project_member SET role_id=(SELECT role_id FROM hf_project_role WHERE code='producer') WHERE user_id=1"))
+            await db.execute(text("INSERT INTO hf_project_role_permission(role_id,permission_code,data_scope) SELECT role_id,'generation:cancel','project' FROM hf_project_role WHERE code='producer' ON CONFLICT DO NOTHING"))
+            await db.commit()
+
     async def cancel(self, key=None):
         async with self.sessions() as db:
             db.autoflush = False
@@ -75,16 +87,11 @@ class GenerationCancelTests(unittest.IsolatedAsyncioTestCase):
     async def test_cancel_replay_releases_once_and_invalidates_worker(self):
         async with self.sessions() as db:
             before = await GenerationReadService.snapshot(db, self.owner, self.job_id)
-            self.assertIn('generation:cancel', before['allowedActions'])
-            self.assertNotIn('generation:copy-input', before['allowedActions'])
-            await db.execute(text(
-                "INSERT INTO hf_project_role_permission(role_id,permission_code,data_scope,create_time,update_time) "
-                "SELECT role_id,'generation:create','project',CURRENT_TIMESTAMP,CURRENT_TIMESTAMP "
-                "FROM hf_project_role WHERE code='owner' ON CONFLICT DO NOTHING"
-            ))
-            await db.commit()
-            permitted = await GenerationReadService.snapshot(db, self.owner, self.job_id)
-            self.assertIn('generation:copy-input', permitted['allowedActions'])
+            self.assertNotIn('generation:cancel', before['allowedActions'])
+            self.assertIn('generation:copy-input', before['allowedActions'])
+        with self.assertRaises(PermissionException):
+            await self.cancel()
+        await self.enable_historical_role()
         key = str(uuid4())
         original = await self.cancel(key)
         repeated = await self.cancel(key)
@@ -112,6 +119,7 @@ class GenerationCancelTests(unittest.IsolatedAsyncioTestCase):
             await self.cancel(key)
 
     async def test_submitting_unknown_and_running_are_not_local_cancellation(self):
+        await self.enable_historical_role()
         for state in ('2', '3', '4'):
             async with self.sessions() as db:
                 await db.execute(text('UPDATE hf_creation_job SET orchestration_state=:state'), {'state': state})
@@ -123,6 +131,7 @@ class GenerationCancelTests(unittest.IsolatedAsyncioTestCase):
             self.assertEqual(await db.scalar(text('SELECT count(*) FROM hf_task_event')), 0)
 
     async def test_audit_failure_rolls_back_cancellation_release_and_event(self):
+        await self.enable_historical_role()
         with (
             patch.object(PriceSourceDao, 'audit', AsyncMock(side_effect=RuntimeError('模拟审计故障'))),
             self.assertRaises(RuntimeError),

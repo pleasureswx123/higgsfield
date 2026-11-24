@@ -3,6 +3,7 @@ import asyncio
 import importlib.util
 import os
 from pathlib import Path
+from tests.test_higgsfield_projects import add_producer
 from types import SimpleNamespace
 import unittest
 from unittest.mock import patch, AsyncMock
@@ -62,6 +63,9 @@ class FavoriteServiceTests(unittest.IsolatedAsyncioTestCase):
             return await Service.create(db, self.owner, self.payload, key or str(uuid4()))
 
     async def test_read_permission_revocation_hides_source_and_blocks_replay_but_allows_cancel(self):
+        async with self.sessions() as db:
+            await add_producer(db, self.owner, self.project_id)
+        self.owner = self.other
         key = str(uuid4())
         first, _ = await self.save(key)
         identity = int(first['data']['id'])
@@ -141,6 +145,9 @@ class FavoriteOutputTests(unittest.IsolatedAsyncioTestCase):
             await self.migrate('upgrade')
 
     async def test_output_favorite_needs_only_output_read_and_revocation_hides_it(self):
+        async with self.sessions() as db:
+            await add_producer(db, self.owner, await db.scalar(text('SELECT project_id FROM hf_creation_job LIMIT 1')))
+        self.owner = self.other
         payload = FavoriteCreate(target={'outputId': str(self.identity)})
         async with self.sessions() as db:
             await db.execute(text("DELETE FROM hf_project_role_permission WHERE permission_code='generation:read'"))

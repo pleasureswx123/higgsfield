@@ -1,5 +1,6 @@
 """整批确认复用元素规则，冲突及审计失败不留下半批数据。"""
 import importlib.util
+from tests.migration_fixture import apply_migrations
 import os
 from pathlib import Path
 import unittest
@@ -68,8 +69,9 @@ class ElementImportConfirmTests(unittest.IsolatedAsyncioTestCase):
         self.migration = importlib.util.module_from_spec(spec)
         spec.loader.exec_module(self.migration)
         await self.migrate('upgrade')
+        await apply_migrations(self.engine, '20261109_90_element_fictional_person.py')
         async with self.sessions() as db:
-            await db.execute(text("INSERT INTO hf_project_role_permission(role_id,permission_code,data_scope) SELECT role_id,'element:create','project' FROM hf_project_role WHERE code='owner'"))
+            await db.execute(text("INSERT INTO hf_project_role_permission(role_id,permission_code,data_scope) SELECT role_id,'element:create','project' FROM hf_project_role WHERE code='owner' ON CONFLICT DO NOTHING"))
             await db.commit()
         self.identity = await self.accept('名称,别名,分类,描述\n角色,a,角色,角色说明\n场景,b,场景,场景说明'.encode())
         await ElementImportWorker(self.sessions, self.storage).execute(self.identity)

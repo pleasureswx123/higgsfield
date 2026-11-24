@@ -25,12 +25,6 @@ class SubmitIntentTests(unittest.IsolatedAsyncioTestCase):
 
     async def asyncSetUp(self) -> None:
         await pipeline.GenerationPipelineTests.asyncSetUp(self)
-        spec = importlib.util.spec_from_file_location(
-            'intent_calls', pipeline.MIGRATIONS / '20261027_35_provider_calls.py'
-        )
-        self.migration = importlib.util.module_from_spec(spec)
-        spec.loader.exec_module(self.migration)
-        await self.migrate('upgrade')
         async with self.sessions() as db:
             # 新基础夹具已包含授权表；兼容旧夹具但不能重复创建。
             await db.execute(text("CREATE TABLE IF NOT EXISTS sys_role(role_id bigint PRIMARY KEY,status char(1),del_flag char(1))"))
@@ -42,9 +36,6 @@ class SubmitIntentTests(unittest.IsolatedAsyncioTestCase):
                 SELECT '生成权限测试',0,0,'','F','1','0','generation:create','test',CURRENT_TIMESTAMP
                 WHERE NOT EXISTS(SELECT 1 FROM sys_menu WHERE perms='generation:create')"""))
             await db.execute(text("INSERT INTO sys_role_menu SELECT 2,menu_id FROM sys_menu WHERE perms='generation:create' ON CONFLICT DO NOTHING"))
-            # 本夹具参数和价格一直是视频契约，显式声明视频，避免经过图片尺寸映射。
-            await db.execute(text("UPDATE hf_model_profile SET kind='video'"))
-            self.payload.kind = 'video'
             await db.commit()
             await GenerationAcceptService.accept(
                 db,

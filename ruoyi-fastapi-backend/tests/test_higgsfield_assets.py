@@ -1,16 +1,14 @@
 """真实PG迁移和本地显式测试存储；不冒充公司NAS验收。"""
 
 import hashlib
-import importlib.util
 import io
+from tests.migration_fixture import migrate_connection
 import os
 import tempfile
 import unittest
 from pathlib import Path
 from uuid import uuid4
 
-from alembic.migration import MigrationContext
-from alembic.operations import Operations
 from PIL import Image
 from sqlalchemy import text
 
@@ -70,17 +68,7 @@ class AssetDatabaseTests(unittest.IsolatedAsyncioTestCase):
         self.addCleanup(self.directory.cleanup)
         self.storage = StorageService(StoragePolicy(self.directory.name, 'local-test', '', 4096, 1024, part_size=64))
         async with self.engine.begin() as conn:
-            for filename in ('20261027_04_folders.py', '20261027_06_assets.py'):
-                path = Path(__file__).resolve().parents[1] / 'alembic/versions' / filename
-                spec = importlib.util.spec_from_file_location(filename[:-3], path)
-                module = importlib.util.module_from_spec(spec)
-                spec.loader.exec_module(module)
-
-                def migrate(sync_conn):
-                    with Operations.context(MigrationContext.configure(sync_conn)):
-                        module.upgrade()
-
-                await conn.run_sync(migrate)
+            await migrate_connection(conn, '20261027_04_folders.py', '20261027_06_assets.py', '20261028_79_asset_status.py')
             for permission in ('asset:read', 'asset:reference', 'asset:upload', 'asset:create', 'asset:edit', 'folder:write'):
                 await conn.execute(
                     text("""INSERT INTO hf_project_role_permission(role_id,permission_code,data_scope)
@@ -192,18 +180,23 @@ class AssetDatabaseTests(unittest.IsolatedAsyncioTestCase):
 
     async def test_own_scope_requires_actual_object_owner(self):
         async with self.sessions() as db:
+            # 项目负责人拥有全部项目权限。用普通制作成员验证“仅本人”的对象范围。
+            role_id = await db.scalar(text("SELECT role_id FROM hf_project_role WHERE code='producer'"))
+            await WorkspaceService.mutate(
+                db, self.owner, int(self.project_id), 'add', {'userId': '2', 'roleId': str(role_id)}, str(uuid4()), None
+            )
             await db.execute(
                 text("UPDATE hf_project_role_permission SET data_scope='own' WHERE permission_code='asset:edit'")
             )
             await db.commit()
         async with self.sessions() as db:
-            await WorkspaceService.authorize(db, self.owner, int(self.project_id), 'asset:edit', owner_id=1)
+            await WorkspaceService.authorize(db, self.other, int(self.project_id), 'asset:edit', owner_id=2)
         async with self.sessions() as db:
             with self.assertRaises(PermissionException):
-                await WorkspaceService.authorize(db, self.owner, int(self.project_id), 'asset:edit', owner_id=2)
+                await WorkspaceService.authorize(db, self.other, int(self.project_id), 'asset:edit', owner_id=1)
         async with self.sessions() as db:
             with self.assertRaises(PermissionException):
-                await WorkspaceService.authorize(db, self.owner, int(self.project_id), 'asset:edit')
+                await WorkspaceService.authorize(db, self.other, int(self.project_id), 'asset:edit')
 
     async def test_wrong_hash_preserves_fixed_completion_identity(self):
         upload_id, data = await self.new_upload()
@@ -227,6 +220,8 @@ class AssetDatabaseTests(unittest.IsolatedAsyncioTestCase):
             self.assertEqual(await db.scalar(text('SELECT count(*) FROM hf_stored_file')), 0)
 
     async def test_preview_range_copy_provenance_and_delete_relocation(self):
+        async with self.engine.begin() as conn:
+            await migrate_connection(conn, '20261028_68_comments.py', '20261029_80_comment_collaboration.py')
         upload_id = await self.ready_upload()
         async with self.sessions() as db:
             folder, _ = await FolderService.mutate(
@@ -255,9 +250,14 @@ class AssetDatabaseTests(unittest.IsolatedAsyncioTestCase):
             self.assertEqual(headers['Content-Length'], '8')
             self.assertEqual(mime, 'image/png')
         async with self.sessions() as db:
+            role_id = await db.scalar(text("SELECT role_id FROM hf_project_role WHERE code='viewer'"))
+            await WorkspaceService.mutate(
+                db, self.owner, int(self.project_id), 'add', {'userId': '2', 'roleId': str(role_id)}, str(uuid4()), None
+            )
+            self.other.permissions = ['project:read', 'asset:read']
             with self.assertRaises(PermissionException):
                 await AssetService.media(
-                    db, self.owner, int(asset['currentVersionId']), download=True, storage=self.storage
+                    db, self.other, int(asset['currentVersionId']), download=True, storage=self.storage
                 )
         async with self.sessions() as db:
             copied, _ = await FolderService.mutate(

@@ -107,20 +107,20 @@ test('简报撤权清空已显示内容，缓存停用保留草稿但禁止写�
   c.close()
 })
 
-test('成员筛选取消旧请求并重置页码，旧结果不结束新加载', async () => {
+test('成员翻页取消旧请求并加载目标页，旧结果不结束新加载', async () => {
   const pending = []
   const c = setup({ readMembers: (id, page, status, signal) => new Promise(resolve => pending.push({ page, status, signal, resolve })), readRoles: async () => ({ data: { items: [] } }) })
   c.state.page.value = 3
   const first = c.state.load()
-  c.state.changeStatus('removed')
+  c.state.changePage(2)
   assert.equal(pending[0].signal.aborted, true)
-  assert.equal(pending[1].page, 1)
-  assert.equal(pending[1].status, 'removed')
+  assert.equal(pending[1].page, 2)
+  assert.equal(pending[1].status, 'active')
   pending[0].resolve({ rows: [{ userId: 'old' }], total: 88 }); await first
   assert.equal(c.state.loading.value, true)
   assert.equal(c.state.total.value, 0)
-  pending[1].resolve({ rows: [{ userId: 'removed' }], total: 1 }); await tick()
-  assert.equal(c.state.members.value[0].userId, 'removed')
+  pending[1].resolve({ rows: [{ userId: 'current-member' }], total: 21 }); await tick()
+  assert.equal(c.state.members.value[0].userId, 'current-member')
   c.close()
 })
 
@@ -147,16 +147,16 @@ test('角色读取被拒绝不保留成员列表或旧分页', async () => {
   c.close()
 })
 
-test('成员数量减少回退到有效末页，等待重载并保留筛选，只读取一次角色', async () => {
+test('成员数量减少回退到有效末页，等待重载并保持在职成员范围，只读取一次角色', async () => {
   const pending = []
   let roleReads = 0
   const c = setup({ readMembers: (id, page, status, signal) => new Promise(resolve => pending.push({ page, status, signal, resolve })), readRoles: async () => { roleReads++; return { data: { items: [{ id: 'viewer' }] } } } })
-  c.state.page.value = 4; c.state.status.value = 'removed'
+  c.state.page.value = 4
   let done = false
   const refresh = c.state.load().then(() => { done = true })
   pending[0].resolve({ rows: [], total: 21 }); await tick()
   assert.equal(c.state.page.value, 2)
-  assert.equal(pending[1].page, 2); assert.equal(pending[1].status, 'removed')
+  assert.equal(pending[1].page, 2); assert.equal(pending[1].status, 'active')
   assert.equal(done, false); assert.equal(c.state.loading.value, true)
   assert.equal(c.state.members.value.length, 0)
   pending[1].resolve({ rows: [{ userId: 'remaining' }], total: 21 }); await refresh
@@ -180,8 +180,8 @@ test('成员连续减少逐次回退，全部移除时不追加空列表查询',
   c.close()
 })
 
-test('成员回退请求在账号切换或筛选变化后不能回填旧成员与角色', async () => {
-  for (const action of ['account', 'filter']) {
+test('成员回退请求在账号切换或页码变化后不能回填旧成员与角色', async () => {
+  for (const action of ['account', 'page']) {
     const pending = []
     const c = setup({ readMembers: (id, page, status, signal) => new Promise(resolve => pending.push({ page, status, signal, resolve })), readRoles: async () => ({ data: { items: [{ id: 'old-role' }] } }) })
     c.state.page.value = 3
@@ -189,14 +189,14 @@ test('成员回退请求在账号切换或筛选变化后不能回填旧成员�
     pending[0].resolve({ rows: [], total: 1 }); await tick()
     assert.equal(pending.length, 2)
     if (action === 'account') c.auth.token = 'two'
-    else c.state.changeStatus('removed')
+    else c.state.changePage(2)
     assert.equal(pending[1].signal.aborted, true)
     pending[1].resolve({ rows: [{ userId: 'old-member' }], total: 1 }); await refresh
     assert.equal(c.state.members.value.length, 0); assert.equal(c.state.roles.value.length, 0)
-    if (action === 'filter') {
+    if (action === 'page') {
       assert.equal(c.state.loading.value, true)
-      pending[2].resolve({ rows: [{ userId: 'removed' }], total: 1 }); await tick()
-      assert.equal(c.state.members.value[0].userId, 'removed')
+      pending[2].resolve({ rows: [{ userId: 'current-member' }], total: 21 }); await tick()
+      assert.equal(c.state.members.value[0].userId, 'current-member')
     }
     c.close()
   }

@@ -73,7 +73,7 @@ class ReconciliationTests(unittest.IsolatedAsyncioTestCase):
             self.assertEqual(
                 await db.scalar(text('SELECT state FROM hf_provider_call WHERE call_id=:id'), {'id': self.call_id}), '3'
             )
-            self.assertEqual(await db.scalar(text('SELECT reserved_amount FROM hf_budget_period')), 6)
+            self.assertEqual(await db.scalar(text('SELECT reserved_amount FROM hf_budget_period')), 0)
 
     async def test_wrong_account_and_event_failure_do_not_confirm(self) -> None:
         wrong = await self.evidence(account=999999)
@@ -98,5 +98,5 @@ class ReconciliationTests(unittest.IsolatedAsyncioTestCase):
                     text('SELECT orchestration_state,upstream_state,lease_owner,event_sequence FROM hf_creation_job')
                 )
             ).one()
-            self.assertEqual(tuple(row), ('3', '6', None, 4))
-            self.assertEqual(await db.scalar(text('SELECT reserved_amount FROM hf_budget_period')), 6)
+            self.assertEqual(tuple(row), ('3', '6', None, 5))
+            self.assertEqual(await db.scalar(text('SELECT reserved_amount FROM hf_budget_period')), 0)

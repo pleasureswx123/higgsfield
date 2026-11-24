@@ -23,6 +23,9 @@ class ElementImportHttpDatabaseTests(unittest.IsolatedAsyncioTestCase):
 
     async def asyncSetUp(self):
         await fixtures.ElementImportConfirmTests.asyncSetUp(self)
+        async with self.sessions() as db:
+            await db.execute(text("UPDATE hf_project_member SET role_id=(SELECT role_id FROM hf_project_role WHERE code='producer') WHERE user_id=1"))
+            await db.commit()
         self.app = FastAPI()
         handle_exception(self.app)
         self.app.include_router(router)
@@ -88,7 +91,7 @@ class ElementImportHttpDatabaseTests(unittest.IsolatedAsyncioTestCase):
             self.assertEqual(await db.scalar(text('SELECT count(*) FROM hf_element')), 0)
             self.assertEqual(await db.scalar(text('SELECT count(*) FROM hf_element_revision')), 0)
             self.assertEqual(await db.scalar(text("SELECT count(*) FROM hf_import_row WHERE element_id IS NOT NULL")), 0)
-            await db.execute(text("INSERT INTO hf_project_role_permission(role_id,permission_code,data_scope) SELECT role_id,'element:create','project' FROM hf_project_role WHERE code='owner'"))
+            await db.execute(text("INSERT INTO hf_project_role_permission(role_id,permission_code,data_scope) SELECT role_id,'element:create','project' FROM hf_project_role WHERE code='producer'"))
             await db.commit()
         accepted = await self.client.post(path + '/confirm', json={'revision': '2'}, headers=headers)
         self.assertEqual(accepted.json()['code'], 200)

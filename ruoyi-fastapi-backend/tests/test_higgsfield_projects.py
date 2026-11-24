@@ -24,6 +24,14 @@ from module_higgsfield.service.project_service import ProjectService
 from module_higgsfield.service.project_workspace_service import WorkspaceService
 
 
+async def add_producer(db, owner, project_id):
+    """给隔离库的第二位用户授权可撤销的制作成员角色。"""
+    role = await db.scalar(text("SELECT role_id FROM hf_project_role WHERE code='producer'"))
+    await WorkspaceService.mutate(
+        db, owner, int(project_id), 'add', {'userId': '2', 'roleId': str(role)}, str(uuid4()), None
+    )
+
+
 @unittest.skipUnless(os.getenv('HF_RUN_DB_TESTS') == '1', '需要显式启用独立 schema 数据库测试')
 class ProjectDatabaseTests(unittest.IsolatedAsyncioTestCase):
     async def asyncSetUp(self):
@@ -275,7 +283,9 @@ class ProjectDatabaseTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(result, replay)
         async with self.sessions() as db:
             page = await WorkspaceService.list_members(db, self.other, project_id, MemberQuery())
-            self.assertEqual(page.total, 2)
+            # 内置管理员（用户 1）不进入制作端成员列表。
+            self.assertEqual(page.total, 1)
+            self.assertEqual([member['userId'] for member in page.rows], ['2'])
             self.assertNotIn(
                 'member:manage', (await WorkspaceService.get_brief(db, self.other, project_id))['allowedActions']
             )

@@ -13,12 +13,13 @@ class CatalogAvailabilityTests(unittest.TestCase):
         self.assertEqual(ModelCatalogService.availability(project, config, True), {'available': False, 'reasonCode': 'GENERATION_PREFLIGHT_REQUIRED'})
         self.assertEqual(ModelCatalogService.availability(project, config, False)['reasonCode'], 'GENERATION_POLICY_UNAVAILABLE')
         config.estimate_policy = None
-        self.assertEqual(ModelCatalogService.availability(project, config, True)['reasonCode'], 'GENERATION_ESTIMATE_UNAVAILABLE')
+        self.assertEqual(ModelCatalogService.availability(project, config, True)['reasonCode'], 'GENERATION_PREFLIGHT_REQUIRED')
         project.status = '1'
         self.assertEqual(ModelCatalogService.availability(project, config, False)['reasonCode'], 'PROJECT_READ_ONLY')
 
-    def test_runtime_requires_both_policy_and_signing(self):
-        with patch.object(GenerationPolicyService, 'configured', return_value=object()), patch.object(GenerationPolicyService, 'tokens', return_value=object()):
+    def test_runtime_requires_policy_and_does_not_use_legacy_estimate_signing(self):
+        with patch.object(GenerationPolicyService, 'configured', return_value=object()), patch.object(GenerationPolicyService, 'tokens') as signer:
             self.assertTrue(ModelCatalogService.runtime_ready())
-        with patch.object(GenerationPolicyService, 'configured', return_value=object()), patch.object(GenerationPolicyService, 'tokens', side_effect=ServiceWarning(message='密钥不可用')):
+            signer.assert_not_called()
+        with patch.object(GenerationPolicyService, 'configured', side_effect=ServiceWarning(message='策略不可用')):
             self.assertFalse(ModelCatalogService.runtime_ready())

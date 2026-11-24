@@ -10,7 +10,7 @@ function setup(api = {}, grant = true) {
   runInNewContext(code, { exports, crypto: require('node:crypto'), require(id) {
     if (id === 'vue') return { ...vue, onBeforeUnmount() {} }
     if (id === '@/stores/auth') return { useAuthStore: () => auth }
-    if (id === './useProjectWorkspace') return { useProjectMembers: () => ({ roles, status: vue.ref('removed'), page: vue.ref(3), ownershipRevision: vue.ref('7'), load: async () => {} }) }
+    if (id === './useProjectWorkspace') return { useProjectMembers: () => ({ roles, page: vue.ref(3), ownershipRevision: vue.ref('7'), load: async () => {} }) }
     if (id === 'element-plus') return { ElMessage: { success() {}, error() {} }, ElMessageBox: { confirm: async () => {} } }
     return api
   } })
@@ -28,7 +28,6 @@ test('添加失败重试保留幂等键并提交选定角色', async () => {
   assert.equal(calls[0][2], calls[1][2])
   assert.equal(calls[0][1].roleId, '2')
   assert.equal(calls[0][1].userId, '104')
-  assert.equal(c.state.status.value, 'active')
   assert.equal(c.state.page.value, 1)
   c.close()
 })

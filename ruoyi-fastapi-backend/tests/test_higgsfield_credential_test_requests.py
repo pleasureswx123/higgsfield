@@ -135,7 +135,8 @@ class CredentialTestRequestTests(unittest.IsolatedAsyncioTestCase):
             self.assertEqual(call['cost_center_id'], 1)
             self.assertIsNone(call['job_id'])
             self.assertEqual(await db.scalar(text('SELECT provider_call_id FROM hf_credential_test')), call['call_id'])
-            self.assertNotIn('fixture', str(call['request_metadata']))
+            self.assertEqual(call['request_metadata']['requestSnapshot']['body']['messages'][0]['content'], 'fixture')
+            self.assertNotIn(self.secret, str(call['request_metadata']))
 
     async def test_compilation_failure_rolls_back_intent(self):
         from module_higgsfield.service.credential_test_intent_service import CredentialTestIntentService

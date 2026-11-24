@@ -29,7 +29,7 @@ class IncidentArchiveActionTests(unittest.IsolatedAsyncioTestCase):
         self.actor.user.user_name = '运维处理者'
         self.actor.permissions.append('operations:recover')
         async with self.engine.begin() as conn:
-            for name in ('20261027_16_audit.py', '20261028_54_operations_recover.py'):
+            for name in ('20261027_37_provider_responses.py', '20261027_16_audit.py', '20261028_54_operations_recover.py'):
                 spec = importlib.util.spec_from_file_location('incident_action_migration', Path(__file__).resolve().parents[1] / 'alembic/versions' / name)
                 module = importlib.util.module_from_spec(spec)
                 spec.loader.exec_module(module)

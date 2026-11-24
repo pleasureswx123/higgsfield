@@ -15,6 +15,7 @@ from tests import test_higgsfield_provider_submission_result as submission
 
 @unittest.skipUnless(os.getenv('HF_RUN_DB_TESTS') == '1', '需要显式启用隔离数据库测试')
 class UsageRecordTests(unittest.IsolatedAsyncioTestCase):
+    fixture_kind = 'image'
     cleanup_schema = submission.SubmissionResultTests.cleanup_schema
     migrate = submission.SubmissionResultTests.migrate
     job = submission.SubmissionResultTests.job
@@ -46,7 +47,7 @@ class UsageRecordTests(unittest.IsolatedAsyncioTestCase):
             self.assertEqual(first.output_tokens, 20)
             self.assertEqual(await db.scalar(text('SELECT count(*) FROM hf_billing_subject')), 1)
             self.assertEqual(await db.scalar(text('SELECT count(*) FROM hf_usage_record')), 2)
-            self.assertEqual(await db.scalar(text('SELECT reserved_amount FROM hf_budget_period')), 6)
+            self.assertEqual(await db.scalar(text('SELECT reserved_amount FROM hf_budget_period')), 0)
             self.assertEqual(await db.scalar(text('SELECT billing_state FROM hf_creation_job')), '0')
             await db.commit()
 

@@ -32,7 +32,7 @@ class ElementImportServiceTests(unittest.IsolatedAsyncioTestCase):
             await self.migrate('upgrade')
         audit = WriteService.audit(self.owner)
         async with self.sessions() as db:
-            await db.execute(text("INSERT INTO hf_project_role_permission(role_id,permission_code,data_scope) SELECT role_id,'element:import','project' FROM hf_project_role WHERE code='owner'"))
+            await db.execute(text("INSERT INTO hf_project_role_permission(role_id,permission_code,data_scope) SELECT role_id,'element:import','project' FROM hf_project_role WHERE code='owner' ON CONFLICT (role_id,permission_code) DO NOTHING"))
             file = HfStoredFile(storage_key='documents/test.csv', sha256='a'*64, byte_size=100,
                                 mime_type='text/csv', state='1', **audit)
             db.add(file)

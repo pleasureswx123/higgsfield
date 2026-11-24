@@ -24,6 +24,7 @@ from module_higgsfield.service.cost_center_service import CostCenterService
 class CredentialWorkflowHttpTests(unittest.IsolatedAsyncioTestCase):
     async def asyncSetUp(self):
         self.app = FastAPI()
+        self.app.state.redis = AsyncMock()
         self.routers = (credential_controller, credential_test_controller, cost_center_controller)
         for router in self.routers:
             self.app.include_router(router)
@@ -73,7 +74,10 @@ class CredentialWorkflowHttpTests(unittest.IsolatedAsyncioTestCase):
         key = 'credential-http-idempotency-001'
         response_body = {'code': 200, 'data': {'id': '9'}}
         with ExitStack() as stack:
+            self.user.user.admin = True
+            stack.enter_context(patch('module_higgsfield.service.admin_scope_service.AdminScopeDao.actor', AsyncMock(return_value={'user_id': 1})))
             stack.enter_context(patch.object(RequestContext, 'get_current_user', return_value=self.user))
+            stack.enter_context(patch('module_higgsfield.controller.credential_test_controller.CredentialTestRuntimeService.status', AsyncMock(return_value={'ready': True})))
             stack.enter_context(patch.object(Log, '_get_oper_location', AsyncMock(return_value='测试')))
             logs = stack.enter_context(patch.object(LogQueueService, 'enqueue_operation_log', AsyncMock()))
             for action, owner, method, payload in operations:

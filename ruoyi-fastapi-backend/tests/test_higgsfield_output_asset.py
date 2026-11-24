@@ -1,6 +1,7 @@
 """作品入库的真实事务、来源追溯与授权边界。"""
 import asyncio
 import importlib.util
+from tests.migration_fixture import apply_migrations
 import os
 from pathlib import Path
 import unittest
@@ -26,6 +27,7 @@ class OutputAssetTests(unittest.IsolatedAsyncioTestCase):
 
     async def asyncSetUp(self):
         await output_read.OutputReadTests.asyncSetUp(self)
+        await apply_migrations(self.engine, '20261028_79_asset_status.py')
         for name in ('20261027_04_folders.py', '20261027_16_audit.py'):
             spec = importlib.util.spec_from_file_location('output_asset_migration',
                 Path(__file__).resolve().parents[1] / 'alembic/versions' / name)
@@ -78,6 +80,7 @@ class OutputAssetTests(unittest.IsolatedAsyncioTestCase):
         key = str(uuid4())
         await self.convert(key)
         async with self.sessions() as db:
+            await db.execute(text("UPDATE hf_project_member SET role_id=(SELECT role_id FROM hf_project_role WHERE code='producer') WHERE user_id=1"))
             await db.execute(text("DELETE FROM hf_project_role_permission WHERE permission_code='asset:reference'"))
             await db.commit()
         with self.assertRaises(PermissionException):
@@ -105,12 +108,13 @@ class OutputAssetTests(unittest.IsolatedAsyncioTestCase):
     async def test_destination_permission_and_archived_project_block_writes(self):
         await self.ready()
         async with self.sessions() as db:
+            await db.execute(text("UPDATE hf_project_member SET role_id=(SELECT role_id FROM hf_project_role WHERE code='producer') WHERE user_id=1"))
             await db.execute(text("DELETE FROM hf_project_role_permission WHERE permission_code='asset:create'"))
             await db.commit()
         with self.assertRaises(PermissionException):
             await self.convert()
         async with self.sessions() as db:
-            await db.execute(text("INSERT INTO hf_project_role_permission(role_id,permission_code,data_scope) SELECT role_id,'asset:create','project' FROM hf_project_role WHERE code='owner'"))
+            await db.execute(text("INSERT INTO hf_project_role_permission(role_id,permission_code,data_scope) SELECT role_id,'asset:create','project' FROM hf_project_role WHERE code='producer' ON CONFLICT DO NOTHING"))
             await db.execute(text("UPDATE hf_project SET status='2',archived_time=CURRENT_TIMESTAMP WHERE project_id=:id"), {'id': int(self.project_id)})
             await db.commit()
         with self.assertRaises(ServiceWarning) as failure:

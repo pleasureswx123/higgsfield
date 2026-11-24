@@ -49,6 +49,7 @@ class GenerationPipelineTests(unittest.IsolatedAsyncioTestCase):
             '20261027_24_price_sources.py',
             '20261027_25_price_publish.py',
             '20261027_27_budgets.py',
+            '20261027_35_provider_calls.py',
         ):
             spec = importlib.util.spec_from_file_location('pipeline_setup', MIGRATIONS / name)
             self.migration = importlib.util.module_from_spec(spec)
@@ -59,7 +60,15 @@ class GenerationPipelineTests(unittest.IsolatedAsyncioTestCase):
         self.policy = GenerationPolicy(platformCurrency='CNY', procurementCurrency='USD', missingBudgetPolicy='reject')
         self.secret = b'pipeline-test-estimate-signing-key'
         self.tokens = EstimateTokenService(self.secret)
-        cap = capability().model_dump(by_alias=True)
+        cap = {
+            'parametersSchema': {'properties': {'resolution': {'type': 'string', 'enum': ['1K', '2K']},
+                                                'n': {'type': 'integer', 'minimum': 1, 'maximum': 10}},
+                                 'required': ['resolution', 'n']},
+            'defaultParameters': {'resolution': '1K'},
+        }
+        kind = getattr(self, 'fixture_kind', 'video')
+        if kind == 'video':
+            cap = capability().model_dump(by_alias=True)
         cap['referenceRules'] = {'maxTotal': 0, 'roles': {}}
         cap['estimatePolicy'] = {
             'strategy': 'fixed_usage_upper_bound',
@@ -69,6 +78,7 @@ class GenerationPipelineTests(unittest.IsolatedAsyncioTestCase):
         }
         audit = WriteService.audit(self.owner)
         async with self.sessions() as db:
+            await db.execute(text('UPDATE hf_model_profile SET kind=:kind'), {'kind': kind})
             await db.execute(
                 text('UPDATE hf_model_profile_version SET capabilities=CAST(:cap AS jsonb)'), {'cap': json.dumps(cap)}
             )
@@ -152,10 +162,10 @@ class GenerationPipelineTests(unittest.IsolatedAsyncioTestCase):
             await db.commit()
         self.payload = GenerationInput(
             projectId=str(self.project_id),
-            kind='image',
+            kind=kind,
             modelVersionId=self.model_version_id,
-            prompt={'content': []},
-            parameters={'duration': 6},
+            prompt={'content': [{'content': [{'type': 'text','text':'镜头'}]}]},
+            parameters={'duration': 6} if kind == 'video' else {'n': 1},
             references=[],
         )
 
@@ -167,7 +177,7 @@ class GenerationPipelineTests(unittest.IsolatedAsyncioTestCase):
             self.assertEqual(await db.scalar(text('SELECT count(*) FROM hf_creation_job')), 0)
             self.assertEqual(await db.scalar(text('SELECT reserved_amount FROM hf_budget_period')), 0)
             await db.rollback()
-            submitted = self.payload.model_copy(update={'estimate_token': preview['estimateToken']})
+            submitted = self.payload
             key = str(uuid4())
             with patch.dict(os.environ, {'HF_ESTIMATE_TOKEN_KEY': base64.b64encode(self.secret).decode()}):
                 accepted, replayed = await GenerationAcceptService.accept(
@@ -181,8 +191,8 @@ class GenerationPipelineTests(unittest.IsolatedAsyncioTestCase):
             ).one()
             self.assertEqual(row[0], self.key_id)
             self.assertEqual(row[1], self.prices['platform'])
-            self.assertEqual(row[2]['estimate']['estimates']['platform']['total'], '6.0000000000')
-            self.assertEqual(await db.scalar(text('SELECT reserved_amount FROM hf_budget_period')), 6)
+            self.assertEqual(row[2]['estimate'], {'mode': 'actual_usage', 'estimates': {}})
+            self.assertEqual(await db.scalar(text('SELECT reserved_amount FROM hf_budget_period')), 0)
             self.assertEqual(await db.scalar(text('SELECT count(*) FROM hf_task_event')), 1)
             self.assertEqual(await db.scalar(text('SELECT count(*) FROM hf_outbox_event')), 1)
             await db.execute(text("DELETE FROM hf_api_idempotency_record WHERE normalized_path='/generations'"))
@@ -196,7 +206,7 @@ class GenerationPipelineTests(unittest.IsolatedAsyncioTestCase):
                 await GenerationAcceptService.accept(
                     db,
                     self.owner,
-                    submitted.model_copy(update={'parameters': {'duration': 8}}),
+                    submitted.model_copy(update={'parameters': {'n': 8}}),
                     key,
                     currencies=self.policy.currencies(),
                     missing_budget_policy='reject',
@@ -209,12 +219,12 @@ class GenerationPipelineTests(unittest.IsolatedAsyncioTestCase):
             self.assertTrue(preview['valid'], preview)
             await db.execute(
                 text(
-                    "UPDATE hf_price_activation SET revision=revision+1,effective_until=clock_timestamp()+interval '1 day' WHERE price_version_id=:v"
+                    "UPDATE hf_price_activation SET revision=revision+1,effective_until=clock_timestamp() WHERE price_version_id=:v"
                 ),
                 {'v': self.prices['platform']},
             )
             await db.commit()
-            submitted = self.payload.model_copy(update={'estimate_token': preview['estimateToken']})
+            submitted = self.payload
             with (
                 patch.dict(os.environ, {'HF_ESTIMATE_TOKEN_KEY': base64.b64encode(self.secret).decode()}),
                 self.assertRaises(ServiceWarning) as caught,
@@ -227,7 +237,7 @@ class GenerationPipelineTests(unittest.IsolatedAsyncioTestCase):
                     currencies=self.policy.currencies(),
                     missing_budget_policy='reject',
                 )
-            self.assertEqual(caught.exception.data['errorCode'], 'PRICE_CHANGED')
+            self.assertEqual(caught.exception.data['errorCode'], 'GENERATION_PRICE_UNAVAILABLE')
             self.assertEqual(await db.scalar(text('SELECT count(*) FROM hf_creation_job')), 0)
             self.assertEqual(await db.scalar(text('SELECT reserved_amount FROM hf_budget_period')), 0)
             self.assertEqual(await db.scalar(text('SELECT count(*) FROM hf_task_event')), 0)

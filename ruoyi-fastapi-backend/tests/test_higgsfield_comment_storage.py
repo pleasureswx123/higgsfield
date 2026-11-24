@@ -52,10 +52,11 @@ class CommentStorageTests(unittest.IsolatedAsyncioTestCase):
 
     async def asyncSetUp(self):
         await storage.JobStorageTests.asyncSetUp(self)
-        spec = importlib.util.spec_from_file_location('comments', Path(__file__).resolve().parents[1] / 'alembic/versions/20261028_68_comments.py')
-        self.migration = importlib.util.module_from_spec(spec)
-        spec.loader.exec_module(self.migration)
-        await self.migrate('upgrade')
+        for name in ('20261028_68_comments.py', '20261029_80_comment_collaboration.py', '20261030_85_comment_status_color.py'):
+            spec = importlib.util.spec_from_file_location(name, Path(__file__).resolve().parents[1] / 'alembic/versions' / name)
+            self.migration = importlib.util.module_from_spec(spec)
+            spec.loader.exec_module(self.migration)
+            await self.migrate('upgrade')
 
     async def test_real_constraints_comments_and_no_foreign_keys(self):
         audit = WriteService.audit(self.owner)

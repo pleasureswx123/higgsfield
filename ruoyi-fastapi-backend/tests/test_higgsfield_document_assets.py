@@ -1,5 +1,6 @@
 """真实分片、内容校验、文档绑定及受限原件预览。"""
 import hashlib
+from tests.migration_fixture import migrate_connection
 import os
 import unittest
 from uuid import uuid4
@@ -24,6 +25,8 @@ class DocumentAssetTests(unittest.IsolatedAsyncioTestCase):
 
     async def asyncSetUp(self):
         await assets.AssetDatabaseTests.asyncSetUp(self)
+        async with self.engine.begin() as conn:
+            await migrate_connection(conn, '20261028_68_comments.py','20261029_80_comment_collaboration.py')
         self.storage = ProjectUploadStorageService(StoragePolicy(self.directory.name, 'local-test', '', 100000, 1024, part_size=100000))
 
     async def upload_bind(self, body, mime, name):

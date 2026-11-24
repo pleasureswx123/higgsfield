@@ -1,6 +1,7 @@
 """真实迁移与短事务验证：去重领取、过期栅栏、不可变登记、退避与错误白名单。"""
 import asyncio
 import importlib.util
+from tests.migration_fixture import apply_migrations
 import os
 from pathlib import Path
 import unittest
@@ -29,6 +30,7 @@ class MediaDerivativeTests(unittest.IsolatedAsyncioTestCase):
 
     async def asyncSetUp(self):
         await fixture.OutputReadTests.asyncSetUp(self)
+        await apply_migrations(self.engine, '20261028_79_asset_status.py')
         spec = importlib.util.spec_from_file_location('derivative_migration',
             Path(__file__).resolve().parents[1] / 'alembic/versions/20261028_76_media_derivatives.py')
         self.migration = importlib.util.module_from_spec(spec)

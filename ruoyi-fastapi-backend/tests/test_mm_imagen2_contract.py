@@ -73,6 +73,7 @@ class ActualUsageAcceptanceTests(unittest.IsolatedAsyncioTestCase):
         job = SimpleNamespace(job_id=10, input_snapshot={})
         with (
             patch(module + 'WriteService.lock', new_callable=AsyncMock),
+            patch(module + 'ProductionPolicyService.admit', new_callable=AsyncMock),
             patch(module + 'WorkspaceService.authorize', new_callable=AsyncMock),
             patch(module + 'GenerationAcceptDao.existing', new=AsyncMock(return_value=None)),
             patch(module + 'WriteService.replay', new=AsyncMock(return_value=None)),

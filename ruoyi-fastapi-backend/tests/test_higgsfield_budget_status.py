@@ -55,7 +55,7 @@ class BudgetStatusTests(unittest.IsolatedAsyncioTestCase):
             self.assertEqual(await db.scalar(text('SELECT count(*) FROM hf_budget_period')), 0)
             self.assertEqual(await db.scalar(text('SELECT count(*) FROM hf_budget_reservation')), 0)
 
-    async def test_only_platform_amounts_visible_but_procurement_shortfall_blocks(self):
+    async def test_amounts_stay_hidden_but_procurement_shortfall_blocks(self):
         async with self.sessions() as db:
             await self.grant(db, 'generation:create')
             for purpose, currency, limit, consumed in [
@@ -90,8 +90,8 @@ class BudgetStatusTests(unittest.IsolatedAsyncioTestCase):
             await self.grant(db, 'project:usage:read')
             await db.commit()
             result = await BudgetStatusService.status(db, self.owner, 1, self.policy())
-            self.assertEqual(len(result['periods']), 1)
-            self.assertEqual(result['periods'][0]['availableAmount'], '90.0000000000')
+            self.assertEqual(result['amountVisibility'], 'hidden')
+            self.assertNotIn('periods', result)
             self.assertNotIn('999', str(result))
             self.assertFalse(result['canSubmit'])
             await db.execute(
@@ -101,5 +101,5 @@ class BudgetStatusTests(unittest.IsolatedAsyncioTestCase):
             )
             await db.commit()
             own = await BudgetStatusService.status(db, self.owner, 1, self.policy())
-            self.assertEqual(own['periods'], [])
+            self.assertNotIn('periods', own)
             self.assertEqual(own['blockingCodes'], ['BUDGET_INSUFFICIENT'])

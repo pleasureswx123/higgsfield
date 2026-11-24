@@ -48,6 +48,7 @@ class JoinServiceTests(unittest.IsolatedAsyncioTestCase):
             self.assertEqual(await db.scalar(text('SELECT count(*) FROM hf_audit_log')), 1)
             page = await ProjectJoinService.listing(db, self.owner, self.project_id, JoinQuery(status='approved'))
             self.assertEqual(page.total, 1)
+            await db.execute(text("UPDATE hf_project_member SET role_id=(SELECT role_id FROM hf_project_role WHERE code='admin') WHERE user_id=1"))
             await db.execute(text("DELETE FROM hf_project_role_permission WHERE permission_code='member:manage'"))
             await db.commit()
         with self.assertRaises(PermissionException):

@@ -86,7 +86,7 @@ class GenerationAcceptTests(unittest.IsolatedAsyncioTestCase):
                     missing_budget_policy='reject',
                 )
 
-    async def test_permanent_replay_and_single_reservation(self) -> None:
+    async def test_permanent_replay_without_estimate_reservation(self) -> None:
         key = str(uuid4())
         first = await self.accept(key)
         again = await self.accept(key)
@@ -95,15 +95,15 @@ class GenerationAcceptTests(unittest.IsolatedAsyncioTestCase):
         async with self.sessions() as db:
             snapshot = await db.scalar(text('SELECT input_snapshot FROM hf_creation_job WHERE job_id=:id'),
                 {'id': int(first[0]['data']['id'])})
-            self.assertEqual(snapshot['budgetReservations'][0]['originalAmount'], '20.0000000000')
-            self.assertEqual(snapshot['budgetReservations'][0]['conversion'], {})
+            self.assertEqual(snapshot['billingMode'], 'actual_usage')
+            self.assertEqual(snapshot['budgetReservations'], [])
             await db.execute(text("DELETE FROM hf_api_idempotency_record WHERE normalized_path='/generations'"))
             await db.commit()
         replay = await self.accept(key)
         self.assertEqual(first[0]['data'], replay[0]['data'])
         async with self.sessions() as db:
             self.assertEqual(
-                await db.scalar(text('SELECT reserved_amount FROM hf_budget_period WHERE period_id=1')), 80
+                await db.scalar(text('SELECT reserved_amount FROM hf_budget_period WHERE period_id=1')), 60
             )
             self.assertEqual(await db.scalar(text('SELECT count(*) FROM hf_task_event')), 1)
             self.assertEqual(await db.scalar(text('SELECT count(*) FROM hf_outbox_event')), 1)
@@ -122,11 +122,7 @@ class GenerationAcceptTests(unittest.IsolatedAsyncioTestCase):
         with self.assertRaises(ServiceWarning):
             await self.accept(key)
 
-    async def test_insufficient_budget_and_event_failure_rollback(self) -> None:
-        self.prepared['estimate']['estimates']['platform']['total'] = '41'
-        with self.assertRaises(ServiceWarning):
-            await self.accept(str(uuid4()))
-        self.prepared['estimate']['estimates']['platform']['total'] = '20'
+    async def test_event_failure_rolls_back_without_budget_writes(self) -> None:
         with (
             patch.object(JobEventDao, 'state', AsyncMock(side_effect=RuntimeError('事件故障'))),
             self.assertRaises(RuntimeError),
@@ -157,15 +153,15 @@ class GenerationAcceptTests(unittest.IsolatedAsyncioTestCase):
             )
             self.assertEqual(await db.scalar(text('SELECT count(*) FROM hf_creation_job')), 1)
             await db.rollback()
-            self.prepared['estimate']['estimates']['platform']['total'] = '41'
-            with patch.object(GenerationPreparationService, 'prepare', AsyncMock(return_value=self.prepared)):
+            issue = ServiceWarning(message='路由未就绪', data={'errorCode': 'ROUTE_UNAVAILABLE'})
+            with patch.object(GenerationPreparationService, 'prepare', AsyncMock(side_effect=issue)):
                 rejected = await GenerationValidationService.validate(db, self.owner, self.payload, policy, tokens)
             self.assertFalse(rejected['valid'])
-            self.assertEqual(rejected['issues'][0]['code'], 'BUDGET_INSUFFICIENT')
+            self.assertEqual(rejected['issues'][0]['code'], 'ROUTE_UNAVAILABLE')
             self.assertNotIn('estimateToken', rejected)
             self.assertFalse(db.in_transaction())
 
-    async def test_preflight_platform_estimate_requires_both_permission_scopes(self):
+    async def test_preflight_keeps_estimate_hidden_with_and_without_usage_permissions(self):
         policy = GenerationPolicy(platformCurrency='CNY', procurementCurrency='USD', missingBudgetPolicy='reject')
         tokens = EstimateTokenService(b'test-only-estimate-key-32-bytes!!!')
         self.prepared['estimate']['estimates']['platform']['priceVersionId'] = '1'
@@ -177,16 +173,16 @@ class GenerationAcceptTests(unittest.IsolatedAsyncioTestCase):
             )
             await db.commit()
             with patch.object(GenerationPreparationService, 'prepare', AsyncMock(return_value=self.prepared)):
-                visible = await GenerationValidationService.validate(db, self.owner, self.payload, policy, tokens)
-            self.assertEqual(visible['estimateVisibility'], 'visible')
-            self.assertEqual(visible['estimate'], {'amount': '20', 'currency': 'CNY'})
-            self.assertNotIn('procurement', str(visible))
-            self.owner.permissions = ['generation:create', 'billing:read']
+                with_usage_permission = await GenerationValidationService.validate(db, self.owner, self.payload, policy, tokens)
+            self.assertEqual(with_usage_permission['estimateVisibility'], 'hidden')
+            self.assertNotIn('estimate', with_usage_permission)
+            self.assertNotIn('procurement', str(with_usage_permission))
+            self.owner.permissions = ['project:read', 'generation:create', 'billing:read']
             with patch.object(GenerationPreparationService, 'prepare', AsyncMock(return_value=self.prepared)):
                 hidden = await GenerationValidationService.validate(db, self.owner, self.payload, policy, tokens)
             self.assertEqual(hidden['estimateVisibility'], 'hidden')
             self.assertNotIn('estimate', hidden)
-            self.owner.permissions = ['generation:create', 'project:usage:read']
+            self.owner.permissions = ['project:read', 'generation:create', 'project:usage:read']
             await db.execute(text("DELETE FROM hf_project_role_permission WHERE permission_code='project:usage:read'"))
             await db.commit()
             with patch.object(GenerationPreparationService, 'prepare', AsyncMock(return_value=self.prepared)):

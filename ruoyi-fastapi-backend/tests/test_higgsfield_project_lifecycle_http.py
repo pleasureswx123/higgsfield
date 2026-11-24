@@ -9,16 +9,17 @@ from common.context import RequestContext
 from exceptions.exception import AuthException, PermissionException
 from module_admin.service.login_service import LoginService
 from module_higgsfield.controller.project_controller import project_controller
-from module_higgsfield.service.project_lifecycle_service import ProjectLifecycleService
+from module_higgsfield.service.write_service import WriteService
 
 
 class LifecycleHttpTests(unittest.IsolatedAsyncioTestCase):
     async def asyncSetUp(self):
         self.app = FastAPI()
+        self.app.state.redis = AsyncMock()
         self.app.include_router(project_controller)
-        self.user = SimpleNamespace(permissions=['project:archive'], user=SimpleNamespace(user_id=1))
+        self.user = SimpleNamespace(permissions=['project:archive'], user=SimpleNamespace(user_id=1, user_name="审批人", dept=None))
         async def database():
-            yield object()
+            yield AsyncMock()
         self.app.dependency_overrides[get_db_session_provider(None)] = database
         self.client = httpx.AsyncClient(transport=httpx.ASGITransport(app=self.app), base_url='http://test')
         self.addAsyncCleanup(self.client.aclose)
@@ -35,19 +36,19 @@ class LifecycleHttpTests(unittest.IsolatedAsyncioTestCase):
         self.app.dependency_overrides[LoginService.get_current_user] = actor
 
     async def test_authentication_and_function_permission(self):
-        with patch.object(ProjectLifecycleService, 'change', AsyncMock()) as change:
+        with patch.object(WriteService, 'lock', AsyncMock()) as lock:
             with self.assertRaises(AuthException):
                 await self.client.post('/api/v1/projects/1/archive', json={'revision': '1', 'reason': '完结'})
             self.authenticate()
-            self.user.permissions = ['project:read']
+            self.user.permissions = []
             with self.assertRaises(PermissionException):
                 await self.client.post('/api/v1/projects/1/restore', json={'revision': '2'},
                     headers={'Idempotency-Key': 'project-lifecycle-http'})
-            change.assert_not_awaited()
+            lock.assert_not_awaited()
 
     async def test_input_contract_and_openapi(self):
         self.authenticate()
-        with patch.object(ProjectLifecycleService, 'change', AsyncMock()) as change:
+        with patch.object(WriteService, 'lock', AsyncMock()) as lock:
             for action in ('archive', 'restore'):
                 path = f'/api/v1/projects/1/{action}'
                 payload = {'revision': '1', 'reason': '完结'}
@@ -58,7 +59,7 @@ class LifecycleHttpTests(unittest.IsolatedAsyncioTestCase):
             self.assertEqual((await self.client.post('/api/v1/projects/1/archive',
                 json={'revision': '1', 'reason': '  '},
                 headers={'Idempotency-Key': 'project-lifecycle-http'})).status_code, 422)
-            change.assert_not_awaited()
+            lock.assert_not_awaited()
         paths = self.app.openapi()['paths']
         for action in ('archive', 'restore'):
             operation = paths[f'/api/v1/projects/{{project_id}}/{action}']['post']
@@ -69,27 +70,27 @@ class LifecycleHttpTests(unittest.IsolatedAsyncioTestCase):
         self.authenticate()
         path = '/api/v1/projects/1'
         headers = {'Idempotency-Key': 'project-rename-http'}
-        with patch.object(ProjectLifecycleService, 'change', AsyncMock()) as change:
+        with patch.object(WriteService, 'lock', AsyncMock()) as lock:
             with self.assertRaises(PermissionException):
                 await self.client.patch(path, json={'revision': '1', 'name': '名称'}, headers=headers)
             self.user.permissions = ['project:manage']
             for payload in ({'revision': '1'}, {'revision': '1', 'name': ' '},
                             {'revision': '0', 'name': '名称'}, {'revision': '1', 'name': '名称', 'reason': '多余'}):
                 self.assertEqual((await self.client.patch(path, json=payload, headers=headers)).status_code, 422)
-            change.assert_not_awaited()
+            lock.assert_not_awaited()
         operation = self.app.openapi()['paths']['/api/v1/projects/{project_id}']['patch']
         self.assertTrue(operation['requestBody']['required'])
 
     async def test_pause_resume_http_contract(self):
         self.authenticate()
         headers = {'Idempotency-Key': 'project-pause-http'}
-        with patch.object(ProjectLifecycleService, 'change', AsyncMock()) as change:
+        with patch.object(WriteService, 'lock', AsyncMock()) as lock:
             with self.assertRaises(PermissionException):
                 await self.client.post('/api/v1/projects/1/pause', json={'revision': '1', 'reason': '维护'}, headers=headers)
             self.user.permissions = ['project:manage']
             for action, body in (('pause', {'revision': '1'}), ('pause', {'revision': '1', 'reason': ' '}), ('resume', {'revision': '0'})):
                 self.assertEqual((await self.client.post(f'/api/v1/projects/1/{action}', json=body, headers=headers)).status_code, 422)
-            change.assert_not_awaited()
+            lock.assert_not_awaited()
         for action in ('pause', 'resume'):
             operation = self.app.openapi()['paths'][f'/api/v1/projects/{{project_id}}/{action}']['post']
             self.assertTrue(next(p for p in operation['parameters'] if p['name'] == 'Idempotency-Key')['required'])

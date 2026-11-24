@@ -49,6 +49,9 @@ class GenerationTargetTests(unittest.IsolatedAsyncioTestCase):
             with self.assertRaises(ServiceWarning):
                 await GenerationTargetService.validate(db, self.owner, project_id + 999, identity)
         async with self.sessions() as db:
+            from tests.test_higgsfield_projects import add_producer
+            await add_producer(db, self.owner, project_id)
+            self.owner = self.other
             await db.execute(text("DELETE FROM hf_project_role_permission WHERE permission_code='element:edit'"))
             await db.commit()
         async with self.sessions() as db:

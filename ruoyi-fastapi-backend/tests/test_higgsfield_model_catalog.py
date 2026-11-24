@@ -90,7 +90,7 @@ class CatalogTests(unittest.IsolatedAsyncioTestCase):
                         projectId=str(self.project_id),
                         kind=kind,
                         body={
-                            'prompt': {'content': []},
+                            'prompt': {'content': [{'content': [{'type': 'text', 'text': '镜头描述'}]}]},
                             'modelVersionId': self.model_version_id,
                             'parameters': parameters,
                         },

@@ -1,5 +1,6 @@
 """真实隔离 PostgreSQL 验证全平台继承、原配置保留和项目权限。"""
 import importlib.util
+from tests.migration_fixture import apply_migrations
 import os
 import unittest
 from module_higgsfield.dao.credential_dao import CredentialDao
@@ -23,16 +24,16 @@ from tests import test_higgsfield_generation_route as route_tests
 
 @unittest.skipUnless(os.getenv('HF_RUN_DB_TESTS') == '1', '需要显式启用隔离数据库测试')
 class PlatformRoutingTests(unittest.IsolatedAsyncioTestCase):
-    async def test_manual_review_image_releases_capacity_but_keeps_credential_dependency(self):
+    async def test_unresolved_image_keeps_capacity_and_credential_dependency(self):
         async with self.sessions() as db:
             row = route_tests.GenerationRouteTests.job(self, project_id=self.project_id, credential_version_id=self.key_id,
                            orchestration_state='3', upstream_state='6', next_action_time=None)
             db.add(row)
             await db.commit()
             self.assertEqual((await CredentialDao.in_flight(db, [self.key_id]))[self.key_id], 1)
-            self.assertEqual(await CredentialDao.in_flight(db, [self.key_id], for_admission=True), {})
-            selected = await GenerationRouteService.select(db, self.owner, self.project_id, int(self.model_version_id))
-            self.assertEqual(selected['credentialVersionId'], str(self.key_id))
+            self.assertEqual(await CredentialDao.in_flight(db, [self.key_id], for_admission=True), {self.key_id: 1})
+            with self.assertRaises(ServiceWarning):
+                await GenerationRouteService.select(db, self.owner, self.project_id, int(self.model_version_id))
             await db.rollback()
             # 仍可自动恢复的图片和结果未知的视频继续占名额。
             await db.execute(text("UPDATE hf_creation_job SET next_action_time=clock_timestamp()"))
@@ -105,6 +106,7 @@ class PlatformRoutingTests(unittest.IsolatedAsyncioTestCase):
 
     async def asyncSetUp(self):
         await route_tests.GenerationRouteTests.asyncSetUp(self)
+        await apply_migrations(self.engine, '20261027_35_provider_calls.py')
         spec = importlib.util.spec_from_file_location('platform_migration',
             Path(__file__).resolve().parents[1] / 'alembic/versions/20261102_86_platform_model_routing.py')
         migration = importlib.util.module_from_spec(spec)

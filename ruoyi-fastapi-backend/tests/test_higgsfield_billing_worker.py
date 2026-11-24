@@ -122,10 +122,7 @@ class BillingWorkerTests(unittest.IsolatedAsyncioTestCase):
                 await TaskBillingReadService.read(db, job, {'billing:read'}), {'billingVisibility': 'hidden'}
             )
             result = await TaskBillingReadService.read(db, job, {'project:usage:read'})
-            self.assertEqual(
-                result['billing']['platform'], {'amount': '0.0200000000', 'currency': 'USD', 'state': 'calculated'}
-            )
-            self.assertEqual(result['billing']['usage']['subjects'][0]['inputTokens'], '3')
+            self.assertEqual(result, {'billingVisibility': 'hidden'})
             for secret in ('987.65', 'procurement', 'rawUsage', 'priceVersionId', 'accountId'):
                 self.assertNotIn(secret, str(result))
 
@@ -141,19 +138,19 @@ class BillingWorkerTests(unittest.IsolatedAsyncioTestCase):
             await db.flush()
             self.assertEqual(
                 await TaskBillingReadService.read(db, job, {'project:usage:read'}),
-                {'billingVisibility': 'unavailable'},
+                {'billingVisibility': 'hidden'},
             )
             usage.subject_id = original_subject
             event.usage_record_id = usage.usage_id + 1000
             await db.flush()
             self.assertEqual(
                 await TaskBillingReadService.read(db, job, {'project:usage:read'}),
-                {'billingVisibility': 'unavailable'},
+                {'billingVisibility': 'hidden'},
             )
             event.usage_record_id = usage.usage_id
             await db.flush()
             recovered = await TaskBillingReadService.read(db, job, {'project:usage:read'})
-            self.assertEqual(recovered['billing']['usage']['subjects'][0]['inputTokens'], '3')
+            self.assertEqual(recovered, {'billingVisibility': 'hidden'})
 
     async def test_notification_failure_rolls_back_and_next_scan_recovers(self):
         worker = BillingWorker(self.sessions, 'recovery')

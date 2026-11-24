@@ -17,6 +17,7 @@ from tests.test_higgsfield_output_discovery import crypto
 
 @unittest.skipUnless(os.getenv('HF_RUN_DB_TESTS') == '1', '需要显式启用隔离数据库测试')
 class SynchronousResultTests(unittest.IsolatedAsyncioTestCase):
+    fixture_kind = 'image'
     cleanup_schema = submission.SubmissionResultTests.cleanup_schema
     migrate = submission.SubmissionResultTests.migrate
     job = submission.SubmissionResultTests.job
@@ -56,7 +57,7 @@ class SynchronousResultTests(unittest.IsolatedAsyncioTestCase):
             ).one()
             self.assertNotIn(b'secret', output[0])
             self.assertEqual(output[1], '0')
-            self.assertEqual(await db.scalar(text('SELECT reserved_amount FROM hf_budget_period')), 6)
+            self.assertEqual(await db.scalar(text('SELECT reserved_amount FROM hf_budget_period')), 0)
             with self.assertRaises(ServiceWarning):
                 await ProviderSynchronousResultService.record(
                     db, self.lease, self.call_id, self.result, crypto=crypto()

@@ -1,106 +1,132 @@
 name: CI
 
 on:
-  pull_request:
-    branches: [master]
   push:
-    branches: [master]
+    branches: [main]
+  pull_request:
+    branches: [main]
   schedule:
     - cron: '21 18 * * *'
   workflow_dispatch:
-    inputs:
-      full:
-        description: Run the full compatibility and end-to-end matrix
-        type: boolean
-        default: true
 
 permissions:
   contents: read
 
 concurrency:
-  group: ci-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  group: product-ci-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
-  plan:
-    name: Plan
+  frontend:
+    name: ${{ matrix.app }}
     runs-on: ubuntu-latest
-    timeout-minutes: 5
-    outputs:
-      backend: ${{ steps.plan.outputs.backend }}
-      frontend: ${{ steps.plan.outputs.frontend }}
-      integration: ${{ steps.plan.outputs.integration }}
-      e2e: ${{ steps.plan.outputs.e2e }}
-      native: ${{ steps.plan.outputs.native }}
-      full: ${{ steps.plan.outputs.full }}
-      frontend_matrix: ${{ steps.plan.outputs.frontend_matrix }}
-      e2e_matrix: ${{ steps.plan.outputs.e2e_matrix }}
-      network_frameworks: ${{ steps.plan.outputs.network_frameworks }}
-      database: ${{ steps.plan.outputs.database }}
-      release: ${{ steps.plan.outputs.release }}
-      plan_json: ${{ steps.plan.outputs.plan_json }}
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - app: 制作平台
+            path: higgsfield-frontend
+            build: build
+          - app: 管理平台
+            path: ruoyi-fastapi-frontend/vue3/web
+            build: build:prod
+    defaults:
+      run:
+        working-directory: ${{ matrix.path }}
     steps:
       - uses: actions/checkout@v5
+      - uses: actions/setup-node@v6
         with:
-          fetch-depth: 0
-      - id: plan
-        run: python .github/scripts/ci_plan.py plan
-
-  quality:
-    name: Quality
-    needs: plan
-    uses: ./.github/workflows/ci-quality.yml
+          node-version: '24'
+          package-manager-cache: false
+      - uses: pnpm/action-setup@v5
+        with:
+          package_json_file: ${{ matrix.path }}/package.json
+      - run: pnpm install --frozen-lockfile
+      - uses: actions/setup-python@v6
+        if: matrix.path == 'higgsfield-frontend'
+        with:
+          python-version: '3.12'
+          cache: pip
+          cache-dependency-path: ruoyi-fastapi-backend/requirements-pg.txt
+      - name: 安装前后端加密互通测试依赖
+        if: matrix.path == 'higgsfield-frontend'
+        working-directory: ruoyi-fastapi-backend
+        run: python -m pip install -r requirements-pg.txt
+      - name: 制作端行为测试
+        if: matrix.path == 'higgsfield-frontend'
+        env:
+          HF_RUN_CRYPTO_INTEROP: '1'
+          HF_TEST_PYTHON: python
+          APP_ENV: test
+          DB_SOURCES: '{"primary":{"db_type":"postgresql","db_host":"127.0.0.1","db_port":5432,"db_username":"postgres","db_password":"ci_only","db_database":"higgsfield_ci","db_echo":false}}'
+        run: node --test tests/*.test.cjs
+      - name: 管理端单元与契约测试
+        if: matrix.path != 'higgsfield-frontend'
+        run: pnpm test
+      - run: pnpm run ${{ matrix.build }}
 
   backend:
-    name: Backend
-    needs: plan
-    if: needs.plan.outputs.backend == 'true'
-    uses: ./.github/workflows/ci-backend.yml
+    name: 后端与 PostgreSQL 迁移
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    services:
+      postgres:
+        image: postgres:14
+        env:
+          POSTGRES_DB: higgsfield_ci
+          POSTGRES_PASSWORD: ci_only
+        ports: ['5432:5432']
+        options: --health-cmd pg_isready --health-interval 5s --health-timeout 5s --health-retries 12
+    env:
+      APP_ENV: test
+      JWT_SECRET_KEY: ci-only-development-key-for-isolated-test
+      DB_DEFAULT_SOURCE: primary
+      DB_SOURCES: '{"primary":{"db_type":"postgresql","db_host":"127.0.0.1","db_port":5432,"db_username":"postgres","db_password":"ci_only","db_database":"higgsfield_ci","db_echo":false}}'
+      HF_RUN_DB_TESTS: '1'
+      HF_STORAGE_MODE: local-test
+      HF_STORAGE_ROOT: /tmp/higgsfield-ci-media
+    defaults:
+      run:
+        working-directory: ruoyi-fastapi-backend
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.12'
+          cache: pip
+          cache-dependency-path: ruoyi-fastapi-backend/requirements*.txt
+      - run: python -m pip install -r requirements-pg.txt -r requirements-test.txt
+      - name: 初始化临时库并执行正式迁移
+        env:
+          PGPASSWORD: ci_only
+        run: |
+          psql -h localhost -U postgres -d higgsfield_ci -v ON_ERROR_STOP=1 -f sql/ruoyi-fastapi-pg.sql
+          python -m alembic upgrade head
+          python -m alembic current --check-heads
+      - name: 项目后端测试
+        run: python -m pytest -o collect_imported_tests=false tests/test_*.py -q
+      - name: CI 契约与部署脚本语法
+        working-directory: .
+        run: |
+          python -m pytest .github/tests -q
+          ruff check --select E9,F63,F7,F82 ruoyi-fastapi-backend/module_higgsfield deploy/intranet .github/scripts
+          python -m compileall -q deploy/intranet
+          HF_IMAGE=ci-placeholder docker compose -f deploy/intranet/compose.yaml config --no-env-resolution --quiet
 
-  frontend:
-    name: Frontend
-    needs: plan
-    if: needs.plan.outputs.frontend == 'true'
-    uses: ./.github/workflows/ci-frontend.yml
-    with:
-      matrix_json: ${{ needs.plan.outputs.frontend_matrix }}
-      full: ${{ needs.plan.outputs.full == 'true' }}
-
-  integration:
-    name: Integration
-    needs: plan
-    if: needs.plan.outputs.integration == 'true'
-    uses: ./.github/workflows/ci-integration.yml
-    with:
-      database: ${{ needs.plan.outputs.database == 'true' }}
-      release: ${{ needs.plan.outputs.release == 'true' }}
-      network_frameworks: ${{ needs.plan.outputs.network_frameworks }}
-      full: ${{ needs.plan.outputs.full == 'true' }}
-
-  e2e:
-    name: E2E
-    needs: plan
-    if: needs.plan.outputs.e2e == 'true'
-    uses: ./.github/workflows/ci-e2e.yml
-    with:
-      matrix_json: ${{ needs.plan.outputs.e2e_matrix }}
-
-  native:
-    name: Native
-    needs: plan
-    if: needs.plan.outputs.native == 'true'
-    uses: ./.github/workflows/ci-native.yml
+      - name: 校验 GitHub Actions 工作流
+        working-directory: .
+        run: bash .github/scripts/check_workflows.sh
 
   result:
     name: Result
     if: always()
-    needs: [plan, quality, backend, frontend, integration, e2e, native]
+    needs: [backend, frontend]
     runs-on: ubuntu-latest
-    timeout-minutes: 5
     steps:
-      - uses: actions/checkout@v5
-      - name: Require every selected category to succeed
+      - name: 核对全部必跑检查
         env:
-          PLAN_JSON: ${{ needs.plan.outputs.plan_json }}
-          NEEDS_JSON: ${{ toJSON(needs) }}
-        run: python .github/scripts/ci_plan.py gate
+          BACKEND: ${{ needs.backend.result }}
+          FRONTEND: ${{ needs.frontend.result }}
+        run: test "$BACKEND" = success && test "$FRONTEND" = success

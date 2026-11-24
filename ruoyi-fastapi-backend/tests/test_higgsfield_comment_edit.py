@@ -101,13 +101,14 @@ class CommentEditTests(unittest.IsolatedAsyncioTestCase):
             await self.post(self.thread_id, dict(body='禁止新回复', parentId=str(self.comment_id)))
 
     async def test_own_permission_does_not_edit_others_moderator_requires_project_scope(self):
+        await fixture.CommentServiceTests.use_producer(self)
         async with self.sessions() as db:
             await db.execute(text('UPDATE hf_comment SET author_id=999 WHERE comment_id=:id'), {'id': self.comment_id})
             await db.commit()
         with self.assertRaises(PermissionException):
             await self.edit(dict(revision='1', body='不能编辑他人'))
         async with self.sessions() as db:
-            await db.execute(text("INSERT INTO hf_project_role_permission(role_id,permission_code,data_scope) SELECT role_id,'comment:moderate','own' FROM hf_project_role WHERE code='owner'"))
+            await db.execute(text("INSERT INTO hf_project_role_permission(role_id,permission_code,data_scope) SELECT role_id,'comment:moderate','own' FROM hf_project_role WHERE code='producer' ON CONFLICT (role_id,permission_code) DO UPDATE SET data_scope='own'"))
             await db.commit()
         with self.assertRaises(PermissionException):
             await self.edit(dict(revision='1', body='本人范围不是治理'))

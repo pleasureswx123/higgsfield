@@ -137,6 +137,7 @@ class GenerationSnapshotTests(unittest.IsolatedAsyncioTestCase):
 
     async def test_missing_asset_permission_hides_content_and_removed_member_denied(self):
         async with self.sessions() as db:
+            await db.execute(text("UPDATE hf_project_member SET role_id=(SELECT role_id FROM hf_project_role WHERE code='producer') WHERE user_id=1"))
             await db.execute(text("DELETE FROM hf_project_role_permission WHERE permission_code='asset:read'"))
             await db.commit()
             result = await GenerationReadService.snapshot(db, self.owner, self.job_id)
@@ -151,7 +152,11 @@ class GenerationSnapshotTests(unittest.IsolatedAsyncioTestCase):
     async def test_source_link_uses_live_scope_without_hiding_current_task(self):
         async with self.sessions() as db:
             project_id = await db.scalar(text('SELECT project_id FROM hf_creation_job WHERE job_id=:id'), {'id': self.job_id})
-            source = self.job(project_id=project_id, actor_id=2, idempotency_key='source-task')
+            from tests.test_higgsfield_projects import add_producer
+            await add_producer(db, self.owner, project_id)
+            await db.execute(text('UPDATE hf_creation_job SET actor_id=2 WHERE job_id=:id'), {'id': self.job_id})
+            self.owner = self.other
+            source = self.job(project_id=project_id, actor_id=1, idempotency_key='source-task')
             db.add(source)
             await db.flush()
             source_id = str(source.job_id)

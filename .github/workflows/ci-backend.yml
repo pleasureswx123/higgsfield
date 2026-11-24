@@ -7,6 +7,8 @@ permissions:
   contents: read
 
 env:
+  # 参考框架导入模块时也要求存在数据源；集成用例单独指定各自的临时库。
+  DB_SOURCES: '{"primary":{"db_type":"mysql","db_host":"127.0.0.1","db_port":3306,"db_username":"root","db_password":"ci_only","db_database":"mysql","db_echo":false}}'
   _TYPER_FORCE_DISABLE_TERMINAL: '1'
   PYTHONUTF8: '1'
 

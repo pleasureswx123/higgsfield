@@ -1,5 +1,6 @@
 """输出授权、敏感字段隔离与真实文件分段读取。"""
 
+from tests.migration_fixture import apply_migrations
 import os
 import tempfile
 from contextlib import contextmanager
@@ -51,6 +52,7 @@ class OutputReadTests(unittest.IsolatedAsyncioTestCase):
                 await OutputReadService.media(db, self.owner, self.identity)
         await self.ready()
         async with self.sessions() as db:
+            await db.execute(text("UPDATE hf_project_member SET role_id=(SELECT role_id FROM hf_project_role WHERE code='producer') WHERE user_id=1"))
             result = await OutputReadService.get(db, self.owner, self.identity)
             self.assertIn('previewUrl', result)
             self.assertNotIn('downloadUrl', result)
@@ -97,11 +99,13 @@ class OutputReadTests(unittest.IsolatedAsyncioTestCase):
                 self.assertTrue(handles[-1].closed)
 
     async def test_archive_action_requires_permission_failure_and_live_source(self):
+        await apply_migrations(self.engine, '20261027_35_provider_calls.py', '20261027_37_provider_responses.py')
         async with self.sessions() as db:
+            await db.execute(text("UPDATE hf_project_member SET role_id=(SELECT role_id FROM hf_project_role WHERE code='producer') WHERE user_id=1"))
             await db.execute(text("UPDATE hf_generated_output SET archive_state='3'"))
             result = await OutputReadService.get(db, self.owner, self.identity)
             self.assertNotIn('output:archive', result['allowedActions'])
-            await db.execute(text("INSERT INTO hf_project_role_permission(role_id,permission_code,data_scope,create_time,update_time) SELECT role_id,'output:archive','project',CURRENT_TIMESTAMP,CURRENT_TIMESTAMP FROM hf_project_role WHERE code='owner' ON CONFLICT DO NOTHING"))
+            await db.execute(text("INSERT INTO hf_project_role_permission(role_id,permission_code,data_scope,create_time,update_time) SELECT role_id,'output:archive','project',CURRENT_TIMESTAMP,CURRENT_TIMESTAMP FROM hf_project_role WHERE code='producer' ON CONFLICT DO NOTHING"))
             await db.commit()
         async with self.sessions() as db:
             result = await OutputReadService.get(db, self.owner, self.identity)
@@ -115,7 +119,8 @@ class OutputReadTests(unittest.IsolatedAsyncioTestCase):
 
     async def test_to_asset_action_requires_source_use_permission_and_ready_file(self):
         async with self.sessions() as db:
-            await db.execute(text("INSERT INTO hf_project_role_permission(role_id,permission_code,data_scope) SELECT role_id,'asset:reference','project' FROM hf_project_role WHERE code='owner' ON CONFLICT DO NOTHING"))
+            await db.execute(text("UPDATE hf_project_member SET role_id=(SELECT role_id FROM hf_project_role WHERE code='producer') WHERE user_id=1"))
+            await db.execute(text("INSERT INTO hf_project_role_permission(role_id,permission_code,data_scope) SELECT role_id,'asset:reference','project' FROM hf_project_role WHERE code='producer' ON CONFLICT DO NOTHING"))
             await db.commit()
             self.assertNotIn('output:to-asset', (await OutputReadService.get(db, self.owner, self.identity))['allowedActions'])
         await self.ready()

@@ -1,5 +1,6 @@
 """事件游标、重放缺口和流式授权回归。"""
 
+from tests.migration_fixture import apply_migrations
 import os
 import unittest
 from unittest.mock import patch, AsyncMock
@@ -31,6 +32,7 @@ class TaskEventTests(unittest.IsolatedAsyncioTestCase):
     create = snapshots.GenerationSnapshotTests.create
     async def asyncSetUp(self):
         await snapshots.GenerationSnapshotTests.asyncSetUp(self)
+        await apply_migrations(self.engine, '20261027_17_credentials.py')
         async with self.sessions() as db:
             # 使用可被撤权的项目负责人，Owner 的固定完整权限不随角色配置删改。
             await db.execute(text("UPDATE hf_project_member SET role_id=(SELECT role_id FROM hf_project_role WHERE code='admin') WHERE user_id=1"))

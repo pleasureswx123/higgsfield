@@ -29,7 +29,7 @@ class OutputStatusTests(unittest.IsolatedAsyncioTestCase):
         spec.loader.exec_module(self.migration)
         await self.migrate('upgrade')
         async with self.sessions() as db:
-            await db.execute(text("INSERT INTO hf_project_role_permission(role_id,permission_code,data_scope) SELECT role_id,'content:review','project' FROM hf_project_role WHERE code='owner' ON CONFLICT DO NOTHING"))
+            await db.execute(text("INSERT INTO hf_project_role_permission(role_id,permission_code,data_scope) SELECT role_id,'content:review','project' FROM hf_project_role WHERE code='producer' ON CONFLICT DO NOTHING"))
             await db.commit()
 
     async def change(self, key=None, revision='1', status='review'):
@@ -61,12 +61,15 @@ class OutputStatusTests(unittest.IsolatedAsyncioTestCase):
             await self.change()
         await self.ready()
         async with self.sessions() as db:
+            from tests.test_higgsfield_projects import add_producer
+            await add_producer(db, self.owner, await db.scalar(text('SELECT project_id FROM hf_creation_job LIMIT 1')))
+            self.owner = self.other
             await db.execute(text("DELETE FROM hf_project_role_permission WHERE permission_code='content:review'"))
             await db.commit()
         with self.assertRaises(PermissionException):
             await self.change()
         async with self.sessions() as db:
-            await db.execute(text("INSERT INTO hf_project_role_permission(role_id,permission_code,data_scope) SELECT role_id,'content:review','project' FROM hf_project_role WHERE code='owner'"))
+            await db.execute(text("INSERT INTO hf_project_role_permission(role_id,permission_code,data_scope) SELECT role_id,'content:review','project' FROM hf_project_role WHERE code='producer' ON CONFLICT DO NOTHING"))
             await db.execute(text("UPDATE hf_project SET status='1'"))
             await db.commit()
             self.assertNotIn('output:work-status', (await OutputReadService.get(db, self.owner, self.identity))['allowedActions'])

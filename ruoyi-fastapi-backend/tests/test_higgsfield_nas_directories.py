@@ -13,6 +13,8 @@ class NasDirectoriesTests(unittest.TestCase):
     def setUp(self):
         temp = tempfile.TemporaryDirectory()
         self.addCleanup(temp.cleanup)
+        from unittest.mock import patch
+        self.enterContext(patch.dict('os.environ', {'APP_ENV': 'dev'}))
         self.root = Path(temp.name) / 'dev'
         objects = self.root / '.platform'
         (objects / 'media').mkdir(parents=True)

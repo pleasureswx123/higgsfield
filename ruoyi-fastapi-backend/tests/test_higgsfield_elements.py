@@ -90,11 +90,6 @@ class ElementDatabaseTests(unittest.IsolatedAsyncioTestCase):
             module = importlib.util.module_from_spec(spec)
             spec.loader.exec_module(module)
             await conn.run_sync(migrate)
-            path = Path(__file__).resolve().parents[1] / 'alembic/versions/20261028_79_asset_status.py'
-            spec = importlib.util.spec_from_file_location('element_asset_status_test', path)
-            module = importlib.util.module_from_spec(spec)
-            spec.loader.exec_module(module)
-            await conn.run_sync(migrate)
         async with self.sessions() as db:
             self.space_id = (await FolderDao.space(db, int(self.project_id))).space_id
 

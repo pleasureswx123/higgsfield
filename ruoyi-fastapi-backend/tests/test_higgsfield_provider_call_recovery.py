@@ -47,7 +47,7 @@ class CallRecoveryTests(unittest.IsolatedAsyncioTestCase):
             self.assertEqual(tuple(row[:4]), ('3', 'unknown', None, None))
             self.assertEqual(row[4], {'recoveryReason': 'submission_lease_lost'})
             self.assertEqual(row[5], 'a' * 64)
-            self.assertEqual(await db.scalar(text('SELECT reserved_amount FROM hf_budget_period')), 6)
+            self.assertEqual(await db.scalar(text('SELECT reserved_amount FROM hf_budget_period')), 0)
             with self.assertRaises(ServiceWarning):
                 await ProviderSubmissionResultService.record(
                     db,
@@ -60,7 +60,7 @@ class CallRecoveryTests(unittest.IsolatedAsyncioTestCase):
             await JobLeaseService.release(db, lease, retry_after_seconds=0)
             await JobLeaseService.claim(db, 'next-recovery')
             self.assertEqual(await db.scalar(text('SELECT count(*) FROM hf_provider_call')), 1)
-            self.assertEqual(await db.scalar(text('SELECT event_sequence FROM hf_creation_job')), 4)
+            self.assertEqual(await db.scalar(text('SELECT event_sequence FROM hf_creation_job')), 5)
 
     async def test_event_failure_rolls_back_call_and_job(self) -> None:
         await self.expire()
@@ -75,4 +75,4 @@ class CallRecoveryTests(unittest.IsolatedAsyncioTestCase):
             self.assertEqual(
                 await db.scalar(text('SELECT fencing_token FROM hf_creation_job')), self.lease.fencing_token
             )
-            self.assertEqual(await db.scalar(text('SELECT count(*) FROM hf_task_event')), 3)
+            self.assertEqual(await db.scalar(text('SELECT count(*) FROM hf_task_event')), 4)

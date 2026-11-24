@@ -25,7 +25,7 @@ class GenerationInputContractTests(unittest.TestCase):
             'projectId': '1',
             'kind': 'image',
             'modelVersionId': '2',
-            'prompt': {'content': []},
+            'prompt': {'content': [{'content': [{'type': 'text','text':'镜头'}]}]},
             'parameters': {},
             'references': [],
         }
@@ -54,16 +54,21 @@ class GenerationInputTests(unittest.IsolatedAsyncioTestCase):
 
     async def asyncSetUp(self) -> None:
         await CatalogTests.asyncSetUp(self)
-        cap = capability().model_dump(by_alias=True)
+        cap = {
+            'parametersSchema': {'properties': {'resolution': {'type': 'string', 'enum': ['1K', '2K']},
+                                                'n': {'type': 'integer', 'minimum': 1, 'maximum': 10}},
+                                 'required': ['resolution', 'n']},
+            'defaultParameters': {'resolution': '1K'},
+        }
         cap['referenceRules'] = {'maxTotal': 0, 'roles': {}}
-        cap['variantDimensions'] = {'resolution': {'type': 'string', 'enum': ['720p', '1080p']}}
+        cap['variantDimensions'] = {'resolution': {'type': 'string', 'enum': ['1K', '2K']}}
         async with self.sessions() as db:
             await db.execute(
                 text('UPDATE hf_model_profile_version SET capabilities=CAST(:cap AS jsonb)'), {'cap': json.dumps(cap)}
             )
             self.variant_id = await db.scalar(
                 text(
-                    'INSERT INTO hf_model_variant(model_version_id,variant_key,dimensions,create_time,update_time) VALUES(:v,\'test\',\'{"resolution":"720p"}\',NOW(),NOW()) RETURNING variant_id'
+                    'INSERT INTO hf_model_variant(model_version_id,variant_key,dimensions,create_time,update_time) VALUES(:v,\'test\',\'{"resolution":"1K"}\',NOW(),NOW()) RETURNING variant_id'
                 ),
                 {'v': int(self.model_version_id)},
             )
@@ -74,8 +79,8 @@ class GenerationInputTests(unittest.IsolatedAsyncioTestCase):
             'projectId': str(self.project_id),
             'kind': 'image',
             'modelVersionId': self.model_version_id,
-            'prompt': {'content': []},
-            'parameters': {'duration': 6},
+            'prompt': {'content': [{'content': [{'type': 'text','text':'镜头'}]}]},
+            'parameters': {'n': 6},
             'references': [],
         }
         values.update(changes)
@@ -89,14 +94,14 @@ class GenerationInputTests(unittest.IsolatedAsyncioTestCase):
     async def test_normalization_variant_and_live_authorization(self) -> None:
         result = await self.prepare()
         self.assertEqual(result['modelVariantId'], str(self.variant_id))
-        self.assertEqual(result['inputSnapshot']['parameters']['resolution'], '720p')
+        self.assertEqual(result['inputSnapshot']['parameters']['resolution'], '1K')
         self.assertEqual(result['inputSnapshot']['compiled']['media'], [])
         with self.assertRaises(ServiceWarning):
             await self.prepare(user=self.other)
         with self.assertRaises(ServiceWarning):
             await self.prepare(self.payload(parameters={}))
         with self.assertRaises(ServiceWarning):
-            await self.prepare(self.payload(parameters={'resolution': '1080p', 'duration': 4}))
+            await self.prepare(self.payload(parameters={'resolution': '2K', 'n': 4}))
         async with self.sessions() as db:
             await db.execute(text("UPDATE hf_model_profile_version SET status='3'"))
             await db.commit()
@@ -126,4 +131,4 @@ class GenerationInputTests(unittest.IsolatedAsyncioTestCase):
         with self.assertRaises(ServiceWarning):
             await self.prepare(self.payload(draftId=draft_id, draftRevision='2'))
         with self.assertRaises(ServiceWarning):
-            await self.prepare(self.payload(draftId=draft_id, draftRevision='1', parameters={'duration': 8}))
+            await self.prepare(self.payload(draftId=draft_id, draftRevision='1', parameters={'n': 8}))

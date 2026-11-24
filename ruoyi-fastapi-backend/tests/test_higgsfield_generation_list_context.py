@@ -7,8 +7,13 @@ from module_higgsfield.service.generation_read_service import GenerationReadServ
 
 
 class GenerationListContextTests(unittest.IsolatedAsyncioTestCase):
+    async def asyncSetUp(self):
+        base = 'module_higgsfield.service.generation_read_service.'
+        for method, value in [('GenerationTraceDao.latest_stage',None), ('ProductionCapacityDao.waiting_reasons',{}), ('GenerationReadDao.latest_execution_call',None)]:
+            self.enterContext(patch(base + method, AsyncMock(return_value=value)))
+
     async def test_visible_summary_whitelists_platform_fields(self):
-        job = SimpleNamespace(project_id=9, actor_id=2)
+        job = SimpleNamespace(job_id=1,project_id=9, actor_id=2)
         allowed = {'generation:read', 'project:usage:read'}
         billing = {'billingVisibility': 'visible', 'billing': {
             'platform': {'amount': '1234567890123456.1234567890', 'currency': 'CNY', 'state': 'calculated', 'secret': 'hidden'},
@@ -18,12 +23,12 @@ class GenerationListContextTests(unittest.IsolatedAsyncioTestCase):
             result = await GenerationReadService.list_context('db', 'user', job)
         authorize.assert_awaited_once_with('db', 'user', 9, 'generation:read', owner_id=2)
         read.assert_awaited_once_with('db', job, allowed)
-        self.assertEqual(result, {'projectName': '项目甲', 'billingVisibility': 'visible', 'billingSummary': {
+        self.assertEqual(result, {'executionStage': None, 'queueReason': None, 'requestState': 'not_started', 'projectName': '项目甲', 'billingVisibility': 'visible', 'billingSummary': {
             'amount': '1234567890123456.1234567890', 'currency': 'CNY', 'state': 'calculated',
         }})
 
     async def test_hidden_and_unavailable_do_not_include_amount(self):
         for visibility in ('hidden', 'unavailable'):
             with self.subTest(visibility=visibility), patch('module_higgsfield.service.generation_read_service.WorkspaceService.authorize', AsyncMock(return_value=(SimpleNamespace(project_name='项目甲'), None, {'generation:read'}))), patch('module_higgsfield.service.generation_read_service.TaskBillingReadService.read', AsyncMock(return_value={'billingVisibility': visibility, 'billing': {'platform': {'amount': '99'}}})):
-                result = await GenerationReadService.list_context(None, None, SimpleNamespace(project_id=9, actor_id=2))
-                self.assertEqual(result, {'projectName': '项目甲', 'billingVisibility': visibility})
+                result = await GenerationReadService.list_context(None, None, SimpleNamespace(job_id=1,project_id=9, actor_id=2))
+                self.assertEqual(result, {'executionStage': None, 'queueReason': None, 'requestState': 'not_started', 'projectName': '项目甲', 'billingVisibility': visibility})

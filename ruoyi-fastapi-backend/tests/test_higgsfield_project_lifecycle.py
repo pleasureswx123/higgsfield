@@ -106,7 +106,7 @@ class LifecycleTests(unittest.IsolatedAsyncioTestCase):
         self.owner.permissions = ['project:edit']
         with self.assertRaises(PermissionException):
             await self.rename('仅简报权限', 1)
-        self.owner.permissions = ['project:manage']
+        self.owner.permissions = ['project:read', 'project:manage']
         with patch.object(PriceSourceDao, 'audit', AsyncMock(side_effect=RuntimeError('故障注入'))):
             with self.assertRaises(RuntimeError):
                 await self.rename('应回滚', 1)
@@ -148,10 +148,10 @@ class LifecycleTests(unittest.IsolatedAsyncioTestCase):
             await self.change('archive', 1, key=key)
 
     async def test_function_permission_and_audit_failure(self):
-        self.owner.permissions = ['project:read']
+        self.owner.permissions = []
         with self.assertRaises(PermissionException):
             await self.change('archive', 1)
-        self.owner.permissions = ['project:archive']
+        self.owner.permissions = ['project:read', 'project:archive']
         with patch.object(PriceSourceDao, 'audit', AsyncMock(side_effect=RuntimeError('故障注入'))):
             with self.assertRaises(RuntimeError):
                 await self.change('archive', 1)
@@ -199,10 +199,10 @@ class LifecycleTests(unittest.IsolatedAsyncioTestCase):
             await self.change('resume', 4)
 
     async def test_pause_requires_manage_permission_and_rolls_back(self):
-        self.owner.permissions = ['project:archive']
+        self.owner.permissions = []
         with self.assertRaises(PermissionException):
             await self.change('pause', 1)
-        self.owner.permissions = ['project:manage']
+        self.owner.permissions = ['project:read', 'project:manage']
         with patch.object(PriceSourceDao, 'audit', AsyncMock(side_effect=RuntimeError('审计故障'))):
             with self.assertRaises(RuntimeError):
                 await self.change('pause', 1)

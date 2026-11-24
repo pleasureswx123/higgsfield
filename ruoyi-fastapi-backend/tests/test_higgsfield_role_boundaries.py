@@ -47,9 +47,9 @@ class RoleBoundaryTests(unittest.IsolatedAsyncioTestCase):
             await WorkspaceService.authorize(db, restricted, pid, 'generation:create')
             await WorkspaceService.authorize(db, restricted, pid, 'project:archive')
             with patch.object(ProjectGovernanceDao, 'locked', AsyncMock(return_value=SimpleNamespace(del_flag='0',status='0'))):
-                await GenerationAccessService.require(db, SimpleNamespace(project_id=pid, actor_id=1))
+                await GenerationAccessService.require(db, SimpleNamespace(input_snapshot={}, project_id=pid, actor_id=1))
                 with self.assertRaises(ServiceWarning):
-                    await GenerationAccessService.require(db, SimpleNamespace(project_id=pid, actor_id=2))
+                    await GenerationAccessService.require(db, SimpleNamespace(input_snapshot={}, project_id=pid, actor_id=2))
             await db.rollback()
             with self.assertRaises(PermissionException):
                 await WorkspaceService.authorize(db, SimpleNamespace(permissions=[],user=self.owner.user), pid, 'asset:read')

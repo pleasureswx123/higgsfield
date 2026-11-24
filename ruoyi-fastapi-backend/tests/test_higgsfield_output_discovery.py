@@ -1,5 +1,6 @@
 """输出加密、发现去重与原子性测试。"""
 
+from tests.migration_fixture import migrate_connection
 import os
 import unittest
 from unittest.mock import patch
@@ -37,7 +38,14 @@ class OutputCryptoTests(unittest.TestCase):
 class OutputDiscoveryTests(unittest.IsolatedAsyncioTestCase):
     cleanup_schema = outputs.GeneratedOutputTests.cleanup_schema
     migrate = outputs.GeneratedOutputTests.migrate
-    asyncSetUp = outputs.GeneratedOutputTests.asyncSetUp
+    async def asyncSetUp(self):
+        await outputs.GeneratedOutputTests.asyncSetUp(self)
+        async with self.engine.begin() as conn:
+            await migrate_connection(conn, '20261027_35_provider_calls.py')
+            await migrate_connection(conn, '20261027_17_credentials.py')
+            await conn.execute(text('''INSERT INTO hf_credential_version(credential_version_id,credential_id,connection_version_id,version_no,
+                secret_ciphertext,nonce,auth_tag,master_key_version,fingerprint,masked_suffix,state,valid_from,create_time,update_time)
+                VALUES(1,1,1,1,'x',repeat('a',12)::bytea,repeat('b',16)::bytea,'test','fixture','test','1',now(),now(),now())'''))
     job = leases.JobLeaseTests.job
     seed = leases.JobLeaseTests.seed
     claim = leases.JobLeaseTests.claim
@@ -82,10 +90,10 @@ class OutputDiscoveryTests(unittest.IsolatedAsyncioTestCase):
             events = (await db.execute(text('SELECT event_type,payload FROM hf_task_event ORDER BY sequence'))).all()
             self.assertEqual(
                 [event[0] for event in events],
-                ['task.state', 'task.state', 'output.state', 'output.state', 'task.state'],
+                ['task.state', 'task.state', 'task.state', 'output.state', 'output.state', 'task.state'],
             )
             self.assertEqual(events[-1][1]['upstreamState'], 'succeeded')
-            self.assertEqual(await db.scalar(text('SELECT count(*) FROM hf_outbox_event')), 5)
+            self.assertEqual(await db.scalar(text('SELECT count(*) FROM hf_outbox_event')), 6)
         self.assertEqual(await self.claim('next-worker'), [])
 
     async def test_final_state_event_failure_rolls_back_outputs_and_success(self):

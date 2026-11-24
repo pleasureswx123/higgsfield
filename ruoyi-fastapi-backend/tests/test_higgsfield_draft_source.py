@@ -14,7 +14,7 @@ from module_higgsfield.service.generation_input_service import GenerationInputSe
 class DraftSourceTests(unittest.IsolatedAsyncioTestCase):
     async def test_source_must_exist_in_same_project(self):
         payload = DraftCreate(projectId='7', kind='image', body={
-            'prompt': {'content': []}, 'sourceJobId': '9007199254740993',
+            'prompt': {'content': [{'content': [{'type': 'text', 'text': '镜头描述'}]}]}, 'sourceJobId': '9007199254740993',
         })
         for source in (None, SimpleNamespace(project_id=8, actor_id=3)):
             with self.subTest(source=source), patch(
@@ -26,7 +26,7 @@ class DraftSourceTests(unittest.IsolatedAsyncioTestCase):
 
     async def test_source_read_permission_is_checked_before_other_inputs(self):
         payload = DraftCreate(projectId='7', kind='image', body={
-            'prompt': {'content': []}, 'sourceJobId': '9007199254740993',
+            'prompt': {'content': [{'content': [{'type': 'text', 'text': '镜头描述'}]}]}, 'sourceJobId': '9007199254740993',
         })
         with patch('module_higgsfield.service.draft_service.GenerationReadDao.job', AsyncMock(
             return_value=SimpleNamespace(project_id=7, actor_id=3)
@@ -54,7 +54,7 @@ class DraftSourceTests(unittest.IsolatedAsyncioTestCase):
 
     async def test_unbound_draft_keeps_parameters_without_skipping_reference_checks(self):
         payload = DraftCreate(projectId='7', kind='video', body={
-            'prompt': {'content': []}, 'parameters': {'duration': 30, 'generate_audio': False},
+            'prompt': {'content': [{'content': [{'type': 'text', 'text': '镜头描述'}]}]}, 'parameters': {'duration': 30, 'generate_audio': False},
         })
         with patch('module_higgsfield.service.draft_service.FolderDao.space', AsyncMock(return_value=SimpleNamespace(space_id=1))), patch(
             'module_higgsfield.service.draft_service.FolderService.check_target', AsyncMock()

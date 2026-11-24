@@ -175,7 +175,7 @@ class VideoPlusSubmitHandlerTests(unittest.IsolatedAsyncioTestCase):
             payload,
             {
                 'model': 'mm-eva-sd-2.5',
-                'messages': [{'role': 'user', 'content': ''}],
+                'messages': [{'role': 'user', 'content': '镜头'}],
                 'duration': 6,
                 'resolution': '720p',
                 'generate_audio': False,

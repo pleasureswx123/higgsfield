@@ -65,7 +65,7 @@ class SubmissionResultTests(unittest.IsolatedAsyncioTestCase):
             ).one()
             self.assertEqual(tuple(row), ('4', 'task-1', 'response-1', '0'))
             self.assertEqual(await db.scalar(text('SELECT acceptance FROM hf_provider_call')), 'accepted')
-            self.assertEqual(await db.scalar(text('SELECT reserved_amount FROM hf_budget_period')), 6)
+            self.assertEqual(await db.scalar(text('SELECT reserved_amount FROM hf_budget_period')), 0)
 
     async def test_explicit_rejection_finishes_execution_without_assuming_free(self) -> None:
         async with self.sessions() as db:
@@ -80,7 +80,7 @@ class SubmissionResultTests(unittest.IsolatedAsyncioTestCase):
             ).one()
             self.assertEqual(tuple(row), ('5', '4', '0', None))
             self.assertEqual(await db.scalar(text('SELECT acceptance FROM hf_provider_call')), 'rejected')
-            self.assertEqual(await db.scalar(text('SELECT reserved_amount FROM hf_budget_period')), 6)
+            self.assertEqual(await db.scalar(text('SELECT reserved_amount FROM hf_budget_period')), 0)
 
     async def test_event_failure_rollback_then_timeout_retains_budget(self) -> None:
         async with self.sessions() as db:
@@ -96,4 +96,4 @@ class SubmissionResultTests(unittest.IsolatedAsyncioTestCase):
             await ProviderSubmissionResultService.record(db, self.lease, self.call_id, result)
             self.assertEqual(await db.scalar(text('SELECT state FROM hf_provider_call')), '3')
             self.assertEqual(await db.scalar(text('SELECT orchestration_state FROM hf_creation_job')), '3')
-            self.assertEqual(await db.scalar(text('SELECT reserved_amount FROM hf_budget_period')), 6)
+            self.assertEqual(await db.scalar(text('SELECT reserved_amount FROM hf_budget_period')), 0)

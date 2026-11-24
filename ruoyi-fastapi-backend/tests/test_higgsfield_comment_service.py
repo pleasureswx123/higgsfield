@@ -9,6 +9,7 @@ from sqlalchemy import text
 from exceptions.exception import PermissionException, ServiceWarning
 from module_higgsfield.entity.vo.comment_vo import ThreadCreate, ThreadQuery, CommentCreate, CommentPage
 from module_higgsfield.service.comment_service import CommentService as Service
+from module_higgsfield.service.project_workspace_service import WorkspaceService
 from tests import test_higgsfield_output_asset as fixtures
 
 
@@ -61,7 +62,17 @@ class CommentServiceTests(unittest.IsolatedAsyncioTestCase):
             db.autoflush = False
             return await Service.create_comment(db, self.owner, identity, CommentCreate(**payload), key or str(uuid4()))
 
+    async def use_producer(self):
+        """使用可撤权的普通成员验证读取和治理权限。"""
+        async with self.sessions() as db:
+            role_id = await db.scalar(text("SELECT role_id FROM hf_project_role WHERE code='producer'"))
+            await WorkspaceService.mutate(
+                db, self.owner, int(self.project_id), 'add', {'userId': '2', 'roleId': str(role_id)}, str(uuid4()), None
+            )
+        self.owner = self.other
+
     async def test_thread_comment_reply_replay_and_revoked_read(self):
+        await self.use_producer()
         key = str(uuid4())
         first, _ = await self.thread(key)
         again, repeated = await self.thread(key)

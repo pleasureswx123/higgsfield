@@ -5,6 +5,10 @@ const { join } = require('node:path')
 const { runInNewContext } = require('node:vm')
 const { webcrypto } = require('node:crypto')
 const ts = require('typescript')
+function pythonForInterop(backend) {
+  return process.env.HF_TEST_PYTHON || join(backend, process.platform === 'win32' ? '.venv/Scripts/python.exe' : '.venv/bin/python')
+}
+
 function load(file, dependencies = {}, globals = {}) {
   const exports = {}
   runInNewContext(
@@ -300,7 +304,7 @@ with patch.object(TransportKeyProvider, 'get_private_key_pem', return_value=valu
     response=TransportCryptoUtil.encrypt_response_body(decoded.aes_key, json.dumps({'code':200,'token':'python-response'}).encode(), decoded.kid, 'POST','/login')
     print(response.decode())
 `
-    const result = spawnSync(join(backend, '.venv/Scripts/python.exe'), ['-c', script], {
+    const result = spawnSync(pythonForInterop(backend), ['-c', script], {
       cwd: backend,
       encoding: 'utf8',
       env: { ...process.env, PYTHONIOENCODING: 'utf-8' },
@@ -369,7 +373,7 @@ test(
     const backend = join(__dirname, '../../ruoyi-fastapi-backend')
     // 使用模块入口，确保后端自身模块可从工程根目录导入。
     const result = spawnSync(
-      join(backend, '.venv/Scripts/python.exe'),
+      pythonForInterop(backend),
       ['-m', 'tests.transport_middleware_bridge'],
       {
         cwd: backend,
@@ -609,7 +613,7 @@ test(
     )
     const backend = join(__dirname, '../../ruoyi-fastapi-backend')
     const result = spawnSync(
-      join(backend, '.venv/Scripts/python.exe'),
+      pythonForInterop(backend),
       ['-m', 'tests.transport_middleware_bridge'],
       {
         cwd: backend,
@@ -824,7 +828,7 @@ test(
     const backend = join(__dirname, '../../ruoyi-fastapi-backend')
     function send(config) {
       const result = spawnSync(
-        join(backend, '.venv/Scripts/python.exe'),
+        pythonForInterop(backend),
         ['-m', 'tests.transport_middleware_bridge'],
         {
           cwd: backend,

@@ -100,6 +100,10 @@ class ElementCopyTests(unittest.IsolatedAsyncioTestCase):
 
     async def test_missing_source_use_rolls_back_without_target_rows(self):
         async with self.sessions() as db:
+            from tests.test_higgsfield_projects import add_producer
+            await add_producer(db, self.owner, self.project_id)
+            await add_producer(db, self.owner, self.target_id)
+            self.owner = self.other
             await db.execute(text("DELETE FROM hf_project_role_permission WHERE permission_code='asset:reference'"))
             await db.commit()
         async with self.sessions() as db:

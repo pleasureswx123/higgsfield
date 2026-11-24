@@ -1,10 +1,7 @@
 """素材回收不丢版本、文件与引用身份；使用隔离 PostgreSQL schema。"""
 
+from tests.migration_fixture import migrate_connection
 import os
-import importlib.util
-from pathlib import Path
-from alembic.migration import MigrationContext
-from alembic.operations import Operations
 import unittest
 from uuid import uuid4
 from sqlalchemy import text
@@ -26,31 +23,9 @@ class AssetLifecycleTests(unittest.IsolatedAsyncioTestCase):
     async def asyncSetUp(self):
         await AssetDatabaseTests.asyncSetUp(self)
         async with self.engine.begin() as conn:
-            spec = importlib.util.spec_from_file_location(
-                'asset_lifecycle_migration',
-                Path(__file__).resolve().parents[1] / 'alembic/versions/20261027_10_asset_lifecycle.py',
+            await migrate_connection(
+                conn, '20261027_10_asset_lifecycle.py', '20261028_68_comments.py', '20261029_80_comment_collaboration.py'
             )
-            migration = importlib.util.module_from_spec(spec)
-            spec.loader.exec_module(migration)
-
-            def migrate(sync_conn):
-                with Operations.context(MigrationContext.configure(sync_conn)):
-                    migration.upgrade()
-
-            await conn.run_sync(migrate)
-            spec = importlib.util.spec_from_file_location(
-                'asset_status_migration',
-                Path(__file__).resolve().parents[1] / 'alembic/versions/20261028_79_asset_status.py',
-            )
-            migration = importlib.util.module_from_spec(spec)
-            spec.loader.exec_module(migration)
-            await conn.run_sync(migrate)
-            for filename in ('20261028_68_comments.py', '20261029_80_comment_collaboration.py'):
-                spec = importlib.util.spec_from_file_location('asset_comments_migration', Path(__file__).resolve().parents[1] / 'alembic/versions' / filename)
-                migration = importlib.util.module_from_spec(spec)
-                spec.loader.exec_module(migration)
-                await conn.run_sync(migrate)
-            # 角色层级迁移已初始化素材权限，Owner 使用固定完整权限。
         upload = await self.ready_upload()
         async with self.sessions() as db:
             result, _ = await AssetService.bind(
