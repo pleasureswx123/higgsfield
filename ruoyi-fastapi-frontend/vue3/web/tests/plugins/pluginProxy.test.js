@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import { EventEmitter } from 'node:events'
-import { readFileSync } from 'node:fs'
+import { existsSync, readFileSync } from 'node:fs'
 import { dirname, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { loadConfigFromFile, loadEnv } from 'vite'
@@ -202,7 +202,11 @@ for (const [mode, expectedBase, backendFiles] of [
   assert.equal(configuration.pluginBase, expectedBase)
   assert.equal(configuration.pluginBase, configuration.baseApi, `${mode} 的两种 API 前缀必须一致`)
   for (const filename of backendFiles) {
-    assert.equal(configuration.pluginBase, readBackendRootPath(filename))
+    assert.equal(configuration.pluginBase, readBackendRootPath(filename + '.example'))
+    // 干净检出始终验证仓库模板；本地已有环境文件时也验证实际配置。
+    if (existsSync(resolve(frontendRoot, '../../../ruoyi-fastapi-backend', filename))) {
+      assert.equal(configuration.pluginBase, readBackendRootPath(filename))
+    }
   }
   checkPluginPaths(configuration)
   if (mode === 'docker') {
