@@ -111,9 +111,14 @@ class NasDirectoryService:
             old = previous.get(identity, {})
             name = safe_name(row['name'])
             parent = ''
-            if kind == 'project' and old:
-                name = old['path']
-            elif kind != 'project':
+            if kind == 'creator':
+                name = old.get('path', name)
+            elif kind == 'project':
+                parent = allocate(f"creator-{row['parent']}") + '/'
+                if old:
+                    # 旧版只有项目一级，新旧映射都沿用首次分配的项目名。
+                    name = old['path'].rsplit('/', 1)[-1]
+            else:
                 owner = f"folder-{row['parent']}" if row['parent'] else f"project-{row['project_id']}"
                 if by_id[owner]['project_id'] != row['project_id']:
                     raise ValueError('目录归属项目不一致')

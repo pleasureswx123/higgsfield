@@ -40,7 +40,7 @@ docker compose logs --tail 60 api
 systemctl list-timers higgsfield-backup.timer
 ```
 
-正式数据库和 Redis 使用服务器的独立数据盘。正式媒体使用 NAS 的 `NightmareTheatre/prod`。项目文件夹中的文件供人浏览，`.platform` 管理原始对象和目录映射。开发环境使用独立的 `dev` 目录。项目及素材增删改名请在制作端操作。
+正式数据库和 Redis 使用服务器的独立数据盘。正式媒体使用 NAS 的 `NightmareTheatre/prod`。可浏览目录按「项目创建人昵称／项目／平台文件夹」组织，`.platform` 管理原始对象和目录映射。开发环境使用独立的 `dev` 目录。项目及素材增删改名请在制作端操作。
 
 ## 配置和备份
 

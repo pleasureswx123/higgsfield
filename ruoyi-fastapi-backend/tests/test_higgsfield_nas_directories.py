@@ -24,8 +24,9 @@ class NasDirectoriesTests(unittest.TestCase):
         self.source = objects / self.key
         self.source.write_bytes(b'123')
         self.rows = [
-            self.row('project', 1, '剧组'), self.row('folder', 2, '第一集'),
+            self.row('project', 1, '剧组', 9), self.row('folder', 2, '第一集'),
             self.row('folder', 3, '镜头', 2), self.row('asset', 4, '定妆照.jpg', 3),
+            self.row('creator', 9, '张金川'),
         ]
 
     def row(self, kind, identity, name, parent=None):
@@ -34,7 +35,7 @@ class NasDirectoriesTests(unittest.TestCase):
 
     def test_move_rename_delete_preserve_bytes_and_unmanaged_files(self):
         self.service.sync(self.rows)
-        old = self.root / '剧组/第一集/镜头/定妆照.png'
+        old = self.root / '张金川/剧组/第一集/镜头/定妆照.png'
         self.assertTrue(old.samefile(self.source))
         extra = old.with_name('制作笔记.txt')
         extra.write_text('保留', encoding='utf-8')
@@ -43,12 +44,12 @@ class NasDirectoriesTests(unittest.TestCase):
         self.service.sync(self.rows)
         self.assertFalse(old.exists())
         self.assertEqual(extra.read_text('utf-8'), '保留')
-        new = self.root / '剧组/镜头二/定妆照.png'
+        new = self.root / '张金川/剧组/镜头二/定妆照.png'
         self.assertTrue(new.samefile(self.source))
-        self.service.sync(self.rows[:2])
+        self.service.sync([*self.rows[:2], self.rows[4]])
         self.assertFalse(new.parent.exists())
         self.assertTrue(self.source.exists())
-        self.assertTrue((self.root / '剧组/第一集').is_dir())
+        self.assertTrue((self.root / '张金川/剧组/第一集').is_dir())
 
     def test_collision_and_retry_after_missing_source(self):
         self.rows.append(self.row('asset', 5, '定妆照.png', 3))
@@ -57,25 +58,26 @@ class NasDirectoriesTests(unittest.TestCase):
             self.service.sync(self.rows)
         self.source.write_bytes(b'abc')
         self.service.sync(self.rows)
-        files = list((self.root / '剧组/第一集/镜头').iterdir())
+        files = list((self.root / '张金川/剧组/第一集/镜头').iterdir())
         self.assertEqual({p.name for p in files}, {'定妆照.png', '定妆照（2）.png'})
         self.assertTrue(all(p.samefile(self.source) for p in files))
         self.service.sync(self.rows)
         self.assertEqual(len(list(files[0].parent.iterdir())), 2)
 
     def test_windows_names_and_existing_directory(self):
-        (self.root / '剧组').mkdir()
+        self.service.sync([self.rows[4]])
+        (self.root / '张金川/剧组').mkdir()
         self.rows[1]['name'] = '../CON:第一集'
         self.service.sync(self.rows)
-        self.assertEqual(list((self.root / '剧组').iterdir()), [])
+        self.assertEqual(list((self.root / '张金川/剧组').iterdir()), [])
         manifest = json.loads((self.root / '.platform/directory.json').read_text('utf-8'))
-        self.assertTrue(manifest['entries']['folder-2']['path'].startswith('剧组（2）/'))
-        self.assertEqual(len(list((self.root / '剧组（2）').glob('*/*/*.png'))), 1)
+        self.assertTrue(manifest['entries']['folder-2']['path'].startswith('张金川/剧组（2）/'))
+        self.assertEqual(len(list((self.root / '张金川/剧组（2）').glob('*/*/*.png'))), 1)
 
 
     def test_external_replacement_is_preserved(self):
         self.service.sync(self.rows)
-        target = self.root / '剧组/第一集/镜头/定妆照.png'
+        target = self.root / '张金川/剧组/第一集/镜头/定妆照.png'
         target.unlink()
         target.write_bytes(b'external')
         self.service.sync(self.rows)
@@ -84,11 +86,40 @@ class NasDirectoriesTests(unittest.TestCase):
 
     def test_folder_move_with_explorer_thumbnail_cache(self):
         self.service.sync(self.rows)
-        old = self.root / '剧组/第一集/镜头'
+        old = self.root / '张金川/剧组/第一集/镜头'
         (old / 'Thumbs.db').write_bytes(b'cache')
         self.rows[2]['parent'] = None
         self.service.sync(self.rows)
         self.assertFalse(old.exists())
-        self.assertTrue((self.root / '剧组/镜头/定妆照.png').samefile(self.source))
+        self.assertTrue((self.root / '张金川/剧组/镜头/定妆照.png').samefile(self.source))
         archived = list((self.root / '.platform/retired-thumbnail-caches').glob('*/Thumbs.db'))
         self.assertEqual([item.read_bytes() for item in archived], [b'cache'])
+
+    def test_legacy_projection_moves_only_managed_entries(self):
+        old = self.root / '旧项目/第一集/镜头'
+        old.mkdir(parents=True)
+        (old / '定妆照.png').hardlink_to(self.source)
+        (old / '笔记.txt').write_bytes(b'external')
+        entries = {
+            'project-1': {'path': '旧项目', 'key': None},
+            'folder-2': {'path': '旧项目/第一集', 'key': None},
+            'folder-3': {'path': '旧项目/第一集/镜头', 'key': None},
+            'asset-4': {'path': '旧项目/第一集/镜头/定妆照.png', 'key': self.key},
+        }
+        (self.service.objects / 'directory.json').write_text(json.dumps({'entries': entries}), 'utf-8')
+        self.service.sync(self.rows)
+        self.assertTrue((self.root / '张金川/旧项目/第一集/镜头/定妆照.png').samefile(self.source))
+        self.assertEqual([p.name for p in old.iterdir()], ['笔记.txt'])
+
+    def test_creator_and_project_collisions_and_renames(self):
+        self.service.sync(self.rows)
+        self.rows[4]['name'] = '修改后的昵称'
+        self.rows.extend([
+            self.row('creator', 10, '张金川'),
+            dict(self.row('project', 11, '剧组', 10), project_id=11),
+            dict(self.row('project', 12, '剧组', 9), project_id=12),
+        ])
+        self.service.sync(self.rows)
+        self.assertTrue((self.root / '张金川/剧组（2）').is_dir())
+        self.assertTrue((self.root / '张金川（2）/剧组').is_dir())
+        self.assertFalse((self.root / '修改后的昵称').exists())

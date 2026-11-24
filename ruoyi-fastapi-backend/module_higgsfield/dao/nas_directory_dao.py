@@ -13,14 +13,18 @@ class NasDirectoryDao:
     async def entries(db):
         query = text("""
             WITH projects AS (
-                SELECT p.project_id, p.project_name, s.space_id
+                SELECT p.project_id, p.project_name, p.create_user_id, s.space_id
                 FROM hf_project p JOIN hf_asset_space s USING (project_id)
                 WHERE p.del_flag='0' AND s.kind='project'
             ), entries AS (
                 SELECT 'project' AS kind, p.project_id AS id, p.project_id,
-                       NULL::bigint AS parent, p.project_name AS name,
+                       p.create_user_id AS parent, p.project_name AS name,
                        NULL::text AS storage_key, NULL::text AS mime_type
                 FROM projects p
+                UNION ALL
+                SELECT DISTINCT 'creator', p.create_user_id, NULL::bigint, NULL::bigint,
+                       COALESCE(NULLIF(btrim(u.nick_name), ''), '用户-' || p.create_user_id), NULL, NULL
+                FROM projects p LEFT JOIN sys_user u ON u.user_id=p.create_user_id
                 UNION ALL
                 SELECT 'folder', f.folder_id, p.project_id, f.parent_id, f.folder_name, NULL, NULL
                 FROM projects p JOIN hf_folder f USING (space_id) WHERE f.del_flag='0'
