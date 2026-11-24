@@ -105,8 +105,25 @@ jobs:
           psql -h localhost -U postgres -d higgsfield_ci -v ON_ERROR_STOP=1 -f sql/ruoyi-fastapi-pg.sql
           python -m alembic upgrade head
           python -m alembic current --check-heads
+      - name: 安装真实视频归档用到的媒体工具
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y --no-install-recommends ffmpeg
+          ffmpeg -version
+          ffprobe -version
       - name: 项目后端测试
-        run: python -m pytest -o collect_imported_tests=false tests/test_*.py -q
+        run: |
+          python -m pytest -o collect_imported_tests=false tests/test_*.py -q -ra --junitxml="$RUNNER_TEMP/backend.xml"
+          python - <<'PY'
+          import os
+          from pathlib import Path
+          from xml.etree import ElementTree
+
+          report = ElementTree.parse(Path(os.environ['RUNNER_TEMP']) / 'backend.xml')
+          skipped = [case.get('name') for case in report.iter('testcase') if case.find('skipped') is not None]
+          if skipped:
+              raise SystemExit('以下后端测试被跳过：' + ', '.join(skipped))
+          PY
       - name: CI 契约与部署脚本语法
         working-directory: .
         run: |
