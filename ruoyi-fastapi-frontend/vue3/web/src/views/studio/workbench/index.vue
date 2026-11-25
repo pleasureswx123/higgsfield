@@ -6,13 +6,18 @@ import { useWorkbench } from '@/composables/studio/useWorkbench'
 const router = useRouter(), settings = useSettingsStore()
 const { user, role, entries, next, facts, models, issues, loading, updated, paths, load } = useWorkbench()
 const financeOnly = computed(() => role.value === 'finance')
+const welcome = computed(() => {
+  if (financeOnly.value) return '从这里查看 Token 消耗和费用明细。'
+  const titles = entries.value.map(entry => entry.title)
+  return titles.length ? '可用入口：' + titles.join('、') + '。' : '欢迎进入管理工作台。'
+})
 const display = value => value === null ? '—' : value
 const go = path => router.push(path)
 </script>
 <template>
   <main class="app-container workbench" :class="{ 'is-dark': settings.isDark }">
     <header class="workbench-heading">
-      <div><span class="eyebrow">AI 制作平台 · {{ financeOnly ? '费用管理' : role === 'combined' ? '综合管理' : role === 'platform' ? '平台管理' : '管理端' }}</span><h1>{{ financeOnly ? '费用工作台' : role === 'combined' ? '综合管理工作台' : role === 'platform' ? '平台工作台' : '工作台' }}</h1><p>{{ user.name }}，{{ financeOnly ? '从这里查看 Token 消耗和费用明细。' : role === 'combined' ? '从这里管理模型、费用与团队。' : entries.some(row => row.key === 'users' || row.key === 'departments') ? '从这里管理模型、团队和日常运行。' : '从这里完成模型接入和日常检查。' }}</p></div>
+      <div><span class="eyebrow">AI 制作平台 · {{ financeOnly ? '费用管理' : role === 'combined' ? '综合管理' : role === 'platform' ? '平台管理' : '管理端' }}</span><h1>{{ financeOnly ? '费用工作台' : role === 'combined' ? '综合管理工作台' : role === 'platform' ? '平台工作台' : '工作台' }}</h1><p>{{ user.name }}，{{ welcome }}</p></div>
       <div class="actions"><el-button :loading="loading" @click="load">刷新状态</el-button></div>
     </header>
     <section v-if="entries.length" class="entry-section"><h2>{{ financeOnly ? '费用查询' : '日常管理' }}</h2><div class="entry-grid">
