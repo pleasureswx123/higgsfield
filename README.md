@@ -172,6 +172,23 @@ cd D:\laputta\higgsfield
 .\scripts\start-local.ps1
 ```
 
+### 检查工作器状态
+
+在仓库根目录运行：
+
+```powershell
+.\scripts\image-workers.ps1 -Action status
+```
+
+### 重启工作器
+
+如果状态检查发现工作器异常，需要重启时运行：
+
+```powershell
+.\scripts\image-workers.ps1 -Action restart -WaitSeconds 30
+.\scripts\image-workers.ps1 -Action status
+```
+
 ### 启动 ruoyi-fastapi-frontend 管理平台项目
 ```powershell
 cd D:\laputta\higgsfield\ruoyi-fastapi-frontend\vue3\web

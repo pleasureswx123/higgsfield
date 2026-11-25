@@ -1230,3 +1230,105 @@ curl -X POST 'http://llm-gw.videoplus.cc/v1/chat/completions' \
 
 素材注册和查询**本身不收费**，费用体现在后续视频/图片生成调用中。
 
+
+
+
+# API 调试上下文
+
+## 1. 请求 (cURL)
+```bash
+curl --location --request POST 'http://llm-gw.videoplus.cc/v1/chat/completions' \
+--header 'Authorization: Bearer <API_KEY>' \
+--header 'X-Biz-Id: op' \
+--header 'User-Agent: Apifox/1.0.0 (https://apifox.com)' \
+--header 'Content-Type: application/json' \
+--header 'Accept: */*' \
+--header 'Host: llm-gw.videoplus.cc' \
+--header 'Connection: keep-alive' \
+--data-raw '{
+    "model": "mm-imagen2",
+    "messages": [
+        {
+            "role": "user",
+            "content": [
+                {
+                    "type": "text",
+                    "text": "以参考图中的机器人作为同一个主角，保留它的头部轮廓、眼睛造型、身体比例、材质和主要配色，让人能够明确认出这是同一个机器人。\n创作一张新的电影感画面：雨后的清晨，机器人跪坐在一座废弃城市的屋顶花园里，正在把一株幼苗种进泥土。幼苗位于画面前景，机器人小心地用双手扶住幼苗。泥土湿润，叶片上有清晰的水珠，远处是被薄雾笼罩的旧城市建筑，一束温暖的阳光穿过云层照亮机器人和幼苗。\n采用中景、略低机位，完整表现机器人与幼苗之间的互动。整体气氛安静、温柔、充满希望，表达“科技守护生命、废墟中重新生长”的主题。\n这是同一角色的新场景，不是简单复制参考图。画面只出现一个机器人、一株主要幼苗，不添加文字、标志或水印。"
+                },
+                {
+                    "type": "image_url",
+                    "image_url": {
+                        "url": "data:image/png;base64,<参考图的Base64数据>"
+                    }
+                }
+            ]
+        }
+    ],
+    "n": 1,
+    "size": "2048x2048",
+    "quality": "high",
+    "output_format": "png",
+    "moderation": "auto"
+}'
+```
+
+## 2. 响应
+状态: 200 OK
+时间: 60145ms
+Headers:
+```yaml
+Date: Fri, 06 Nov 2026 05:19:39 GMT
+Content-Type: application/json
+Transfer-Encoding: chunked
+Connection: keep-alive
+Vary: Accept-Encoding
+x-litellm-call-id: <已脱敏>
+x-litellm-model-id: <已脱敏>
+x-litellm-version: 1.86.2
+x-litellm-response-cost: 0.437005
+x-litellm-response-cost-original: 0.437005
+x-litellm-response-cost-discount-amount: 0.0
+x-litellm-response-cost-margin-amount: 0.0
+x-litellm-response-cost-margin-percent: 0.0
+x-litellm-key-max-budget: 120.0
+x-litellm-key-spend: <已脱敏>
+x-litellm-response-duration-ms: 59450.724
+x-litellm-callback-duration-ms: 0.0
+x-litellm-model-group: mm-imagen2
+x-litellm-attempted-retries: 0
+x-litellm-attempted-fallbacks: 0
+Content-Encoding: br
+```
+
+Body:
+```json
+{
+  "id": "<响应ID>",
+  "created": 1793942319,
+  "model": "mm-imagen2",
+  "object": "chat.completion",
+  "choices": [
+    {
+      "finish_reason": "stop",
+      "index": 0,
+      "message": {
+        "content": "{\"images\": [{\"b64_json\": \"<结果图的Base64数据>\"}]}"
+      }
+    }
+  ]
+}
+```
+
+原始调试记录标注响应体为 7460 KB，导出时已截断。上例仅展示已见字段，图片数据以占位符表示。
+
+## 3. 网络/系统错误
+(无内容)
+
+## 4. 校验响应（契约测试）
+- 接口实际返回与接口定义中返回响应的"数据结构"不一致。
+  ```
+  /: 应当是 null 类型
+  ```
+
+## 5. 指令
+请根据以上信息，分析报错原因，修复相关代码
