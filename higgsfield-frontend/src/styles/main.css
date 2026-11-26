@@ -18,9 +18,10 @@
   --foreground: #20231c;
   --muted-foreground: #73786b;
   --border: #dfe2d7;
-  --primary: #d6f500;
-  --primary-foreground: #1b2200;
-  --focus: #7b9400;
+  --primary: #9661d6;
+  --primary-hover: color-mix(in srgb, var(--primary) 84%, white);
+  --primary-foreground: #100b17;
+  --focus: color-mix(in srgb, var(--primary) 80%, black);
   --destructive: #c23542;
   --ring: var(--focus);
   --card: var(--surface);
@@ -35,7 +36,7 @@
   --input: var(--border);
   --radius: 0.75rem;
 }
-/* 实心品牌按钮使用深色文字，避免 Element Plus 默认白字与青柠背景对比不足。 */
+/* 实心品牌按钮使用深色文字，避免 Element Plus 默认白字与品牌色背景对比不足。 */
 .el-button.el-button--primary:not(.is-plain):not(.is-text):not(.is-link) {
   --el-button-text-color: var(--primary-foreground);
   --el-button-hover-text-color: var(--primary-foreground);
@@ -57,20 +58,18 @@
   --foreground: #f0f1ee;
   --muted-foreground: #969995;
   --border: #2b2d2e;
-  --primary: #dbfa00;
-  --primary-foreground: #182000;
-  --focus: #dbfa00;
+  --focus: var(--primary);
   --destructive: #ff7a85;
 }
 :root,
 :root.dark {
   --el-color-primary: var(--primary);
-  --el-color-primary-light-3: #b3ca16;
-  --el-color-primary-light-5: #a5b947;
+  --el-color-primary-light-3: var(--primary-hover);
+  --el-color-primary-light-5: color-mix(in srgb, var(--primary) 60%, var(--surface));
   --el-color-primary-light-7: var(--surface-hover);
   --el-color-primary-light-8: var(--surface-raised);
   --el-color-primary-light-9: var(--surface-raised);
-  --el-color-primary-dark-2: #bed700;
+  --el-color-primary-dark-2: color-mix(in srgb, var(--primary) 88%, white);
   --el-bg-color: var(--surface);
   --el-bg-color-page: var(--background);
   --el-bg-color-overlay: var(--surface);
@@ -188,7 +187,7 @@ p {
   color: var(--primary-foreground);
 }
 .ui-button-primary:hover:not(:disabled) {
-  background: #c9e900;
+  background: var(--primary-hover);
 }
 .ui-button-ghost {
   background: transparent;

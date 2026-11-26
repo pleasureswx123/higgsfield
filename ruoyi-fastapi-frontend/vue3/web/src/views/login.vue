@@ -228,15 +228,17 @@ getCookie()
 <style lang="scss" scoped>
 .login {
   --login-bg: #f4f6f2; --login-surface: #ffffff; --login-text: #152b28;
-  --login-muted: #63756f; --login-line: #dce4dd; --login-accent: #235b4d;
+  --login-muted: #63756f; --login-line: #dce4dd; --login-brand: #9661d6; --login-accent: color-mix(in srgb, var(--login-brand) 80%, black);
+  --login-brand-hover: color-mix(in srgb, var(--login-brand) 84%, white);
+  --login-brand-active: color-mix(in srgb, var(--login-brand) 88%, white);
   min-height: 100vh; min-height: 100dvh; display: flex; flex-direction: column;
   padding: 32px 5vw 20px; color: var(--login-text); background: var(--login-bg);
-  background-image: radial-gradient(ellipse at 12% 45%, #c8d9bd50, transparent 55%);
+  background-image: radial-gradient(ellipse at 12% 45%, #9661d619, transparent 55%);
 }
 .login.is-dark {
   --login-bg: #101513; --login-surface: #19201c; --login-text: #eff4e9;
-  --login-muted: #a2afa5; --login-line: #344036; --login-accent: #d0e77b;
-  background-image: radial-gradient(ellipse at 12% 45%, #536a2926, transparent 55%);
+  --login-muted: #a2afa5; --login-line: #344036; --login-accent: var(--login-brand);
+  background-image: radial-gradient(ellipse at 12% 45%, #9661d618, transparent 55%);
 }
 .login-header { display: flex; align-items: center; justify-content: space-between; gap: 16px; }
 .brand { display: flex; align-items: center; gap: 12px; }
@@ -261,7 +263,7 @@ getCookie()
 .login-form :deep(.el-input__prefix), .login-form :deep(.el-input__suffix) { height: 44px; align-items: center; }
 .login-form :deep(.el-input__inner::placeholder) { color: var(--login-muted); }
 .login-form :deep(.el-form-item) { margin-bottom: 22px; }
-.login-submit { --el-button-bg-color: #d0e77b; --el-button-border-color: #d0e77b; --el-button-text-color: #203120; --el-button-hover-bg-color: #ddef9d; --el-button-hover-border-color: #ddef9d; --el-button-hover-text-color: #203120; --el-button-active-bg-color: #bdd468; --el-button-active-border-color: #bdd468; height: 46px; border-radius: 8px; font-weight: 600; }
+.login-submit { --el-button-bg-color: var(--login-brand); --el-button-border-color: var(--login-brand); --el-button-text-color: #100b17; --el-button-hover-bg-color: var(--login-brand-hover); --el-button-hover-border-color: var(--login-brand-hover); --el-button-hover-text-color: #100b17; --el-button-active-text-color: #100b17; --el-button-active-bg-color: var(--login-brand-active); --el-button-active-border-color: var(--login-brand-active); height: 46px; border-radius: 8px; font-weight: 600; }
 .input-icon { width: 16px; height: 16px; flex-shrink: 0; }
 .login-code { width: 33%; height: 46px; padding: 0; margin-left: 4%; border: 1px solid var(--login-line); border-radius: 8px; overflow: hidden; background: white; cursor: pointer; }
 .login-code-img { width: 100%; height: 100%; object-fit: contain; }

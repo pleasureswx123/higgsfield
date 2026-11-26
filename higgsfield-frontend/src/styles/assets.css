@@ -367,7 +367,7 @@
 .asset-preview-dialog--expanded .asset-preview-main { background:#000; color:#f0f1ee; }
 .asset-preview-dialog--expanded .asset-preview-layout { gap:0; }
 .asset-preview-dialog--expanded .asset-preview-tools,
-.asset-preview-dialog--expanded .video-controls { --foreground:#f0f1ee; --muted-foreground:#969995; --surface:#171819; --surface-raised:#242527; --primary:#dbfa00; --primary-foreground:#182000; --focus:#dbfa00; color:#f0f1ee; }
+.asset-preview-dialog--expanded .video-controls { --foreground:#f0f1ee; --muted-foreground:#969995; --surface:#171819; --surface-raised:#242527; --focus:var(--primary); color:#f0f1ee; }
 .asset-preview-dialog:fullscreen { width:100vw; max-width:none; height:100dvh; margin:0; }
 .asset-preview-dialog::backdrop { background:#000; }
 
