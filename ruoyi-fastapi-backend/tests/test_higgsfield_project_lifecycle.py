@@ -90,13 +90,36 @@ class LifecycleTests(unittest.IsolatedAsyncioTestCase):
         self.assertIn('其他成员', blocked.exception.message)
         async with self.sessions() as db:
             await db.execute(text("UPDATE hf_project_member SET status='1' WHERE user_id=2"))
-            await db.execute(text("""INSERT INTO hf_folder
-                (space_id, folder_name, normalized_name, del_flag, create_time, update_time)
-                SELECT space_id, '已删除目录', '已删除目录', '2', now(), now() FROM hf_asset_space"""))
+            await db.execute(text("""WITH root AS (
+                INSERT INTO hf_folder (space_id, folder_name, normalized_name, create_time, update_time)
+                SELECT space_id, '空目录', '空目录', now(), now() FROM hf_asset_space RETURNING space_id, folder_id
+            ), child AS (
+                INSERT INTO hf_folder (space_id, parent_id, folder_name, normalized_name, del_flag, create_time, update_time)
+                SELECT space_id, folder_id, '已删子目录', '已删子目录', '2', now(), now() FROM root RETURNING folder_id
+            ) INSERT INTO hf_recycle_entry
+                (project_id, target_kind, target_id, state, deleted_time, restore_until, actor_id, create_time, update_time)
+                SELECT :project, 'folder', folder_id, state, now(), now() + interval '30 days', 1, now(), now()
+                FROM (SELECT folder_id, 'active' AS state FROM child UNION ALL SELECT folder_id, 'restored' FROM root) f
+            """), {'project': self.identity})
+            revision = await db.scalar(text("SELECT revision FROM hf_project WHERE project_id=:project"),
+                                       {'project': self.identity})
+            await db.commit()
+        await self.change('delete', revision)
+
+        result, _ = await self.create('有内容历史的项目')
+        self.identity = int(result['data']['id'])
+        async with self.sessions() as db:
+            await db.execute(text("""INSERT INTO hf_recycle_entry
+                (project_id, target_kind, target_id, deleted_time, restore_until, actor_id, create_time, update_time)
+                VALUES (:project, 'asset', 100, now(), now() + interval '30 days', 1, now(), now())"""),
+                {'project': self.identity})
+            await db.execute(text("UPDATE hf_project_brief SET revision=2 WHERE project_id=:project"),
+                             {'project': self.identity})
             await db.commit()
         with self.assertRaises(ServiceWarning) as blocked:
             await self.change('delete', 1)
-        self.assertIn('归档', blocked.exception.message)
+        for reason in ('素材回收记录', '已编辑的项目简报', '归档'):
+            self.assertIn(reason, blocked.exception.message)
         result, _ = await self.create('有任务的项目')
         self.identity = int(result['data']['id'])
         # 用独立项目分别验证任务归属和没有生成任务的项目预算账本。
@@ -136,7 +159,8 @@ class LifecycleTests(unittest.IsolatedAsyncioTestCase):
         async with self.sessions() as db:
             from module_higgsfield.dao.project_dao import ProjectDao
             self.assertIsNone(await ProjectDao.get_project(db, self.owner.user.user_id, self.identity))
-            self.assertEqual(await db.scalar(text("SELECT count(*) FROM hf_audit_log WHERE action='delete'")), 1)
+            self.assertEqual(await db.scalar(text("SELECT count(*) FROM hf_audit_log WHERE action='delete' AND project_id=:project"),
+                                             {'project': self.identity}), 1)
 
     async def test_rename_identity_audit_replay_and_readonly(self):
         key = str(uuid4())

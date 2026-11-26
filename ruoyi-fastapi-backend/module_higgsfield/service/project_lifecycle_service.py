@@ -45,10 +45,10 @@ class ProjectLifecycleService:
                 if role != 'owner' or project.owner_user_id != user.user.user_id:
                     raise PermissionException(message='只有项目 Owner 可以删除空项目')
                 await BudgetDao.lock_subject(db, 'project', identity)
-                blocker = await ProjectDao.deletion_blocker(db, identity, project.owner_user_id)
-                if blocker:
+                blockers = await ProjectDao.deletion_blockers(db, identity, project.owner_user_id)
+                if blockers:
                     hint = '请保留归档状态' if project.status == '2' else '请改用归档项目'
-                    WorkspaceService.conflict('PROJECT_NOT_EMPTY', f'项目已有{blocker}，{hint}。')
+                    WorkspaceService.conflict('PROJECT_NOT_EMPTY', f"项目已有{'、'.join(blockers)}，{hint}。")
             WorkspaceService.check_revision(project, payload.revision)
             sources = {'archive': {'0', '1'}, 'restore': {'2'}, 'rename': {'0'}, 'pause': {'0'}, 'resume': {'1'}, 'delete': {'0', '1', '2'}}
             if project.status not in sources[action]:
