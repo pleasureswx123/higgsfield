@@ -10,6 +10,8 @@ const tick = () => new Promise(resolve => setImmediate(resolve))
 function setup(overrides = {}) {
   const exports = {}, hooks = {}, auth = vue.reactive({ token: 'one', user: { permissions: ['project:read'] } })
   let changed = 0
+  const notifications = [], redirects = [], messages = []
+  const router = { currentRoute: vue.ref({ params: { id: '99' } }), replace: async path => { redirects.push(path) } }
   const api = {
     getProject: async () => ({ data: { id: '99', name: '项目', revision: '7', status: 'active' } }),
     readBrief: async () => ({ data: { allowedActions: ['project:archive'] } }),
@@ -19,15 +21,16 @@ function setup(overrides = {}) {
     exports, AbortController, crypto: { randomUUID }, require(id) {
       if (id === 'vue') return { ...vue, onActivated: fn => { hooks.activate = fn }, onDeactivated: fn => { hooks.deactivate = fn }, onBeforeUnmount: fn => { hooks.unmount = fn } }
       if (id === '@/stores/auth') return { useAuthStore: () => auth }
-      if (id === 'vue-router') return { onBeforeRouteLeave: fn => { hooks.leave = fn }, onBeforeRouteUpdate: fn => { hooks.update = fn } }
+      if (id === '@/stores/projectUpdates') return { useProjectUpdatesStore: () => ({ notify: () => notifications.push('刷新') }) }
+      if (id === 'vue-router') return { useRouter: () => router, onBeforeRouteLeave: fn => { hooks.leave = fn }, onBeforeRouteUpdate: fn => { hooks.update = fn } }
       if (id === '@/api/client') return { ApiError }
-      if (id === 'element-plus') return { ElMessageBox: { confirm: overrides.confirm || (async () => {}) } }
+      if (id === 'element-plus') return { ElMessage: { success: msg => messages.push(msg) }, ElMessageBox: { confirm: overrides.confirm || (async () => {}) } }
       return api
     },
   })
   const scope = vue.effectScope(), state = scope.run(() => exports.useProjectLifecycle(() => changed++))
   state.form.value = { validate: async () => true }
-  return { state, hooks, auth, changed: () => changed, close: () => { hooks.unmount(); scope.stop() } }
+  return { state, hooks, auth, notifications, redirects, messages, changed: () => changed, close: () => { hooks.unmount(); scope.stop() } }
 }
 
 test('归档读取当前修订，校验后只提交一次，不确定结果保持同一请求', async () => {
@@ -172,4 +175,22 @@ test('旧账号的确认不能关闭新账号项目操作', async () => {
   c.auth.token = 'two'; c.state.start({ id: '99' }, 'archive'); await tick()
   resolve(); await closing
   assert.equal(c.state.open.value, true); c.close()
+})
+
+test('Owner 确认删除当前空项目后刷新列表并返回首页', async () => {
+  const calls = []
+  const c = setup({
+    getProject: async () => ({ data: { id: '99', name: '误建项目', currentUserRole: 'owner', status: 'active', revision: '7' } }),
+    changeProjectLifecycle: async (...args) => { calls.push(args); return { data: { id: '99' } } },
+  })
+  c.state.start({ id: '99' }, 'delete'); await tick()
+  assert.equal(calls.length, 0)
+  await c.state.save()
+  assert.equal(calls.length, 1)
+  assert.equal(calls[0][1], 'delete')
+  assert.equal(c.notifications.length, 1)
+  assert.deepEqual(c.redirects, ['/home'])
+  assert.deepEqual(c.messages, ['空项目已删除'])
+  assert.equal(c.state.open.value, false)
+  c.close()
 })
