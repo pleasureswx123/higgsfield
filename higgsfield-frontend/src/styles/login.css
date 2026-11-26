@@ -33,3 +33,6 @@
 @media(min-width:761px) and (max-height:850px) { .login-page.login-showcase { padding-block:32px; } .login-showcase .login-main { min-height:680px; } }
 @media(max-width:1050px) { .login-page.login-showcase { padding:32px; } .login-showcase .login-main { grid-template-columns:48% minmax(0,1fr); } .login-showcase .login-intro { padding:28px; } .login-art-caption { display:none; } .login-panel { padding:24px; } .login-showcase .login-intro h1 { font-size:40px; } }
 @media(max-width:760px) { .login-page.login-showcase { padding:24px 16px; } .login-backdrop { width:100%; clip-path:none; } .login-showcase .login-main { display:block; min-height:0; max-width:440px; padding:8px; border-radius:28px; } .login-showcase .login-intro { display:none; } .login-panel { min-height:640px; padding:20px 18px; } .login-showcase .login-card { margin:64px auto 40px; } .login-showcase .login-card h2 { font-size:32px; } .login-showcase .login-footer { margin-top:auto; } }
+
+.login-remember { display:flex; align-items:center; gap:8px; margin:0 0 12px; color:var(--foreground); }
+.login-remember label { cursor:pointer; font-size:13px; }

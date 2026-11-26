@@ -1,11 +1,37 @@
 import { ref, reactive, computed, onMounted } from 'vue'
+import { ElMessage } from 'element-plus'
 import type { FormInstance, FormRules } from 'element-plus'
 import { useRoute, useRouter } from 'vue-router'
 import { getCaptcha } from '@/api/auth'
 import { useAuthStore } from '@/stores/auth'
+import { forgetLogin, readRememberedLogin, rememberLogin, rememberPeriod } from '@/utils/rememberedLogin'
+
 export function useLogin() {
   const form = ref<FormInstance>()
   const values = reactive({ username: '', password: '', code: '', uuid: '' })
+  const remember = ref(false)
+  let savedIdentity: { username: string; expires: number } | undefined
+  let rememberTouched = false
+  function setRemember(checked: boolean | 'indeterminate') {
+    rememberTouched = true
+    remember.value = checked === true
+    if (!remember.value) {
+      savedIdentity = undefined
+      try { forgetLogin() } catch { ElMessage.warning('浏览器限制存储，请在浏览器设置中清除本网站数据。') }
+    }
+  }
+  async function restoreCredentials() {
+    try {
+      const saved = await readRememberedLogin()
+      if (saved && !rememberTouched && !pending.value && (!values.username || values.username === saved.username)
+        && (!values.password || values.password === saved.password)) {
+        savedIdentity = { username: saved.username, expires: saved.expires }
+        values.username = saved.username
+        values.password = saved.password
+        remember.value = true
+      }
+    } catch { /* 禁用浏览器存储时仍可手动登录。 */ }
+  }
   const captchaEnabled = ref(true),
     captchaImage = ref(''),
     captchaLoading = ref(false),
@@ -46,10 +72,24 @@ export function useLogin() {
   async function submit() {
     if (pending.value || !ready.value) return
     if (!(await form.value?.validate().catch(() => false))) return
+    if (pending.value) return
     pending.value = true
+    rememberTouched = true
     error.value = ''
     try {
-      await auth.signIn(values)
+      const input = { ...values, username: values.username.trim() }
+      const expires = savedIdentity?.username === input.username && savedIdentity.expires > Date.now()
+        ? savedIdentity.expires : Date.now() + rememberPeriod
+      await auth.signIn(input)
+      try {
+        if (remember.value) {
+          await rememberLogin({ username: input.username, password: input.password }, expires)
+          await auth.rememberSession(expires)
+        }
+        else forgetLogin()
+      } catch {
+        ElMessage.warning('已登录，但浏览器未能保存本次记住密码设置。')
+      }
       values.password = ''
       const redirect = typeof route.query.redirect === 'string' ? route.query.redirect : '/home'
       await router.replace(
@@ -76,10 +116,13 @@ export function useLogin() {
       }
     } finally { pending.value = false }
   }
+  onMounted(restoreCredentials)
   onMounted(refreshCaptcha)
   return {
     form,
     values,
+    remember,
+    setRemember,
     rules,
     captchaEnabled,
     captchaImage,

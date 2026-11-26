@@ -3,6 +3,7 @@ import { ElForm, ElFormItem } from 'element-plus'
 import { ref, reactive } from 'vue'
 import { Card, CardHeader, CardContent, CardTitle, CardDescription } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
+import { Checkbox } from '@/components/ui/checkbox'
 import { Label } from '@/components/ui/label'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import Button from '@/components/ui/Button.vue'
@@ -13,6 +14,8 @@ import { useLogin } from '@/composables/useLogin'
 const {
   form,
   values,
+  remember,
+  setRemember,
   rules,
   captchaEnabled,
   captchaImage,
@@ -69,13 +72,13 @@ function trackValidation(field: string | string[], valid: boolean, message: stri
           <ElForm ref="form" :model="values" :rules="rules" label-position="top" @validate="trackValidation" @submit.prevent="submit">
             <Label for="login-username" class="login-label">账号</Label>
             <ElFormItem prop="username">
-              <Input id="login-username" v-model="values.username" autocomplete="username" placeholder="请输入账号" :disabled="pending" aria-required="true" :aria-invalid="!!fieldErrors.username" :aria-describedby="fieldErrors.username ? 'login-username-error' : undefined" @blur="validateField('username')" />
+              <Input name="username" id="login-username" v-model="values.username" autocomplete="username" placeholder="请输入账号" :disabled="pending" aria-required="true" :aria-invalid="!!fieldErrors.username" :aria-describedby="fieldErrors.username ? 'login-username-error' : undefined" @blur="validateField('username')" />
               <template #error="{ error: message }"><span id="login-username-error" class="el-form-item__error" role="alert">{{ message }}</span></template>
             </ElFormItem>
             <Label for="login-password" class="login-label">密码</Label>
             <ElFormItem prop="password">
               <div class="login-password">
-                <Input id="login-password" v-model="values.password" :type="passwordVisible ? 'text' : 'password'" autocomplete="current-password" placeholder="请输入密码" :disabled="pending" aria-required="true" :aria-invalid="!!fieldErrors.password" :aria-describedby="fieldErrors.password ? 'login-password-error' : undefined" @blur="validateField('password')" />
+                <Input name="password" id="login-password" v-model="values.password" :type="passwordVisible ? 'text' : 'password'" autocomplete="current-password" placeholder="请输入密码" :disabled="pending" aria-required="true" :aria-invalid="!!fieldErrors.password" :aria-describedby="fieldErrors.password ? 'login-password-error' : undefined" @blur="validateField('password')" />
                 <Button type="button" variant="ghost" class="login-password-toggle" :disabled="pending" :aria-label="passwordVisible ? '隐藏密码' : '显示密码'" :aria-pressed="passwordVisible" @click="passwordVisible = !passwordVisible"><IconEyeOff v-if="passwordVisible" :size="17" /><IconEye v-else :size="17" /></Button>
               </div>
               <template #error="{ error: message }"><span id="login-password-error" class="el-form-item__error" role="alert">{{ message }}</span></template>
@@ -92,6 +95,10 @@ function trackValidation(field: string | string[], valid: boolean, message: stri
                 <template #error="{ error: message }"><span id="login-code-error" class="el-form-item__error" role="alert">{{ message }}</span></template>
               </ElFormItem>
             </template>
+            <div class="login-remember">
+              <Checkbox id="remember-login" :model-value="remember" :disabled="pending" @update:model-value="setRemember" />
+              <Label for="remember-login">在此设备记住账号和密码</Label>
+            </div>
             <Button type="submit" class="login-submit" :disabled="pending || !ready || captchaLoading" :aria-busy="pending"><IconLoader2 v-if="pending" :size="18" class="animate-spin" />{{ pending ? '正在登录' : '登录并开始创作' }}<IconArrowRight v-if="!pending" :size="18" /></Button>
             <Button v-if="!ready && !captchaLoading" type="button" variant="ghost" @click="refreshCaptcha">重新连接服务</Button>
           </ElForm>

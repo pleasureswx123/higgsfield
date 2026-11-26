@@ -1,4 +1,4 @@
-import { createApp } from 'vue'
+import { createApp, watch } from 'vue'
 import { createPinia } from 'pinia'
 import 'element-plus/theme-chalk/base.css'
 import 'element-plus/theme-chalk/el-form.css'
@@ -28,6 +28,7 @@ import './styles/action-menus.css'
 import './styles/controls.css'
 import App from './App.vue'
 import { router } from './router'
+import { deviceSessionKey } from '@/utils/rememberedLogin'
 import { configureAuth } from './api/client'
 import { useAuthStore } from './stores/auth'
 const app = createApp(App)
@@ -35,11 +36,14 @@ app.use(createPinia())
 const auth = useAuthStore()
 configureAuth(
   () => auth.token,
-  () => {
-    auth.clear()
-    // 首次导航由路由守卫保留原始深层地址。
-    if (router.currentRoute.value.matched.length && router.currentRoute.value.path !== '/login')
-      void router.replace({ path: '/login', query: { redirect: router.currentRoute.value.fullPath } })
-  },
+  () => auth.clear(),
 )
+// 其他标签页退出或切换设备会话时，重新读取当前凭据与权限。
+window.addEventListener('storage', event => {
+  if ((event.key === deviceSessionKey || event.key === null) && auth.usesDeviceSession()) window.location.reload()
+})
+watch(() => auth.token, token => {
+  const route = router.currentRoute.value
+  if (!token && route.meta.requiresAuth) void router.replace({ path: '/login', query: { redirect: route.fullPath } })
+})
 app.use(router).mount('#app')

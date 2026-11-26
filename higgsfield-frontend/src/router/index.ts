@@ -44,9 +44,13 @@ export const router = createRouter({
 router.beforeEach(async (to) => {
   const auth = useAuthStore()
   await auth.restoreSession()
-  if (to.meta.requiresAuth && !auth.isAuthenticated)
+  if (to.meta.requiresAuth && !auth.isAuthenticated && !auth.restoreError)
     return { path: '/login', query: { redirect: to.fullPath } }
-  if (to.path === '/login' && auth.isAuthenticated) return '/home'
+  if (to.path === '/login' && auth.isAuthenticated) {
+    const redirect = to.query?.redirect
+    return typeof redirect === 'string' && redirect.startsWith('/') && !redirect.startsWith('//')
+      && !redirect.startsWith('/login') ? redirect : '/home'
+  }
 })
 router.afterEach((to) => {
   document.title = `${to.meta.title || '登录'} · Nightmare Theatre`

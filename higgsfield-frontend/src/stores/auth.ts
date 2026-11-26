@@ -4,7 +4,9 @@ import * as api from '@/api/auth'
 import { clearCommentRecovery } from '@/utils/commentRecovery'
 import { clearGenerationRecovery } from '@/utils/generationRecovery'
 
-// 制作端独立、标签页级会话；不保存密码或用户权限快照。
+import { readDeviceSession, removeDeviceSession, writeDeviceSession } from '@/utils/rememberedLogin'
+
+// 普通登录保存在标签页；主动记住的设备会话单独加密保存。
 const sessionKey = 'higgsfield.studio.session-token'
 function readSession() {
   try { return sessionStorage.getItem(sessionKey) || '' } catch { return '' }
@@ -22,7 +24,33 @@ export const useAuthStore = defineStore('studio-auth', () => {
   const isAuthenticated = computed(() => Boolean(token.value && user.value))
   let epoch = 0
   let restoration: Promise<void> | undefined
+  let deviceId = ''
+  let deadline = 0
+  let timer: ReturnType<typeof setTimeout> | undefined
+  function trackDevice(id: string, expires: number) {
+    deviceId = id
+    deadline = expires
+    clearTimeout(timer)
+    timer = setTimeout(clear, Math.max(0, expires - Date.now()))
+  }
+  async function rememberSession(expires: number) {
+    const stamp = epoch
+    if (!isAuthenticated.value) return
+    const id = await writeDeviceSession(token.value, expires)
+    if (stamp !== epoch) { removeDeviceSession(id); return }
+    trackDevice(id, expires)
+    saveSession('')
+  }
+  function discardDevice() {
+    clearTimeout(timer)
+    if (deviceId) {
+      try { removeDeviceSession(deviceId) } catch { /* 存储受限时仍要退出当前会话。 */ }
+    }
+    deviceId = ''
+    deadline = 0
+  }
   function clear() {
+    discardDevice()
     epoch++
     clearGenerationRecovery()
     clearCommentRecovery()
@@ -32,11 +60,19 @@ export const useAuthStore = defineStore('studio-auth', () => {
     saveSession('')
   }
   async function restoreSession() {
-    if (isAuthenticated.value || !token.value) return
+    if (deadline && deadline <= Date.now()) clear()
+    if (isAuthenticated.value) return
     if (restoration) return restoration
-    const stamp = epoch, credential = token.value
+    const stamp = epoch
     restoreError.value = ''
     const pending = (async () => {
+      if (!token.value) {
+        const saved = await readDeviceSession().catch(() => undefined)
+        if (!saved || epoch !== stamp) return
+        trackDevice(saved.id, saved.expires)
+        token.value = saved.token
+      }
+      const credential = token.value
       try {
         const result = await api.getUserInfo()
         if (epoch === stamp && token.value === credential) user.value = result
@@ -69,8 +105,9 @@ export const useAuthStore = defineStore('studio-auth', () => {
   async function signOut() {
     // 先使旧恢复请求失效，保留令牌直到退出请求发送完成。
     const stamp = ++epoch
+    discardDevice()
     saveSession('')
     try { await api.logout() } finally { if (stamp === epoch) clear() }
   }
-  return { token, user, isAuthenticated, restoreError, restoreSession, clear, signIn, signOut }
+  return { token, user, isAuthenticated, restoreError, restoreSession, clear, signIn, signOut, rememberSession, usesDeviceSession: () => Boolean(deviceId) }
 })

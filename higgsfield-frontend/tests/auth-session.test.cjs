@@ -4,10 +4,15 @@ const { readFileSync } = require('node:fs')
 const { runInNewContext } = require('node:vm')
 const ts = require('typescript'), vue = require('vue')
 const key = 'higgsfield.studio.session-token'
-function setup(storage = new Map(), api = {}) {
+function setup(storage = new Map(), api = {}, device = new Map()) {
   const exports = {}
   const code = ts.transpileModule(readFileSync('src/stores/auth.ts','utf8'), { compilerOptions:{ module:ts.ModuleKind.CommonJS } }).outputText
-  runInNewContext(code, { exports, Error, sessionStorage:{getItem:k=>storage.get(k),setItem:(k,v)=>storage.set(k,v),removeItem:k=>storage.delete(k)}, require(id) {
+  runInNewContext(code, { exports, Error, setTimeout, clearTimeout, sessionStorage:{getItem:k=>storage.get(k),setItem:(k,v)=>storage.set(k,v),removeItem:k=>storage.delete(k)}, require(id) {
+    if(id==='@/utils/rememberedLogin') return {
+      readDeviceSession:async()=>device.get('active'),
+      writeDeviceSession:async(token,expires)=>{device.set('active',{id:token,token,expires});return token},
+      removeDeviceSession:id=>{if(device.get('active')?.id===id)device.delete('active')},
+    }
     if(id==='vue') return vue
     if(id==='pinia') return {defineStore:(_id,fn)=>fn}
     if(id==='@/api/auth') return {getUserInfo:async()=>({user:{userId:1},permissions:['project:read']}),logout:async()=>{},...api}
@@ -70,4 +75,29 @@ test('刷新深层项目地址先等待会话恢复，失效时保留完整回�
  auth.isAuthenticated=false;auth.restoreSession=async()=>{}
  const result=await guard(target)
  assert.equal(result.path,'/login');assert.equal(result.query.redirect,target.fullPath)
+})
+
+test('勾选后关闭标签页仍能恢复，首次恢复时由服务端验证，手动退出清除设备会话',async()=>{
+ const device=new Map(),tab=new Map(),expires=Date.now()+60000
+ const first=setup(tab,{login:async()=>({token:'device-token'})},device)
+ await first.signIn({});await first.rememberSession(expires)
+ assert.equal(tab.size,0)
+ let reads=0
+ const next=setup(new Map(),{getUserInfo:async()=>{reads++;return {user:{userId:1}}}},device)
+ await Promise.all([next.restoreSession(),next.restoreSession()])
+ assert.equal(reads,1);assert.equal(next.isAuthenticated.value,true)
+ assert.equal(device.get('active').expires,expires)
+ await next.signOut()
+ const reopened=setup(new Map(),{},device)
+ await reopened.restoreSession();assert.equal(reopened.token.value,'')
+ first.clear()
+})
+
+test('设备会话服务端返回401时移除，临时断网则保留并能重试',async()=>{
+ const device=new Map([['active',{token:'saved',id:'saved',expires:Date.now()+60000}]])
+ let failure={code:503}
+ const state=setup(new Map(),{getUserInfo:async()=>{throw failure}},device)
+ await state.restoreSession();assert.ok(state.restoreError.value);assert.equal(device.size,1)
+ failure={code:401}
+ await state.restoreSession();assert.equal(state.token.value,'');assert.equal(device.size,0)
 })
