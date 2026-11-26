@@ -82,6 +82,34 @@ class ProjectDao:
         return space_id, count
 
     @staticmethod
+    async def deletion_blocker(db, project_id, owner_id):
+        """调用方持有项目行锁。默认空间与初始简报不算内容，回收站和历史任务仍受保护。"""
+        return await db.scalar(text("""
+            WITH spaces AS (SELECT space_id FROM hf_asset_space WHERE project_id = :project)
+            SELECT CASE
+                WHEN EXISTS (SELECT 1 FROM hf_project_member WHERE project_id = :project
+                             AND status = '0' AND user_id <> :owner) THEN '其他成员'
+                WHEN EXISTS (SELECT 1 FROM hf_creation_job WHERE project_id = :project)
+                    THEN '生成任务或关联费用记录'
+                WHEN EXISTS (SELECT 1 FROM hf_budget b JOIN hf_budget_period p USING (budget_id)
+                             JOIN hf_budget_ledger_entry e USING (period_id) WHERE b.project_id = :project)
+                    THEN '预算账本记录'
+                WHEN EXISTS (SELECT 1 FROM hf_project_brief WHERE project_id = :project
+                             AND (revision > 1 OR COALESCE(body->'content', '[]'::jsonb) <> '[]'::jsonb))
+                  OR EXISTS (SELECT 1 FROM hf_folder WHERE space_id IN (SELECT space_id FROM spaces))
+                  OR EXISTS (SELECT 1 FROM hf_asset WHERE space_id IN (SELECT space_id FROM spaces))
+                  OR EXISTS (SELECT 1 FROM hf_folder_entry WHERE space_id IN (SELECT space_id FROM spaces))
+                  OR EXISTS (SELECT 1 FROM hf_element WHERE space_id IN (SELECT space_id FROM spaces))
+                  OR EXISTS (SELECT 1 FROM hf_property_definition WHERE space_id IN (SELECT space_id FROM spaces))
+                  OR EXISTS (SELECT 1 FROM hf_prompt_draft WHERE project_id = :project)
+                  OR EXISTS (SELECT 1 FROM hf_upload_session WHERE project_id = :project)
+                  OR EXISTS (SELECT 1 FROM hf_import_job WHERE project_id = :project)
+                  OR EXISTS (SELECT 1 FROM hf_recycle_entry WHERE project_id = :project)
+                    THEN '制作内容或制作记录'
+            END
+        """), {'project': project_id, 'owner': owner_id})
+
+    @staticmethod
     async def acquire_creation_lock(db, user_id, key):
         # 同一事务内完成本地写入；崩溃即整体回滚，无需持久化外部执行租约。
         lock_id = int.from_bytes(sha256(f'{user_id}:/api/v1:POST:/projects:{key}'.encode()).digest()[:8], signed=True)

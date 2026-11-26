@@ -48,8 +48,13 @@ class LifecycleTests(unittest.IsolatedAsyncioTestCase):
 
     async def asyncSetUp(self):
         await projects.ProjectDatabaseTests.asyncSetUp(self)
+        await self.migrate('20261027_16_audit.py', '20261028_74_project_lifecycle.py', '20261028_75_project_manage.py')
+        result, _ = await self.create()
+        self.identity = int(result['data']['id'])
+
+    async def migrate(self, *filenames):
         async with self.engine.begin() as conn:
-            for filename in ('20261027_16_audit.py', '20261028_74_project_lifecycle.py', '20261028_75_project_manage.py'):
+            for filename in filenames:
                 spec = importlib.util.spec_from_file_location('lifecycle_migration',
                     Path(__file__).resolve().parents[1] / 'alembic/versions' / filename)
                 module = importlib.util.module_from_spec(spec)
@@ -58,8 +63,6 @@ class LifecycleTests(unittest.IsolatedAsyncioTestCase):
                     with Operations.context(MigrationContext.configure(sync)):
                         module.upgrade()
                 await conn.run_sync(migrate)
-        result, _ = await self.create()
-        self.identity = int(result['data']['id'])
 
     async def change(self, action, revision, *, key=None, user=None, reason='项目完结'):
         model = {'archive': ProjectArchive, 'pause': ProjectPause}.get(action, ProjectRestore)
@@ -72,6 +75,68 @@ class LifecycleTests(unittest.IsolatedAsyncioTestCase):
         async with self.sessions() as db:
             return await ProjectLifecycleService.change(db, user or self.owner, self.identity, 'rename',
                 ProjectUpdate(name=name, revision=str(revision)), key or str(uuid4()))
+
+    async def test_delete_empty_project_checks_contents_owner_and_replay(self):
+        await self.migrate('20261027_04_folders.py', '20261027_06_assets.py', '20261027_07_elements.py',
+                           '20261027_12_drafts.py', '20261027_27_budgets.py', '20261027_29_jobs_outbox.py',
+                           '20261028_66_element_imports.py')
+        key = str(uuid4())
+        async with self.sessions() as db:
+            await projects.add_producer(db, self.owner, self.identity)
+        with self.assertRaises(PermissionException):
+            await self.change('delete', 1, user=self.other)
+        with self.assertRaises(ServiceWarning) as blocked:
+            await self.change('delete', 1)
+        self.assertIn('其他成员', blocked.exception.message)
+        async with self.sessions() as db:
+            await db.execute(text("UPDATE hf_project_member SET status='1' WHERE user_id=2"))
+            await db.execute(text("""INSERT INTO hf_folder
+                (space_id, folder_name, normalized_name, del_flag, create_time, update_time)
+                SELECT space_id, '已删除目录', '已删除目录', '2', now(), now() FROM hf_asset_space"""))
+            await db.commit()
+        with self.assertRaises(ServiceWarning) as blocked:
+            await self.change('delete', 1)
+        self.assertIn('归档', blocked.exception.message)
+        result, _ = await self.create('有任务的项目')
+        self.identity = int(result['data']['id'])
+        # 用独立项目分别验证任务归属和没有生成任务的项目预算账本。
+        async with self.sessions() as db:
+            await db.execute(text("""INSERT INTO hf_creation_job
+                (project_id, actor_id, department_snapshot, kind, idempotency_key, request_hash,
+                 model_version_id, model_variant_id, credential_version_id, platform_price_version_id,
+                 input_snapshot, create_time, update_time)
+                VALUES (:project, 1, '{}', 'image', 'job-test', repeat('a',64), 1, 1, 1, 1, '{}', now(), now())"""),
+                {'project': self.identity})
+            await db.commit()
+        with self.assertRaises(ServiceWarning) as blocked:
+            await self.change('delete', 1)
+        self.assertIn('生成任务', blocked.exception.message)
+        result, _ = await self.create('有账本的项目')
+        self.identity = int(result['data']['id'])
+        async with self.sessions() as db:
+            await db.execute(text("""WITH budget AS (
+                INSERT INTO hf_budget (project_id,purpose,currency,cycle_kind,business_timezone,create_time,update_time)
+                VALUES (:project,'platform','CNY','total','Asia/Shanghai',now(),now()) RETURNING budget_id
+            ), period AS (
+                INSERT INTO hf_budget_period (budget_id,period_start,limit_amount,create_time,update_time)
+                SELECT budget_id,now(),100,now(),now() FROM budget RETURNING period_id
+            ) INSERT INTO hf_budget_ledger_entry
+                (period_id,business_event_key,entry_type,reserved_delta,consumed_delta,limit_delta,reason,create_time,update_time)
+                SELECT period_id,'test-limit','change_limit',0,0,100,'初始额度',now(),now() FROM period"""),
+                {'project': self.identity})
+            await db.commit()
+        with self.assertRaises(ServiceWarning) as blocked:
+            await self.change('delete', 1)
+        self.assertIn('账本', blocked.exception.message)
+        result, _ = await self.create('空项目')
+        self.identity = int(result['data']['id'])
+        deleted, repeated = await self.change('delete', 1, key=key)
+        self.assertFalse(repeated)
+        self.assertEqual(await self.change('delete', 1, key=key), (deleted, True))
+        async with self.sessions() as db:
+            from module_higgsfield.dao.project_dao import ProjectDao
+            self.assertIsNone(await ProjectDao.get_project(db, self.owner.user.user_id, self.identity))
+            self.assertEqual(await db.scalar(text("SELECT count(*) FROM hf_audit_log WHERE action='delete'")), 1)
 
     async def test_rename_identity_audit_replay_and_readonly(self):
         key = str(uuid4())

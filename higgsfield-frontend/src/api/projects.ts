@@ -47,7 +47,7 @@ export const createProject = (name: string, key: string) =>
     headers: { 'Idempotency-Key': key },
   })
 
-export const changeProjectLifecycle = (id: string, action: 'archive' | 'restore' | 'rename' | 'pause' | 'resume',
+export const changeProjectLifecycle = (id: string, action: 'archive' | 'restore' | 'rename' | 'pause' | 'resume' | 'delete',
   data: { revision: string; reason?: string; name?: string }, key: string, signal?: AbortSignal) =>
   request<{ code: number; data: Project }>({
     url: `/api/v1/projects/${encodeURIComponent(id)}${action === 'rename' ? '' : `/${action}`}`,

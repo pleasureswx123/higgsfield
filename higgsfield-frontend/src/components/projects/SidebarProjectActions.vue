@@ -36,8 +36,8 @@ async function selectHidden() {
       <DropdownMenuItem :disabled="checking || !canEdit || busy || retry" @select="lifecycle?.start(project, 'rename')"><IconPencil :size="18" />编辑名称</DropdownMenuItem>
       <DropdownMenuItem :disabled="busy || retry" @select="selectHidden"><component :is="hidden ? IconEye : IconEyeOff" :size="18" />{{ hidden ? '取消隐藏' : '隐藏' }}</DropdownMenuItem>
       <p v-if="error" class="project-action-message" role="alert">{{ error }}</p>
-      <DropdownMenuSeparator />
-      <DropdownMenuItem disabled class="project-action-delete"><IconTrash :size="18" />删除</DropdownMenuItem>
+      <DropdownMenuSeparator v-if="project.currentUserRole === 'owner'" />
+      <DropdownMenuItem v-if="project.currentUserRole === 'owner'" :disabled="busy || retry || project.status === 'pending_delete'" class="project-action-delete" @select="lifecycle?.start(project, 'delete')"><IconTrash :size="18" />删除</DropdownMenuItem>
     </DropdownMenuContent>
   </DropdownMenu>
   <ProjectLifecycleDialog v-if="!restoreOnly" ref="lifecycle" @changed="updates.notify" />

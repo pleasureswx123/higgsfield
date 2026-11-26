@@ -123,6 +123,7 @@ watch(
         <DropdownMenuSeparator v-if="canManageProject && canArchiveProject" />
         <DropdownMenuItem v-if="canArchiveProject && project.status !== 'archived'" class="project-archive-action" @select="lifecycle?.start(project, 'archive')">归档项目</DropdownMenuItem>
         <DropdownMenuItem v-if="canArchiveProject && project.status === 'archived'" @select="lifecycle?.start(project, 'restore')">恢复项目</DropdownMenuItem>
+        <DropdownMenuItem v-if="project.currentUserRole === 'owner' && project.status !== 'pending_delete'" @select="lifecycle?.start(project, 'delete')">删除空项目</DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>
       </div>

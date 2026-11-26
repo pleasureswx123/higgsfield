@@ -6,9 +6,10 @@ import type { Project } from '@/api/projects'
 import { useProjectLifecycle } from '@/composables/useProjectLifecycle'
 import Button from '@/components/ui/Button.vue'
 const emit = defineEmits<{ changed: [project: Project] }>()
-const { open, target, action, form, fields, rules, loading, saving, uncertain, ready, locked, error, start, close, load, save } =
+const { suggestArchive, open, target, action, form, fields, rules, loading, saving, uncertain, ready, locked, error, start, close, load, save } =
   useProjectLifecycle(project => emit('changed', project))
 const presentation = computed(() => ({
+  delete: { title: '删除空项目？', label: '', submit: '确认删除', help: '仅可删除没有其他成员、制作内容、生成任务或费用记录的项目。删除后无法在回收站恢复。' },
   rename: { title: '编辑项目名称', label: '', submit: '保存名称', help: '' },
   archive: { title: '归档项目', label: '归档原因', submit: '确认归档', help: '适用于已结束的项目。归档后所有成员仅可查看，素材和历史记录保留，已受理的生成任务不会取消。之后可恢复项目。' },
   restore: { title: '恢复项目', label: '恢复原因（可选）', submit: '确认恢复', help: '项目将恢复为进行中，成员可按权限继续创作和编辑，不会重新提交旧任务。' },
@@ -32,14 +33,15 @@ defineExpose({ start })
       <ElFormItem v-if="action === 'rename'" label="项目名称" prop="name">
         <ElInput v-model="fields.name" :maxlength="200" show-word-limit />
       </ElFormItem>
-      <ElFormItem v-else :label="presentation.label" prop="reason">
+      <ElFormItem v-else-if="action !== 'delete'" :label="presentation.label" prop="reason">
         <ElInput v-model="fields.reason" type="textarea" :rows="3" :maxlength="4000" show-word-limit />
       </ElFormItem>
     </ElForm>
     <template #footer>
       <Button variant="ghost" :disabled="locked" @click="close">取消</Button>
-      <Button v-if="!ready && !locked" variant="outline" :disabled="loading" @click="load()">重新核对</Button>
-      <Button :disabled="saving || loading || !ready" @click="save">{{ saving ? '正在处理…' : uncertain ? '重试同一请求' : presentation.submit }}</Button>
+      <Button v-if="suggestArchive && target" @click="start(target, 'archive')">去归档</Button>
+      <Button v-else-if="!ready && !locked" variant="outline" :disabled="loading" @click="load()">重新核对</Button>
+      <Button v-if="!suggestArchive" :disabled="saving || loading || !ready" @click="save">{{ saving ? '正在处理…' : uncertain ? '重试同一请求' : presentation.submit }}</Button>
     </template>
   </ElDialog>
 </template>

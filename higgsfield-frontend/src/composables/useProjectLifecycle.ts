@@ -1,15 +1,19 @@
 import { ref, reactive, computed, watch, onBeforeUnmount, onDeactivated, onActivated } from 'vue'
-import { onBeforeRouteLeave, onBeforeRouteUpdate } from 'vue-router'
+import { onBeforeRouteLeave, onBeforeRouteUpdate, useRouter } from 'vue-router'
 import type { FormInstance, FormRules } from 'element-plus'
-import { ElMessageBox } from 'element-plus'
+import { ElMessage, ElMessageBox } from 'element-plus'
 import { getProject, changeProjectLifecycle, type Project } from '@/api/projects'
 import { readBrief } from '@/api/projectWorkspace'
 import { ApiError } from '@/api/client'
 import { useAuthStore } from '@/stores/auth'
 
+import { useProjectUpdatesStore } from '@/stores/projectUpdates'
+
 export function useProjectLifecycle(changed: (project: Project) => void) {
   const auth = useAuthStore(), open = ref(false), target = ref<Project | null>(null)
-  type Action = 'archive' | 'restore' | 'rename' | 'pause' | 'resume'
+  const router = useRouter(), updates = useProjectUpdatesStore()
+  const suggestArchive = ref(false)
+  type Action = 'archive' | 'restore' | 'rename' | 'pause' | 'resume' | 'delete'
   const action = ref<Action>('archive'), form = ref<FormInstance>()
   const loading = ref(false), saving = ref(false), uncertain = ref(false), ready = ref(false), error = ref('')
   const fields = reactive({ reason: '', name: '' })
@@ -39,8 +43,8 @@ export function useProjectLifecycle(changed: (project: Project) => void) {
       target.value = project.data
       if (refreshName) { fields.name = project.data.name; initialName.value = project.data.name }
       const permission = ['archive', 'restore'].includes(action.value) ? 'project:archive' : 'project:manage'
-      if (!brief.data.allowedActions.includes(permission)) throw new Error('当前没有执行此项目操作的权限')
-      const sources: Record<Action, string[]> = { rename: ['active'], archive: ['active', 'paused'], restore: ['archived'], pause: ['active'], resume: ['paused'] }
+      if (action.value === 'delete' ? project.data.currentUserRole !== 'owner' : !brief.data.allowedActions.includes(permission)) throw new Error('当前没有执行此项目操作的权限')
+      const sources: Record<Action, string[]> = { rename: ['active'], archive: ['active', 'paused'], restore: ['archived'], pause: ['active'], resume: ['paused'], delete: ['active', 'paused', 'archived'] }
       if (!sources[action.value].includes(project.data.status))
         throw new Error('项目状态已变化，请关闭窗口后刷新项目')
       ready.value = true
@@ -50,6 +54,7 @@ export function useProjectLifecycle(changed: (project: Project) => void) {
   }
   function start(project: Project, value: Action) {
     if (!active || locked.value) return
+    suggestArchive.value = false
     target.value = { ...project }; action.value = value; fields.reason = ''; fields.name = project.name; initialName.value = project.name; open.value = true
     void load(true)
   }
@@ -84,10 +89,16 @@ export function useProjectLifecycle(changed: (project: Project) => void) {
     try {
       const result = await changeProjectLifecycle(current.id, current.action, current.data, current.key, writer.signal)
       if (ticket !== epoch || !active) return
-      intent = undefined; uncertain.value = false; saving.value = false; dismiss(); changed(result.data)
+      intent = undefined; uncertain.value = false; saving.value = false; dismiss()
+      if (current.action === 'delete') {
+        updates.notify()
+        ElMessage.success('空项目已删除')
+        if (router.currentRoute.value.params.id === current.id) void router.replace('/home')
+      } else changed(result.data)
     } catch (cause) {
       if (ticket !== epoch || !active) return
       const definite = cause instanceof ApiError && ((cause.code === 601 && cause.errorCode !== 'IDEMPOTENCY_IN_PROGRESS') || (cause.code >= 400 && cause.code < 500))
+      suggestArchive.value = cause instanceof ApiError && cause.errorCode === 'PROJECT_NOT_EMPTY' && target.value?.status !== 'archived'
       if (definite) { intent = undefined; uncertain.value = false; ready.value = false }
       error.value = cause instanceof Error ? cause.message : '操作结果尚未确认，请重试同一请求'
     } finally { if (ticket === epoch) saving.value = false }
@@ -103,5 +114,5 @@ export function useProjectLifecycle(changed: (project: Project) => void) {
   onDeactivated(() => { active = false; epoch++; reader?.abort(); writer?.abort(); saving.value = false; loading.value = false })
   onActivated(() => { active = true; if (open.value && !uncertain.value) void load() })
   onBeforeUnmount(clear)
-  return { open, target, action, form, fields, rules, loading, saving, uncertain, ready, locked, error, start, close, load, save }
+  return { suggestArchive, open, target, action, form, fields, rules, loading, saving, uncertain, ready, locked, error, start, close, load, save }
 }

@@ -144,3 +144,18 @@ async def resume_project(
     result, replayed = await ProjectLifecycleService.change(db, user, project_id, 'resume', payload, key)
     return JSONResponse(content=result, headers={'Idempotent-Replayed': 'true'} if replayed else None)
 
+
+@project_controller.post('/{project_id}/delete', response_model=DataResponseModel[ProjectModel],
+    summary='删除空项目', dependencies=[UserInterfaceAuthDependency('project:read')])
+@Log(title='制作平台删除空项目', business_type=BusinessType.DELETE)
+async def delete_empty_project(
+    request: Request,
+    project_id: Annotated[int, Path(gt=0, le=9223372036854775807)],
+    payload: ProjectRestore,
+    key: Annotated[str, Header(alias='Idempotency-Key', min_length=16, max_length=128, pattern=r'^[ -~]+$')],
+    db: Annotated[AsyncSession, DBSessionDependency()],
+    user: Annotated[CurrentUserModel, CurrentUserDependency()],
+) -> Response:
+    result, replayed = await ProjectLifecycleService.change(db, user, project_id, 'delete', payload, key)
+    return JSONResponse(content=result, headers={'Idempotent-Replayed': 'true'} if replayed else None)
+
