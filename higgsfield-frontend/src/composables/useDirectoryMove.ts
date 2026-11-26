@@ -53,7 +53,7 @@ export function useDirectoryMove(
     createUncertain = ref(false),
     createOpen = ref(false)
   const createForm = ref<FormInstance>()
-  const newFolder = reactive({ name: '', description: '', color: 'lime' as FolderColor })
+  const newFolder = reactive({ name: '', description: '', color: 'slate' as FolderColor })
   const createDirty = computed(
     () =>
       createOpen.value &&
@@ -80,7 +80,7 @@ export function useDirectoryMove(
     creating.value = false
     createUncertain.value = false
     createOpen.value = false
-    Object.assign(newFolder, { name: '', description: '', color: 'lime' })
+    Object.assign(newFolder, { name: '', description: '', color: 'slate' })
     q.value = ''
     appliedQuery.value = ''
     sort.value = 'nameAsc'
@@ -252,7 +252,7 @@ export function useDirectoryMove(
     )
       return
     createInteraction++
-    Object.assign(newFolder, { name: '', description: '', color: 'lime' })
+    Object.assign(newFolder, { name: '', description: '', color: 'slate' })
     createOpen.value = true
     createForm.value?.clearValidate()
   }

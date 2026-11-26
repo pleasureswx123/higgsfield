@@ -103,9 +103,9 @@ defineExpose({ open, openMany, locked })
         ><ElSelect v-model="newFolder.color">
           <ElOption
             v-for="option in [
+              { value: 'slate', label: '岩灰' },
               { value: 'lime', label: '青柠' },
               { value: 'cyan', label: '青色' },
-              { value: 'slate', label: '灰蓝' },
               { value: 'violet', label: '蓝紫' },
               { value: 'purple', label: '紫色' },
               { value: 'pink', label: '粉色' },

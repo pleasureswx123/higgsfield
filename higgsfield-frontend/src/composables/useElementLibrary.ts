@@ -74,7 +74,7 @@ export function useElementLibrary(projectId: string, rows: Ref<ElementRecord[]>,
   async function addFolder(name: string) {
     if (creating.value) return
     creating.value = true; error.value = ''
-    try { await createFolder(projectId, { name, description: '', color: 'lime', parentId: null, folderKind: 'element' }, crypto.randomUUID()); await loadFolders() }
+    try { await createFolder(projectId, { name, description: '', color: 'slate', parentId: null, folderKind: 'element' }, crypto.randomUUID()); await loadFolders() }
     catch (e) { error.value = e instanceof Error ? e.message : '创建文件夹失败' }
     finally { creating.value = false }
   }

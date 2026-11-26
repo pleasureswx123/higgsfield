@@ -67,7 +67,7 @@ export function useFolders(projectId: string, visible: () => boolean = () => tru
   const recycled = ref<RecycleFolder[]>([]),
     dialog = ref(false),
     form = ref<FormInstance>()
-  const fields = reactive<FolderFields>({ name: '', description: '', color: 'lime' })
+  const fields = reactive<FolderFields>({ name: '', description: '', color: 'slate' })
   let editorEpoch = 0,
     editorBaseline = JSON.stringify(fields)
   const saveUncertain = ref(false)
@@ -289,7 +289,7 @@ export function useFolders(projectId: string, visible: () => boolean = () => tru
     createInDestination.value = false
     editing.value = undefined
     createParent.value = parentId
-    Object.assign(fields, { name: '', description: '', color: 'lime' as FolderColor })
+    Object.assign(fields, { name: '', description: '', color: 'slate' as FolderColor })
     editorBaseline = JSON.stringify(fields)
     dialogError.value = ''
     signature = ''
@@ -665,7 +665,7 @@ export function useFolders(projectId: string, visible: () => boolean = () => tru
       destinationOpen.value = false
       editing.value = undefined
       source.value = undefined
-      Object.assign(fields, { name: '', description: '', color: 'lime' })
+      Object.assign(fields, { name: '', description: '', color: 'slate' })
       createParent.value = null
       destinationCrumbs.value = []
       destinationSearch.value = ''

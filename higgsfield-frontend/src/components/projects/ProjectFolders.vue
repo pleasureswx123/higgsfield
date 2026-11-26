@@ -107,9 +107,9 @@ watch(pending, (value, before) => {
   if (before && !value) assetRefreshKey.value++
 })
 const colors: { value: FolderColor; label: string }[] = [
+  { value: 'slate', label: '岩灰' },
   { value: 'lime', label: '青柠' },
   { value: 'cyan', label: '青色' },
-  { value: 'slate', label: '岩灰' },
   { value: 'violet', label: '紫罗兰' },
   { value: 'purple', label: '紫色' },
   { value: 'pink', label: '粉色' },

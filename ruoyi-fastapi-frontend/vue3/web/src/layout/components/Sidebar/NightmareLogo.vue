@@ -52,11 +52,11 @@ defineProps({ compact: Boolean })
        y="388"
        width="15"
        height="164"
-       fill="#DB4E49"
+       fill="#8B49DB"
        id="rect4" />
     <path
        d="M332 584 H408"
-       stroke="#DB4E49"
+       stroke="#8B49DB"
        stroke-width="8"
        id="path5" />
   </g>
@@ -78,7 +78,7 @@ defineProps({ compact: Boolean })
        y1="558"
        x2="1319"
        y2="558"
-       stroke="#DB4E49"
+       stroke="#8B49DB"
        stroke-width="3"
        id="line6" />
   </g>

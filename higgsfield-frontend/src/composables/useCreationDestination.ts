@@ -52,7 +52,7 @@ export function useCreationDestination(projectId: string, selected: () => string
     const token = auth.token, epoch = lifetime
     creating.value = true; createError.value = ''; uncertain.value = true
     try {
-      const result = await createFolder(projectId, { name: intent.name, parentId: intent.parentId, folderKind: 'media', description: '', color: 'lime' }, intent.key)
+      const result = await createFolder(projectId, { name: intent.name, parentId: intent.parentId, folderKind: 'media', description: '', color: 'slate' }, intent.key)
       if (token !== auth.token || epoch !== lifetime) return
       intent = undefined; uncertain.value = false; emptyProject.value = false
       return result.data
