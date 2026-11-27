@@ -196,14 +196,14 @@ watch(() => [props.kind, props.selected?.versionId, props.disabled], () => { men
             <slot name="history" />
           </div>
           <button v-if="projectRequired" type="button" class="composer-tool" @click="emit('project')"><IconSparkles :size="16" />选择项目与模型 ›</button>
-          <StudioPopover v-else placement="top-start" trigger="click" :width="420" :visible="menu === 'models'" :disabled="disabled" @update:visible="menu = $event ? 'models' : ''" popper-class="creation-control-popover">
+          <StudioPopover v-else placement="top-start" trigger="click" :width="340" :visible="menu === 'models'" :disabled="disabled" @update:visible="menu = $event ? 'models' : ''" popper-class="creation-control-popover">
             <template #reference><button type="button" class="composer-tool composer-model" :disabled="disabled" aria-label="创作模型" @click="modelQuery = ''"><IconSparkles :size="16" />{{ selected?.displayName || '选择模型' }} <span>›</span></button></template>
             <Input v-model="modelQuery" placeholder="搜索模型名称" aria-label="搜索模型名称" />
             <div class="model-menu-list">
               <p v-if="loading" role="status">正在读取模型…</p>
               <p v-else-if="!filteredModels.length" class="parameter-label">暂无匹配的可用模型</p>
               <button v-for="model in filteredModels" :key="model.versionId" type="button" class="model-menu-option" :class="{ active: selected?.versionId === model.versionId }" @click="emit('model', model.versionId); menu = ''">
-                <IconSparkles :size="22" /><span><strong>{{ model.displayName }}</strong><small>{{ [model.menuMeta.family, model.menuMeta.releaseLabel, model.menuMeta.tier].filter(Boolean).join(' · ') }}</small></span><span v-if="selected?.versionId === model.versionId">✓</span>
+                <IconSparkles :size="17" /><span><strong>{{ model.displayName }}</strong><small>{{ [model.menuMeta.family, model.menuMeta.releaseLabel, model.menuMeta.tier].filter(Boolean).join(' · ') }}</small></span><span v-if="selected?.versionId === model.versionId">✓</span>
               </button>
             </div>
           </StudioPopover>
@@ -217,7 +217,7 @@ watch(() => [props.kind, props.selected?.versionId, props.disabled], () => { men
               <button type="button" aria-label="增加生成数量" :disabled="disabled || batchValue(name, rule) >= batchMax(rule)" @click="stepBatch(name, rule, 1)">＋</button>
             </div>
             <button v-else-if="rule.type === 'boolean' && ['audio', 'generate_audio'].includes(name)" type="button" class="composer-tool" :disabled="disabled" aria-label="生成声音" :aria-pressed="valueOf(name) === true" @click="toggleAudio(name)"><IconVolume v-if="valueOf(name) === true" :size="16" /><IconVolumeOff v-else :size="16" />{{ displayValue(name, valueOf(name)) }}</button>
-            <StudioPopover v-else placement="top" trigger="click" :width="isDuration(name) ? 320 : name === 'resolution' && kind === 'image' ? 300 : name === 'bitrate_mode' ? 240 : 210" :show-arrow="false" :visible="menu === name" :disabled="parameterDisabled(name)" @update:visible="menu = $event ? name : ''" :popper-class="kind === 'video' ? 'creation-control-popover creation-video-popover' : isRatio(name) ? 'creation-control-popover creation-ratio-popover' : name === 'quality' ? 'creation-control-popover creation-quality-popover' : name === 'resolution' ? 'creation-control-popover creation-resolution-popover' : 'creation-control-popover'">
+            <StudioPopover v-else placement="top" trigger="click" :width="isRatio(name) ? 224 : isDuration(name) ? 264 : name === 'resolution' && kind === 'image' ? 228 : name === 'bitrate_mode' ? 214 : 180" :show-arrow="false" :visible="menu === name" :disabled="parameterDisabled(name)" @update:visible="menu = $event ? name : ''" :popper-class="kind === 'video' ? 'creation-control-popover creation-video-popover' : isRatio(name) ? 'creation-control-popover creation-ratio-popover' : name === 'quality' ? 'creation-control-popover creation-quality-popover' : name === 'resolution' ? 'creation-control-popover creation-resolution-popover' : 'creation-control-popover'">
               <template #reference><button type="button" class="composer-tool" :disabled="parameterDisabled(name)" :title="name === 'resolution' && parameterDisabled(name) ? '尺寸由模型自动决定，切换固定比例可选择分辨率' : undefined" :aria-label="labels[name] || name"><component :is="modeIcons[String(valueOf(name))] || IconLayoutColumns" v-if="isMode(name)" :size="16" /><IconMaximize v-else-if="isRatio(name)" :size="16" /><IconDiamond v-else-if="['quality', 'bitrate_mode', 'resolution'].includes(name)" :size="16" /><IconClock v-else-if="['duration', 'duration_seconds'].includes(name)" :size="16" />{{ displayValue(name, valueOf(name)) ?? labels[name] ?? name }}</button></template>
               <label v-if="!isMode(name)" class="parameter-label">{{ labels[name] || name }}</label>
               <div v-if="isDuration(name) && durationChoices(rule).length" class="duration-control">
@@ -276,7 +276,7 @@ watch(() => [props.kind, props.selected?.versionId, props.disabled], () => { men
 .composer-reference-tools { display:flex; border-radius:8px; background:var(--surface-hover); }
 .composer-reference-tools button { display:flex; align-items:center; padding:6px; border:0; background:transparent; color:var(--foreground); cursor:pointer; }
 .composer-tool { display:inline-flex; align-items:center; gap:5px; white-space:nowrap; min-height:34px; flex-shrink:0; border:0; border-radius:8px; padding:4px 9px; background:var(--surface-hover); color:var(--foreground); font-size:13px; font-weight:600; cursor:pointer; }
-.composer-tool:hover,.composer-reference-tools button:hover { background:var(--border); }
+
 .composer-model { min-width:160px; width:auto; max-width:220px; overflow:hidden; text-overflow:ellipsis; }
 .composer-model > svg { color:var(--primary); flex-shrink:0; }
 .composer-model > span:last-child { margin-left:auto; }
@@ -307,25 +307,30 @@ button:focus-visible { outline:2px solid var(--focus); outline-offset:2px; }
 .parameter-label { display:block; margin-bottom:10px; color:var(--foreground); }
 .parameter-chevron { color:var(--muted-foreground); }
 @media(max-width:650px) { .composer-mode-rail { flex-basis:54px; } .composer-main-panel { padding:9px; gap:7px; } .composer-generate { flex-basis:76px; } .composer-model { width:135px; } .composer-tool { padding:4px 6px; } .composer-save span { display:none; } }
-.parameter-options { display:grid; gap:4px; }
-.ratio-options { grid-template-columns:1fr 1fr; gap:0; }
-.ratio-options button { min-height:52px; padding:14px 16px; border-radius:0; border-top:1px solid var(--border); font-size:15px; font-weight:600; }
-.ratio-options button:nth-child(odd) { border-right:1px solid var(--border); }
-.ratio-icon-slot { display:flex; align-items:center; justify-content:center; width:18px; height:18px; color:var(--muted-foreground); flex-shrink:0; }
-.parameter-options button,.model-menu-option { display:flex; align-items:center; gap:10px; width:100%; padding:10px; background:transparent; color:var(--foreground); border:0; border-radius:7px; text-align:left; cursor:pointer; }
-.parameter-options button:hover,.parameter-options button.active,.model-menu-option:hover,.model-menu-option.active { background:var(--surface-hover); }
-.parameter-options small { margin-left:auto; color:var(--muted-foreground); }
-.ratio-icon { display:inline-block; width:16px; height:12px; border:1px solid currentColor; border-radius:2px; flex-shrink:0; }
-.model-menu-icon { width:44px; height:44px; display:grid; place-items:center; border-radius:12px; background:var(--surface-hover); }
-.model-pending { cursor:default; }
-.model-status { font-size:11px; color:var(--muted-foreground); white-space:nowrap; }
-.model-menu-list { max-height:360px; overflow:auto; margin-top:10px; }
-.model-menu-option > span:first-of-type { flex:1; }
-.model-pending > .model-menu-icon { flex:0 0 44px; }
-.model-pending > span:nth-child(2) { flex:1; }
-.model-menu-option strong,.model-menu-option small { display:block; }
-.model-menu-option small { color:var(--muted-foreground); margin-top:4px; }
-.composer-batch { flex-shrink:0; height:34px; display:flex; align-items:center; background:var(--surface-hover); border-radius:8px; font-size:12px; }
+.parameter-options, .model-menu-list { display:grid; gap:2px; }
+.parameter-options button, .model-menu-option {
+  display:flex; align-items:center; gap:8px; width:100%; min-height:34px;
+  padding:7px 10px; border:0; border-radius:6px; background:transparent;
+  color:var(--foreground); font-size:13px; line-height:19px; font-weight:500; text-align:left; cursor:pointer;
+}
+.parameter-options button:disabled { cursor:not-allowed; }
+.parameter-options button.active, .model-menu-option.active { background:var(--surface-hover); }
+.ratio-options { grid-template-columns:repeat(2,minmax(0,1fr)); gap:2px 4px; }
+.ratio-options .parameter-option-copy { white-space:nowrap; }
+.ratio-icon-slot { display:grid; place-items:center; flex:0 0 16px; color:var(--muted-foreground); }
+.ratio-icon { display:inline-block; width:16px; height:12px; border:1px solid currentColor; border-radius:2px; }
+.parameter-options small, .model-menu-option small {
+  font-size:12px; line-height:17px; font-weight:400; color:var(--muted-foreground);
+}
+.parameter-options button > small { margin-left:auto; }
+.creation-resolution-popover .resolution-options button { align-items:flex-start; flex-direction:column; gap:1px; }
+.creation-resolution-popover .resolution-options small { margin-left:0; }
+.parameter-option-copy small, .model-menu-option small { display:block; margin-top:2px; }
+.model-menu-list { margin-top:6px; max-height:320px; overflow:auto; }
+.model-menu-option > span:first-of-type { min-width:0; flex:1; overflow-wrap:anywhere; }
+.model-menu-option strong { display:block; font-weight:600; }
+.model-menu-option > svg { flex:none; color:var(--muted-foreground); }
+.composer-batch { flex-shrink:0; height:34px; display:flex; align-items:center; column-gap:4px; background:var(--surface-hover); border-radius:8px; font-size:12px; }
 .composer-batch button { border:0; padding:6px 9px; color:var(--foreground); background:transparent; cursor:pointer; }
 </style>
 
@@ -334,6 +339,7 @@ button:focus-visible { outline:2px solid var(--focus); outline-offset:2px; }
 .composer-mode-rail { align-self:flex-end; height:128px; }
 .composer-entry-surface { min-height:120px; }
 .composer-tool,.composer-reference-tools,.composer-batch { min-height:28px; height:28px; border-radius:6px; }
+.composer-reference-tools > button, .composer-batch > button { border-radius:inherit; }
 .composer-toolbar { padding-top:10px; }
 .composer-input-tools textarea { min-height:58px; padding:0 4px; }
 .composer-generate { flex-basis:120px; height:80px; min-height:80px; border-radius:12px; }
@@ -351,42 +357,26 @@ button:focus-visible { outline:2px solid var(--focus); outline-offset:2px; }
 </style>
 
 <style>
-.creation-control-popover.studio-popover { background:var(--surface-raised); color:var(--foreground); border:1px solid var(--border); border-radius:14px; max-width:calc(100vw - 24px); box-shadow:0 12px 36px #0004; }
-</style>
-
-<style>
-.creation-ratio-popover.el-popover { padding:0; border-radius:24px; overflow:hidden; }
-.creation-ratio-popover .parameter-label { margin:0; padding:14px 16px; font-size:12px; color:var(--muted-foreground); }
-</style>
-
-<style>
-.creation-quality-popover.el-popover { padding:0; border-radius:24px; overflow:hidden; }
-.creation-quality-popover .parameter-label { margin:0; padding:14px 16px; font-size:12px; color:var(--muted-foreground); }
-.creation-quality-popover .quality-options { gap:0; }
-.creation-quality-popover .quality-options button { min-height:47px; padding:12px 16px; border-radius:0; border-top:1px solid var(--border); font-size:16px; font-weight:600; }
-</style>
-
-<style>
-.creation-resolution-popover.el-popover { padding:0; border-radius:24px; overflow:hidden; }
-.creation-resolution-popover .parameter-label { margin:0; padding:14px 16px; font-size:12px; color:var(--muted-foreground); }
-.creation-resolution-popover .resolution-options { gap:0; }
-.creation-resolution-popover .resolution-options button { min-height:74px; padding:12px 16px; border-radius:0; border-top:1px solid var(--border); display:flex; flex-direction:column; align-items:flex-start; gap:5px; font-size:16px; font-weight:600; }
-.creation-resolution-popover .resolution-options small { margin-left:0; font-size:14px; color:var(--muted-foreground); }
-</style>
-
-<style>
-.creation-video-popover.el-popover { padding:0; border-radius:20px; overflow:hidden; }
-.creation-video-popover .parameter-label { margin:0; padding:12px 16px; color:var(--muted-foreground); font-size:12px; }
-.creation-video-popover .parameter-options { gap:0; }
-.creation-video-popover .parameter-options button { min-height:40px; padding:11px 16px; border-radius:0; font-weight:600; }
-.creation-video-popover .parameter-option-copy small { display:block; margin-top:5px; font-size:12px; font-weight:400; }
-.creation-video-popover .duration-control { display:flex; align-items:center; flex-wrap:wrap; gap:12px; margin:0 16px 16px; padding:10px 12px; border:1px solid var(--border); border-radius:6px; }
-.duration-control output { font-size:13px; min-width:30px; }
-.duration-control input { flex:1; min-width:0; appearance:none; height:32px; background:transparent; cursor:ew-resize; }
-.duration-control input::-webkit-slider-runnable-track { height:32px; background:transparent; }
-.duration-control input::-webkit-slider-thumb { appearance:none; width:4px; height:32px; border-radius:2px; background:var(--foreground); }
-.duration-control input::-moz-range-thumb { width:4px; height:32px; border:0; border-radius:2px; background:var(--foreground); }
-.duration-control input:focus-visible { outline:2px solid var(--focus); outline-offset:3px; }
+.creation-control-popover.studio-popover {
+  padding:8px; background:var(--surface-raised); color:var(--foreground);
+  border:1px solid var(--border); border-radius:12px; box-shadow:0 6px 20px #0002;
+}
+.creation-control-popover .parameter-label {
+  display:block; margin:0; padding:4px 10px 6px;
+  font-size:12px; line-height:16px; font-weight:400; color:var(--muted-foreground);
+}
+.creation-control-popover input[type="text"], .creation-control-popover input[placeholder] {
+  height:32px; padding:0 10px; border-radius:6px; font-size:13px;
+}
+.creation-control-popover .duration-control {
+  display:flex; align-items:center; gap:10px; padding:2px 10px 5px;
+}
+.duration-control output { min-width:28px; font-size:13px; font-variant-numeric:tabular-nums; }
+.creation-control-popover .duration-control input {
+  flex:1; min-width:0; height:26px; padding:0; border:0; box-shadow:none;
+  appearance:auto; accent-color:var(--primary); background:transparent; cursor:ew-resize;
+}
+.duration-control input:focus-visible { outline:2px solid var(--focus); outline-offset:2px; }
 .composer-video-reference span { font-size:11px; }
 .composer-audio-dialog.studio-dialog { border-radius:24px; padding:24px; background:var(--surface); color:var(--foreground); }
 .composer-audio-dialog p { color:var(--muted-foreground); line-height:1.7; }
@@ -394,4 +384,45 @@ button:focus-visible { outline:2px solid var(--focus); outline-offset:2px; }
 .composer-audio-dialog .audio-cancel, .composer-audio-dialog .audio-confirm { padding:13px 24px; border:0; border-radius:13px; font-weight:600; cursor:pointer; }
 .audio-cancel { background:var(--surface-hover); color:var(--foreground); }
 .audio-confirm { background:var(--foreground); color:var(--background); }
+
+/* 弹层挂载在创作栏外，与栏内操作共享悬停反馈。 */
+@media (hover: hover) {
+  :is(.creation-composer-bar, .creation-control-popover, .creation-reference-popover,
+      .reference-scope-menu, .reference-sort-menu, .prompt-element-suggestions,
+      .prompt-reference-preview, .composer-audio-dialog, .creation-expanded)
+    button:enabled:not([aria-disabled="true"]):hover {
+    background-color: color-mix(in srgb, var(--foreground) 6%, var(--surface-hover));
+    cursor: pointer;
+  }
+
+  .creation-composer-bar button.composer-generate:enabled:hover {
+    background-color: color-mix(in srgb, var(--primary) 92%, white);
+  }
+
+  .composer-audio-dialog button.audio-confirm:enabled:hover {
+    background-color: color-mix(in srgb, var(--foreground) 92%, var(--surface));
+  }
+
+  .creation-composer-bar button.composer-video-reference:enabled:hover {
+    border-color: color-mix(in srgb, var(--foreground) 18%, var(--border));
+  }
+
+  .creation-composer-bar :is(textarea:enabled:not([readonly]), [contenteditable="true"], .prompt-element-tag):hover,
+  .creation-control-popover input:enabled:hover {
+    background-color: color-mix(in srgb, var(--foreground) 4%, transparent);
+  }
+
+  .creation-control-popover .duration-control:has(input:enabled:hover) {
+    border-color: color-mix(in srgb, var(--foreground) 18%, var(--border));
+  }
+}
+
+@media (hover: hover) and (prefers-reduced-motion: no-preference) {
+  :is(.creation-composer-bar, .creation-control-popover, .creation-reference-popover,
+      .reference-scope-menu, .reference-sort-menu, .prompt-element-suggestions,
+      .prompt-reference-preview, .composer-audio-dialog, .creation-expanded)
+    :where(button, input, textarea, [contenteditable="true"], .duration-control) {
+    transition: background-color 140ms ease-out, border-color 140ms ease-out;
+  }
+}
 </style>
