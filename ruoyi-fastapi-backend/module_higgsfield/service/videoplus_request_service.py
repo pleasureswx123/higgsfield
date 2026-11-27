@@ -58,6 +58,11 @@ class VideoPlusRequestService:
         labels, counters, contents = {}, {}, []
         for ordinal, item in enumerate(media):
             kind, role = item['mediaType'], item['mediaRole']
+            if gateway_alias == 'mm-eva-sd-2.5' and kind == 'image':
+                width, height = item.get('width'), item.get('height')
+                if width and height and not 39 * height <= 100 * width <= 250 * height:
+                    raise ValueError(f'第 {ordinal + 1} 项参考素材的图片尺寸为 {width}×{height}，'
+                                     '请裁剪或补边至宽高比 0.39～2.50 后再提交。')
             if item['ordinal'] != ordinal or role not in MEDIA_ROLES.get(kind, set()):
                 raise ValueError('引用顺序或媒体角色不受当前适配器支持')
             url = urls[ordinal].get_secret_value()

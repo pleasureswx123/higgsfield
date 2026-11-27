@@ -31,17 +31,25 @@ class VideoPlusResponseService:
     @staticmethod
     def submission(http_status: int, body: object) -> ProviderSubmissionResult:
         facts = {'acceptance': 'unknown', 'transport': 'response', 'httpStatus': http_status}
-        # 仅识别完整响应中已验证的真人图片拒绝；不能把任意4xx/网关错误视为未受理。
+        # 只识别已验证的输入拒绝，带有受理标识的响应仍需核查。
         error = body.get('error') if isinstance(body, dict) else None
         if (http_status == 400 and isinstance(error, dict)
                 and error.get('code') in ('400', 400)
                 and isinstance(error.get('message'), str)
-                and error['message'].startswith('litellm.BadRequestError: The request failed because the input image ')
-                and 'may contain real person' in error['message']
                 and not any(key in body for key in ('id', 'choices', 'task'))):
-            return ProviderSubmissionResult(**(facts | {
-                'acceptance': 'rejected', 'businessCode': 'INPUT_REAL_PERSON_REJECTED',
-            }))
+            message = error['message']
+            code = None
+            if (message.startswith('litellm.BadRequestError: The request failed because the input image ')
+                    and 'may contain real person' in message):
+                code = 'INPUT_REAL_PERSON_REJECTED'
+            elif re.match(
+                r'^litellm\.BadRequestError: Error while downloading image, error: expected the aspect ratio '
+                r'to be between 0\.39 and 2\.50, but received image with aspect ratio: \d+(?:\.\d+)? instead\b',
+                message,
+            ):
+                code = 'INPUT_IMAGE_ASPECT_RATIO'
+            if code:
+                return ProviderSubmissionResult(**(facts | {'acceptance': 'rejected', 'businessCode': code}))
         if isinstance(body, dict):
             try:
                 facts['responseId'] = IDENTIFIER.validate_python(body.get('id'))

@@ -8,6 +8,14 @@ from module_higgsfield.service.videoplus_response_service import VideoPlusRespon
 
 
 class VideoPlusResponseTests(unittest.TestCase):
+    def test_image_ratio_rejection_requires_unambiguous_response(self):
+        body = {'error': {'code': '400', 'message': 'litellm.BadRequestError: Error while downloading image, '
+            'error: expected the aspect ratio to be between 0.39 and 2.50, '
+            'but received image with aspect ratio: 4.61 instead Request id: example'}}
+        self.assertEqual(Parser.submission(400, body).business_code, 'INPUT_IMAGE_ASPECT_RATIO')
+        self.assertEqual(Parser.submission(400, body | {'task': {}}).acceptance, 'unknown')
+        self.assertEqual(Parser.submission(503, body).acceptance, 'unknown')
+
     def test_explicit_real_person_rejection_is_not_unknown(self):
         body = {'error': {'code': '400', 'message':
             "litellm.BadRequestError: The request failed because the input image 'content[1]' may contain real person."}}

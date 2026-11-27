@@ -9,6 +9,19 @@ from tests.test_higgsfield_model_capabilities import capability
 
 
 class VideoPlusRequestTests(unittest.TestCase):
+    def test_reference_dimensions_before_submission(self):
+        image = {'ordinal': 0, 'mediaType': 'image', 'mediaRole': 'first_frame', 'height': 100}
+        snapshot = {'parameters': {'duration': 6}, 'compiled': {
+            'compilerVersion': 1, 'media': [image], 'promptParagraphs': []}}
+        urls = {0: SecretStr('https://example.com/reference')}
+        for width in (39, 250):
+            image['width'] = width
+            VideoPlusRequestService.video('mm-eva-sd-2.5', capability(), snapshot, urls)
+        for width in (38, 251, 461):
+            image['width'] = width
+            with self.assertRaisesRegex(ValueError, '第 1 项'):
+                VideoPlusRequestService.video('mm-eva-sd-2.5', capability(), snapshot, urls)
+
     def test_asset_reference_and_url_keep_original_order(self) -> None:
         snapshot = {
             'parameters': {'duration': 6},

@@ -39,6 +39,8 @@ class GenerationDiagnosticService:
                 code, message = 'SUBMISSION_REJECTED', '供应商提交结果明确拒绝本次请求。'
                 if call.business_code == 'INPUT_REAL_PERSON_REJECTED':
                     code, message = 'INPUT_REAL_PERSON_REJECTED', '供应商认为输入图片可能包含真人，已拒绝本次生成。请核对该模型的人物素材要求，或改用符合要求的素材后再提交。'
+                elif call.business_code == 'INPUT_IMAGE_ASPECT_RATIO':
+                    code, message = call.business_code, '参考图片宽高比超出模型范围。请裁剪或补边至 0.39～2.50，替换图片后再提交。'
                 elif call.http_status in {401, 403}:
                     code, message = 'SUBMISSION_AUTH_REJECTED', '供应商在提交阶段拒绝了身份或访问授权，请管理员核查接入配置。'
                 elif call.http_status == 429:
